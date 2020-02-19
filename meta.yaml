@@ -1,12 +1,12 @@
-{% set name = "monet" %}
-{% set version = "2.1.5" %}
+{% set name = "monetio" %}
+{% set version = "0.1" %}
 
 package:
-  name: monet
+  name: monetio
   version: {{ version }}
 
 source:
-  git_url: https://github.com/noaa-oar-arl/MONET.git
+  git_url: https://github.com/noaa-oar-arl/monetio.git
   git_tag: develop
   #url: https://github.com/noaa-oar-arl/MONET/archive/v2.1.3-dev.2.tar.gz
   # sha256: 7027a0478cab0f877ebc7e412a0249d0578c0944fab4da6f341175995b957931
@@ -28,15 +28,6 @@ requirements:
     - pandas
     - xarray
     - dask
-    - cartopy
-    - matplotlib
-    - seaborn
-    - pseudonetcdf
-    - pyresample
-    - python-stratify
-    - pytables
-    - xesmf
-    - pydecorate
     - s3fs
 
 about:
@@ -44,7 +35,7 @@ about:
   license: MIT License
   license_family: MIT
   license_file: LICENSE
-  summary: The Model and ObservatioN Evaluation Tool - for meteorology and AQ
+  summary: The Model and ObservatioN Evaluation Tool - Input / Output
 
 extra:
   recipe-maintainers:
