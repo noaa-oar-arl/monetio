@@ -1,9 +1,9 @@
 from . import (aeronet, airnow, aqs, cems_mod, crn, epa_util, icartt,
-               improve_mod, ish, nadp, openaq)
+               improve_mod, ish, nadp, openaq, ish_lite)
 
 __all__ = [
-    'aeronet', 'airnow', 'aqs', 'crn', 'epa_util', 'improve_mod', 'ish',
-    'cems_mod', 'nadp', 'icartt', 'openaq'
+    'aeronet', 'airnow', 'aqs', 'crn', 'epa_util', 'improve_mod', 'ish', 'ish_lite'
+    'cems_mod', 'nadp', 'openaq'
 ]
 
 __name__ = 'obs'
