@@ -24,7 +24,7 @@ icartt = profile.icartt
 tolnet = profile.tolnet
 
 # sat
-volcat = sat.volcat
+
 __all__ = ["models", "obs", "sat", "util", "grids", "profile"]
 
 
