@@ -3,9 +3,9 @@ try:
 except ImportError:
     from distutils.core import setup
 
-setup(name='monet',
-      version='2.1.4-dev',
-      url='https://github.com/noaa-oar-arl/MONET',
+setup(name='monetio',
+      version='0.1',
+      url='https://github.com/noaa-oar-arl/monetio',
       license='MIT',
       include_package_data=True,
       author='Barry D. Baker',
@@ -24,19 +24,4 @@ setup(name='monet',
           'evaluation'
       ],
       description='The Model and Observation Evaluation Toolkit (MONET)',
-      install_requires=['pandas', 'netcdf4', 'xarray', 'dask'])
-
-# - python
-# - setuptools
-# - numpy
-# - pandas
-# - xarray
-# - dask
-# - cartopy
-# - matplotlib
-# - seaborn
-# - pseudonetcdf
-# - pyresample
-# - xesmf # [not win]
-# - python-stratify
-# - pytables
+      install_requires=['pandas', 'netcdf4', 'xarray', 'dask', 's3fs'])
