@@ -31,7 +31,7 @@ requirements:
     - s3fs
 
 about:
-  home: https://monet-arl.readthedocs.io
+  home: https://monetio-arl.readthedocs.io
   license: MIT License
   license_family: MIT
   license_file: LICENSE
