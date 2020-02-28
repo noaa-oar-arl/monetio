@@ -171,8 +171,7 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
     df = dff.compute(num_workers=n_procs)
     df['time'] = pd.to_datetime(df.date + ' ' + df.time,
                                 format='%m/%d/%y %H:%M',
-                                exact=True,
-                                box=False)
+                                exact=True)
     df.drop(['date'], axis=1, inplace=True)
     df['time_local'] = df.time + pd.to_timedelta(df.utcoffset, unit='H')
     print('    Adding in Meta-data')
