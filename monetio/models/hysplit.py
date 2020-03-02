@@ -622,7 +622,7 @@ class ModelBin:
 #
 
 
-def combine_dataset(blist, drange=None, verbose=False):
+def combine_dataset(blist, drange=None, species=None, verbose=False):
     """
     Inputs :
       blist : list of tuples
@@ -692,7 +692,7 @@ def combine_dataset(blist, drange=None, verbose=False):
 
             # lon = hxr.longitude.isel(y=0).values
             # lat = hxr.latitude.isel(x=0).values
-            xrash = add_species(hxr)
+            xrash = add_species(hxr, species=species)
             xsublist.append(xrash)
             enslist.append(fname[1])
             dtlist.append(hxr.attrs["sample time hours"])
@@ -821,20 +821,27 @@ def hysp_massload(dset, threshold=0, mult=1):
     return total_aml
 
 
-def hysp_heights(dset, threshold, mult=1 / 1000.0):
+def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
+                 mass_load=True, species=None):
     """ Calculate ash top-height from HYSPLIT xarray
     dset: xarray, 
     threshold : ash mass loading threshold (threshold = xx)
     mult : convert from meters to other unit. default is 1/1000.0 to
            convert to km.
     Outputs: ash top heights, altitude levels """
-    # Applying ash mass threshold when calculating ash mass loading
-    aml_alts = calc_aml(dset)
+
+    # either get mass loading of each point
+    if mass_load:
+        aml_alts = calc_aml(dset)
+    # or get concentration at each point
+    else:
+        aml_alts = add_species(dset)
+
     # Create array of 0 and 1 (1 where data exists)
     heights = aml_alts.where(aml_alts == 0.0, 1.0)
     # Multiply each level by the altitude
     height = _alt_multiply(heights)
-    height = height * mult  # convert to km
+    height = height * height_mult  # convert to km
     # Determine top height: take max of heights array along z axis
     top_hgt = height.max(dim="z")
     # Apply ash mass loading threshold mask array
@@ -843,7 +850,7 @@ def hysp_heights(dset, threshold, mult=1 / 1000.0):
     return top_height
 
 
-def calc_aml(dset):
+def calc_aml(dset, species=None):
     """ Calculates the ash mass loading at each altitude for the dataset
     Input: xarray
     Output: total ash mass loading """
@@ -879,17 +886,23 @@ def hysp_thresh(dset, threshold, mult=1):
     return total_aml_thresh
 
 
-def add_species(dset):
+def add_species(dset, species=None):
     """
-     Calculate sum of particles
+     species : list of Species ID's.
+               if none then all ids in the "species ID" attribute will be used.
+     Calculate sum of particles.
     """
-    species = dset.attrs["Species ID"]
+    splist = dset.attrs["Species ID"]
+    if not species:
+       species = dset.attrs["Species ID"]
     sss = 0
     tmp = []
     # Looping through all species in dataset
-    while sss < len(species):
-        tmp.append(dset[species[sss]].fillna(0))
+    while sss < len(splist):
+        if splist[sss] in species:
+            tmp.append(dset[splist[sss]].fillna(0))
         sss += 1  # End of loop through species
+
     total_par = tmp[0]
     ppp = 1
     # Adding all species together
