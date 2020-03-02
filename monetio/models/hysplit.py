@@ -940,4 +940,4 @@ def _alt_multiply(pars):
         else:
            newpar = xr.concat([newpar, ml], 'z')
         yyy += 1  # End of loop calculating heights
-    return newpars
+    return newpar
