@@ -895,6 +895,13 @@ def add_species(dset, species=None):
     splist = dset.attrs["Species ID"]
     if not species:
        species = dset.attrs["Species ID"]
+    else:
+       for val in species:
+           if val not in splist:
+              warn = 'WARNING: hysplit.add_species function : species not found '
+              warn += str(val) + '\n'
+              warn += ' valid species ids are ' + str.join(', ', splist)
+              print(warn)
     sss = 0
     tmp = []
     # Looping through all species in dataset
