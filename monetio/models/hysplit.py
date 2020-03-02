@@ -32,8 +32,7 @@ ModelBin
 """
 
 
-
-#def _hysplit_latlon_grid_from_dataset(ds):
+# def _hysplit_latlon_grid_from_dataset(ds):
 #    pargs = dict()
 #    pargs["lat_0"] = ds.latitude.mean()
 #    pargs["lon_0"] = ds.longitude.mean()
@@ -45,7 +44,7 @@ ModelBin
 #    return p4
 
 
-#def get_hysplit_latlon_pyresample_area_def(ds, proj4_srs):
+# def get_hysplit_latlon_pyresample_area_def(ds, proj4_srs):
 #    from pyresample import geometry
 #
 #    return geometry.SwathDefinition(lons=ds.longitude.values, lats=ds.latitude.values)
@@ -85,10 +84,10 @@ def open_dataset(fname, drange=None, verbose=False):
     # return dset
     # get the grid information
     # May not need the proj4 definitions now that lat lon defined properly.
-    #if addarea:
+    # if addarea:
     #    p4 = _hysplit_latlon_grid_from_dataset(dset)
     #    swath = get_hysplit_latlon_pyresample_area_def(dset, p4)
-        # now assign this to the dataset and each dataarray
+    # now assign this to the dataset and each dataarray
     #    dset = dset.assign_attrs({"proj4_srs": p4})
     #    for iii in dset.variables:
     #        dset[iii] = dset[iii].assign_attrs({"proj4_srs": p4})
@@ -143,7 +142,7 @@ class ModelBin:
 
     def __init__(
         self, filename, drange=None, century=None, verbose=True, readwrite="r"
-        ):
+    ):
         """
         drange :  list of two datetime objects.
         The read method will store data from the cdump file for which the
@@ -691,8 +690,8 @@ def combine_dataset(blist, drange=None, verbose=False):
             mlat_p = mlat
             mlon_p = mlon
 
-            #lon = hxr.longitude.isel(y=0).values
-            #lat = hxr.latitude.isel(x=0).values
+            # lon = hxr.longitude.isel(y=0).values
+            # lat = hxr.latitude.isel(x=0).values
             xrash = add_species(hxr)
             xsublist.append(xrash)
             enslist.append(fname[1])
@@ -804,7 +803,7 @@ def getlatlon(dset):
     return lat, lon
 
 
-def hysp_massload(dset, threshold, mult=1):
+def hysp_massload(dset, threshold=0, mult=1):
     """ Calculate mass loading from HYSPLIT xarray
     Inputs: xarray, ash mass loading threshold (threshold = xx)
     Outputs: total ash mass loading (summed over all layers), ash mass loading
@@ -812,7 +811,7 @@ def hysp_massload(dset, threshold, mult=1):
     aml_alts = calc_aml(dset)
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
-    #unitmass, mass63 = calc_MER(dset)
+    # unitmass, mass63 = calc_MER(dset)
     # Calculating the ash mass loading
     total_aml2 = total_aml * mult
     # Calculating total ash mass loading, accounting for the threshold
@@ -822,7 +821,7 @@ def hysp_massload(dset, threshold, mult=1):
     return total_aml
 
 
-def hysp_heights(dset, threshold, mult=1/1000.0):
+def hysp_heights(dset, threshold, mult=1 / 1000.0):
     """ Calculate ash top-height from HYSPLIT xarray
     dset: xarray, 
     threshold : ash mass loading threshold (threshold = xx)
@@ -835,13 +834,14 @@ def hysp_heights(dset, threshold, mult=1/1000.0):
     heights = aml_alts.where(aml_alts == 0.0, 1.0)
     # Multiply each level by the altitude
     height = _alt_multiply(heights)
-    height = height * mult # convert to km
+    height = height * mult  # convert to km
     # Determine top height: take max of heights array along z axis
     top_hgt = height.max(dim="z")
     # Apply ash mass loading threshold mask array
     total_aml_thresh = hysp_thresh(dset, threshold, mult=mult)
     top_height = top_hgt * total_aml_thresh
     return top_height
+
 
 def calc_aml(dset):
     """ Calculates the ash mass loading at each altitude for the dataset
@@ -859,15 +859,22 @@ def hysp_thresh(dset, threshold, mult=1):
     """ Calculates a threshold mask array based on the
     ash mass loading from HYSPLIT xarray
     Inputs: xarray, ash mass loading threshold (threshold = xx)
-    Outputs: ash mass loading threshold mask array """
+    Outputs: ash mass loading threshold mask array 
+    Returns 0 where values are below or equal to threshold.
+    Returns 1 where values are greather than threshold
+   
+    """
     # Calculate ash mass loading for xarray
     aml_alts = calc_aml(dset)
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
-    #unitmass, mass63 = calc_MER(dset)
+    # unitmass, mass63 = calc_MER(dset)
     # Calculating the ash mass loading
     total_aml2 = total_aml * mult
+    # where puts value into places where condition is FALSE.
+    # place 0 in places where value is below or equal to threshold
     total_aml_thresh = total_aml2.where(total_aml2 > threshold, 0.0)
+    # place 1 in places where value is greater than threshold
     total_aml_thresh = total_aml_thresh.where(total_aml_thresh <= threshold, 1.0)
     return total_aml_thresh
 
@@ -914,12 +921,12 @@ def _delta_multiply(pars):
     yyy = 0
     while yyy < len(delta):
         # modify so not dependent on placement of 'z' coordinate.
-        #pars[:, yyy, :, :] = pars[:, yyy, :, :] * delta[yyy]
-        ml = pars.isel(z=yyy) * delta[yyy]
-        if yyy==0:
-           newpar = ml
+        # pars[:, yyy, :, :] = pars[:, yyy, :, :] * delta[yyy]
+        mml = pars.isel(z=yyy) * delta[yyy]
+        if yyy == 0:
+            newpar = mml
         else:
-           newpar = xr.concat([newpar, ml], 'z')
+            newpar = xr.concat([newpar, mml], "z")
         yyy += 1  # End of loop calculating heights
     return newpar
 
@@ -933,11 +940,11 @@ def _alt_multiply(pars):
     yyy = 0
     while yyy < len(alts):
         # modify so not dependent on placement of 'z' coordinate.
-        #pars[:, y, :, :] = pars[:, y, :, :] * alts[y]
-        ml = pars.isel(z=yyy) * alts[yyy]
-        if yyy==0:
-           newpar = ml
+        # pars[:, y, :, :] = pars[:, y, :, :] * alts[y]
+        mml = pars.isel(z=yyy) * alts[yyy]
+        if yyy == 0:
+            newpar = mml
         else:
-           newpar = xr.concat([newpar, ml], 'z')
+            newpar = xr.concat([newpar, mml], "z")
         yyy += 1  # End of loop calculating heights
     return newpar
