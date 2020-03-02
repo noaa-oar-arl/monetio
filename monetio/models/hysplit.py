@@ -696,6 +696,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             xsublist.append(xrash)
             enslist.append(fname[1])
             dtlist.append(hxr.attrs["sample time hours"])
+            dtlist.append(hxr.attrs["Species ID"])
             if iii == 0:
                 xnew = xrash.copy()
             else:
@@ -805,9 +806,16 @@ def getlatlon(dset):
 
 def hysp_massload(dset, threshold=0, mult=1):
     """ Calculate mass loading from HYSPLIT xarray
-    Inputs: xarray, ash mass loading threshold (threshold = xx)
-    Outputs: total ash mass loading (summed over all layers), ash mass loading
-    Units in (unit mass / m^2)"""
+    INPUTS
+    dset: xarray dataset output by open_dataset OR
+           xarray data array output by combine_dataset
+    threshold : float
+    mult : float
+    Outputs: 
+    totl_aml : xarray data array
+    total ash mass loading (summed over all layers), ash mass loading
+    Units in (unit mass / m^2)
+    """
     aml_alts = calc_aml(dset)
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
@@ -824,7 +832,8 @@ def hysp_massload(dset, threshold=0, mult=1):
 def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
                  mass_load=True, species=None):
     """ Calculate ash top-height from HYSPLIT xarray
-    dset: xarray, 
+    Input: xarray dataset output by open_dataset OR
+           xarray data array output by combine_dataset
     threshold : ash mass loading threshold (threshold = xx)
     mult : convert from meters to other unit. default is 1/1000.0 to
            convert to km.
@@ -852,10 +861,14 @@ def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
 
 def calc_aml(dset, species=None):
     """ Calculates the ash mass loading at each altitude for the dataset
-    Input: xarray
+    Input: xarray dataset output by open_dataset OR
+           xarray data array output by combine_dataset
     Output: total ash mass loading """
     # Totals values for all particles
-    total_par = add_species(dset)
+    if isinstance(dset, xr.core.dataset.Dataset):
+        total_par = add_species(dset)
+    else:
+        total_par = dset.copy()
     # Multiplies the total particles by the altitude layer
     # to create a mass loading for each altitude layer
     aml_alts = _delta_multiply(total_par)
