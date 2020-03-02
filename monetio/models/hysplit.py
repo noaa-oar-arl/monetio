@@ -9,6 +9,25 @@ from numpy import fromfile, arange
 """
 This code developed at the NOAA Air Resources Laboratory.
 Alice Crawford
+Allison Ring
+
+-------------
+Functions:
+-------------
+open_dataset :
+combine_dataset :
+get_latlongrid :
+hysp_heights: determines ash top height from HYSPLIT
+hysp_massload: determines total mass loading from HYSPLIT
+calc_aml: determines ash mass loading for each altitude layer  from HYSPLIT
+hysp_thresh: calculates mask array for ash mass loading threshold from HYSPLIT
+add_species(dset): adds concentrations due to different species.
+
+
+--------
+Classes
+--------
+ModelBin
 
 """
 
@@ -735,26 +754,16 @@ def combine_dataset(blist, drange=None, verbose=False):
     return newhxr
 
 
-# hysp_func.py
-# Functions for manipulating HYSPLIT data
-# For use with MONET
-"""Functions for manipulating HYSPLIT data.
--------------
-Functions:
--------------
-get_latlongrid :
-hysp_heights: determines ash top height from HYSPLIT
-hysp_massload: determines total mass loading from HYSPLIT
-calc_aml: determines ash mass loading for each altitude layer  from HYSPLIT
-hysp_thresh: calculates mask array for ash mass loading threshold from HYSPLIT
-add_species(dset): adds concentrations due to different species.
-"""
-# from monet.models import hysplit
-# from monet.util import volcMER
-# import xarray as xr
-# import numpy as np
-
 def get_latlongrid(dset, xindx, yindx):
+    """
+    INPUTS
+    dset : xarray data set from ModelBin class
+    xindx : list of integers
+    yindx : list of integers
+    RETURNS
+    mgrid : output of numpy meshgrid function.
+            Two 2d arrays of latitude, longitude. 
+    """
     llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
     llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
     nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
@@ -808,7 +817,7 @@ def hysp_massload(dset, threshold, mult=1):
     total_aml2 = total_aml * mult
     # Calculating total ash mass loading, accounting for the threshold
     # Multiply binary threshold mask to data
-    total_aml_thresh = hysp_thresh(dset, threshold)
+    total_aml_thresh = hysp_thresh(dset, threshold, mult=mult)
     total_aml = total_aml2 * total_aml_thresh
     return total_aml
 
@@ -825,16 +834,14 @@ def hysp_heights(dset, threshold, mult=1/1000.0):
     # Create array of 0 and 1 (1 where data exists)
     heights = aml_alts.where(aml_alts == 0.0, 1.0)
     # Multiply each level by the altitude
-    alts = dset.coords["z"]
-    height = _alt_multiply(heights, alts)
+    height = _alt_multiply(heights)
     height = height * mult # convert to km
     # Determine top height: take max of heights array along z axis
     top_hgt = height.max(dim="z")
     # Apply ash mass loading threshold mask array
-    total_aml_thresh = hysp_thresh(dset, threshold)
+    total_aml_thresh = hysp_thresh(dset, threshold, mult=mult)
     top_height = top_hgt * total_aml_thresh
     return top_height
-
 
 def calc_aml(dset):
     """ Calculates the ash mass loading at each altitude for the dataset
@@ -842,10 +849,9 @@ def calc_aml(dset):
     Output: total ash mass loading """
     # Totals values for all particles
     total_par = add_species(dset)
-    alts = total_par.coords["z"]
     # Multiplies the total particles by the altitude layer
     # to create a mass loading for each altitude layer
-    aml_alts = _delta_multiply(total_par, alts)
+    aml_alts = _delta_multiply(total_par)
     return aml_alts
 
 
@@ -886,11 +892,19 @@ def add_species(dset):
     return total_par
 
 
-def _delta_multiply(pars, alts):
+def _delta_multiply(pars):
     """
-    # Calculate the delta altitude for each layer
+    # Calculate the delta altitude for each layer and
+    # multiplies concentration by layer thickness to return mass load.
+ 
+    # pars: xarray data array
+            concentration with z coordinate.
+    # OUTPUT
+    # newpar : xarray data array
+            mass loading.
     """
     xxx = 1
+    alts = pars.coords["z"]
     delta = []
     delta.append(alts[0])
     while xxx < (len(alts)):
@@ -899,18 +913,31 @@ def _delta_multiply(pars, alts):
     # Multiply each level by the delta altitude
     yyy = 0
     while yyy < len(delta):
-        pars[:, yyy, :, :] = pars[:, yyy, :, :] * delta[yyy]
+        # modify so not dependent on placement of 'z' coordinate.
+        #pars[:, yyy, :, :] = pars[:, yyy, :, :] * delta[yyy]
+        ml = pars.isel(z=yyy) * delta[yyy]
+        if yyy==0:
+           newpar = ml
+        else:
+           newpar = xr.concat([newpar, ml], 'z')
         yyy += 1  # End of loop calculating heights
-    return pars
+    return newpar
 
 
-def _alt_multiply(pars, alts):
+def _alt_multiply(pars):
     """
     # For calculating the top height
     # Multiply "1s" in the input array by the altitude
     """
-    y = 0
-    while y < len(alts):
-        pars[:, y, :, :] = pars[:, y, :, :] * alts[y]
-        y += 1  # End of loop calculating heights
-    return pars
+    alts = pars.coords["z"]
+    yyy = 0
+    while yyy < len(alts):
+        # modify so not dependent on placement of 'z' coordinate.
+        #pars[:, y, :, :] = pars[:, y, :, :] * alts[y]
+        ml = pars.isel(z=yyy) * alts[yyy]
+        if yyy==0:
+           newpar = ml
+        else:
+           newpar = xr.concat([newpar, ml], 'z')
+        yyy += 1  # End of loop calculating heights
+    return newpars
