@@ -242,6 +242,30 @@ The source dimension tags which source term the run used.
     Attributes:
         sample time hours:  1.0
 
+To calcluate mass loading
+
+.. code-block:: python
+
+   massload =  hypslit.hysp_massload(hxr, threshold=0, mult=1e10, species=None)
+
+All points with value below or equal to threshold will be returned as 0.
+mult is a multiplicative factor applied before the thresholding.
+species can be a list of values from the "Species ID" attribute. 
+If it is None then all species will be used.
+
+To find top heights
+
+.. code-block:: python
+
+   massload =  hypslit.hysp_hysp_heights(hxr, threshold=0, height_mult=1/1000.0, mult=1e10, mass_load=False)
+
+returns xarray DataArray which gives top height of each level which contains mass loading higher
+than the given threshold value. mult is a mutiplicative factor applied before thresholding.
+height_mult is a multiplicative factor used to convert heights from meters to some other unit. 
+In this example heights are converted to km.
+mass_load is a boolean which indicates whether the height should be determined from the mass loading value (True)
+or the concentration value (False). 
+
 
 
 
