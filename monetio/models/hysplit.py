@@ -530,6 +530,7 @@ class ModelBin:
             hdata7 = fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
+                print(check, pdate1, pdate2)
                 break
             testf, savedata = check_drange(drange, pdate1, pdate2)
             print("sample time", pdate1, " to ", pdate2)
@@ -587,6 +588,7 @@ class ModelBin:
             if inc_iii:
                 iii += 1
         self.atthash["Concentration Grid"] = ahash
+        print('KEYS', self.atthash.keys())
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -621,7 +623,6 @@ class ModelBin:
 # combine_cdump creates a 6 dimensional xarray dataarray object from cdump files.
 #
 
-
 def combine_dataset(blist, drange=None, species=None, verbose=False):
     """
     Inputs :
@@ -642,6 +643,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
     iii = 0
     ylist = []
     dtlist = []
+    splist = []
     sourcelist = []
     # turn the input list int a dictionary
     #  blist : dictionary.
@@ -696,6 +698,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             xsublist.append(xrash)
             enslist.append(fname[1])
             dtlist.append(hxr.attrs["sample time hours"])
+            splist.extend(xrash.attrs["Species ID"])
             if iii == 0:
                 xnew = xrash.copy()
             else:
@@ -730,6 +733,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
         slist.append(sourcelist[jjj])
         jjj += 1
 
+    print('DTLIST', dtlist)
     dtlist = list(set(dtlist))
     print("DT", dtlist, dtlist[0])
     dt = dtlist[0]
@@ -750,6 +754,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
     # newhxr is an xarray data-array with 6 dimensions.
     # dt is the averaging time of the hysplit output.
     newhxr = newhxr.assign_attrs({"sample time hours": dt})
+    newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
     return newhxr
 
 
@@ -805,9 +810,16 @@ def getlatlon(dset):
 
 def hysp_massload(dset, threshold=0, mult=1):
     """ Calculate mass loading from HYSPLIT xarray
-    Inputs: xarray, ash mass loading threshold (threshold = xx)
-    Outputs: total ash mass loading (summed over all layers), ash mass loading
-    Units in (unit mass / m^2)"""
+    INPUTS
+    dset: xarray dataset output by open_dataset OR
+           xarray data array output by combine_dataset
+    threshold : float
+    mult : float
+    Outputs: 
+    totl_aml : xarray data array
+    total ash mass loading (summed over all layers), ash mass loading
+    Units in (unit mass / m^2)
+    """
     aml_alts = calc_aml(dset)
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
@@ -824,7 +836,8 @@ def hysp_massload(dset, threshold=0, mult=1):
 def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
                  mass_load=True, species=None):
     """ Calculate ash top-height from HYSPLIT xarray
-    dset: xarray, 
+    Input: xarray dataset output by open_dataset OR
+           xarray data array output by combine_dataset
     threshold : ash mass loading threshold (threshold = xx)
     mult : convert from meters to other unit. default is 1/1000.0 to
            convert to km.
@@ -852,10 +865,14 @@ def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
 
 def calc_aml(dset, species=None):
     """ Calculates the ash mass loading at each altitude for the dataset
-    Input: xarray
+    Input: xarray dataset output by open_dataset OR
+           xarray data array output by combine_dataset
     Output: total ash mass loading """
     # Totals values for all particles
-    total_par = add_species(dset)
+    if isinstance(dset, xr.core.dataset.Dataset):
+        total_par = add_species(dset)
+    else:
+        total_par = dset.copy()
     # Multiplies the total particles by the altitude layer
     # to create a mass loading for each altitude layer
     aml_alts = _delta_multiply(total_par)
@@ -892,6 +909,7 @@ def add_species(dset, species=None):
                if none then all ids in the "species ID" attribute will be used.
      Calculate sum of particles.
     """
+    sflist = [] 
     splist = dset.attrs["Species ID"]
     if not species:
        species = dset.attrs["Species ID"]
@@ -908,6 +926,7 @@ def add_species(dset, species=None):
     while sss < len(splist):
         if splist[sss] in species:
             tmp.append(dset[splist[sss]].fillna(0))
+            sflist.append(splist[sss])
         sss += 1  # End of loop through species
 
     total_par = tmp[0]
@@ -916,6 +935,7 @@ def add_species(dset, species=None):
     while ppp < len(tmp):
         total_par = total_par + tmp[ppp]
         ppp += 1  # End of loop adding all species
+    total_par = total_par.assign_attrs({"Species ID": sflist})
     return total_par
 
 
