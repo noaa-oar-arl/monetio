@@ -698,7 +698,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             xsublist.append(xrash)
             enslist.append(fname[1])
             dtlist.append(hxr.attrs["sample time hours"])
-            splist.append(hxr.attrs["Species ID"])
+            splist.extend(xrash.attrs["Species ID"])
             if iii == 0:
                 xnew = xrash.copy()
             else:
@@ -737,7 +737,6 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
     dtlist = list(set(dtlist))
     print("DT", dtlist, dtlist[0])
     dt = dtlist[0]
-    sp = splist[0]
     newhxr = xr.concat(ylist, "source")
     print("sourcelist", slist)
     newhxr["source"] = slist
@@ -755,7 +754,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
     # newhxr is an xarray data-array with 6 dimensions.
     # dt is the averaging time of the hysplit output.
     newhxr = newhxr.assign_attrs({"sample time hours": dt})
-    newhxr = newhxr.assign_attrs({"Species ID": sp})
+    newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
     return newhxr
 
 
@@ -910,6 +909,7 @@ def add_species(dset, species=None):
                if none then all ids in the "species ID" attribute will be used.
      Calculate sum of particles.
     """
+    sflist = [] 
     splist = dset.attrs["Species ID"]
     if not species:
        species = dset.attrs["Species ID"]
@@ -926,6 +926,7 @@ def add_species(dset, species=None):
     while sss < len(splist):
         if splist[sss] in species:
             tmp.append(dset[splist[sss]].fillna(0))
+            sflist.append(splist[sss])
         sss += 1  # End of loop through species
 
     total_par = tmp[0]
@@ -934,6 +935,7 @@ def add_species(dset, species=None):
     while ppp < len(tmp):
         total_par = total_par + tmp[ppp]
         ppp += 1  # End of loop adding all species
+    total_par = total_par.assign_attrs({"Species ID": sflist})
     return total_par
 
 
