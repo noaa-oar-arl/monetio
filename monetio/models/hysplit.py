@@ -530,6 +530,7 @@ class ModelBin:
             hdata7 = fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
+                print(check, pdate1, pdate2)
                 break
             testf, savedata = check_drange(drange, pdate1, pdate2)
             print("sample time", pdate1, " to ", pdate2)
@@ -587,6 +588,7 @@ class ModelBin:
             if inc_iii:
                 iii += 1
         self.atthash["Concentration Grid"] = ahash
+        print('KEYS', self.atthash.keys())
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -621,7 +623,6 @@ class ModelBin:
 # combine_cdump creates a 6 dimensional xarray dataarray object from cdump files.
 #
 
-
 def combine_dataset(blist, drange=None, species=None, verbose=False):
     """
     Inputs :
@@ -642,6 +643,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
     iii = 0
     ylist = []
     dtlist = []
+    splist = []
     sourcelist = []
     # turn the input list int a dictionary
     #  blist : dictionary.
@@ -696,7 +698,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             xsublist.append(xrash)
             enslist.append(fname[1])
             dtlist.append(hxr.attrs["sample time hours"])
-            dtlist.append(hxr.attrs["Species ID"])
+            splist.append(hxr.attrs["Species ID"])
             if iii == 0:
                 xnew = xrash.copy()
             else:
@@ -731,9 +733,11 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
         slist.append(sourcelist[jjj])
         jjj += 1
 
+    print('DTLIST', dtlist)
     dtlist = list(set(dtlist))
     print("DT", dtlist, dtlist[0])
     dt = dtlist[0]
+    sp = splist[0]
     newhxr = xr.concat(ylist, "source")
     print("sourcelist", slist)
     newhxr["source"] = slist
@@ -751,6 +755,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
     # newhxr is an xarray data-array with 6 dimensions.
     # dt is the averaging time of the hysplit output.
     newhxr = newhxr.assign_attrs({"sample time hours": dt})
+    newhxr = newhxr.assign_attrs({"Species ID": sp})
     return newhxr
 
 
