@@ -19,12 +19,12 @@ def open_dataset(fname):
     names, nemsio, grib = _ensure_mfdataset_filenames(fname)
     try:
         if nemsio:
-            f = xr.open_mfdataset(names)
+            f = xr.open_dataset(names)
             f = _fix_nemsio(f)
             f = _fix_time_nemsio(f, names[0])
             # f['geoht'] = _calc_nemsio_hgt(f)
         elif grib:
-            f = xr.open_mfdataset(names)
+            f = xr.open_dataset(names)
             f = _fix_grib2(f)
         else:
             raise ValueError
@@ -385,6 +385,34 @@ def _fix_grib2(f):
         'tc_oc0428',
         'COLMD_chemical_Sulphate_Dry_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_entireatmosphere':
         'tc_sulf25',
+        'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_3D38eM07_LE_3D42eM07_entireatmosphere':
+        'pm25aod340_eq',
+        'ASYSFK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_3D38eM07_LE_3D42eM07_entireatmosphere':
+        'AF_pm25aod340',
+        'SSALBK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_3D38eM07_LE_3D42eM07_entireatmosphere':
+        'SSA_pm25aod340',
+        'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_4D3eM07_LE_4D5eM07_entireatmosphere':
+        'pm25aod440',
+        'SCTAOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere':
+        'SA_pm25aod550',
+        'SCTAOTK_aerosol_EQ_Dust_Dry_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere':
+        'SA_dust25aod550',
+        'SCTAOTK_aerosol_EQ_Sea_Salt_Dry_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere':
+        'SA_salt25aod550',
+        'SCTAOTK_aerosol_EQ_Sulphate_Dry_aerosol_size_LT_7eM07_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere':
+        'SA_sulf07aod550',
+        'SCTAOTK_aerosol_EQ_Particulate_Organic_Matter_Dry_aerosol_size_LT_7eM07_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere':
+        'SA_oc07aod550',
+        'SCTAOTK_aerosol_EQ_Black_Carbon_Dry_aerosol_size_LT_7eM07_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere':
+        'SC_bc07aod550',
+        'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_6D2eM07_LE_6D7eM07_entireatmosphere':
+        'pm25aod645',
+        'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_8D41eM07_LE_8D76eM07_entireatmosphere':
+        'pm25aod841',
+        'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_1D628eM06_LE_1D652eM06_entireatmosphere':
+        'pm25aod1628',
+        'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_1D1eM05_LE_1D12eM05_entireatmosphere':
+        'pm25aod11000'
     }
     latitude = f.latitude.values
     longitude = f.longitude.values
