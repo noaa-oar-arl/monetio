@@ -19,12 +19,12 @@ def open_dataset(fname):
     names, nemsio, grib = _ensure_mfdataset_filenames(fname)
     try:
         if nemsio:
-            f = xr.open_mfdataset(names)
+            f = xr.open_dataset(names)
             f = _fix_nemsio(f)
             f = _fix_time_nemsio(f, names[0])
             # f['geoht'] = _calc_nemsio_hgt(f)
         elif grib:
-            f = xr.open_mfdataset(names)
+            f = xr.open_dataset(names)
             f = _fix_grib2(f)
         else:
             raise ValueError
