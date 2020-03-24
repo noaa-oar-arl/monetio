@@ -1,4 +1,4 @@
-# FV3-CHEM READER
+# General NCEP Grib Reader - Have to do special things for aerosols
 import xarray as xr
 
 
@@ -19,13 +19,14 @@ def open_dataset(fname):
     names, grib = _ensure_mfdataset_filenames(fname)
     try:
         if grib:
-            f = xr.open_mfdataset(names, engine='pynio')
+            f = xr.open_dataset(names)
             f = _fix_grib2(f)
         else:
             raise ValueError
     except ValueError:
         print('''File format not recognized. Note that you must preprocess the
-              files with nemsio2nc4 or fv3grib2nc4 available on github.''')
+              files with fv3grib2nc4 available on github. https://github.com/noaa-oar-arl/fv3grib2nc4'''
+              )
     return f
 
 
@@ -79,7 +80,6 @@ def _ensure_mfdataset_filenames(fname):
         names = sort(glob(fname))
     else:
         names = sort(fname)
-    nemsios = [True for i in names if 'nemsio' in i]
     gribs = [True for i in names if 'grb2' in i or 'grib2' in i]
     grib = False
     if len(gribs) >= 1:

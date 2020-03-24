@@ -10,6 +10,15 @@ def dateparse(x):
     return pd.datetime.strptime(x, '%d:%m:%Y %H:%M:%S')
 
 
+def add_local(fname, dates=None, latlonbox=None, freq=None, calc_550=False):
+    a = AERONET()
+    a.url = fname
+    df = a.read_aeronet(fname)
+    if freq is not None:
+        df = sdf.groupby('siteid').resample(freq).mean().reset_index()
+    return df
+
+
 def add_data(dates=None,
              product='AOD15',
              latlonbox=None,
@@ -19,15 +28,14 @@ def add_data(dates=None,
              freq=None,
              detect_dust=False):
     a = AERONET()
-    df = a.add_data(
-        dates=dates,
-        product=product,
-        latlonbox=latlonbox,
-        daily=daily,
-        calc_550=calc_550,
-        inv_type=inv_type,
-        freq=freq,
-        detect_dust=detect_dust)
+    df = a.add_data(dates=dates,
+                    product=product,
+                    latlonbox=latlonbox,
+                    daily=daily,
+                    calc_550=calc_550,
+                    inv_type=inv_type,
+                    freq=freq,
+                    detect_dust=detect_dust)
     return df
 
 
@@ -104,33 +112,31 @@ class AERONET(object):
     def read_aeronet(self):
         print('Reading Aeronet Data...')
         # header = self.get_columns()
-        df = pd.read_csv(
-            self.url,
-            engine='python',
-            header=None,
-            skiprows=6,
-            parse_dates={'time': [1, 2]},
-            date_parser=dateparse,
-            na_values=-999)
+        df = pd.read_csv(self.url,
+                         engine='python',
+                         header=None,
+                         skiprows=6,
+                         parse_dates={'time': [1, 2]},
+                         date_parser=dateparse,
+                         na_values=-999)
         # df.rename(columns={'date_time': 'time'}, inplace=True)
         columns = self.get_columns()
         df.columns = columns  # self.get_columns()
         df.index = df.time
-        df.rename(
-            columns={
-                'site_latitude(degrees)': 'latitude',
-                'site_longitude(degrees)': 'longitude',
-                'site_elevation(m)': 'elevation',
-                'aeronet_site': 'siteid'
-            },
-            inplace=True)
+        df.rename(columns={
+            'site_latitude(degrees)': 'latitude',
+            'site_longitude(degrees)': 'longitude',
+            'site_elevation(m)': 'elevation',
+            'aeronet_site': 'siteid'
+        },
+                  inplace=True)
         df.dropna(subset=['latitude', 'longitude'], inplace=True)
         df.dropna(axis=1, how='all', inplace=True)
         self.df = df
 
     def get_columns(self):
-        header = pd.read_csv(
-            self.url, skiprows=5, header=None, nrows=1).values.flatten()
+        header = pd.read_csv(self.url, skiprows=5, header=None,
+                             nrows=1).values.flatten()
         final = ['time']
         for i in header:
             if "Date(" in i or 'Time(' in i:
@@ -150,10 +156,9 @@ class AERONET(object):
                  detect_dust=False):
         self.latlonbox = latlonbox
         if dates is None:  # get the current day
-            self.dates = pd.date_range(
-                start=pd.to_datetime('today'),
-                end=pd.to_datetime('now'),
-                freq='H')
+            self.dates = pd.date_range(start=pd.to_datetime('today'),
+                                       end=pd.to_datetime('now'),
+                                       freq='H')
         else:
             self.dates = dates
         self.prod = product.upper()
@@ -201,6 +206,6 @@ class AERONET(object):
                            0.3) & (self.df['440-870_angstrom_exponent'] < 0.6)
 
     def set_daterange(self, begin='', end=''):
-        dates = pd.date_range(
-            start=begin, end=end, freq='H').values.astype('M8[s]').astype('O')
+        dates = pd.date_range(start=begin, end=end,
+                              freq='H').values.astype('M8[s]').astype('O')
         self.dates = dates
