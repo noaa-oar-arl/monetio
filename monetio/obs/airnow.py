@@ -161,6 +161,8 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
 
     print('Aggregating AIRNOW files...')
     urls, fnames = build_urls(dates)
+    url = None
+    fname = None
     if download:
         for url, fname in zip(urls, fnames):
             retrieve(url, fname)
