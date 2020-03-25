@@ -161,8 +161,10 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
 
     print('Aggregating AIRNOW files...')
     urls, fnames = build_urls(dates)
+    url = None
+    fname = None
     if download:
-        for url, fname in zip(url, fnames):
+        for url, fname in zip(urls, fnames):
             retrieve(url, fname)
         dfs = [dask.delayed(read_csv)(f) for f in fnames]
     else:
