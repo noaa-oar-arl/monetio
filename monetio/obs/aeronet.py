@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def dateparse(x):
-    return pd.datetime.strptime(x, '%d:%m:%Y %H:%M:%S')
+    return datetime.strptime(x, '%d:%m:%Y %H:%M:%S')
 
 
 def add_local(fname, dates=None, latlonbox=None, freq=None, calc_550=False):
