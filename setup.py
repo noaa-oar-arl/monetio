@@ -24,4 +24,4 @@ setup(name='monetio',
           'evaluation'
       ],
       description='The Model and Observation Evaluation Toolkit (MONET)',
-      install_requires=['pandas', 'netcdf4', 'xarray', 'dask', 's3fs', 'pyresample'])
+      install_requires=['pandas', 'netcdf4', 'xarray', 'scipy', 'dask', 's3fs', 'pyresample'])
