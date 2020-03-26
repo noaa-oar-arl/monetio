@@ -7,22 +7,17 @@ package:
 
 source:
   url: https://github.com/noaa-oar-arl/{{ name }}.git
-  git_tag: develop
-  #url: https://github.com/noaa-oar-arl/MONET/archive/v2.1.3-dev.2.tar.gz
   # sha256: 7027a0478cab0f877ebc7e412a0249d0578c0944fab4da6f341175995b957931
 
 build:
   number: 0
-  noarch: python
-  script: "{{ PYTHON }} -m pip install . -vv"
+  script: "{{ PYTHON }} -m pip install . --no-deps -vv"
 
 requirements:
   build:
-    - {{ compiler('c') }}
   host:
     - python
   run:
-    - git
     - python
     - numpy
     - pandas
@@ -39,6 +34,4 @@ about:
 
 extra:
   recipe-maintainers:
-    # GitHub IDs for maintainers of the recipe.
-    # Always check with the people listed below if they are OK becoming maintainers of the recipe. (There will be spam!)
     - bbakernoaa
