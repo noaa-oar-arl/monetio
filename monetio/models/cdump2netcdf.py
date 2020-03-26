@@ -5,10 +5,10 @@ import sys
 import numpy as np
 import xarray as xr
 from monetio.models import hysplit
-#import monet.utilhysplit.hysp_func as hf
+# import monet.utilhysplit.hysp_func as hf
 from netCDF4 import Dataset
 
-#import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # 01/28/2020 AMC cdump2awips created to make a netcdf file appropriate for input into AWIPS
 # hysplit.py was modified in the forked version of MONET to make this work.
@@ -82,7 +82,7 @@ def mass_loading(xrash, delta=None):
             ml = xrash.isel(z=yyy) * delta[yyy]
         else:
             ml2 = xrash.isel(z=yyy) * delta[yyy]
-            #import matplotlib.pyplot as plt
+            # import matplotlib.pyplot as plt
             # plt.pcolormesh(ml2)
             # plt.show()
             ml = ml + ml2
@@ -125,12 +125,6 @@ def cdump2awips(xrash1,
                 d1=None,
                 d2=None):
 
-    #hxr = hysplit.open_dataset(fname, drange=[d1,d2])
-    #xrash1, dt = combine_cdump(flist, d1=d1, d2=d2)
-    #nra = xrash.values
-    # array with top height of levels in the file.
-    #levelra = xrash.z.values
-
     # mass loading should be in g/m2 to compare to satellite.
     # concentration should be in mg/m3 to compare to threshold levels.
 
@@ -162,21 +156,14 @@ def cdump2awips(xrash1,
         lon_shape = xrash.shape[3]
         lat = fid.createDimension('latitude', lat_shape)
         lon = fid.createDimension('longitude', lon_shape)
-        #level = fid.createDimension('levels',len(levelra))
 
         clevs = [0.2, 2, 4, 10, 100]
         clevels = fid.createDimension('contour_levels', len(clevs))
-        # differnt runs with differnt sources
-        # source_shape=xrash.coords['source'].shape[0]
-        #source = fid.createDimension('source',source_shape)
-        # differnt runs with different met data.
         ens_shape = xrash.coords['ensemble'].shape[0]
         ensemble = fid.createDimension('ensid', ens_shape)
 
         time = fid.createDimension('time', 1)  # one time per file
         bnds = fid.createDimension('bnds', 2)  # two bounds per time.
-
-        #origin = fid.createDimension('origins',hxr.attrs['Number Start Locations'])
         origin = fid.createDimension('origins', 1)
         # Scalar variables
 
@@ -241,11 +228,6 @@ def cdump2awips(xrash1,
         lonid.units = 'degrees_east'
         lonid.point_spacing = 'even'
 
-        #levelid = fid.createVariable('levels','int',('levels'))
-        # attributes for levels
-        #levelid.long_name = 'Top height of each layer'
-        # levelid.units='m'
-
         timeid = fid.createVariable('time', 'f4', ('time'))
         # attributes for time grid.
         timeid.units = 'days since 1970-01-01 00:00:00'
@@ -271,7 +253,6 @@ def cdump2awips(xrash1,
         temp = xrash.loc[dict(time=date1)]
         print(temp.values.shape)
         print('date', date1, type(lev1))
-        #concid[:] = xrash.loc[:,date1].values
         mult = 1
         concidl1[:] = makeconc(xrash.copy(), date1, list(lev1), mult=mult)
 
@@ -283,7 +264,6 @@ def cdump2awips(xrash1,
 
         latid[:] = latra
         lonid[:] = lonra
-        #levelid[:] = levelra
         timeid[:] = t1
         time_bnds[:] = [[t1, t2]]
         # these may be duplicated since ensemble and source
@@ -365,8 +345,6 @@ def maketestncfile():
 
 
 def maketestra():
-    #d1 = datetime.datetime(2008,8,8,10)
-    #d2 = datetime.datetime(2008,8,8,13)
     d1 = None
     d2 = None
     blist = maketestblist()
