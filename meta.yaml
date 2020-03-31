@@ -24,6 +24,8 @@ requirements:
     - xarray
     - dask
     - s3fs
+    - pyresample
+    - joblib
 
 about:
   home: https://monetio-arl.readthedocs.io
