@@ -56,7 +56,7 @@ extlinks = {
     'pull': ('https://github.com/noaa-oar-arl/monetio/pull/%s', 'PR'),
 }
 
-autosummary_generate = False  # True
+autosummary_generate = True
 numpydoc_class_members_toctree = True
 napoleon_google_docstring = False
 napoleon_use_param = False
