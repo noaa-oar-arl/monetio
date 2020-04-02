@@ -16,9 +16,8 @@ API
 
 .. toctree::
     :maxdepth: 4
-
-    source/monet
     source/modules
+    source/monetio
 
 
 .. _on GitHub: https://github.com/noaa-oar-arl/MONET
