@@ -17,6 +17,7 @@ def open_dataset(fname):
 
     """
     names, nemsio, grib = _ensure_mfdataset_filenames(fname)
+    print(names)
     try:
         if nemsio:
             f = xr.open_dataset(names)
@@ -418,8 +419,8 @@ def _fix_grib2(f):
     # longitude = f.longitude.values
     # f['latitude'] = range(len(f.latitude))
     # f['longitude'] = range(len(f.longitude))
-    # f = _rename_func(f, rename_dict)
-    # f = f.rename({'latitude': 'y', 'longitude': 'x'})
+    f = _rename_func(f, rename_dict)
+    f = f.rename({'latitude': 'y', 'longitude': 'x'})
     # lon, lat = meshgrid(longitude, latitude)
     # f['longitude'] = (('y', 'x'), lon)
     # f['latitude'] = (('y', 'x'), lat)
