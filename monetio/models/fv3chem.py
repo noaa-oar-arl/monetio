@@ -90,7 +90,7 @@ def _ensure_mfdataset_filenames(fname):
     else:
         names = sort(fname)
     nemsios = [True for i in names if 'nemsio' in i]
-    gribs = [True for i in names if 'grb2' in i or 'grib2' in i]
+    gribs = [True for i in names if 'grb2' in i or 'grib2' in i or 'grb' in i]
     grib = False
     nemsio = False
     if len(nemsios) >= 1:
