@@ -6,8 +6,19 @@ import pandas as pd
 
 
 def open_dataset(filename):
-    """ Opens the tdump file
-    Returns the trajectory array (Pandas DataFrame)"""
+    """ Opens a tdump file, returns trajectory array
+
+    Parameters
+    ----------------
+    filename : string
+         Full file path for tdump file
+
+    Returns
+    -----------
+    traj: Pandas DataFrame
+         DataFrame with all trajectory information
+
+    """
 
     tdump = open_tdump(filename)
     traj = get_traj(tdump)
@@ -15,16 +26,39 @@ def open_dataset(filename):
 
 
 def open_tdump(filename):
-    """Opens the tdump file"""
+    """Opens the tdump file
+
+    Parameters
+    ----------------
+    filename: string
+         Full file path for tdump file
+
+    Returns
+    -----------
+    tdump: _io.TextIOWrapper
+         tdump file opened in read mode, encoding UTF-8
+         ready to be used by other functions in this code
+
+    """
 
     tdump = open(filename)
     return tdump
 
 
 def get_metinfo(tdump):
-    """Reads the meteorological grid info from tdump file
-    Need to read the tdump file in directly before executing this function
-    Returns list of strings"""
+    """Finds the meteorological grid info from tdump file
+
+    Parameters
+    ----------------
+    tdump: _io.TextIOWrapper
+         tdump file opened in read mode, encoding UTF-8
+
+    Returns
+    -----------
+    metinfo: list
+          List of strings describing met model, date and time
+
+    """
 
     # Going back to first line of file
     tdump.seek(0)
@@ -42,9 +76,20 @@ def get_metinfo(tdump):
 
 
 def get_startlocs(tdump):
-    """Reads the starting locations
-    Need to read the tdump file in directly before executing this function
-    Returns a Pandas DataFrame"""
+    """Finds the trajectory starting locations from the tdump file
+
+    Parameters
+    ----------------
+    tdump: _io.TextIOWrapper
+         tdump file opened in read mode, encoding UTF-8
+
+    Returns
+    -----------
+    start_locs: Pandas DataFrame
+          DataFrame describing trajectory starting date, time, location and altitudes
+          Date and Time are a Datetime Object
+
+    """
 
     # Going back to first line of file
     tdump.seek(0)
@@ -60,16 +105,31 @@ def get_startlocs(tdump):
         start_locs.append(tmp2)
         b += 1
     # Putting starting locations array into pandas DataFrame
-    stlocs = pd.DataFrame(np.array(start_locs), columns=[
-                          'Year', 'Month', 'Dat', 'Hour', 'Latitude', 'Longitude', 'Altitude'])
+    heads = ['year', 'month', 'day', 'hour', 'latitude', 'longitude', 'altitude']
+    stlocs = pd.DataFrame(np.array(start_locs), columns=heads)
+    cols = ['year', 'month', 'day', 'hour']
+    stlocs['time'] = stlocs[cols].apply(lambda row: ' '.join(row.values.astype(str)), axis=1)
+    stlocs = stlocs.drop(['year', 'month', 'day', 'hour'], axis=1)
+    stlocs = stlocs[['time', 'latitude', 'longitude', 'altitude']]
+    stlocs['time'] = pd.to_datetime(stlocs['time'], format='%y %m %d %H')
     return stlocs
 
 
 def get_traj(tdump):
-    """Reads the trajectory information
-    Need to read the tdump file in directly before executing this function
-    Returns a Pandas DataFrame"""
+    """Finds the trajectory information from the tdump file
 
+    Parameters
+    ----------------
+    tdump: _io.TextIOWrapper
+         tdump file opened in read mode, encoding UTF-8
+
+    Returns
+    -----------
+    traj: Pandas DataFrame
+          DataFrame describing all trajectory variables
+          Date and Time are a Datetime Object
+
+    """
     # Going back to first line of file
     tdump.seek(0)
     # Gets the starting locations
@@ -84,13 +144,5 @@ def get_traj(tdump):
     traj = pd.read_csv(tdump, header=None, sep='\s+', parse_dates={'time': [2, 3, 4, 5, 6]})
     traj.columns = heads
     traj.columns = map(str.lower, traj.columns)
-    traj = date_format(traj)
-    return traj
-
-
-def date_format(traj):
-    """Formats the 'TIME' column into datetime object
-    Returns traj Pandas DataFrame"""
-
     traj['time'] = pd.to_datetime(traj['time'], format='%y %m %d %H %M')
     return traj
