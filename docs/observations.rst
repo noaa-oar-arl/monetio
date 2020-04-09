@@ -193,7 +193,6 @@ Available Measurements
    "AOD10", "Aerosol Optical Depth Level 1.0"
    "AOD15", "Aerosol Optical Depth Level 1.5"
    "AOD20", "Aerosol Optical Depth Level 2.0"
-   "AOD15", "Aerosol Optical Depth Level 1.5"
    "SDA10", "SDA Retrieval Level 1.0"
    "SDA15", "SDA Retrieval Level 1.5"
    "SDA20", "SDA Retrieval Level 2.0"

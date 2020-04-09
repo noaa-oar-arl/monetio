@@ -5,6 +5,12 @@ from datetime import datetime
 
 import pandas as pd
 
+try:
+    from joblib import Parallel, delayed
+    has_joblib = True
+except:
+    has_joblib = False
+
 
 def dateparse(x):
     return datetime.strptime(x, '%d:%m:%Y %H:%M:%S')
@@ -16,6 +22,7 @@ def add_local(fname, dates=None, latlonbox=None, freq=None, calc_550=False):
     df = a.read_aeronet(fname)
     if freq is not None:
         df = sdf.groupby('siteid').resample(freq).mean().reset_index()
+
     return df
 
 
@@ -26,16 +33,54 @@ def add_data(dates=None,
              calc_550=True,
              inv_type=None,
              freq=None,
+             siteid=None,
+             detect_dust=False, n_procs=1, verbose=10):
+    a = AERONET()
+    if has_joblib and (n_procs > 1):
+        min_date = dates.min()
+        max_date = dates.max()
+        # find days from here to there
+        days = pd.date_range(start=min_date, end=max_date, freq='D')
+        days1 = pd.date_range(start=min_date, end=max_date, freq='D') + pd.Timedelta(1, unit='D')
+        vars = dict(product=product, latlonbox=latlonbox, daily=daily, calc_550=calc_550, inv_type=inv_type, siteid=siteid, freq=None, detect_dust=detect_dust)
+        dfs = Parallel(n_jobs=n_procs, verbose=verbose)(delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **vars) for d1, d2 in zip(days, days1))
+        df = pd.concat(dfs, ignore_index=True).drop_duplicates()
+        if freq is not None:
+            df.index = df.time
+            df = df.groupby('siteid').resample(freq).mean().reset_index()
+        return df.reset_index(drop=True)
+    else:
+        if ~has_joblib and (n_procs > 1):
+            print('Please install joblib to use the parallel feature of monetio.aeronet. Proceeding in serial mode...')
+        df = a.add_data(dates=dates,
+                        product=product,
+                        latlonbox=latlonbox,
+                        daily=daily,
+                        calc_550=calc_550,
+                        inv_type=inv_type,
+                        siteid=siteid,
+                        freq=freq,
+                        detect_dust=detect_dust)
+    return df.reset_index(drop=True)
+
+
+def _parallel_aeronet_call(dates=None,
+             product='AOD15',
+             latlonbox=None,
+             daily=False,
+             calc_550=True,
+             inv_type=None,
+             freq=None,
+             siteid=None,
              detect_dust=False):
     a = AERONET()
-    df = a.add_data(dates=dates,
-                    product=product,
-                    latlonbox=latlonbox,
-                    daily=daily,
-                    calc_550=calc_550,
-                    inv_type=inv_type,
-                    freq=freq,
-                    detect_dust=detect_dust)
+    df = a.add_data(dates, product=product, latlonbox=latlonbox,
+               daily=daily,
+               calc_550=calc_550,
+               inv_type=inv_type,
+               siteid=siteid,
+               freq=freq,
+               detect_dust=detect_dust)
     return df
 
 
@@ -52,6 +97,7 @@ class AERONET(object):
         self.daily = None
         self.prod = None
         self.inv_type = None
+        self.siteid = None
         self.objtype = 'AERONET'
         self.usecols = concatenate((arange(30), arange(65, 83)))
         # [21.1,-131.6686,53.04,-58.775] #[latmin,lonmin,latmax,lonmax]
@@ -89,13 +135,15 @@ class AERONET(object):
             product = '&' + self.prod + '=1'
             self.inv_type = ''
         time = '&AVG=' + str(self.daily)
-        if self.latlonbox is None:
+        if self.siteid is not None:
+            latlonbox = '&site={}'.format(self.siteid)
+        elif self.latlonbox is None:
             latlonbox = ''
         else:
-            lat1 = str(self.latlonbox[0])
-            lon1 = str(self.latlonbox[1])
-            lat2 = str(self.latlonbox[2])
-            lon2 = str(self.latlonbox[3])
+            lat1 = str(float(self.latlonbox[0]))
+            lon1 = str(float(self.latlonbox[1]))
+            lat2 = str(float(self.latlonbox[2]))
+            lon2 = str(float(self.latlonbox[3]))
             latlonbox = '&lat1=' + lat1 + '&lat2=' + \
                 lat2 + '&lon1=' + lon1 + '&lon2=' + lon2
         # print(base_url)
@@ -129,7 +177,7 @@ class AERONET(object):
             'site_elevation(m)': 'elevation',
             'aeronet_site': 'siteid'
         },
-                  inplace=True)
+            inplace=True)
         df.dropna(subset=['latitude', 'longitude'], inplace=True)
         df.dropna(axis=1, how='all', inplace=True)
         self.df = df
@@ -153,8 +201,10 @@ class AERONET(object):
                  calc_550=True,
                  inv_type=None,
                  freq=None,
+                 siteid=None,
                  detect_dust=False):
         self.latlonbox = latlonbox
+        self.siteid = siteid
         if dates is None:  # get the current day
             self.dates = pd.date_range(start=pd.to_datetime('today'),
                                        end=pd.to_datetime('now'),
@@ -170,9 +220,12 @@ class AERONET(object):
             self.inv_type = 'ALM15'
         else:
             self.inv_type = inv_type
+
         self.build_url()
-        # print(self.url)
-        self.read_aeronet()
+        try:
+            self.read_aeronet()
+        except:
+            print(self.url)
         if freq is not None:
             self.df = self.df.groupby('siteid').resample(
                 freq).mean().reset_index()

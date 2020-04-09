@@ -56,7 +56,7 @@ extlinks = {
     'pull': ('https://github.com/noaa-oar-arl/monetio/pull/%s', 'PR'),
 }
 
-autosummary_generate = False  # True
+autosummary_generate = True
 numpydoc_class_members_toctree = True
 napoleon_google_docstring = False
 napoleon_use_param = False
@@ -138,7 +138,7 @@ html_theme_options = {
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "_static/MONET-logo.png"
+html_logo = "_static/MONETIO logo.png"
 
 # -- Options for LaTeX output ------------------------------------------------
 

@@ -19,12 +19,12 @@ def open_dataset(fname):
     names, nemsio, grib = _ensure_mfdataset_filenames(fname)
     try:
         if nemsio:
-            f = xr.open_dataset(names)
+            f = xr.open_dataset(names[0])
             f = _fix_nemsio(f)
-            f = _fix_time_nemsio(f, names[0])
+            # f = _fix_time_nemsio(f, names[0])
             # f['geoht'] = _calc_nemsio_hgt(f)
         elif grib:
-            f = xr.open_dataset(names)
+            f = xr.open_dataset(names[0])
             f = _fix_grib2(f)
         else:
             raise ValueError
@@ -90,7 +90,7 @@ def _ensure_mfdataset_filenames(fname):
     else:
         names = sort(fname)
     nemsios = [True for i in names if 'nemsio' in i]
-    gribs = [True for i in names if 'grb2' in i or 'grib2' in i]
+    gribs = [True for i in names if 'grb2' in i or 'grib2' in i or 'grb' in i]
     grib = False
     nemsio = False
     if len(nemsios) >= 1:
@@ -149,14 +149,14 @@ def _fix_nemsio(f):
 
     """
     from numpy import meshgrid
-    # f = _rename_func(f, rename_dict)
-    lat = f.lat.values
-    lon = f.lon.values
-    lon, lat = meshgrid(lon, lat)
-    f = f.rename({'lat': 'y', 'lon': 'x', 'lev': 'z'})
-    f['longitude'] = (('y', 'x'), lon)
-    f['latitude'] = (('y', 'x'), lat)
-    f = f.set_coords(['latitude', 'longitude'])
+    # # f = _rename_func(f, rename_dict)
+    # lat = f.lat.values
+    # lon = f.lon.values
+    # lon, lat = meshgrid(lon, lat)
+    # f = f.rename({'lat': 'y', 'lon': 'x', 'lev': 'z'})
+    # f['longitude'] = (('y', 'x'), lon)
+    # f['latitude'] = (('y', 'x'), lat)
+    # f = f.set_coords(['latitude', 'longitude'])
     f = _rename_func(f, {})
     try:
         f['geohgt'] = _calc_nemsio_hgt(f)
@@ -414,15 +414,15 @@ def _fix_grib2(f):
         'AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_1D1eM05_LE_1D12eM05_entireatmosphere':
         'pm25aod11000'
     }
-    latitude = f.latitude.values
-    longitude = f.longitude.values
-    f['latitude'] = range(len(f.latitude))
-    f['longitude'] = range(len(f.longitude))
+    # latitude = f.latitude.values
+    # longitude = f.longitude.values
+    # f['latitude'] = range(len(f.latitude))
+    # f['longitude'] = range(len(f.longitude))
     f = _rename_func(f, rename_dict)
     f = f.rename({'latitude': 'y', 'longitude': 'x'})
-    lon, lat = meshgrid(longitude, latitude)
-    f['longitude'] = (('y', 'x'), lon)
-    f['latitude'] = (('y', 'x'), lat)
+    # lon, lat = meshgrid(longitude, latitude)
+    # f['longitude'] = (('y', 'x'), lon)
+    # f['latitude'] = (('y', 'x'), lat)
     f = f.set_coords(['latitude', 'longitude'])
     # try:
     #     from pyresample import utils
