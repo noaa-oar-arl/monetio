@@ -108,9 +108,13 @@ def get_startlocs(tdump):
     heads = ['year', 'month', 'day', 'hour', 'latitude', 'longitude', 'altitude']
     stlocs = pd.DataFrame(np.array(start_locs), columns=heads)
     cols = ['year', 'month', 'day', 'hour']
+    # Joins cols into one column called time
     stlocs['time'] = stlocs[cols].apply(lambda row: ' '.join(row.values.astype(str)), axis=1)
-    stlocs = stlocs.drop(['year', 'month', 'day', 'hour'], axis=1)
+    # Drops cols
+    stlocs = stlocs.drop(cols, axis=1)
+    # Reorders columns
     stlocs = stlocs[['time', 'latitude', 'longitude', 'altitude']]
+    # Puts time into datetime object
     stlocs['time'] = pd.to_datetime(stlocs['time'], format='%y %m %d %H')
     return stlocs
 
@@ -142,7 +146,10 @@ def get_traj(tdump):
     heads = ['time', 'traj_num', 'met_grid', 'forecast_hour',
              'traj_age', 'latitude', 'longitude', 'altitude'] + variables
     traj = pd.read_csv(tdump, header=None, sep='\s+', parse_dates={'time': [2, 3, 4, 5, 6]})
+    # Adds headers to dataframe
     traj.columns = heads
+    # Makes all headers lowercase
     traj.columns = map(str.lower, traj.columns)
+    # Puts time datetime object
     traj['time'] = pd.to_datetime(traj['time'], format='%y %m %d %H %M')
     return traj
