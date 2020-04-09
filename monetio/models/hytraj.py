@@ -1,18 +1,29 @@
 # Reads a tdump file, outputs a Pandas DataFrame
+
 import numpy as np
 import re
 import pandas as pd
 
 
-def open_tdump(fpath, fname):
+def open_dataset(filename):
+    """ Opens the tdump file
+    Returns the trajectory array (Pandas DataFrame)"""
+
+    tdump = open_tdump(filename)
+    traj = get_traj(tdump)
+    return traj
+
+
+def open_tdump(filename):
     """Opens the tdump file"""
 
-    tdump = open(fpath+fname)
+    tdump = open(filename)
     return tdump
 
 
 def get_metinfo(tdump):
     """Reads the meteorological grid info from tdump file
+    Need to read the tdump file in directly before executing this function
     Returns list of strings"""
 
     # Going back to first line of file
@@ -32,6 +43,7 @@ def get_metinfo(tdump):
 
 def get_startlocs(tdump):
     """Reads the starting locations
+    Need to read the tdump file in directly before executing this function
     Returns a Pandas DataFrame"""
 
     # Going back to first line of file
@@ -55,6 +67,7 @@ def get_startlocs(tdump):
 
 def get_traj(tdump):
     """Reads the trajectory information
+    Need to read the tdump file in directly before executing this function
     Returns a Pandas DataFrame"""
 
     # Going back to first line of file
@@ -66,8 +79,18 @@ def get_traj(tdump):
     varibs = varibs.split(',')
     variables = varibs[1:]
     # Read the traj arrays into pandas dataframe
-    heads = ['TRAJ', 'MET_GRID', 'YEAR', 'MON', 'DAY', 'HOUR', 'MIN',
-             'FCAST_HR', 'TRAJ_AGE', 'LAT', 'LON', 'ALT'] + variables
-    traj = pd.read_csv(tdump, header=None, sep='\s+')
+    heads = ['time', 'traj_num', 'met_grid', 'forecast_hour',
+             'traj_age', 'latitude', 'longitude', 'altitude'] + variables
+    traj = pd.read_csv(tdump, header=None, sep='\s+', parse_dates={'TIME': [2, 3, 4, 5, 6]})
     traj.columns = heads
+    traj.columns = map(str.lower, traj.columns)
+    traj = date_format(traj)
+    return traj
+
+
+def date_format(traj):
+    """Formats the 'TIME' column into datetime object
+    Returns traj Pandas DataFrame"""
+
+    traj['time'] = pd.to_datetime(traj['time'], format='%y %m %d %H %M')
     return traj
