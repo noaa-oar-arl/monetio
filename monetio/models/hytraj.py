@@ -13,7 +13,6 @@ def open_tdump(fpath, fname):
 
 def get_metinfo(tdump):
     """Reads the meteorological grid info from tdump file
-    Need to read the tdump file in directly before executing this function
     Returns list of strings"""
 
     # Going back to first line of file
@@ -33,7 +32,6 @@ def get_metinfo(tdump):
 
 def get_startlocs(tdump):
     """Reads the starting locations
-    Need to read the tdump file in directly before executing this function
     Returns a Pandas DataFrame"""
 
     # Going back to first line of file
@@ -57,7 +55,6 @@ def get_startlocs(tdump):
 
 def get_traj(tdump):
     """Reads the trajectory information
-    Need to read the tdump file in directly before executing this function
     Returns a Pandas DataFrame"""
 
     # Going back to first line of file
