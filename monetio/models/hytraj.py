@@ -81,7 +81,7 @@ def get_traj(tdump):
     # Read the traj arrays into pandas dataframe
     heads = ['time', 'traj_num', 'met_grid', 'forecast_hour',
              'traj_age', 'latitude', 'longitude', 'altitude'] + variables
-    traj = pd.read_csv(tdump, header=None, sep='\s+', parse_dates={'TIME': [2, 3, 4, 5, 6]})
+    traj = pd.read_csv(tdump, header=None, sep='\s+', parse_dates={'time': [2, 3, 4, 5, 6]})
     traj.columns = heads
     traj.columns = map(str.lower, traj.columns)
     traj = date_format(traj)
