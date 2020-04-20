@@ -115,9 +115,27 @@ def get_startlocs(tdump):
     # Reorders columns
     stlocs = stlocs[['time', 'latitude', 'longitude', 'altitude']]
     # Puts time into datetime object
+    stlocs['time'] = stlocs.apply(lambda row: time_str_fixer(row['time']),
+                                 axis=1)
     stlocs['time'] = pd.to_datetime(stlocs['time'], format='%y %m %d %H')
     return stlocs
 
+
+def time_str_fixer(timestr):
+    """
+    if year is 2006, hysplit trajectory output writes year as single digit 6.
+    This must be turned into 06 to be read properly.
+    """
+    if isinstance(timestr, str):
+        temp = timestr.split()
+        year = str(int(temp[0])).zfill(2)
+        month = str(int(temp[1])).zfill(2)
+        temp[0] = year
+        temp[1] = month
+        rval =  str.join(' ', temp) 
+    else:
+        rval = timestr
+    return rval
 
 def get_traj(tdump):
     """Finds the trajectory information from the tdump file
@@ -151,5 +169,7 @@ def get_traj(tdump):
     # Makes all headers lowercase
     traj.columns = map(str.lower, traj.columns)
     # Puts time datetime object
+    traj['time'] = traj.apply(lambda row: time_str_fixer(row['time']),
+                                 axis=1)
     traj['time'] = pd.to_datetime(traj['time'], format='%y %m %d %H %M')
     return traj
