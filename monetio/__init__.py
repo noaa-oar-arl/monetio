@@ -18,11 +18,11 @@ cmaq = models.cmaq
 camx = models.camx
 prepchem = models.prepchem
 ncep_grib = models.ncep_grib
-emitimes = models.emitimes
-cdump2netcdf = models.cdump2netcdf
+# emitimes = models.emitimes
+# cdump2netcdf = models.cdump2netcdf
 hysplit = models.hysplit
 hytraj = models.hytraj
-pardump = models.pardump
+# pardump = models.pardump
 
 # profiles
 icartt = profile.icartt
