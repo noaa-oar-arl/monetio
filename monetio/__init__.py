@@ -22,7 +22,7 @@ ncep_grib = models.ncep_grib
 # cdump2netcdf = models.cdump2netcdf
 hysplit = models.hysplit
 hytraj = models.hytraj
-# pardump = models.pardump
+pardump = models.pardump
 
 # profiles
 icartt = profile.icartt
