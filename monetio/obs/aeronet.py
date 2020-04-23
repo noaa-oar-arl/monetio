@@ -4,6 +4,7 @@ from builtins import object, str
 from datetime import datetime
 
 import pandas as pd
+from numpy import NaN
 
 try:
     from joblib import Parallel, delayed
@@ -16,21 +17,42 @@ def dateparse(x):
     return datetime.strptime(x, '%d:%m:%Y %H:%M:%S')
 
 
-def add_local(fname, dates=None, latlonbox=None, freq=None, calc_550=False):
+def add_local(fname, product='AOD15', dates=None, latlonbox=None, freq=None, interp_to_values=None):
     a = AERONET()
     a.url = fname
-    df = a.read_aeronet(fname)
+    # df = a.read_aeronet(fname)
+    self.prod = product.upper()
+    if daily:
+        a.daily = 20  # daily data
+    else:
+        a.daily = 10  # all points
+    if inv_type is not None:
+        a.inv_type = 'ALM15'
+    else:
+        a.inv_type = inv_type
+    if 'AOD' in self.prod:
+        a.new_aod_values = interp_to_aod_values
+    # a.build_url()
+    try:
+        a.url = fname
+        a.read_aeronet()
+    except:
+        print('Error reading:' + fname)
     if freq is not None:
-        df = sdf.groupby('siteid').resample(freq).mean().reset_index()
-
-    return df
+        a.df = a.df.groupby('siteid').resample(
+            freq).mean().reset_index()
+    if detect_dust:
+        a.dust_detect()
+    if a.new_aod_values is not None:
+        a.calc_new_aod_values()
+    return a.df
 
 
 def add_data(dates=None,
              product='AOD15',
              latlonbox=None,
              daily=False,
-             calc_550=True,
+             interp_to_aod_values=None,
              inv_type=None,
              freq=None,
              siteid=None,
@@ -42,7 +64,7 @@ def add_data(dates=None,
         # find days from here to there
         days = pd.date_range(start=min_date, end=max_date, freq='D')
         days1 = pd.date_range(start=min_date, end=max_date, freq='D') + pd.Timedelta(1, unit='D')
-        vars = dict(product=product, latlonbox=latlonbox, daily=daily, calc_550=calc_550, inv_type=inv_type, siteid=siteid, freq=None, detect_dust=detect_dust)
+        vars = dict(product=product, latlonbox=latlonbox, daily=daily, interp_to_aod_values=interp_to_aod_values, inv_type=inv_type, siteid=siteid, freq=None, detect_dust=detect_dust)
         dfs = Parallel(n_jobs=n_procs, verbose=verbose)(delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **vars) for d1, d2 in zip(days, days1))
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
@@ -56,7 +78,7 @@ def add_data(dates=None,
                         product=product,
                         latlonbox=latlonbox,
                         daily=daily,
-                        calc_550=calc_550,
+                        interp_to_aod_values=interp_to_aod_values,
                         inv_type=inv_type,
                         siteid=siteid,
                         freq=freq,
@@ -68,7 +90,7 @@ def _parallel_aeronet_call(dates=None,
              product='AOD15',
              latlonbox=None,
              daily=False,
-             calc_550=True,
+             interp_to_aod_values=None,
              inv_type=None,
              freq=None,
              siteid=None,
@@ -76,7 +98,7 @@ def _parallel_aeronet_call(dates=None,
     a = AERONET()
     df = a.add_data(dates, product=product, latlonbox=latlonbox,
                daily=daily,
-               calc_550=calc_550,
+               interp_to_aod_values=interp_to_aod_values,
                inv_type=inv_type,
                siteid=siteid,
                freq=freq,
@@ -103,6 +125,7 @@ class AERONET(object):
         # [21.1,-131.6686,53.04,-58.775] #[latmin,lonmin,latmax,lonmax]
         self.latlonbox = None
         self.url = None
+        self.new_aod_values = None
 
     def build_url(self):
         sy = self.dates.min().strftime('%Y')
@@ -198,7 +221,7 @@ class AERONET(object):
                  product='AOD15',
                  latlonbox=None,
                  daily=False,
-                 calc_550=True,
+                 interp_to_aod_values=None,
                  inv_type=None,
                  freq=None,
                  siteid=None,
@@ -220,7 +243,8 @@ class AERONET(object):
             self.inv_type = 'ALM15'
         else:
             self.inv_type = inv_type
-
+        if 'AOD' in self.prod:
+            self.new_aod_values = interp_to_aod_values
         self.build_url()
         try:
             self.read_aeronet()
@@ -231,8 +255,8 @@ class AERONET(object):
                 freq).mean().reset_index()
         if detect_dust:
             self.dust_detect()
-        if calc_550:
-            self.calc_550nm()
+        if self.new_aod_values is not None:
+            self.calc_new_aod_values()
         return self.df
 
     def calc_550nm(self):
@@ -243,6 +267,66 @@ class AERONET(object):
         """
         self.df['aod_550nm'] = self.df.aod_500nm * (550. / 500.)**(
             -self.df['440-870_angstrom_exponent'])
+
+    def calc_new_aod_values(self):
+
+        def _tspack_aod_interp(row, new_wv=[440., 470., 550., 670., 870., 1020., 1240.]):
+            try:
+                import pytspack
+            except ImportError:
+                print('You must install pytspack before using this function')
+            # df_aod_nu = self._aeronet_aod_and_nu(row)
+            aod_columns = [aod_column for aod_column in row.index if 'aod_' in aod_column]
+            aods = row[aod_columns]
+            wv = [float(aod_column.replace('aod_', '').replace('nm', '')) for aod_column in aod_columns]
+            a = pd.DataFrame({'aod': aods}).reset_index()
+            a['wv'] = wv
+            df_aod_nu = a.dropna()
+            df_aod_nu_sorted = df_aod_nu.sort_values(by='wv').dropna()
+            if len(df_aod_nu_sorted) < 2:
+                return new_wv * NaN
+            else:
+                x, y, yp, sigma = pytspack.tspsi(df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values)
+                yi = pytspack.hval(self.new_aod_values, x, y, yp, sigma)
+                return yi
+
+        out = self.df.apply(_tspack_aod_interp, axis=1, result_type='expand', new_wv=self.new_aod_values)
+        names = 'aod_' + pd.Series(self.new_aod_values.astype(int).astype(str)) + 'nm'
+        out.columns = names.values
+        self.df = pd.concat([self.df, out], axis=1)
+
+    @staticmethod
+    def _tspack_aod_interp(row, new_wv=[440., 470., 550., 670., 870., 1020., 1240.]):
+        try:
+            import pytspack
+        except ImportError:
+            print('You must install pytspack before using this function')
+        # df_aod_nu = self._aeronet_aod_and_nu(row)
+        aod_columns = [aod_column for aod_column in row.index if 'aod_' in aod_column]
+        aods = row[aod_columns]
+        wv = [float(aod_column.replace('aod_', '').replace('nm', '')) for aod_column in aod_columns]
+        a = pd.DataFrame({'aod': aods}).reset_index()
+        a['wv'] = wv
+        df_aod_nu = a.dropna()
+        df_aod_nu_sorted = df_aod_nu.sort_values(by='wv').dropna()
+        if len(df_aod_nu_sorted) < 2:
+            return xi * NaN
+        else:
+            x, y, yp, sigma = pytspack.tspsi(df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values)
+            yi = pytspack.hval(self.new_aod_values, x, y, yp, sigma)
+            return yi
+
+    @staticmethod
+    def _aeronet_aod_and_nu(row):
+        import pandas as pd
+        # print(row)
+        aod_columns = [aod_column for aod_column in row.index if 'aod_' in aod_column]
+        wv = [float(aod_column.replace('aod_', '').replace('nm', '')) for aod_column in aod_columns]
+        aods = row[aod_columns]
+        a = pd.DataFrame({'aod': aods}).reset_index()
+        # print(a.index,wv)
+        a['wv'] = wv
+        return a.dropna()
 
     def dust_detect(self):
         """Detect dust from AERONET. See [Dubovik et al., 2002].

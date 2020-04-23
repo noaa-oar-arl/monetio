@@ -123,6 +123,10 @@ def get_startlocs(tdump):
 
 def time_str_fixer(timestr):
     """
+    timestr : str
+    output
+    rval : str    
+
     if year is 2006, hysplit trajectory output writes year as single digit 6.
     This must be turned into 06 to be read properly.
     """
