@@ -4,7 +4,6 @@ import datetime
 import pandas as pd
 import xarray as xr
 import numpy as np
-from numpy import fromfile, arange
 
 """
 This code developed at the NOAA Air Resources Laboratory.
@@ -164,9 +163,9 @@ class ModelBin:
         # list of tuples  of averaging periods with nonzero concentrtations]
         self.nonzeroconcdates = []
         self.sourcedate = []
-        self.slat = []
-        self.slon = []
-        self.sht = []
+        #self.slat = []
+        #self.slon = []
+        #self.sht = []
         self.atthash = {}
         self.atthash["Starting Locations"] = []
         self.atthash["Source Date"] = []
@@ -338,12 +337,16 @@ class ModelBin:
 
         # Loop through starting locations
         for nnn in range(0, nstartloc):
+            print('NNN', nnn, nstartloc)
             # create list of starting latitudes, longitudes and heights.
-            self.slat.append(hdata2["s_lat"][nnn])
-            self.slon.append(hdata2["s_lon"][nnn])
-            self.sht.append(hdata2["s_ht"][nnn])
+            #self.slat.append(hdata2["s_lat"][nnn])
+            #self.slon.append(hdata2["s_lon"][nnn])
+            #self.sht.append(hdata2["s_ht"][nnn])
+            lat = hdata2["s_lat"][nnn]
+            lon = hdata2["s_lon"][nnn]
+            ht = hdata2["s_ht"][nnn]
             self.atthash["Starting Locations"].append(
-                (hdata2["s_lat"][nnn], hdata2["s_lon"][nnn])
+            (lat,lon,ht)
             )
 
             # try to guess century if century not given
@@ -365,7 +368,7 @@ class ModelBin:
             )
             self.sourcedate.append(sourcedate)
             self.atthash["Source Date"].append(sourcedate)
-            return century
+        return century
 
     def parse_hdata3(self, hdata3, ahash):
         # Description of concentration grid
@@ -445,11 +448,15 @@ class ModelBin:
         xindx : list
         yindx : list
         """
-        lat = arange(
-            self.llcrnr_lat, self.llcrnr_lat + self.nlat * self.dlat, self.dlat
+        # output center of grid squares, not lower left corner.
+        # by changing start point of the list.
+        slat = self.llcrnr_lat + 0.5 * self.dlat 
+        slon = self.llcrnr_lon + 0.5 * self.dlon
+        lat = np.arange(
+            slat, slat + self.nlat * self.dlat, self.dlat
         )
-        lon = arange(
-            self.llcrnr_lon, self.llcrnr_lon + self.nlon * self.dlon, self.dlon
+        lon = np.arange(
+            slon, slon + self.nlon * self.dlon, self.dlon
         )
         lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
@@ -493,26 +500,26 @@ class ModelBin:
         # start_loc in rec1 tell how many rec there are.
         tempzeroconcdates = []
         # Reads header data. This consists of records 1-5.
-        hdata1 = fromfile(fid, dtype=rec1, count=1)
+        hdata1 = np.fromfile(fid, dtype=rec1, count=1)
         nstartloc = self.parse_header(hdata1)
 
-        hdata2 = fromfile(fid, dtype=rec2, count=nstartloc)
+        hdata2 = np.fromfile(fid, dtype=rec2, count=nstartloc)
         century = self.parse_hdata2(hdata2, nstartloc, century)
 
-        hdata3 = fromfile(fid, dtype=rec3, count=1)
+        hdata3 = np.fromfile(fid, dtype=rec3, count=1)
         ahash = self.parse_hdata3(hdata3, ahash)
 
         # read record 4 which gives information about vertical levels.
-        hdata4a = fromfile(fid, dtype=rec4a, count=1)  # gets nmber of levels
-        hdata4b = fromfile(
+        hdata4a = np.fromfile(fid, dtype=rec4a, count=1)  # gets nmber of levels
+        hdata4b = np.fromfile(
             fid, dtype=rec4b, count=hdata4a["nlev"][0]
         )  # reads levels, count is number of levels.
         self.parse_hdata4(hdata4a, hdata4b)
 
         # read record 5 which gives information about pollutants / species.
-        hdata5a = fromfile(fid, dtype=rec5a, count=1)
-        fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
-        fromfile(fid, dtype=rec5c, count=1)
+        hdata5a = np.fromfile(fid, dtype=rec5a, count=1)
+        np.fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
+        np.fromfile(fid, dtype=rec5c, count=1)
         self.atthash["Number of Species"] = hdata5a["pollnum"][0]
 
         # Loop to reads records 6-8. Number of loops is equal to number of
@@ -526,8 +533,8 @@ class ModelBin:
         imax = 1e3
         testf = True
         while testf:
-            hdata6 = fromfile(fid, dtype=rec6, count=1)
-            hdata7 = fromfile(fid, dtype=rec6, count=1)
+            hdata6 = np.fromfile(fid, dtype=rec6, count=1)
+            hdata7 = np.fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
                 print(check, pdate1, pdate2)
@@ -543,14 +550,17 @@ class ModelBin:
                 for pollutant in range(self.atthash["Number of Species"]):
                     # record 8a has the number of elements (ne). If number of
                     # elements greater than 0 than there are concentrations.
-                    hdata8a = fromfile(fid, dtype=rec8a, count=1)
-                    self.atthash["Species ID"].append(
-                        hdata8a["poll"][0].decode("UTF-8")
-                    )
+                    hdata8a = np.fromfile(fid, dtype=rec8a, count=1)
+                    #self.atthash["Species ID"].append(
+                    #    hdata8a["poll"][0].decode("UTF-8")
+                    #)
                     # if number of elements is nonzero then
                     if hdata8a["ne"] >= 1:
+                        self.atthash["Species ID"].append(
+                            hdata8a["poll"][0].decode("UTF-8")
+                        )
                         # get rec8 - indx and jndx
-                        hdata8b = fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
+                        hdata8b = np.fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
                         # add sample start time to list of start times with
                         # non zero conc
                         self.nonzeroconcdates.append(pdate1)
@@ -560,7 +570,7 @@ class ModelBin:
                         )  # or add sample start time to list of start times
                         # with zero conc.
                     # This is just padding.
-                    fromfile(fid, dtype=rec8c, count=1)
+                    np.fromfile(fid, dtype=rec8c, count=1)
                     # if savedata is set and nonzero concentrations then save
                     # the data in a pandas dataframe
                     if savedata and hdata8a["ne"] >= 1:
@@ -592,6 +602,8 @@ class ModelBin:
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
+        if self.dset is None:
+            return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
             mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
@@ -774,9 +786,10 @@ def get_latlongrid(dset, xindx, yindx):
     nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
     dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
     dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    
 
-    lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
-    lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
+    lat = np.arange(llcrnr_lat+0.5*dlat, llcrnr_lat + nlat * dlat, dlat)
+    lon = np.arange(llcrnr_lon+0.5*dlon, llcrnr_lon + nlon * dlon, dlon)
     print(nlat, nlon, dlat, dlon)
     print("lon shape", lon.shape)
     print("lat shape", lat.shape)
@@ -835,10 +848,10 @@ def hysp_massload(dset, threshold=0, mult=1):
 
 def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
                  mass_load=True, species=None):
-    """ Calculate ash top-height from HYSPLIT xarray
+    """ Calculate top-height from HYSPLIT xarray
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
-    threshold : ash mass loading threshold (threshold = xx)
+    threshold : mass loading threshold (threshold = xx)
     mult : convert from meters to other unit. default is 1/1000.0 to
            convert to km.
     Outputs: ash top heights, altitude levels """
@@ -864,7 +877,7 @@ def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
 
 
 def calc_aml(dset, species=None):
-    """ Calculates the ash mass loading at each altitude for the dataset
+    """ Calculates the mass loading at each altitude for the dataset
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
     Output: total ash mass loading """
