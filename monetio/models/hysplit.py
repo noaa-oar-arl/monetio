@@ -439,8 +439,8 @@ class ModelBin:
         """
         # checked HYSPLIT code. the grid points
         # do represent center of the sampling area.
-        slat = self.llcrnr_lat  * self.dlat
-        slon = self.llcrnr_lon  * self.dlon
+        slat = self.llcrnr_lat * self.dlat
+        slon = self.llcrnr_lon * self.dlon
         lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
         lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
         lonlist = [lon[x - 1] for x in xindx]
