@@ -495,7 +495,7 @@ class ModelBin:
         ahash = self.parse_hdata3(hdata3, ahash)
 
         # read record 4 which gives information about vertical levels.
-        hdata4a = np.fromfile(fid, dtype=rec4a, count=1)  # gets nmber of levels
+        hdata4a = np.fromfile(fid, dtype=rec4a, count=1)
         hdata4b = np.fromfile(
             fid, dtype=rec4b, count=hdata4a["nlev"][0]
         )  # reads levels, count is number of levels.
@@ -915,8 +915,8 @@ def add_species(dset, species=None):
     else:
         for val in species:
             if val not in splist:
-                warn = "WARNING: hysplit.add_species function : species not found "
-                warn += str(val) + "\n"
+                warn = "WARNING: hysplit.add_species function"
+                warn += ": species not found" + str(val) + "\n"
                 warn += " valid species ids are " + str.join(", ", splist)
                 print(warn)
     sss = 0
