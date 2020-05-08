@@ -162,10 +162,6 @@ class ModelBin:
         self.zeroconcdates = []
         # list of tuples  of averaging periods with nonzero concentrtations]
         self.nonzeroconcdates = []
-        self.sourcedate = []
-        #self.slat = []
-        #self.slon = []
-        #self.sht = []
         self.atthash = {}
         self.atthash["Starting Locations"] = []
         self.atthash["Source Date"] = []
@@ -337,17 +333,11 @@ class ModelBin:
 
         # Loop through starting locations
         for nnn in range(0, nstartloc):
-            print('NNN', nnn, nstartloc)
             # create list of starting latitudes, longitudes and heights.
-            #self.slat.append(hdata2["s_lat"][nnn])
-            #self.slon.append(hdata2["s_lon"][nnn])
-            #self.sht.append(hdata2["s_ht"][nnn])
             lat = hdata2["s_lat"][nnn]
             lon = hdata2["s_lon"][nnn]
             ht = hdata2["s_ht"][nnn]
-            self.atthash["Starting Locations"].append(
-            (lat,lon,ht)
-            )
+            self.atthash["Starting Locations"].append((lat, lon, ht))
 
             # try to guess century if century not given
             if century is None:
@@ -366,7 +356,6 @@ class ModelBin:
                 hdata2["r_hr"][nnn],
                 hdata2["r_min"][nnn],
             )
-            self.sourcedate.append(sourcedate)
             self.atthash["Source Date"].append(sourcedate)
         return century
 
@@ -448,16 +437,12 @@ class ModelBin:
         xindx : list
         yindx : list
         """
-        # output center of grid squares, not lower left corner.
-        # by changing start point of the list.
-        slat = self.llcrnr_lat + 0.5 * self.dlat 
-        slon = self.llcrnr_lon + 0.5 * self.dlon
-        lat = np.arange(
-            slat, slat + self.nlat * self.dlat, self.dlat
-        )
-        lon = np.arange(
-            slon, slon + self.nlon * self.dlon, self.dlon
-        )
+        # checked HYSPLIT code. the grid points
+        # do represent center of the sampling area.
+        slat = self.llcrnr_lat  * self.dlat
+        slon = self.llcrnr_lon  * self.dlon
+        lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
+        lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
         lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
         mgrid = np.meshgrid(lonlist, latlist)
@@ -551,9 +536,9 @@ class ModelBin:
                     # record 8a has the number of elements (ne). If number of
                     # elements greater than 0 than there are concentrations.
                     hdata8a = np.fromfile(fid, dtype=rec8a, count=1)
-                    #self.atthash["Species ID"].append(
+                    # self.atthash["Species ID"].append(
                     #    hdata8a["poll"][0].decode("UTF-8")
-                    #)
+                    # )
                     # if number of elements is nonzero then
                     if hdata8a["ne"] >= 1:
                         self.atthash["Species ID"].append(
@@ -598,7 +583,7 @@ class ModelBin:
             if inc_iii:
                 iii += 1
         self.atthash["Concentration Grid"] = ahash
-        print('KEYS', self.atthash.keys())
+        print("KEYS", self.atthash.keys())
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -634,6 +619,7 @@ class ModelBin:
 
 # combine_cdump creates a 6 dimensional xarray dataarray object from cdump files.
 #
+
 
 def combine_dataset(blist, drange=None, species=None, verbose=False):
     """
@@ -745,7 +731,7 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
         slist.append(sourcelist[jjj])
         jjj += 1
 
-    print('DTLIST', dtlist)
+    print("DTLIST", dtlist)
     dtlist = list(set(dtlist))
     print("DT", dtlist, dtlist[0])
     dt = dtlist[0]
@@ -786,10 +772,9 @@ def get_latlongrid(dset, xindx, yindx):
     nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
     dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
     dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
-    
 
-    lat = np.arange(llcrnr_lat+0.5*dlat, llcrnr_lat + nlat * dlat, dlat)
-    lon = np.arange(llcrnr_lon+0.5*dlon, llcrnr_lon + nlon * dlon, dlon)
+    lat = np.arange(llcrnr_lat + 0.5 * dlat, llcrnr_lat + nlat * dlat, dlat)
+    lon = np.arange(llcrnr_lon + 0.5 * dlon, llcrnr_lon + nlon * dlon, dlon)
     print(nlat, nlon, dlat, dlon)
     print("lon shape", lon.shape)
     print("lat shape", lat.shape)
@@ -846,8 +831,9 @@ def hysp_massload(dset, threshold=0, mult=1):
     return total_aml
 
 
-def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
-                 mass_load=True, species=None):
+def hysp_heights(
+    dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None
+):
     """ Calculate top-height from HYSPLIT xarray
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
@@ -922,17 +908,17 @@ def add_species(dset, species=None):
                if none then all ids in the "species ID" attribute will be used.
      Calculate sum of particles.
     """
-    sflist = [] 
+    sflist = []
     splist = dset.attrs["Species ID"]
     if not species:
-       species = dset.attrs["Species ID"]
+        species = dset.attrs["Species ID"]
     else:
-       for val in species:
-           if val not in splist:
-              warn = 'WARNING: hysplit.add_species function : species not found '
-              warn += str(val) + '\n'
-              warn += ' valid species ids are ' + str.join(', ', splist)
-              print(warn)
+        for val in species:
+            if val not in splist:
+                warn = "WARNING: hysplit.add_species function : species not found "
+                warn += str(val) + "\n"
+                warn += " valid species ids are " + str.join(", ", splist)
+                print(warn)
     sss = 0
     tmp = []
     # Looping through all species in dataset
