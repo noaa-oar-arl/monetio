@@ -49,7 +49,7 @@ ModelBin
 #    return geometry.SwathDefinition(lons=ds.longitude.values, lats=ds.latitude.values)
 
 
-def open_dataset(fname, drange=None, verbose=False):
+def open_dataset(fname, drange=None, century=None, verbose=False):
     """Short summary.
 
     Parameters
@@ -61,6 +61,8 @@ def open_dataset(fname, drange=None, verbose=False):
         cdump file contains concentration as function of time. The drange
         specifies what times should be loaded from the file. A value of None
         will result in all times being loaded.
+
+    century : integer (1900 or 2000)
 
     verbose : boolean
         If True will print out extra messages
@@ -78,7 +80,9 @@ def open_dataset(fname, drange=None, verbose=False):
     string by using decode('UTF-8').
     """
     # open the dataset using xarray
-    binfile = ModelBin(fname, drange=drange, verbose=verbose, readwrite="r")
+    binfile = ModelBin(
+        fname, drange=drange, century=century, verbose=verbose, readwrite="r"
+    )
     dset = binfile.dset
     # return dset
     # get the grid information
@@ -174,6 +178,8 @@ class ModelBin:
         self.levels = None
 
         if readwrite == "r":
+            if verbose:
+                print("reading " + filename)
             self.dataflag = self.readfile(
                 filename, drange, verbose=verbose, century=century
             )
@@ -522,10 +528,11 @@ class ModelBin:
             hdata7 = np.fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
-                print(check, pdate1, pdate2)
+                print("check", check, pdate1, pdate2)
                 break
             testf, savedata = check_drange(drange, pdate1, pdate2)
-            print("sample time", pdate1, " to ", pdate2)
+            if verbose:
+                print("sample time", pdate1, " to ", pdate2)
             # datelist = []
             self.atthash["Species ID"] = []
             inc_iii = False
@@ -563,8 +570,8 @@ class ModelBin:
                         inc_iii = True
                         concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
                         dset = xr.Dataset.from_dataframe(concframe)
-                        if verbose:
-                            print("Adding ", "Pollutant", pollutant, "Level", lev)
+                        # if verbose:
+                        #    print("Adding ", "Pollutant", pollutant, "Level", lev)
                         # if this is the first time through. create dataframe
                         # for first level and pollutant.
                         if self.dset is None:
@@ -583,7 +590,6 @@ class ModelBin:
             if inc_iii:
                 iii += 1
         self.atthash["Concentration Grid"] = ahash
-        print("KEYS", self.atthash.keys())
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -597,9 +603,9 @@ class ModelBin:
 
             self.dset = self.dset.reset_coords()
             self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
-        if verbose:
-            print(self.dset)
-        if iii == 0:
+        # if verbose:
+        #    print(self.dset)
+        if iii == 0 and verbose:
             print(
                 "Warning: ModelBin class _readfile method: no data in the date range found"
             )
@@ -621,7 +627,7 @@ class ModelBin:
 #
 
 
-def combine_dataset(blist, drange=None, species=None, verbose=False):
+def combine_dataset(blist, drange=None, species=None, century=None, verbose=False):
     """
     Inputs :
       blist : list of tuples
@@ -666,15 +672,18 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
         for fname in blist[key]:
             # print('ALIGNING', iii, fname, key)
             if drange:
-                binfile = ModelBin(
-                    fname[0], drange=drange, verbose=verbose, readwrite="r"
+                century = int(drange[0].year / 100) * 100
+                # binfile = ModelBin(
+                #    fname[0], drange=drange, century=century,
+                #    verbose=verbose, readwrite="r")
+                # hxr = binfile.dset
+                hxr = open_dataset(
+                    fname[0], drange=drange, century=century, verbose=verbose
                 )
-                hxr = binfile.dset
-                hxr = open_dataset(fname[0], drange=drange)
             else:  # use all dates
-                print("open ", fname[0])
-                binfile = ModelBin(fname[0], verbose=verbose, readwrite="r")
-                hxr = binfile.dset
+                # binfile = ModelBin(fname[0], century=century, verbose=verbose, readwrite="r")
+                hxr = open_dataset(fname[0], century=century, verbose=verbose)
+                # hxr = binfile.dset
                 # try:
                 #    hxr = open_dataset(fname[0])
                 # except:
@@ -705,8 +714,8 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             iii += 1
         sourcelist.append(key)
         xlist.append(xsublist)
-    if verbose:
-        print("aligned --------------------------------------")
+    # if verbose:
+    #    print("aligned --------------------------------------")
     # xnew is now encompasses the area of all the data-arrays
     # now go through and expand each one to the size of xnew.
     iii = 0
@@ -726,19 +735,14 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             hlist.append(aaa)
         # concat along the 'ens' axis
         new = xr.concat(hlist, "ens")
-        print("HERE NEW", new)
         ylist.append(new)
         slist.append(sourcelist[jjj])
         jjj += 1
 
-    print("DTLIST", dtlist)
     dtlist = list(set(dtlist))
-    print("DT", dtlist, dtlist[0])
     dt = dtlist[0]
     newhxr = xr.concat(ylist, "source")
-    print("sourcelist", slist)
     newhxr["source"] = slist
-    print("NEW NEW NEW", newhxr)
     # newhxr['ens'] = metlist
 
     # calculate the lat lon grid for the expanded dataset.
@@ -775,11 +779,11 @@ def get_latlongrid(dset, xindx, yindx):
 
     lat = np.arange(llcrnr_lat + 0.5 * dlat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon + 0.5 * dlon, llcrnr_lon + nlon * dlon, dlon)
-    print(nlat, nlon, dlat, dlon)
-    print("lon shape", lon.shape)
-    print("lat shape", lat.shape)
-    print(lat)
-    print(lon)
+    # print(nlat, nlon, dlat, dlon)
+    # print("lon shape", lon.shape)
+    # print("lat shape", lat.shape)
+    # print(lat)
+    # print(lon)
     lonlist = [lon[x - 1] for x in xindx]
     latlist = [lat[x - 1] for x in yindx]
     mgrid = np.meshgrid(lonlist, latlist)
