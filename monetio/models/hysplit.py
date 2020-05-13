@@ -445,8 +445,8 @@ class ModelBin:
         """
         # checked HYSPLIT code. the grid points
         # do represent center of the sampling area.
-        slat = self.llcrnr_lat 
-        slon = self.llcrnr_lon 
+        slat = self.llcrnr_lat
+        slon = self.llcrnr_lon
         lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
         lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
         lonlist = [lon[x - 1] for x in xindx]
@@ -809,6 +809,7 @@ def getlatlon(dset):
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
     return lat, lon
 
+
 def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     """ Calculate mass loading from HYSPLIT xarray
     INPUTS
@@ -826,7 +827,7 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     aml_alts = calc_aml(dset)
     # Then choose which levels to use for total mass loading.
     if zvals:
-       aml_alts = aml_alts.sel(z=zvals)
+        aml_alts = aml_alts.sel(z=zvals)
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
     # unitmass, mass63 = calc_MER(dset)
@@ -837,6 +838,7 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     total_aml_thresh = hysp_thresh(dset, threshold, mult=mult)
     total_aml = total_aml2 * total_aml_thresh
     return total_aml
+
 
 def hysp_heights(
     dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None
