@@ -76,7 +76,6 @@ def open_dataset(date=None, filename=None, satellite="16", product=None):
                 raise ValueError
         except ValueError:
             print("Please provide a date and product to be able to retrieve data from Amazon S3")
-            exit
         ds = g.open_amazon_file(date=date, satellite=satellite, product=product)
     else:
         ds = g.open_local(filename)
@@ -104,7 +103,6 @@ class GOES(object):
                 self.url = "{}{}/".format(self.baseurl, product)
         except ValueError:
             print("kwarg product must have a value")
-            exit
 
     def get_products(self):
         products = [value.split("/")[-1] for value in self.fs.ls(self.baseurl)[:-1]]
@@ -148,16 +146,14 @@ class GOES(object):
                 else:
                     return product
             else:
-                print("Please install s3fs to retrieve product information from Amazon S3")
                 raise ImportError
         except ImportError:
-            exit
+            print("Please install s3fs to retrieve product information from Amazon S3")
         except ValueError:
             print("Product: ", product, "not found")
             print("Available products:")
             for i in products:
                 print("    ", i)
-            exit
 
     def open_amazon_file(self, date=None, product=None, satellite="16"):
         self.date = pd.Timestamp(date)
@@ -194,8 +190,8 @@ class GOES(object):
         lon, lat = proj(xx, yy, inverse=True)
         ds["latitude"] = (("y", "x"), lat)
         ds["longitude"] = (("y", "x"), lon)
-        ds["longitude"] = ds.longitude.fillna(1e30)
-        ds["latitude"] = ds.latitude.fillna(1e30)
+        ds["longitude"] = ds.longitude.where(ds.longitude < 400).fillna(1e30)
+        ds["latitude"] = ds.latitude.where(ds.latitude < 100).fillna(1e30)
         ds = ds.set_coords(["latitude", "longitude"])
         return ds
 
