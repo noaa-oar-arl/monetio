@@ -62,7 +62,7 @@ def get_header(jsonf):
 
     """
 
-    header = json['Header']
+    header = jsonf['Header']
     header = pd.DataFrame.from_dict(header)
     return header
 
