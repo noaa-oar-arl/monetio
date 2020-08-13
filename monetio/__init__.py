@@ -11,6 +11,7 @@ ish = obs.ish
 ish_lite = obs.ish_lite
 nadp = obs.nadp
 openaq = obs.openaq
+pams = obs.pams
 
 # models
 fv3chem = models.fv3chem
