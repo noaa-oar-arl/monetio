@@ -28,7 +28,7 @@ def open_dataset(fname,
     earth_radius : float
         The earth radius used for the map projection
     convert_to_ppb : boolean
-        If true the units of the gas species will be converted to ppbV
+        If true the units of the gas species will be converted to ppbv
 
     Returns
     -------
@@ -83,9 +83,9 @@ def open_dataset(fname,
     if convert_to_ppb:
         for i in dset.variables:
             if 'units' in dset[i].attrs:
-                if 'ppmV' in dset[i].attrs['units']:
+                if 'ppmv' in dset[i].attrs['units']:
                     dset[i] *= 1000.
-                    dset[i].attrs['units'] = 'ppbV'
+                    dset[i].attrs['units'] = 'ppbv'
 
     # convert 'micrograms to \mu g'
     for i in dset.variables:
@@ -111,7 +111,7 @@ def open_mfdataset(fname,
     earth_radius : float
         The earth radius used for the map projection
     convert_to_ppb : boolean
-        If true the units of the gas species will be converted to ppbV
+        If true the units of the gas species will be converted to ppbv
 
     Returns
     -------
@@ -167,9 +167,9 @@ def open_mfdataset(fname,
     if convert_to_ppb:
         for i in dset.variables:
             if 'units' in dset[i].attrs:
-                if 'ppmV' in dset[i].attrs['units']:
+                if 'ppmv' in dset[i].attrs['units']:
                     dset[i] *= 1000.
-                    dset[i].attrs['units'] = 'ppbV'
+                    dset[i].attrs['units'] = 'ppbv'
 
     # convert 'micrograms to \mu g'
     for i in dset.variables:
