@@ -31,25 +31,9 @@ ModelBin
 """
 
 
-# def _hysplit_latlon_grid_from_dataset(ds):
-#    pargs = dict()
-#    pargs["lat_0"] = ds.latitude.mean()
-#    pargs["lon_0"] = ds.longitude.mean()
-#
-#    p4 = (
-#        "+proj=eqc +lat_ts={lat_0} +lat_0={lat_0} +lon_0={lon_0} "
-#        "+ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(**pargs)
-#    )
-#    return p4
-
-
-# def get_hysplit_latlon_pyresample_area_def(ds, proj4_srs):
-#    from pyresample import geometry
-#
-#    return geometry.SwathDefinition(lons=ds.longitude.values, lats=ds.latitude.values)
-
-
-def open_dataset(fname, drange=None, century=None, verbose=False):
+def open_dataset(
+    fname, drange=None, century=None, verbose=False, sample_time_stamp="start"
+):
     """Short summary.
 
     Parameters
@@ -67,6 +51,10 @@ def open_dataset(fname, drange=None, century=None, verbose=False):
     verbose : boolean
         If True will print out extra messages
 
+    sample_time_stamp : str
+        if 'end' then time in xarray will be the end of sampling time period.
+        else time is start of sampling time period.
+
     addgrid : boolean
         assigns an area attribute to each variable
 
@@ -81,7 +69,12 @@ def open_dataset(fname, drange=None, century=None, verbose=False):
     """
     # open the dataset using xarray
     binfile = ModelBin(
-        fname, drange=drange, century=century, verbose=verbose, readwrite="r"
+        fname,
+        drange=drange,
+        century=century,
+        verbose=verbose,
+        readwrite="r",
+        sample_time_stamp=sample_time_stamp,
     )
     dset = binfile.dset
     # return dset
@@ -144,7 +137,13 @@ class ModelBin:
     """
 
     def __init__(
-        self, filename, drange=None, century=None, verbose=True, readwrite="r"
+        self,
+        filename,
+        drange=None,
+        century=None,
+        verbose=True,
+        readwrite="r",
+        sample_time_stamp="start",
     ):
         """
         drange :  list of two datetime objects.
@@ -152,6 +151,9 @@ class ModelBin:
         sample start is greater thand drange[0] and less than drange[1]
         for which the sample stop is less than drange[1].
 
+        sample_time_stamp : str
+              if 'end' - time in xarray will indicate end of sampling time.
+              else  - time in xarray will indicate start of sampling time. 
         century : integer
         verbose : boolean
         read
@@ -169,6 +171,7 @@ class ModelBin:
         self.atthash = {}
         self.atthash["Starting Locations"] = []
         self.atthash["Source Date"] = []
+        self.sample_time_stamp = sample_time_stamp
         self.llcrnr_lon = None
         self.llcrnr_lat = None
         self.nlat = None
@@ -402,6 +405,10 @@ class ModelBin:
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
         self.atthash["Sampling Time"] = pdate2 - pdate1
         self.atthash["sample time hours"] = sample_dt
+        if self.sample_time_stamp == "end":
+            self.atthash["time description"] = "End of sampling time period"
+        else:
+            self.atthash["time description"] = "start of sampling time period"
         return True, pdate1, pdate2
 
     @staticmethod
@@ -528,7 +535,7 @@ class ModelBin:
             hdata7 = np.fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
-                print("check", check, pdate1, pdate2)
+                # print("check", check, pdate1, pdate2)
                 break
             testf, savedata = check_drange(drange, pdate1, pdate2)
             if verbose:
@@ -568,7 +575,10 @@ class ModelBin:
                     if savedata and hdata8a["ne"] >= 1:
                         self.nonzeroconcdates.append(pdate1)
                         inc_iii = True
-                        concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
+                        if self.sample_time_stamp == "end":
+                            concframe = self.parse_hdata8(hdata8a, hdata8b, pdate2)
+                        else:
+                            concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
                         dset = xr.Dataset.from_dataframe(concframe)
                         # if verbose:
                         #    print("Adding ", "Pollutant", pollutant, "Level", lev)
@@ -627,7 +637,14 @@ class ModelBin:
 #
 
 
-def combine_dataset(blist, drange=None, species=None, century=None, verbose=False):
+def combine_dataset(
+    blist,
+    drange=None,
+    species=None,
+    century=None,
+    verbose=False,
+    sample_time_stamp="start",
+):
     """
     Inputs :
       blist : list of tuples
@@ -636,6 +653,10 @@ def combine_dataset(blist, drange=None, species=None, century=None, verbose=Fals
     drange : list of two datetime objects.
      d1 datetime object. first date to keep in DatArrayarray
      d2 datetime object. last date to keep in DataArray
+
+    sample_time_stamp : str
+        if 'end' then time in xarray will be the end of sampling time period.
+        else time is start of sampling time period.
 
     RETURNS
      newhxr : an xarray data-array with 6 dimensions.
@@ -670,26 +691,29 @@ def combine_dataset(blist, drange=None, species=None, century=None, verbose=Fals
         fname = val[0]
         xsublist = []
         for fname in blist[key]:
-            # print('ALIGNING', iii, fname, key)
             if drange:
                 century = int(drange[0].year / 100) * 100
-                # binfile = ModelBin(
-                #    fname[0], drange=drange, century=century,
-                #    verbose=verbose, readwrite="r")
-                # hxr = binfile.dset
                 hxr = open_dataset(
-                    fname[0], drange=drange, century=century, verbose=verbose
+                    fname[0],
+                    drange=drange,
+                    century=century,
+                    verbose=verbose,
+                    sample_time_stamp=sample_time_stamp,
                 )
             else:  # use all dates
-                # binfile = ModelBin(fname[0], century=century, verbose=verbose, readwrite="r")
-                hxr = open_dataset(fname[0], century=century, verbose=verbose)
-                # hxr = binfile.dset
-                # try:
-                #    hxr = open_dataset(fname[0])
-                # except:
-                #    print('failed to open ', fname[0])
-                #    sys.exit()
-            mlat, mlon = getlatlon(hxr)
+                hxr = open_dataset(
+                    fname[0],
+                    century=century,
+                    verbose=verbose,
+                    sample_time_stamp=sample_time_stamp,
+                )
+            try:
+                mlat, mlon = getlatlon(hxr)
+            except:
+                print("WARNING Cannot open ")
+                print(fname[0])
+                print(century)
+                print(hxr)
             if iii > 0:
                 t1 = np.array_equal(mlat, mlat_p)
                 t2 = np.array_equal(mlon, mlon_p)
@@ -757,6 +781,9 @@ def combine_dataset(blist, drange=None, species=None, century=None, verbose=Fals
     # dt is the averaging time of the hysplit output.
     newhxr = newhxr.assign_attrs({"sample time hours": dt})
     newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
+    keylist = ["time description"]
+    for key in keylist:
+        newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
     return newhxr
 
 
