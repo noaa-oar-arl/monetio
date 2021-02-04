@@ -519,6 +519,7 @@ class ModelBin:
         np.fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
         np.fromfile(fid, dtype=rec5c, count=1)
         self.atthash["Number of Species"] = hdata5a["pollnum"][0]
+        self.atthash["Species ID"] = []
 
         # Loop to reads records 6-8. Number of loops is equal to number of
         # output times.
@@ -541,7 +542,6 @@ class ModelBin:
             if verbose:
                 print("sample time", pdate1, " to ", pdate2)
             # datelist = []
-            self.atthash["Species ID"] = []
             inc_iii = False
             # LOOP to go through each level
             for lev in range(self.atthash["Number of Levels"]):
