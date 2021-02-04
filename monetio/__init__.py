@@ -30,6 +30,7 @@ icartt = profile.icartt
 tolnet = profile.tolnet
 
 # sat
+goes = sat.goes
 
 __all__ = ["models", "obs", "sat", "util", "grids", "profile"]
 
