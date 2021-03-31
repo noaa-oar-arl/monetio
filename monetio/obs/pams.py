@@ -5,7 +5,7 @@ import json
 import pandas as pd
 
 
-def open_dataset(filename):
+def add_data(filename):
     """ Opens a json file, returns data array
 
     Parameters
@@ -17,70 +17,10 @@ def open_dataset(filename):
     -----------------
     data: Pandas DataFrame
             DataFrame with all pertinent information
-
+            Date and Time are Datetime Objects
     """
 
     jsonf = open_json(filename)
-    data = get_data(jsonf)
-
-    return data
-
-
-def open_json(filename):
-    """ Opens the json file
-
-
-    Parameters
-    ----------------
-    filename: string
-           Full file path for json file
-
-    Returns
-    ----------------
-    jsonf: dictionary
-           Json file is opened and ready to be used by other functions in this code
-           Contains two dictionaries: 'Header' and 'Data'
-
-    """
-
-    with open(filename) as f:
-        jsonf = json.load(f)
-    return jsonf
-
-
-def get_header(jsonf):
-    """Finds basic header information in json file
-
-
-    Parameters
-    ----------------
-    jsonf: dictionary
-
-    Results
-    ----------------
-    header: Pandas DataFrame
-
-    """
-
-    header = jsonf['Header']
-    header = pd.DataFrame.from_dict(header)
-    return header
-
-
-def get_data(jsonf):
-    """ Finds data in json file
-
-    Parameters
-    ----------------
-    jsonf: dictionary
-
-    Results
-    ----------------
-    data: Pandas DataFrame
-             DataFrame containing pertinent information
-             Date and Time are Datetime Objects
-
-    """
     dataf = jsonf['Data']
     data = pd.DataFrame.from_dict(dataf)
 
@@ -120,6 +60,48 @@ def get_data(jsonf):
         if i == 'Parts per million':
             data.loc[con, 'units'] = 'ppm'
     return data
+
+
+def open_json(filename):
+    """ Opens the json file
+
+
+    Parameters
+    ----------------
+    filename: string
+           Full file path for json file
+
+    Returns
+    ----------------
+    jsonf: dictionary
+           Json file is opened and ready to be used by other functions in this code
+           Contains two dictionaries: 'Header' and 'Data'
+
+    """
+
+    with open(filename) as f:
+        jsonf = json.load(f)
+    return jsonf
+
+
+def get_header(filename):
+    """Finds basic header information in json file
+
+
+    Parameters
+    ----------------
+    filename: string
+           Full file path for json file
+
+    Results
+    ----------------
+    header: Pandas DataFrame
+
+    """
+    jsonf = open_json(filename)
+    header = jsonf['Header']
+    header = pd.DataFrame.from_dict(header)
+    return header
 
 
 def write_csv(array, filename):
