@@ -396,10 +396,10 @@ class ModelBin:
         if not hdata6:
             return False, None, None
         pdate1 = datetime.datetime(
-            century + hdata6["oyear"], hdata6["omonth"], hdata6["oday"], hdata6["ohr"]
+            century + hdata6["oyear"], hdata6["omonth"], hdata6["oday"], hdata6["ohr"],hdata6["omin"]
         )
         pdate2 = datetime.datetime(
-            century + hdata7["oyear"], hdata7["omonth"], hdata7["oday"], hdata7["ohr"]
+            century + hdata7["oyear"], hdata7["omonth"], hdata7["oday"], hdata7["ohr"],hdata7["omin"]
         )
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
