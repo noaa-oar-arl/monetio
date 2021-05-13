@@ -28,6 +28,11 @@ Classes
 --------
 ModelBin
 
+Change log
+
+2021 13 May  AMC  get_latlongrid needed to be updated to match makegrid method.
+
+
 """
 
 
@@ -529,14 +534,13 @@ class ModelBin:
         ii = 0  # check to make sure don't go above max number of iterations
         iii = 0  # checks to see if some nonzero data was saved in xarray
         # Safety valve - will not allow more than 1000 loops to be executed.
-        imax = 1e3
+        imax = 1e8
         testf = True
         while testf:
             hdata6 = np.fromfile(fid, dtype=rec6, count=1)
             hdata7 = np.fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
-                # print("check", check, pdate1, pdate2)
                 break
             testf, savedata = check_drange(drange, pdate1, pdate2)
             if verbose:
@@ -597,6 +601,7 @@ class ModelBin:
             #  imax iterations.
             if ii > imax:
                 testf = False
+                print('greater than imax', testf, ii, imax)
             if inc_iii:
                 iii += 1
         self.atthash["Concentration Grid"] = ahash
@@ -604,6 +609,7 @@ class ModelBin:
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
         if self.dset is None:
+            print('DSET is NONE')
             return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
@@ -796,6 +802,8 @@ def get_latlongrid(dset, xindx, yindx):
     RETURNS
     mgrid : output of numpy meshgrid function.
             Two 2d arrays of latitude, longitude. 
+    The grid points in cdump file
+    represent center of the sampling area.
     """
     llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
     llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
@@ -804,17 +812,20 @@ def get_latlongrid(dset, xindx, yindx):
     dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
     dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
 
-    lat = np.arange(llcrnr_lat + 0.5 * dlat, llcrnr_lat + nlat * dlat, dlat)
-    lon = np.arange(llcrnr_lon + 0.5 * dlon, llcrnr_lon + nlon * dlon, dlon)
-    # print(nlat, nlon, dlat, dlon)
-    # print("lon shape", lon.shape)
-    # print("lat shape", lat.shape)
-    # print(lat)
-    # print(lon)
+    lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
+    lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
     lonlist = [lon[x - 1] for x in xindx]
     latlist = [lat[x - 1] for x in yindx]
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
+
+def get_index_fromgrid(dset, latgrid, longrid):
+    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
+    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
+    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
+    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
+    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
 
 
 def getlatlon(dset):
@@ -896,6 +907,10 @@ def hysp_heights(
     total_aml_thresh = hysp_thresh(dset, threshold, mult=mult)
     top_height = top_hgt * total_aml_thresh
     return top_height
+
+
+def calc_total_mass(dset):
+    return -1 
 
 
 def calc_aml(dset, species=None):
