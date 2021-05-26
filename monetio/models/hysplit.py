@@ -816,6 +816,9 @@ def fix_grid_continuity(dset):
     dummy = dummy.assign_coords(x=(('x'),xindx))
     dummy = dummy.assign_coords(y=(('y'),yindx))
     cdset, dummy2 = xr.align(dset,dummy,join='outer')     
+    cdset = cdset.assign_coords(latitude=(('y','x'),mgrid[1]))    
+    cdset = cdset.assign_coords(longitude=(('y','x'),mgrid[0]))    
+
     return cdset.fillna(0)
 
 def check_grid_continuity(dset):
