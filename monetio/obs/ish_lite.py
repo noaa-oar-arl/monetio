@@ -11,23 +11,9 @@ from dask.diagnostics import ProgressBar
 ProgressBar().register()
 
 
-def add_data(dates,
-             box=None,
-             country=None,
-             state=None,
-             site=None,
-             resample=True,
-             window='H',
-             n_procs=1):
+def add_data(dates, box=None, country=None, state=None, site=None, resample=True, window='H', n_procs=1):
     ish = ISH()
-    return ish.add_data(dates,
-                        box=box,
-                        country=country,
-                        state=state,
-                        site=site,
-                        resample=resample,
-                        window=window,
-                        n_procs=n_procs)
+    return ish.add_data(dates, box=box, country=country, state=state, site=site, resample=resample, window=window, n_procs=n_procs)
 
 
 class ISH(object):
@@ -51,23 +37,39 @@ class ISH(object):
     """
 
     def __init__(self):
-        self.WIDTHS = [
-            4, 2, 8, 4, 1, 6, 7, 5, 5, 5, 4, 3, 1, 1, 4, 1, 5, 1, 1, 1, 6, 1,
-            1, 1, 5, 1, 5, 1, 5, 1
+        self.WIDTHS = [4, 2, 8, 4, 1, 6, 7, 5, 5, 5, 4, 3, 1, 1, 4, 1, 5, 1, 1, 1, 6, 1, 1, 1, 5, 1, 5, 1, 5, 1]
+        self.DTYPES = [
+            ('varlength', 'i2'),
+            ('station_id', 'S11'),
+            ('date', 'i4'),
+            ('htime', 'i2'),
+            ('source_flag', 'S1'),
+            ('latitude', 'float'),
+            ('longitude', 'float'),
+            ('code', 'S5'),
+            ('elev', 'i2'),
+            ('call_letters', 'S5'),
+            ('qc_process', 'S4'),
+            ('wdir', 'i2'),
+            ('wdir_quality', 'S1'),
+            ('wdir_type', 'S1'),
+            ('ws', 'i2'),
+            ('ws_quality', 'S1'),
+            ('ceiling', 'i4'),
+            ('ceiling_quality', 'S1'),
+            ('ceiling_code', 'S1'),
+            ('ceiling_cavok', 'S1'),
+            ('vsb', 'i4'),
+            ('vsb_quality', 'S1'),
+            ('vsb_variability', 'S1'),
+            ('vsb_variability_quality', 'S1'),
+            ('t', 'i2'),
+            ('t_quality', 'S1'),
+            ('dpt', 'i2'),
+            ('dpt_quality', 'S1'),
+            ('p', 'i4'),
+            ('p_quality', 'S1'),
         ]
-        self.DTYPES = [('varlength', 'i2'), ('station_id', 'S11'),
-                       ('date', 'i4'), ('htime', 'i2'), ('source_flag', 'S1'),
-                       ('latitude', 'float'), ('longitude', 'float'),
-                       ('code', 'S5'), ('elev', 'i2'), ('call_letters', 'S5'),
-                       ('qc_process', 'S4'), ('wdir', 'i2'),
-                       ('wdir_quality', 'S1'), ('wdir_type', 'S1'),
-                       ('ws', 'i2'), ('ws_quality', 'S1'), ('ceiling', 'i4'),
-                       ('ceiling_quality', 'S1'), ('ceiling_code', 'S1'),
-                       ('ceiling_cavok', 'S1'), ('vsb', 'i4'),
-                       ('vsb_quality', 'S1'), ('vsb_variability', 'S1'),
-                       ('vsb_variability_quality', 'S1'), ('t', 'i2'),
-                       ('t_quality', 'S1'), ('dpt', 'i2'),
-                       ('dpt_quality', 'S1'), ('p', 'i4'), ('p_quality', 'S1')]
         self.NAMES, _ = list(zip(*self.DTYPES))
         self.history_file = 'https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv'
         self.history = None
@@ -87,9 +89,7 @@ class ISH(object):
             Description of returned object.
 
         """
-        frame_as_array = np.genfromtxt(file_object,
-                                       delimiter=self.WIDTHS,
-                                       dtype=self.DTYPES)
+        frame_as_array = np.genfromtxt(file_object, delimiter=self.WIDTHS, dtype=self.DTYPES)
         frame = pd.DataFrame.from_records(frame_as_array)
         df = self._clean(frame)
         df.drop(['latitude', 'longitude'], axis=1, inplace=True)
@@ -113,37 +113,21 @@ class ISH(object):
 
         """
         fname = self.history_file
-        self.history = pd.read_csv(fname,
-                                   parse_dates=['BEGIN', 'END'],
-                                   infer_datetime_format=True)
+        self.history = pd.read_csv(fname, parse_dates=['BEGIN', 'END'], infer_datetime_format=True)
         self.history.columns = [i.lower() for i in self.history.columns]
 
-        index1 = (self.history.end >= self.dates.min()) & (self.history.begin
-                                                           <= self.dates.max())
-        self.history = self.history.loc[index1, :].dropna(
-            subset=['lat', 'lon'])
+        index1 = (self.history.end >= self.dates.min()) & (self.history.begin <= self.dates.max())
+        self.history = self.history.loc[index1, :].dropna(subset=['lat', 'lon'])
 
-        self.history.loc[:, 'usaf'] = self.history.usaf.astype(
-            'str').str.zfill(6)
-        self.history.loc[:, 'wban'] = self.history.wban.astype(
-            'str').str.zfill(5)
+        self.history.loc[:, 'usaf'] = self.history.usaf.astype('str').str.zfill(6)
+        self.history.loc[:, 'wban'] = self.history.wban.astype('str').str.zfill(5)
         self.history['station_id'] = self.history.usaf + self.history.wban
-        self.history.rename(columns={
-            'lat': 'latitude',
-            'lon': 'longitude'
-        },
-            inplace=True)
+        self.history.rename(columns={'lat': 'latitude', 'lon': 'longitude'}, inplace=True)
 
-    def subset_sites(self,
-                     latmin=32.65,
-                     lonmin=-113.3,
-                     latmax=34.5,
-                     lonmax=-110.4):
+    def subset_sites(self, latmin=32.65, lonmin=-113.3, latmax=34.5, lonmax=-110.4):
         """ find sites within designated region"""
-        latindex = (self.history.latitude >= latmin) & (self.history.latitude
-                                                        <= latmax)
-        lonindex = (self.history.longitude >= lonmin) & (self.history.longitude
-                                                         <= lonmax)
+        latindex = (self.history.latitude >= latmin) & (self.history.latitude <= latmax)
+        lonindex = (self.history.longitude >= lonmin) & (self.history.longitude <= lonmax)
         dfloc = self.history.loc[latindex & lonindex, :]
         print('SUBSET')
         print(dfloc.latitude.unique())
@@ -163,11 +147,9 @@ class ISH(object):
         fnames = []
         print('Building AIRNOW URLs...')
         url = 'https://www1.ncdc.noaa.gov/pub/data/noaa/isd-lite'
-        dfloc['fname'] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(
-            str) + "-"
+        dfloc['fname'] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
         for date in self.dates.unique().astype(str):
-            dfloc['fname'] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(
-                str) + "-" + date + ".gz"
+            dfloc['fname'] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date + ".gz"
             for fname in dfloc.fname.values:
                 furls.append("{}/{}/{}".format(url, date, fname))
             # f = url + i.strftime('%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat')
@@ -182,42 +164,28 @@ class ISH(object):
 
     def read_csv(self, fname):
         from numpy import NaN
-        columns = [
-            'year', 'month', 'day', 'hour', 'temp', 'dew_pt_temp', 'press',
-            'wdir', 'ws', 'sky_condition', 'precip_1hr', 'precip_6hr'
-        ]
-        df = pd.read_csv(fname,
-                         delim_whitespace=True,
-                         header=None,
-                         names=columns,
-                         parse_dates={'time': [0, 1, 2, 3]},
-                         infer_datetime_format=True)
-        df['temp'] /= 10.
-        df['dew_pt_temp'] /= 10.
-        df['press'] /= 10.
-        df['ws'] /= 10.
-        df['precip_1hr'] /= 10.
-        df['precip_6hr'] /= 10.
+
+        columns = ['year', 'month', 'day', 'hour', 'temp', 'dew_pt_temp', 'press', 'wdir', 'ws', 'sky_condition', 'precip_1hr', 'precip_6hr']
+        df = pd.read_csv(fname, delim_whitespace=True, header=None, names=columns, parse_dates={'time': [0, 1, 2, 3]}, infer_datetime_format=True)
+        df['temp'] /= 10.0
+        df['dew_pt_temp'] /= 10.0
+        df['press'] /= 10.0
+        df['ws'] /= 10.0
+        df['precip_1hr'] /= 10.0
+        df['precip_6hr'] /= 10.0
         df = df.replace(-9999, NaN)
         return df
 
     def aggregrate_files(self, urls, n_procs=1):
         import dask
         import dask.dataframe as dd
+
         dfs = [dask.delayed(read_csv)(f) for f in urls]
         dff = dd.from_delayed(dfs)
         df = dff.compute(num_workers=n_procs)
         return df
 
-    def add_data(self,
-                 dates,
-                 box=None,
-                 country=None,
-                 state=None,
-                 site=None,
-                 resample=True,
-                 window='H',
-                 n_procs=1):
+    def add_data(self, dates, box=None, country=None, state=None, site=None, resample=True, window='H', n_procs=1):
         """Short summary.
 
         Parameters
@@ -247,10 +215,7 @@ class ISH(object):
         dfloc = self.history.copy()
         if box is not None:  # type(box) is not type(None):
             print('Retrieving Sites in: ' + ' '.join(map(str, box)))
-            dfloc = self.subset_sites(latmin=box[0],
-                                      lonmin=box[1],
-                                      latmax=box[2],
-                                      lonmax=box[3])
+            dfloc = self.subset_sites(latmin=box[0], lonmin=box[1], latmax=box[2], lonmax=box[3])
         elif country is not None:
             print('Retrieving Country: ' + country)
             dfloc = self.history.loc[self.history.ctry == country, :]
@@ -280,6 +245,7 @@ class ISH(object):
         import gzip
         import shutil
         import requests
+
         objs = []
         print('  Constructing ISH file objects from urls...')
         mmm = 0

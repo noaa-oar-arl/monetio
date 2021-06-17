@@ -26,6 +26,7 @@
 
 import inspect
 import os
+
 # this is written to retrive airnow data concatenate and add to pandas array
 # for usage
 from builtins import object
@@ -36,18 +37,27 @@ import pandas as pd
 datadir = '.'
 cwd = os.getcwd()
 url = None
-dates = [
-    datetime.strptime('2016-06-06 12:00:00', '%Y-%m-%d %H:%M:%S'),
-    datetime.strptime('2016-06-06 13:00:00', '%Y-%m-%d %H:%M:%S')
-]
+dates = [datetime.strptime('2016-06-06 12:00:00', '%Y-%m-%d %H:%M:%S'), datetime.strptime('2016-06-06 13:00:00', '%Y-%m-%d %H:%M:%S')]
 daily = False
 objtype = 'AirNow'
 filelist = None
 monitor_df = None
 savecols = [
-    'time', 'siteid', 'site', 'utcoffset', 'variable', 'units', 'obs',
-    'time_local', 'latitude', 'longitude', 'cmsa_name', 'msa_code', 'msa_name',
-    'state_name', 'epa_region'
+    'time',
+    'siteid',
+    'site',
+    'utcoffset',
+    'variable',
+    'units',
+    'obs',
+    'time_local',
+    'latitude',
+    'longitude',
+    'cmsa_name',
+    'msa_code',
+    'msa_name',
+    'state_name',
+    'epa_region',
 ]
 
 
@@ -93,21 +103,11 @@ def read_csv(fn):
 
     """
     try:
-        dft = pd.read_csv(fn,
-                          delimiter='|',
-                          header=None,
-                          error_bad_lines=False,
-                          encoding='ISO-8859-1')
-        cols = [
-            'date', 'time', 'siteid', 'site', 'utcoffset', 'variable', 'units',
-            'obs', 'source'
-        ]
+        dft = pd.read_csv(fn, delimiter='|', header=None, error_bad_lines=False, encoding='ISO-8859-1')
+        cols = ['date', 'time', 'siteid', 'site', 'utcoffset', 'variable', 'units', 'obs', 'source']
         dft.columns = cols
     except Exception:
-        cols = [
-            'date', 'time', 'siteid', 'site', 'utcoffset', 'variable', 'units',
-            'obs', 'source'
-        ]
+        cols = ['date', 'time', 'siteid', 'site', 'utcoffset', 'variable', 'units', 'obs', 'source']
         dft = pd.DataFrame(columns=cols)
     dft['obs'] = dft.obs.astype(float)
     dft['siteid'] = dft.siteid.str.zfill(9)
@@ -169,9 +169,7 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     dff = dd.from_delayed(dfs)
     df = dff.compute(num_workers=n_procs)
-    df['time'] = pd.to_datetime(df.date + ' ' + df.time,
-                                format='%m/%d/%y %H:%M',
-                                exact=True)
+    df['time'] = pd.to_datetime(df.date + ' ' + df.time, format='%m/%d/%y %H:%M', exact=True)
     df.drop(['date'], axis=1, inplace=True)
     df['time_local'] = df.time + pd.to_timedelta(df.utcoffset, unit='H')
     print('    Adding in Meta-data')
@@ -199,9 +197,11 @@ def add_data(dates, download=False, wide_fmt=True, n_procs=1):
 
     """
     from ..util import long_to_wide
+
     df = aggregate_files(dates=dates, download=download, n_procs=n_procs)
     if wide_fmt:
-        return long_to_wide(df)
+        df = long_to_wide(df)
+        return df.drop_duplicates(subset=['time', 'latitude', 'longitude', 'siteid'])
     else:
         return df
     return df
@@ -217,6 +217,7 @@ def filter_bad_values(df):
 
     """
     from numpy import NaN
+
     df.loc[(df.obs > 3000) | (df.obs < 0), 'obs'] = NaN
     return df
 
@@ -250,6 +251,7 @@ def get_station_locations(df):
 
     """
     from .epa_util import read_monitor_file
+
     monitor_df = read_monitor_file(airnow=True)
     df = pd.merge(df, monitor_df, on='siteid')  # , how='left')
     return df
@@ -269,8 +271,6 @@ def get_station_locations_remerge(df):
         Description of returned object.
 
     """
-    df = pd.merge(df,
-                  monitor_df.drop(['Latitude', 'Longitude'], axis=1),
-                  on='siteid')  # ,
+    df = pd.merge(df, monitor_df.drop(['Latitude', 'Longitude'], axis=1), on='siteid')  # ,
     # how='left')
     return df

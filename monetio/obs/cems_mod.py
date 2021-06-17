@@ -65,32 +65,32 @@ def get_date_fmt(date, verbose=False):
 
 class CEMS(object):
     """
-    Class for data from continuous emission monitoring systems (CEMS).
-    Data from power plants can be downloaded from
-    ftp://newftp.epa.gov/DMDNLoad/emissions/
+     Class for data from continuous emission monitoring systems (CEMS).
+     Data from power plants can be downloaded from
+     ftp://newftp.epa.gov/DMDNLoad/emissions/
 
-   Attributes
-    ----------
-    efile : type string
-        Description of attribute `efile`.
-    url : type string
-        Description of attribute `url`.
-    info : type string
-        Information about data.
-    df : pandas DataFrame
-        dataframe containing emissions data.
-   Methods
-    ----------
-    __init__(self)
-    add_data(self, rdate, states=['md'], download=False, verbose=True):
-    load(self, efile, verbose=True):
-    retrieve(self, rdate, state, download=True):
+    Attributes
+     ----------
+     efile : type string
+         Description of attribute `efile`.
+     url : type string
+         Description of attribute `url`.
+     info : type string
+         Information about data.
+     df : pandas DataFrame
+         dataframe containing emissions data.
+    Methods
+     ----------
+     __init__(self)
+     add_data(self, rdate, states=['md'], download=False, verbose=True):
+     load(self, efile, verbose=True):
+     retrieve(self, rdate, state, download=True):
 
-    match_column(self, varname):
-    get_var(self, varname, loc=None, daterange=None, unitid=-99, verbose=True):
-    retrieve(self, rdate, state, download=True):
-    create_location_dictionary(self):
-    rename(self, ccc, newname, rcolumn, verbose):
+     match_column(self, varname):
+     get_var(self, varname, loc=None, daterange=None, unitid=-99, verbose=True):
+     retrieve(self, rdate, state, download=True):
+     create_location_dictionary(self):
+     rename(self, ccc, newname, rcolumn, verbose):
     """
 
     def __init__(self):
@@ -100,8 +100,7 @@ class CEMS(object):
         self.info = "Data from continuous emission monitoring systems (CEMS)\n"
         self.info += self.url + '\n'
         self.df = pd.DataFrame()
-        self.namehash = {
-        }  # if columns are renamed keeps track of original names.
+        self.namehash = {}  # if columns are renamed keeps track of original names.
         # Each facility may have more than one unit which is specified by the
         # unit id.
 
@@ -163,7 +162,7 @@ class CEMS(object):
 
     def match_column(self, varname):
         """varname is list of strings.
-           returns column name which contains all the strings.
+        returns column name which contains all the strings.
         """
         columns = list(self.df.columns.values)
         cmatch = None
@@ -201,6 +200,7 @@ class CEMS(object):
         """
 
         from .obs_util import timefilter
+
         temp = self.df.copy()
         if daterange:
             temp = timefilter(temp, daterange)
@@ -210,31 +210,16 @@ class CEMS(object):
                     print('UNIT IDs ', temp['unit_id'].unique())
             # create pandas frame with index datetime and columns for value for
             # each unit_id,orispl
-            pivot = pd.pivot_table(
-                temp,
-                values=varname,
-                index=['time'],
-                columns=['orispl_code', 'unit_id'],
-                aggfunc=np.sum)
+            pivot = pd.pivot_table(temp, values=varname, index=['time'], columns=['orispl_code', 'unit_id'], aggfunc=np.sum)
         else:
             if verbose:
                 print('NO UNIT ID')
             # returns data frame where rows are date and columns are the values
             # of cmatch for orispl
-            pivot = pd.pivot_table(
-                temp,
-                values=varname,
-                index=['time'],
-                columns=['orispl_code'],
-                aggfunc=np.sum)
+            pivot = pd.pivot_table(temp, values=varname, index=['time'], columns=['orispl_code'], aggfunc=np.sum)
         return pivot
 
-    def get_var(self,
-                varname,
-                orisp=None,
-                daterange=None,
-                unitid=-99,
-                verbose=True):
+    def get_var(self, varname, orisp=None, daterange=None, unitid=-99, verbose=True):
         """
            returns time series with variable indicated by varname.
            returns data frame where rows are date and columns are the
@@ -327,8 +312,7 @@ class CEMS(object):
         """
         if 'latitude' in list(self.df.columns.values):
             dftemp = self.df.copy()
-            pairs = zip(dftemp['orispl_code'],
-                        zip(dftemp['latitude'], dftemp['longitude']))
+            pairs = zip(dftemp['orispl_code'], zip(dftemp['latitude'], dftemp['longitude']))
             pairs = list(set(pairs))
             lhash = dict(pairs)  # key is facility id and value is name.
             if verbose:
@@ -371,16 +355,11 @@ class CEMS(object):
                 rcolumn = self.rename(ccc, 'orispl_code', rcolumn, verbose)
             elif 'facility' in ccc.lower() and 'id' in ccc.lower():
                 rcolumn = self.rename(ccc, 'fac_id', rcolumn, verbose)
-            elif 'so2' in ccc.lower() and ('lbs' in ccc.lower()
-                                           or 'pounds' in ccc.lower()) and (
-                                               'rate' not in ccc.lower()):
+            elif 'so2' in ccc.lower() and ('lbs' in ccc.lower() or 'pounds' in ccc.lower()) and ('rate' not in ccc.lower()):
                 rcolumn = self.rename(ccc, 'so2_lbs', rcolumn, verbose)
-            elif 'nox' in ccc.lower() and ('lbs' in ccc.lower()
-                                           or 'pounds' in ccc.lower()) and (
-                                               'rate' not in ccc.lower()):
+            elif 'nox' in ccc.lower() and ('lbs' in ccc.lower() or 'pounds' in ccc.lower()) and ('rate' not in ccc.lower()):
                 rcolumn = self.rename(ccc, 'nox_lbs', rcolumn, verbose)
-            elif 'co2' in ccc.lower() and ('short' in ccc.lower()
-                                           and 'tons' in ccc.lower()):
+            elif 'co2' in ccc.lower() and ('short' in ccc.lower() and 'tons' in ccc.lower()):
                 rcolumn = self.rename(ccc, 'co2_short_tons', rcolumn, verbose)
             elif 'date' in ccc.lower():
                 rcolumn = self.rename(ccc, 'date', rcolumn, verbose)
@@ -448,12 +427,7 @@ class CEMS(object):
                 dftemp.drop(['latitude', 'longitude'], axis=1, inplace=True)
             except Exception:
                 pass
-            dfnew = pd.merge(
-                dftemp,
-                sinfo,
-                how='left',
-                left_on=['orispl_code'],
-                right_on=['orispl_code'])
+            dfnew = pd.merge(dftemp, sinfo, how='left', left_on=['orispl_code'], right_on=['orispl_code'])
             # print('---------z-----------')
             # print(dfnew.columns.values)
             # remove stations which do not have a time offset.
@@ -468,8 +442,7 @@ class CEMS(object):
             elif method == 2:
                 # this runs ok but fails pytest
                 def utc(x):
-                    return pd.Timestamp(x['time local']) + datetime.timedelta(
-                        hours=x['time_offset'])
+                    return pd.Timestamp(x['time local']) + datetime.timedelta(hours=x['time_offset'])
 
                 dfnew['time'] = dfnew.apply(utc, axis=1)
             elif method == 3:
@@ -477,16 +450,13 @@ class CEMS(object):
                 def utc(x, y):
                     return x + datetime.timedelta(hours=y)
 
-                dfnew['time'] = dfnew.apply(
-                    lambda row: utc(row['time local'], row['time_offset']),
-                    axis=1)
+                dfnew['time'] = dfnew.apply(lambda row: utc(row['time local'], row['time_offset']), axis=1)
             # remove the time_offset column.
             dfnew.drop(['time_offset'], axis=1, inplace=True)
             mlist = dftemp.columns.values.tolist()
             # merge the dataframes back together to include rows with no info
             # in the cemsinfo.csv
-            dftemp = pd.merge(
-                dftemp, dfnew, how='left', left_on=mlist, right_on=mlist)
+            dftemp = pd.merge(dftemp, dfnew, how='left', left_on=mlist, right_on=mlist)
         return dftemp
         # return dfnew
 
@@ -512,10 +482,7 @@ class CEMS(object):
 
         # create column with datetime information
         # from column with month-day-year and column with hour.
-        dftime = dftemp.apply(lambda x:
-                              pd.datetime.strptime("{0} {1}".format(x['date'],
-                                                                    x['hour']),
-                                                   dfmt), axis=1)
+        dftime = dftemp.apply(lambda x: pd.datetime.strptime("{0} {1}".format(x['date'], x['hour']), dfmt), axis=1)
         dftemp = pd.concat([dftime, dftemp], axis=1)
         dftemp.rename(columns={0: 'time local'}, inplace=True)
         dftemp.drop(['date', 'hour'], axis=1, inplace=True)

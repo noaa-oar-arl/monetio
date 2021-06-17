@@ -36,7 +36,7 @@ class IMPROVE(object):
         self.daily = True
 
     def add_data(self, fname, add_meta=False, delimiter='\t'):
-        """     This assumes that you have downloaded the data from
+        """This assumes that you have downloaded the data from
                         http://views.cira.colostate.edu/fed/DataWizard/Default.aspx
                 The data is the IMPROVE Aerosol dataset
                 Any number of sites
@@ -59,6 +59,7 @@ class IMPROVE(object):
 
         """
         from .epa_util import read_monitor_file
+
         f = open(fname, 'r')
         lines = f.readlines()
         skiprows = 0
@@ -70,20 +71,9 @@ class IMPROVE(object):
                 break
         # if meta data is inlcuded
         if skip:
-            df = pd.read_csv(
-                fname,
-                delimiter=delimiter,
-                parse_dates=[2],
-                infer_datetime_format=True,
-                dtype={'EPACode': str},
-                skiprows=skiprows)
+            df = pd.read_csv(fname, delimiter=delimiter, parse_dates=[2], infer_datetime_format=True, dtype={'EPACode': str}, skiprows=skiprows)
         else:
-            df = pd.read_csv(
-                fname,
-                delimiter=delimiter,
-                parse_dates=[2],
-                infer_datetime_format=True,
-                dtype={'EPACode': str})
+            df = pd.read_csv(fname, delimiter=delimiter, parse_dates=[2], infer_datetime_format=True, dtype={'EPACode': str})
         df.rename(columns={'EPACode': 'epaid'}, inplace=True)
         df.rename(columns={'Val': 'Obs'}, inplace=True)
         df.rename(columns={'State': 'state_name'}, inplace=True)
@@ -99,15 +89,9 @@ class IMPROVE(object):
         if add_meta:
             monitor_df = read_monitor_file(network='IMPROVE')  # .drop(
             # dropkeys, axis=1)
-            df = df.merge(
-                monitor_df, how='left', left_on='epaid', right_on='siteid')
+            df = df.merge(monitor_df, how='left', left_on='epaid', right_on='siteid')
             df.drop(['siteid_y', 'state_name_y'], inplace=True, axis=1)
-            df.rename(
-                columns={
-                    'siteid_x': 'siteid',
-                    'state_name_x': 'state_name'
-                },
-                inplace=True)
+            df.rename(columns={'siteid_x': 'siteid', 'state_name_x': 'state_name'}, inplace=True)
 
         try:
             df.obs.loc[df.obs < df.mdl] = NaN
@@ -169,6 +153,5 @@ class IMPROVE(object):
             Description of returned object.
 
         """
-        dates = pd.date_range(
-            start=begin, end=end, freq='H').values.astype('M8[s]').astype('O')
+        dates = pd.date_range(start=begin, end=end, freq='H').values.astype('M8[s]').astype('O')
         self.dates = dates

@@ -6,7 +6,7 @@ import pandas as pd
 
 
 def add_data(filename):
-    """ Opens a json file, returns data array
+    """Opens a json file, returns data array
 
     Parameters
     -----------------
@@ -25,22 +25,37 @@ def add_data(filename):
     data = pd.DataFrame.from_dict(dataf)
 
     # Combining state code, county code, and site number into one column
-    data['siteid'] = data.state_code.astype(str).str.zfill(
-        2)+data.county_code.astype(str).str.zfill(3)+data.site_number.astype(str).str.zfill(4)
+    data['siteid'] = data.state_code.astype(str).str.zfill(2) + data.county_code.astype(str).str.zfill(3) + data.site_number.astype(str).str.zfill(4)
 
     # Combining date and time into one column
-    data['datetime_local'] = pd.to_datetime(data['date_local']+' '+data['time_local'])
-    data['datetime_utc'] = pd.to_datetime(data['date_gmt']+' '+data['time_gmt'])
+    data['datetime_local'] = pd.to_datetime(data['date_local'] + ' ' + data['time_local'])
+    data['datetime_utc'] = pd.to_datetime(data['date_gmt'] + ' ' + data['time_gmt'])
 
     # Renaming columns
-    data = data.rename(columns={'sample_measurement': 'obs',
-                                'units_of_measure': 'units', 'units_of_measure_code': 'unit_code'})
+    data = data.rename(columns={'sample_measurement': 'obs', 'units_of_measure': 'units', 'units_of_measure_code': 'unit_code'})
 
     # Dropping some columns, and reordering columns
-    data = data.drop(columns=['state_code', 'county_code', 'site_number', 'datum',
-                              'qualifier', 'uncertainty', 'county', 'state', 'date_of_last_change',
-                              'date_local', 'time_local', 'date_gmt', 'time_gmt', 'poc', 'unit_code',
-                              'sample_duration_code', 'method_code'])
+    data = data.drop(
+        columns=[
+            'state_code',
+            'county_code',
+            'site_number',
+            'datum',
+            'qualifier',
+            'uncertainty',
+            'county',
+            'state',
+            'date_of_last_change',
+            'date_local',
+            'time_local',
+            'date_gmt',
+            'time_gmt',
+            'poc',
+            'unit_code',
+            'sample_duration_code',
+            'method_code',
+        ]
+    )
     cols = data.columns.tolist()
     cols.insert(0, cols.pop(cols.index('siteid')))
     cols.insert(1, cols.pop(cols.index('latitude')))
@@ -63,7 +78,7 @@ def add_data(filename):
 
 
 def open_json(filename):
-    """ Opens the json file
+    """Opens the json file
 
 
     Parameters
@@ -122,4 +137,4 @@ def write_csv(array, filename):
 
     """
     array.to_csv(filename, encoding='utf-8', index=False)
-    return 'csv file '+filename+' has been generated'
+    return 'csv file ' + filename + ' has been generated'

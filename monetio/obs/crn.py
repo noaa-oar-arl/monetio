@@ -119,19 +119,9 @@ import pandas as pd
 from numpy import array
 
 
-def add_data(dates,
-             param=None,
-             daily=False,
-             sub_hourly=False,
-             download=False,
-             latlonbox=None):
+def add_data(dates, param=None, daily=False, sub_hourly=False, download=False, latlonbox=None):
     a = CRN()
-    df = a.add_data(
-        dates,
-        daily=daily,
-        sub_hourly=sub_hourly,
-        download=download,
-        latlonbox=latlonbox)
+    df = a.add_data(dates, daily=daily, sub_hourly=sub_hourly, download=download, latlonbox=latlonbox)
     return df
 
 
@@ -141,56 +131,111 @@ class CRN(object):
         self.daily = False
         self.ftp = None
         self.df = pd.DataFrame()
-        self.se_states = array(
-            ['AL', 'FL', 'GA', 'MS', 'NC', 'SC', 'TN', 'VA', 'WV'],
-            dtype='|S14')
-        self.ne_states = array([
-            'CT', 'DE', 'DC', 'ME', 'MD', 'MA', 'NH', 'NJ', 'NY', 'PA', 'RI',
-            'VT'
-        ],
-            dtype='|S20')
-        self.nc_states = array(
-            ['IL', 'IN', 'IA', 'KY', 'MI', 'MN', 'MO', 'OH', 'WI'],
-            dtype='|S9')
+        self.se_states = array(['AL', 'FL', 'GA', 'MS', 'NC', 'SC', 'TN', 'VA', 'WV'], dtype='|S14')
+        self.ne_states = array(['CT', 'DE', 'DC', 'ME', 'MD', 'MA', 'NH', 'NJ', 'NY', 'PA', 'RI', 'VT'], dtype='|S20')
+        self.nc_states = array(['IL', 'IN', 'IA', 'KY', 'MI', 'MN', 'MO', 'OH', 'WI'], dtype='|S9')
         self.sc_states = array(['AR', 'LA', 'OK', 'TX'], dtype='|S9')
-        self.r_states = array([
-            'AZ', 'CO', 'ID', 'KS', 'MT', 'NE', 'NV', 'NM', 'ND', 'SD', 'UT',
-            'WY'
-        ],
-            dtype='|S12')
+        self.r_states = array(['AZ', 'CO', 'ID', 'KS', 'MT', 'NE', 'NV', 'NM', 'ND', 'SD', 'UT', 'WY'], dtype='|S12')
         self.p_states = array(['CA', 'OR', 'WA'], dtype='|S10')
         self.objtype = 'CRN'
-        self.monitor_file = inspect.getfile(
-            self.__class__)[:-18] + 'data/stations.tsv'
+        self.monitor_file = inspect.getfile(self.__class__)[:-18] + 'data/stations.tsv'
         self.monitor_df = None
         self.baseurl = 'https://www1.ncdc.noaa.gov/pub/data/uscrn/products/'
         self.hcols = [
-            'WBANNO', 'UTC_DATE', 'UTC_TIME', 'LST_DATE', 'LST_TIME', 'CRX_VN',
-            'LONGITUDE', 'LATITUDE', 'T_CALC', 'T_AVG', 'T_MAX', 'T_MIN',
-            'P_CALC', 'SOLARAD', 'SOLARAD_FLAG', 'SOLARAD_MAX',
-            'SOLARAD_MAX_FLAG', 'SOLARAD_MIN', 'SOLARAD_MIN_FLAG',
-            'SUR_TEMP_TYPE', 'SUR_TEMP', 'SUR_TEMP_FLAG', 'SUR_TEMP_MAX',
-            'SUR_TEMP_MAX_FLAG', 'SUR_TEMP_MIN', 'SUR_TEMP_MIN_FLAG', 'RH_AVG',
-            'RH_AVG_FLAG', 'SOIL_MOISTURE_5', 'SOIL_MOISTURE_10',
-            'SOIL_MOISTURE_20', 'SOIL_MOISTURE_50', 'SOIL_MOISTURE_100',
-            'SOIL_TEMP_5', 'SOIL_TEMP_10', 'SOIL_TEMP_20', 'SOIL_TEMP_50',
-            'SOIL_TEMP_100'
+            'WBANNO',
+            'UTC_DATE',
+            'UTC_TIME',
+            'LST_DATE',
+            'LST_TIME',
+            'CRX_VN',
+            'LONGITUDE',
+            'LATITUDE',
+            'T_CALC',
+            'T_AVG',
+            'T_MAX',
+            'T_MIN',
+            'P_CALC',
+            'SOLARAD',
+            'SOLARAD_FLAG',
+            'SOLARAD_MAX',
+            'SOLARAD_MAX_FLAG',
+            'SOLARAD_MIN',
+            'SOLARAD_MIN_FLAG',
+            'SUR_TEMP_TYPE',
+            'SUR_TEMP',
+            'SUR_TEMP_FLAG',
+            'SUR_TEMP_MAX',
+            'SUR_TEMP_MAX_FLAG',
+            'SUR_TEMP_MIN',
+            'SUR_TEMP_MIN_FLAG',
+            'RH_AVG',
+            'RH_AVG_FLAG',
+            'SOIL_MOISTURE_5',
+            'SOIL_MOISTURE_10',
+            'SOIL_MOISTURE_20',
+            'SOIL_MOISTURE_50',
+            'SOIL_MOISTURE_100',
+            'SOIL_TEMP_5',
+            'SOIL_TEMP_10',
+            'SOIL_TEMP_20',
+            'SOIL_TEMP_50',
+            'SOIL_TEMP_100',
         ]
         self.dcols = [
-            'WBANNO', 'LST_DATE', 'CRX_VN', 'LONGITUDE', 'LATITUDE', 'T_MAX',
-            'T_MIN', 'T_MEAN', 'T_AVG', 'P_CALC', 'SOLARAD', 'SUR_TEMP_TYPE',
-            'SUR_TEMP_MAX', 'SUR_TEMP_MAX', 'SUR_TEMP_MIN', 'SUR_TEMP_AVG',
-            'RH_MAX', 'RH_MIN', 'RH_AVG', 'SOIL_MOISTURE_5',
-            'SOIL_MOISTURE_10', 'SOIL_MOISTURE_20', 'SOIL_MOISTURE_50',
-            'SOIL_MOISTURE_100', 'SOIL_TEMP_5', 'SOIL_TEMP_10', 'SOIL_TEMP_20',
-            'SOIL_TEMP_50', 'SOIL_TEMP_100'
+            'WBANNO',
+            'LST_DATE',
+            'CRX_VN',
+            'LONGITUDE',
+            'LATITUDE',
+            'T_MAX',
+            'T_MIN',
+            'T_MEAN',
+            'T_AVG',
+            'P_CALC',
+            'SOLARAD',
+            'SUR_TEMP_TYPE',
+            'SUR_TEMP_MAX',
+            'SUR_TEMP_MAX',
+            'SUR_TEMP_MIN',
+            'SUR_TEMP_AVG',
+            'RH_MAX',
+            'RH_MIN',
+            'RH_AVG',
+            'SOIL_MOISTURE_5',
+            'SOIL_MOISTURE_10',
+            'SOIL_MOISTURE_20',
+            'SOIL_MOISTURE_50',
+            'SOIL_MOISTURE_100',
+            'SOIL_TEMP_5',
+            'SOIL_TEMP_10',
+            'SOIL_TEMP_20',
+            'SOIL_TEMP_50',
+            'SOIL_TEMP_100',
         ]
         self.shcols = [
-            'WBANNO', 'UTC_DATE', 'UTC_TIME', 'LST_DATE', 'LST_TIME', 'CRX_VN',
-            'LONGITUDE', 'LATITUDE', 'T_MEAN', 'P_CALC', 'SOLARAD',
-            'SOLARAD_FLAG', 'SUR_TEMP_AVG', 'SUR_TEMP_TYPE', 'SUR_TEMP_FLAG',
-            'RH_AVG', 'RH_FLAG', 'SOIL_MOISTURE_5', 'SOIL_TEMP_5', 'WETNESS',
-            'WET_FLAG', 'WIND', 'WIND_FLAG'
+            'WBANNO',
+            'UTC_DATE',
+            'UTC_TIME',
+            'LST_DATE',
+            'LST_TIME',
+            'CRX_VN',
+            'LONGITUDE',
+            'LATITUDE',
+            'T_MEAN',
+            'P_CALC',
+            'SOLARAD',
+            'SOLARAD_FLAG',
+            'SUR_TEMP_AVG',
+            'SUR_TEMP_TYPE',
+            'SUR_TEMP_FLAG',
+            'RH_AVG',
+            'RH_FLAG',
+            'SOIL_MOISTURE_5',
+            'SOIL_TEMP_5',
+            'WETNESS',
+            'WET_FLAG',
+            'WIND',
+            'WIND_FLAG',
         ]
         self.citiation = 'Diamond, H. J., T. R. Karl, M. A. Palecki, C. B. Baker, J. E. Bell, R. D. Leeper, D. R. Easterling, J. H. '
         ' Lawrimore, T. P. Meyers, M. R. Helfert, G. Goodge, and P. W. Thorne,'
@@ -207,13 +252,7 @@ class CRN(object):
         nanvals = [-99999, -9999.0]
         if 'CRND0103' in url:
             cols = self.dcols
-            df = pd.read_csv(
-                url,
-                delim_whitespace=True,
-                names=cols,
-                parse_dates={'time_local': [1]},
-                infer_datetime_format=True,
-                na_values=nanvals)
+            df = pd.read_csv(url, delim_whitespace=True, names=cols, parse_dates={'time_local': [1]}, infer_datetime_format=True, na_values=nanvals)
             self.daily = True
         elif 'CRNS0101' in url:
             cols = self.shcols
@@ -221,33 +260,23 @@ class CRN(object):
                 url,
                 delim_whitespace=True,
                 names=cols,
-                parse_dates={
-                    'time': ['UTC_DATE', 'UTC_TIME'],
-                    'time_local': ['LST_DATE', 'LST_TIME']
-                },
+                parse_dates={'time': ['UTC_DATE', 'UTC_TIME'], 'time_local': ['LST_DATE', 'LST_TIME']},
                 infer_datetime_format=True,
-                na_values=nanvals)
+                na_values=nanvals,
+            )
         else:
             cols = self.hcols
             df = pd.read_csv(
                 url,
                 delim_whitespace=True,
                 names=cols,
-                parse_dates={
-                    'time': ['UTC_DATE', 'UTC_TIME'],
-                    'time_local': ['LST_DATE', 'LST_TIME']
-                },
+                parse_dates={'time': ['UTC_DATE', 'UTC_TIME'], 'time_local': ['LST_DATE', 'LST_TIME']},
                 infer_datetime_format=True,
-                na_values=nanvals)
+                na_values=nanvals,
+            )
         return df
 
-    def build_url(self,
-                  year,
-                  state,
-                  site,
-                  vector,
-                  daily=False,
-                  sub_hourly=False):
+    def build_url(self, year, state, site, vector, daily=False, sub_hourly=False):
         if daily:
             beginning = self.baseurl + 'daily01/' + year + '/'
             fname = 'CRND0103-'
@@ -278,6 +307,7 @@ class CRN(object):
 
         """
         import requests
+
         if requests.head(url).status_code < 400:
             return True
         else:
@@ -312,8 +342,7 @@ class CRN(object):
                 state = monitors.iloc[i].STATE
                 site = monitors.iloc[i].LOCATION.replace(' ', '_')
                 vector = monitors.iloc[i].VECTOR.replace(' ', '_')
-                url, fname = self.build_url(
-                    y, state, site, vector, daily=daily, sub_hourly=sub_hourly)
+                url, fname = self.build_url(y, state, site, vector, daily=daily, sub_hourly=sub_hourly)
                 if self.check_url(url):
                     urls.append(url)
                     fnames.append(fname)
@@ -350,12 +379,7 @@ class CRN(object):
         else:
             print('File Exists: ' + fname)
 
-    def add_data(self,
-                 dates,
-                 daily=False,
-                 sub_hourly=False,
-                 download=False,
-                 latlonbox=None):
+    def add_data(self, dates, daily=False, sub_hourly=False, download=False, latlonbox=None):
         """Short summary.
 
         Parameters
@@ -379,19 +403,16 @@ class CRN(object):
         """
         import dask
         import dask.dataframe as dd
+
         if self.monitor_df is None:
             self.get_monitor_df()
         if latlonbox is not None:  # get them all[latmin,lonmin,latmax,lonmax]
             mdf = self.monitor_df
-            con = (mdf.LATITUDE >=
-                   latlonbox[0]) & (mdf.LATITUDE <= latlonbox[2]) & (
-                       mdf.LONGITUDE >= latlonbox[1]) & (mdf.LONGITUDE <=
-                                                         latlonbox[3])
+            con = (mdf.LATITUDE >= latlonbox[0]) & (mdf.LATITUDE <= latlonbox[2]) & (mdf.LONGITUDE >= latlonbox[1]) & (mdf.LONGITUDE <= latlonbox[3])
             monitors = mdf.loc[con].copy()
         else:
             monitors = self.monitor_df.copy()
-        urls, fnames = self.build_urls(
-            monitors, dates, daily=daily, sub_hourly=sub_hourly)
+        urls, fnames = self.build_urls(monitors, dates, daily=daily, sub_hourly=sub_hourly)
         if download:
             for url, fname in zip(urls, fnames):
                 self.retrieve(url, fname)
@@ -400,20 +421,12 @@ class CRN(object):
             dfs = [dask.delayed(self.load_file)(i) for i in urls]
         dff = dd.from_delayed(dfs)
         self.df = dff.compute()
-        self.df = pd.merge(
-            self.df,
-            monitors,
-            how='left',
-            on=['WBANNO', 'LATITUDE', 'LONGITUDE'])
+        self.df = pd.merge(self.df, monitors, how='left', on=['WBANNO', 'LATITUDE', 'LONGITUDE'])
         if ~self.df.columns.isin(['time']).max():
-            self.df['time'] = self.df.time_local + pd.to_timedelta(
-                self.df.GMT_OFFSET, unit='H')
-        id_vars = self.monitor_df.columns.append(
-            pd.Index(['time', 'time_local']))
+            self.df['time'] = self.df.time_local + pd.to_timedelta(self.df.GMT_OFFSET, unit='H')
+        id_vars = self.monitor_df.columns.append(pd.Index(['time', 'time_local']))
         keys = self.df.columns[self.df.columns.isin(id_vars)]
-        self.df = pd.melt(
-            self.df, id_vars=keys, var_name='variable',
-            value_name='obs')  # this stacks columns to be inline with MONET
+        self.df = pd.melt(self.df, id_vars=keys, var_name='variable', value_name='obs')  # this stacks columns to be inline with MONET
         self.df.rename(columns={'WBANNO': 'siteid'}, inplace=True)
         self.change_units()
         self.df.columns = [i.lower() for i in self.df.columns]
@@ -471,8 +484,7 @@ class CRN(object):
             Description of returned object.
 
         """
-        dates = pd.date_range(
-            start=begin, end=end, freq='H').values.astype('M8[s]').astype('O')
+        dates = pd.date_range(start=begin, end=end, freq='H').values.astype('M8[s]').astype('O')
         self.dates = dates
 
     def get_monitor_df(self):

@@ -1,5 +1,6 @@
 import inspect
 import os
+
 # this is a class to deal with aqs data
 from builtins import object, zip
 
@@ -12,25 +13,11 @@ pbar = ProgressBar()
 pbar.register()
 
 
-def add_data(dates,
-             param=None,
-             daily=False,
-             network=None,
-             download=False,
-             local=False,
-             wide_fmt=True,
-             n_procs=1,
-             meta=False):
+def add_data(dates, param=None, daily=False, network=None, download=False, local=False, wide_fmt=True, n_procs=1, meta=False):
     from ..util import long_to_wide
+
     a = AQS()
-    df = a.add_data(dates,
-                    param=param,
-                    daily=daily,
-                    network=network,
-                    download=download,
-                    local=local,
-                    n_procs=n_procs,
-                    meta=meta)
+    df = a.add_data(dates, param=param, daily=daily, network=network, download=download, local=local, n_procs=n_procs, meta=meta)
 
     if wide_fmt:
         return long_to_wide(df)
@@ -84,21 +71,39 @@ class AQS(object):
         #    'state_name', 'county_name', 'date_of_last_change'
         # ]
         self.renameddcols = [
-            'time_local', 'state_code', 'county_code', 'site_num',
-            'parameter_code', 'poc', 'latitude', 'longitude', 'datum',
-            'parameter_name', 'sample_duration', 'pollutant_standard', 'units',
-            'event_type', 'observation_Count', 'observation_Percent', 'obs',
-            '1st_max_Value', '1st_max_hour', 'aqi', 'method_code',
-            'method_name', 'local_site_name', 'address', 'state_name',
-            'county_name', 'city_name', 'msa_name', 'date_of_last_change'
+            'time_local',
+            'state_code',
+            'county_code',
+            'site_num',
+            'parameter_code',
+            'poc',
+            'latitude',
+            'longitude',
+            'datum',
+            'parameter_name',
+            'sample_duration',
+            'pollutant_standard',
+            'units',
+            'event_type',
+            'observation_Count',
+            'observation_Percent',
+            'obs',
+            '1st_max_Value',
+            '1st_max_hour',
+            'aqi',
+            'method_code',
+            'method_name',
+            'local_site_name',
+            'address',
+            'state_name',
+            'county_name',
+            'city_name',
+            'msa_name',
+            'date_of_last_change',
         ]
-        self.savecols = [
-            'time_local', 'time', 'siteid', 'latitude', 'longitude', 'obs',
-            'units', 'variable'
-        ]
+        self.savecols = ['time_local', 'time', 'siteid', 'latitude', 'longitude', 'obs', 'units', 'variable']
         self.df = pd.DataFrame()  # hourly dataframe
-        self.monitor_file = inspect.getfile(
-            self.__class__)[:-10] + 'data/monitoring_site_locations.dat'
+        self.monitor_file = inspect.getfile(self.__class__)[:-10] + 'data/monitoring_site_locations.dat'
         self.monitor_df = None
         self.daily = False
         self.d_df = None  # daily dataframe
@@ -152,32 +157,21 @@ class AQS(object):
             def dateparse(x):
                 return pd.datetime.strptime(x, '%Y-%m-%d')
 
-            df = pd.read_csv(url,
-                             parse_dates={'time_local': ["Date Local"]},
-                             date_parser=dateparse,
-                             dtype={
-                                 0: str,
-                                 1: str,
-                                 2: str
-                             },
-                             encoding='ISO-8859-1')
+            df = pd.read_csv(
+                url, parse_dates={'time_local': ["Date Local"]}, date_parser=dateparse, dtype={0: str, 1: str, 2: str}, encoding='ISO-8859-1'
+            )
             df.columns = self.renameddcols
             df['pollutant_standard'] = df.pollutant_standard.astype(str)
             self.daily = True
             # df.rename(columns={'parameter_name':'variable'})
         else:
-            df = pd.read_csv(url,
-                             parse_dates={
-                                 'time': ['Date GMT', 'Time GMT'],
-                                 'time_local': ["Date Local", "Time Local"]
-                             },
-                             infer_datetime_format=True)
+            df = pd.read_csv(
+                url, parse_dates={'time': ['Date GMT', 'Time GMT'], 'time_local': ["Date Local", "Time Local"]}, infer_datetime_format=True
+            )
             # print(df.columns.values)
             df.columns = self.columns_rename(df.columns.values)
 
-        df['siteid'] = df.state_code.astype(str).str.zfill(
-            2) + df.county_code.astype(str).str.zfill(3) + df.site_num.astype(
-                str).str.zfill(4)
+        df['siteid'] = df.state_code.astype(str).str.zfill(2) + df.county_code.astype(str).str.zfill(3) + df.site_num.astype(str).str.zfill(4)
         # df['siteid'] = df.state_code + df.county_code + df.site_num
         df.drop(['state_name', 'county_name'], axis=1, inplace=True)
         df.columns = [i.lower() for i in df.columns]
@@ -212,6 +206,7 @@ class AQS(object):
         """
         import requests
         from numpy import NaN
+
         if daily:
             beginning = self.baseurl + 'daily_'
             fname = 'daily_'
@@ -247,8 +242,7 @@ class AQS(object):
             code = 'TEMP_'
         elif param.upper() == 'RHDP':
             code = 'RH_DP_'
-        elif (param.upper() == 'WIND') | (param.upper() == 'WS') | (
-                param.upper() == 'WDIR'):
+        elif (param.upper() == 'WIND') | (param.upper() == 'WS') | (param.upper() == 'WDIR'):
             code = 'WIND_'
         url = beginning + code + year + '.zip'
         fname = fname + code + year + '.zip'
@@ -274,15 +268,14 @@ class AQS(object):
 
         """
         import requests
+
         years = pd.DatetimeIndex(dates).year.unique().astype(str)
         urls = []
         fnames = []
         for i in params:
             for y in years:
                 url, fname = self.build_url(i, y, daily=daily)
-                if int(
-                        requests.get(
-                            url, stream=True).headers['Content-Length']) < 500:
+                if int(requests.get(url, stream=True).headers['Content-Length']) < 500:
                     print('File is Empty. Not Processing', url)
                 else:
                     urls.append(url)
@@ -307,6 +300,7 @@ class AQS(object):
 
         """
         import requests
+
         if not os.path.isfile(fname):
             print('\n Retrieving: ' + fname)
             print(url)
@@ -316,15 +310,7 @@ class AQS(object):
         else:
             print('\n File Exists: ' + fname)
 
-    def add_data(self,
-                 dates,
-                 param=None,
-                 daily=False,
-                 network=None,
-                 download=False,
-                 local=False,
-                 n_procs=1,
-                 meta=False):
+    def add_data(self, dates, param=None, daily=False, network=None, download=False, local=False, n_procs=1, meta=False):
         """Short summary.
 
         Parameters
@@ -348,30 +334,24 @@ class AQS(object):
         """
         import dask
         import dask.dataframe as dd
+
         if param is None:
-            params = [
-                'SPEC', 'PM10', 'PM2.5', 'PM2.5_FRM', 'CO', 'OZONE', 'SO2',
-                'VOC', 'NONOXNOY', 'WIND', 'TEMP', 'RHDP'
-            ]
+            params = ['SPEC', 'PM10', 'PM2.5', 'PM2.5_FRM', 'CO', 'OZONE', 'SO2', 'VOC', 'NONOXNOY', 'WIND', 'TEMP', 'RHDP']
         else:
             params = param
         urls, fnames = self.build_urls(params, dates, daily=daily)
         if download:
             for url, fname in zip(urls, fnames):
                 self.retrieve(url, fname)
-            dfs = [
-                dask.delayed(self.load_aqs_file)(i, network) for i in fnames
-            ]
+            dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in fnames]
         elif local:
-            dfs = [
-                dask.delayed(self.load_aqs_file)(i, network) for i in fnames
-            ]
+            dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in fnames]
         else:
             dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in urls]
         dff = dd.from_delayed(dfs)
         dfff = dff.compute(num_workers=n_procs)
         if meta:
-            return (self.add_data2(dfff, daily, network))
+            return self.add_data2(dfff, daily, network)
         else:
             return dfff
 
@@ -395,17 +375,13 @@ class AQS(object):
             drop_monitor_cols = False
         if daily:
             if drop_monitor_cols:
-                monitor_drop = [
-                    'msa_name', 'city_name', u'local_site_name', u'address',
-                    u'datum'
-                ]
+                monitor_drop = ['msa_name', 'city_name', u'local_site_name', u'address', u'datum']
                 self.monitor_df.drop(monitor_drop, axis=1, inplace=True)
         # else:
         #     monitor_drop = [u'datum']
         #     self.monitor_df.drop(monitor_drop, axis=1, inplace=True)
         if network is not None:
-            monitors = self.monitor_df.loc[self.monitor_df.isin(
-                [network])].drop_duplicates(subset=['siteid'])
+            monitors = self.monitor_df.loc[self.monitor_df.isin([network])].drop_duplicates(subset=['siteid'])
         else:
             monitors = self.monitor_df.drop_duplicates(subset=['siteid'])
         # AMC - merging only on siteid was causing latitude_x latitude_y to be
@@ -413,8 +389,7 @@ class AQS(object):
         mlist = ['siteid']
         self.df = pd.merge(self.df, monitors, on=mlist, how='left')
         if daily:
-            self.df['time'] = self.df.time_local - pd.to_timedelta(
-                self.df.gmt_offset, unit='H')
+            self.df['time'] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit='H')
         if pd.Series(self.df.columns).isin(['parameter_name']).max():
             self.df.drop('parameter_name', axis=1, inplace=True)
         return self.df  # .copy()
@@ -460,7 +435,7 @@ class AQS(object):
                 df.loc[con, 'variable'] = 'OC'
             if i == 88306:
                 df.loc[con, 'variable'] = 'NO3f'
-            if (i == 88307):
+            if i == 88307:
                 df.loc[con, 'variable'] = 'ECf'
             if i == 88316:
                 df.loc[con, 'variable'] = 'ECf_optical'
@@ -644,7 +619,7 @@ class AQS(object):
                 df.loc[con, 'obs'] *= 0.51444
                 df.loc[con, 'units'] = 'M/S'.lower()
             if i == 'Degrees Fahrenheit':
-                df.loc[con, 'obs'] = (df.loc[con, 'obs'] + 459.67) * 5. / 9.
+                df.loc[con, 'obs'] = (df.loc[con, 'obs'] + 459.67) * 5.0 / 9.0
                 df.loc[con, 'units'] = 'K'
             if i == 'Percent relative humidity':
                 df.loc[con, 'units'] = '%'

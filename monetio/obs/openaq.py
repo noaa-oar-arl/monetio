@@ -51,10 +51,11 @@ def add_data(dates, n_procs=1):
     return a.add_data(dates, num_workers=n_procs)
 
 
-class OPENAQ():
+class OPENAQ:
     def __init__(self):
         import s3fs
         from numpy import vectorize
+
         self.fs = s3fs.S3FileSystem(anon=True)
         self.s3bucket = 'openaq-fetches/realtime'
 
@@ -68,8 +69,7 @@ class OPENAQ():
         return pd.merge(d, ad, how='inner')
 
     def _get_files_in_day(self, date):
-        files = self.fs.ls("{}/{}".format(self.s3bucket,
-                                          date.strftime('%Y-%m-%d')))
+        files = self.fs.ls("{}/{}".format(self.s3bucket, date.strftime('%Y-%m-%d')))
         return files
 
     def build_urls(self, dates):
@@ -77,12 +77,7 @@ class OPENAQ():
         urls = pd.Series([], name='url')
         for i in d.dates:
             files = self._get_files_in_day(i)
-            furls = pd.Series([
-                f.replace('openaq-fetches',
-                          'https://openaq-fetches.s3.amazonaws.com')
-                for f in files
-            ],
-                name='url')
+            furls = pd.Series([f.replace('openaq-fetches', 'https://openaq-fetches.s3.amazonaws.com') for f in files], name='url')
             urls = pd.merge(urls, furls, how='outer')
         return urls.url.values
 
@@ -100,20 +95,13 @@ class OPENAQ():
         js = json.loads(z[['coordinates', 'date']].to_json(orient='records'))
         dff = pd.io.json.json_normalize(js)
         dff.columns = dff.columns.str.split('.').str[1]
-        dff.rename({
-            'local': 'time_local',
-            'utc': 'time'
-        },
-            axis=1,
-            inplace=True)
+        dff.rename({'local': 'time_local', 'utc': 'time'}, axis=1, inplace=True)
 
         dff['time'] = pd.to_datetime(dff.time)
         dff['time_local'] = pd.to_datetime(dff.time_local)
-        zzz = z.join(dff).drop(
-            columns=['coordinates', 'date', 'attribution', 'averagingPeriod'])
+        zzz = z.join(dff).drop(columns=['coordinates', 'date', 'attribution', 'averagingPeriod'])
         zp = self._pivot_table(zzz)
-        zp['siteid'] = zp.country + '_' + zp.latitude.round(3).astype(
-            str) + 'N_' + zp.longitude.round(3).astype(str) + 'E'
+        zp['siteid'] = zp.country + '_' + zp.latitude.round(3).astype(str) + 'N_' + zp.longitude.round(3).astype(str) + 'E'
 
         zp['time'] = zp.time.dt.tz_localize(None)
         tzinfo = zp.time_local.apply(lambda x: x.tzinfo.utcoffset(x))
@@ -170,18 +158,8 @@ class OPENAQ():
         return df
 
     def _pivot_table(self, df):
-        w = df.pivot_table(values='value',
-                           index=[
-                               'time', 'latitude', 'longitude', 'sourceName',
-                               'sourceType', 'city', 'country', 'time_local'
-                           ],
-                           columns='parameter').reset_index()
-        w = w.rename(dict(co='co_ppm',
-                          o3='o3_ppm',
-                          no2='no2_ppm',
-                          so2='so2_ppm',
-                          bc='bc_umg3',
-                          pm25='pm25_ugm3',
-                          pm10='pm10_ugm3'),
-                     axis=1)
+        w = df.pivot_table(
+            values='value', index=['time', 'latitude', 'longitude', 'sourceName', 'sourceType', 'city', 'country', 'time_local'], columns='parameter'
+        ).reset_index()
+        w = w.rename(dict(co='co_ppm', o3='o3_ppm', no2='no2_ppm', so2='so2_ppm', bc='bc_umg3', pm25='pm25_ugm3', pm10='pm10_ugm3'), axis=1)
         return w
