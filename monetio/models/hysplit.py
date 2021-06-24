@@ -37,7 +37,7 @@ Change log
 
 
 def open_dataset(
-    fname, drange=None, century=None, verbose=False, sample_time_stamp="start"
+    fname, drange=None, century=None, verbose=False, sample_time_stamp="start",check_grid=True
 ):
     """Short summary.
 
@@ -60,8 +60,10 @@ def open_dataset(
         if 'end' then time in xarray will be the end of sampling time period.
         else time is start of sampling time period.
 
-    addgrid : boolean
-        assigns an area attribute to each variable
+    check_grid : boolean
+        if True call fix_grid_continuity to check to see that 
+        xindx and yindx values are sequential (e.g. not [1,2,3,4,5,7]).
+        If they are not, then add missing values to the xarray..
 
     Returns
     -------
@@ -82,22 +84,8 @@ def open_dataset(
         sample_time_stamp=sample_time_stamp,
     )
     dset = binfile.dset
-    # return dset
-    # get the grid information
-    # May not need the proj4 definitions now that lat lon defined properly.
-    # if addarea:
-    #    p4 = _hysplit_latlon_grid_from_dataset(dset)
-    #    swath = get_hysplit_latlon_pyresample_area_def(dset, p4)
-    # now assign this to the dataset and each dataarray
-    #    dset = dset.assign_attrs({"proj4_srs": p4})
-    #    for iii in dset.variables:
-    #        dset[iii] = dset[iii].assign_attrs({"proj4_srs": p4})
-    #        for jjj in dset[iii].attrs:
-    #            dset[iii].attrs[jjj] = dset[iii].attrs[jjj].strip()
-    #        dset[iii] = dset[iii].assign_attrs({"area": swath})
-    #    dset = dset.assign_attrs(area=swath)
-    return dset
-
+    if check_grid: return fix_grid_continuity(dset)
+    else: return dset
 
 def check_drange(drange, pdate1, pdate2):
     """
@@ -461,6 +449,8 @@ class ModelBin:
         slon = self.llcrnr_lon
         lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
         lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
+        # fortran array indice start at 1. so xindx >=1.
+        # python array indice start at 0.
         lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
         mgrid = np.meshgrid(lonlist, latlist)
@@ -650,6 +640,7 @@ def combine_dataset(
     century=None,
     verbose=False,
     sample_time_stamp="start",
+    check_grid=True
 ):
     """
     Inputs :
@@ -669,7 +660,10 @@ def combine_dataset(
             lat, lon, time, level, ensemble tag, source tag
 
     Note that if more than one species is present in the files, they are
-    added to get concentration from all species.
+    added to get concentration from all species. If list of species is provided,
+    only those species will be added.
+
+    Files need to have the same concentration grid defined. 
     """
     iii = 0
     ylist = []
@@ -705,6 +699,7 @@ def combine_dataset(
                     century=century,
                     verbose=verbose,
                     sample_time_stamp=sample_time_stamp,
+                    check_grid=False
                 )
             else:  # use all dates
                 hxr = open_dataset(
@@ -712,6 +707,7 @@ def combine_dataset(
                     century=century,
                     verbose=verbose,
                     sample_time_stamp=sample_time_stamp,
+                    check_grid=False
                 )
             try:
                 mlat, mlon = getlatlon(hxr)
@@ -787,11 +783,60 @@ def combine_dataset(
     # dt is the averaging time of the hysplit output.
     newhxr = newhxr.assign_attrs({"sample time hours": dt})
     newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
+    newhxr.attrs.update(hxr.attrs)
     keylist = ["time description"]
     for key in keylist:
         newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
-    return newhxr
+    if check_grid: return fix_grid_continuity(newhxr)
+    else: return newhxr
 
+def get_even_latlongrid(dset, xlim, ylim):
+    xindx = np.arange(xlim[0], xlim[1]+1)
+    yindx = np.arange(ylim[0], ylim[1]+1)
+    return get_latlongrid(dset, xindx, yindx) 
+
+def fix_grid_continuity(dset):
+    # if grid already continuos don't do anything.
+    if check_grid_continuity(dset): return dset
+
+    xv = dset.x.values
+    yv = dset.y.values
+
+    xlim = [xv[0], xv[-1]]
+    ylim = [yv[0], yv[-1]]
+
+    xindx = np.arange(xlim[0], xlim[1]+1)
+    yindx = np.arange(ylim[0], ylim[1]+1)
+
+    mgrid = get_even_latlongrid(dset,xlim,ylim)
+    conc = np.zeros_like(mgrid[0])
+    dummy = xr.DataArray(conc,dims=['y','x'])
+    dummy = dummy.assign_coords(latitude=(('y','x'),mgrid[1]))    
+    dummy = dummy.assign_coords(longitude=(('y','x'),mgrid[0]))    
+    dummy = dummy.assign_coords(x=(('x'),xindx))
+    dummy = dummy.assign_coords(y=(('y'),yindx))
+    cdset, dummy2 = xr.align(dset,dummy,join='outer')     
+    cdset = cdset.assign_coords(latitude=(('y','x'),mgrid[1]))    
+    cdset = cdset.assign_coords(longitude=(('y','x'),mgrid[0]))    
+
+    return cdset.fillna(0)
+
+def check_grid_continuity(dset):
+    """
+    checks to see if x and y coords are skipping over any grid points.
+    Since cdump files only store above 0 values, it is possible to have
+    a grid that is
+    y = [1,2,3,4,6,8]
+    if there are above zero values at 6 and 8 but not at 7.
+    This results in an xarray which has a grid that is not evenly spaced.
+    """
+    xv = dset.x.values
+    yv = dset.y.values
+    t1 = np.array([xv[i] - xv[i-1] for i in np.arange(1,len(xv))])
+    t2 = np.array([yv[i] - yv[i-1] for i in np.arange(1,len(yv))])
+    if np.any(t1!=1): return False
+    if np.any(t2!=1): return False
+    return True
 
 def get_latlongrid(dset, xindx, yindx):
     """
@@ -804,6 +849,11 @@ def get_latlongrid(dset, xindx, yindx):
             Two 2d arrays of latitude, longitude. 
     The grid points in cdump file
     represent center of the sampling area.
+
+    NOTES :
+    This may return a grid that is not evenly spaced.
+    For instance if yindx is something like [1,2,3,4,5,7] then
+    the grid will not have even spacing in latitude and will 'skip' a latitude point.
     """
     llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
     llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
@@ -818,6 +868,13 @@ def get_latlongrid(dset, xindx, yindx):
     latlist = [lat[x - 1] for x in yindx]
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
+        #slat = self.llcrnr_lat
+        #slon = self.llcrnr_lon
+        #lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
+        #lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
+        #lonlist = [lon[x - 1] for x in xindx]
+        #latlist = [lat[x - 1] for x in yindx]
+        #mgrid = np.meshgrid(lonlist, latlist)
 
 def get_index_fromgrid(dset, latgrid, longrid):
     llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
