@@ -4,7 +4,6 @@ import datetime
 import pandas as pd
 import xarray as xr
 import numpy as np
-from numpy import fromfile, arange
 
 """
 This code developed at the NOAA Air Resources Laboratory.
@@ -29,28 +28,22 @@ Classes
 --------
 ModelBin
 
+Change log
+
+2021 13 May  AMC  get_latlongrid needed to be updated to match makegrid method.
+
+
 """
 
 
-# def _hysplit_latlon_grid_from_dataset(ds):
-#    pargs = dict()
-#    pargs["lat_0"] = ds.latitude.mean()
-#    pargs["lon_0"] = ds.longitude.mean()
-#
-#    p4 = (
-#        "+proj=eqc +lat_ts={lat_0} +lat_0={lat_0} +lon_0={lon_0} "
-#        "+ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(**pargs)
-#    )
-#    return p4
-
-
-# def get_hysplit_latlon_pyresample_area_def(ds, proj4_srs):
-#    from pyresample import geometry
-#
-#    return geometry.SwathDefinition(lons=ds.longitude.values, lats=ds.latitude.values)
-
-
-def open_dataset(fname, drange=None, verbose=False):
+def open_dataset(
+    fname,
+    drange=None,
+    century=None,
+    verbose=False,
+    sample_time_stamp="start",
+    check_grid=True,
+):
     """Short summary.
 
     Parameters
@@ -63,11 +56,19 @@ def open_dataset(fname, drange=None, verbose=False):
         specifies what times should be loaded from the file. A value of None
         will result in all times being loaded.
 
+    century : integer (1900 or 2000)
+
     verbose : boolean
         If True will print out extra messages
 
-    addgrid : boolean
-        assigns an area attribute to each variable
+    sample_time_stamp : str
+        if 'end' then time in xarray will be the end of sampling time period.
+        else time is start of sampling time period.
+
+    check_grid : boolean
+        if True call fix_grid_continuity to check to see that
+        xindx and yindx values are sequential (e.g. not [1,2,3,4,5,7]).
+        If they are not, then add missing values to the xarray..
 
     Returns
     -------
@@ -79,23 +80,19 @@ def open_dataset(fname, drange=None, verbose=False):
     string by using decode('UTF-8').
     """
     # open the dataset using xarray
-    binfile = ModelBin(fname, drange=drange, verbose=verbose, readwrite="r")
+    binfile = ModelBin(
+        fname,
+        drange=drange,
+        century=century,
+        verbose=verbose,
+        readwrite="r",
+        sample_time_stamp=sample_time_stamp,
+    )
     dset = binfile.dset
-    # return dset
-    # get the grid information
-    # May not need the proj4 definitions now that lat lon defined properly.
-    # if addarea:
-    #    p4 = _hysplit_latlon_grid_from_dataset(dset)
-    #    swath = get_hysplit_latlon_pyresample_area_def(dset, p4)
-    # now assign this to the dataset and each dataarray
-    #    dset = dset.assign_attrs({"proj4_srs": p4})
-    #    for iii in dset.variables:
-    #        dset[iii] = dset[iii].assign_attrs({"proj4_srs": p4})
-    #        for jjj in dset[iii].attrs:
-    #            dset[iii].attrs[jjj] = dset[iii].attrs[jjj].strip()
-    #        dset[iii] = dset[iii].assign_attrs({"area": swath})
-    #    dset = dset.assign_attrs(area=swath)
-    return dset
+    if check_grid:
+        return fix_grid_continuity(dset)
+    else:
+        return dset
 
 
 def check_drange(drange, pdate1, pdate2):
@@ -134,14 +131,20 @@ def check_drange(drange, pdate1, pdate2):
 
 class ModelBin:
     """
-       represents a binary cdump (concentration) output file from HYSPLIT
-       methods:
-       readfile - opens and reads contents of cdump file into an xarray
-       self.dset
+    represents a binary cdump (concentration) output file from HYSPLIT
+    methods:
+    readfile - opens and reads contents of cdump file into an xarray
+    self.dset
     """
 
     def __init__(
-        self, filename, drange=None, century=None, verbose=True, readwrite="r"
+        self,
+        filename,
+        drange=None,
+        century=None,
+        verbose=True,
+        readwrite="r",
+        sample_time_stamp="start",
     ):
         """
         drange :  list of two datetime objects.
@@ -149,6 +152,9 @@ class ModelBin:
         sample start is greater thand drange[0] and less than drange[1]
         for which the sample stop is less than drange[1].
 
+        sample_time_stamp : str
+              if 'end' - time in xarray will indicate end of sampling time.
+              else  - time in xarray will indicate start of sampling time.
         century : integer
         verbose : boolean
         read
@@ -163,13 +169,12 @@ class ModelBin:
         self.zeroconcdates = []
         # list of tuples  of averaging periods with nonzero concentrtations]
         self.nonzeroconcdates = []
-        self.sourcedate = []
-        self.slat = []
-        self.slon = []
-        self.sht = []
         self.atthash = {}
-        self.atthash["Starting Locations"] = []
+        self.atthash["Starting Latitudes"] = []
+        self.atthash["Starting Longitudes"] = []
+        self.atthash["Starting Heights"] = []
         self.atthash["Source Date"] = []
+        self.sample_time_stamp = sample_time_stamp
         self.llcrnr_lon = None
         self.llcrnr_lat = None
         self.nlat = None
@@ -179,6 +184,8 @@ class ModelBin:
         self.levels = None
 
         if readwrite == "r":
+            if verbose:
+                print("reading " + filename)
             self.dataflag = self.readfile(
                 filename, drange, verbose=verbose, century=century
             )
@@ -188,7 +195,7 @@ class ModelBin:
         """Each record in the fortran binary begins and ends with 4 bytes which
         specify the length of the record. These bytes are called pad below.
         They are not used here, but are thrown out. The following block defines
-        a numpy dtype object for each record in the binary file. """
+        a numpy dtype object for each record in the binary file."""
         from numpy import dtype
 
         real4 = ">f"
@@ -339,12 +346,12 @@ class ModelBin:
         # Loop through starting locations
         for nnn in range(0, nstartloc):
             # create list of starting latitudes, longitudes and heights.
-            self.slat.append(hdata2["s_lat"][nnn])
-            self.slon.append(hdata2["s_lon"][nnn])
-            self.sht.append(hdata2["s_ht"][nnn])
-            self.atthash["Starting Locations"].append(
-                (hdata2["s_lat"][nnn], hdata2["s_lon"][nnn])
-            )
+            lat = hdata2["s_lat"][nnn]
+            lon = hdata2["s_lon"][nnn]
+            ht = hdata2["s_ht"][nnn]
+            self.atthash["Starting Latitudes"].append(lat)
+            self.atthash["Starting Longitudes"].append(lon)
+            self.atthash["Starting Heights"].append(ht)
 
             # try to guess century if century not given
             if century is None:
@@ -363,9 +370,8 @@ class ModelBin:
                 hdata2["r_hr"][nnn],
                 hdata2["r_min"][nnn],
             )
-            self.sourcedate.append(sourcedate)
-            self.atthash["Source Date"].append(sourcedate)
-            return century
+            self.atthash["Source Date"].append(sourcedate.strftime('%Y%m%d.%H%M%S'))
+        return century
 
     def parse_hdata3(self, hdata3, ahash):
         # Description of concentration grid
@@ -390,20 +396,33 @@ class ModelBin:
         self.atthash["Level top heights (m)"] = hdata4b["levht"]
 
     def parse_hdata6and7(self, hdata6, hdata7, century):
-
         # if no data read then break out of the while loop.
         if not hdata6:
             return False, None, None
+        #print('HERE', hdata6["oyear"], type(hdata6["oyear"]))
+        #print('HERE', int(hdata6["oyear"]), type(hdata6["oyear"]))
         pdate1 = datetime.datetime(
-            century + hdata6["oyear"], hdata6["omonth"], hdata6["oday"], hdata6["ohr"]
+            century + int(hdata6["oyear"]),
+            int(hdata6["omonth"]),
+            int(hdata6["oday"]),
+            int(hdata6["ohr"]),
+            int(hdata6["omin"]),
         )
         pdate2 = datetime.datetime(
-            century + hdata7["oyear"], hdata7["omonth"], hdata7["oday"], hdata7["ohr"]
+            century + int(hdata7["oyear"]),
+            int(hdata7["omonth"]),
+            int(hdata7["oday"]),
+            int(hdata7["ohr"]),
+            int(hdata7["omin"]),
         )
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
-        self.atthash["Sampling Time"] = pdate2 - pdate1
+        #self.atthash["Sampling Time"] = pdate2 - pdate1
         self.atthash["sample time hours"] = sample_dt
+        if self.sample_time_stamp == "end":
+            self.atthash["time description"] = "End of sampling time period"
+        else:
+            self.atthash["time description"] = "start of sampling time period"
         return True, pdate1, pdate2
 
     @staticmethod
@@ -445,12 +464,14 @@ class ModelBin:
         xindx : list
         yindx : list
         """
-        lat = arange(
-            self.llcrnr_lat, self.llcrnr_lat + self.nlat * self.dlat, self.dlat
-        )
-        lon = arange(
-            self.llcrnr_lon, self.llcrnr_lon + self.nlon * self.dlon, self.dlon
-        )
+        # checked HYSPLIT code. the grid points
+        # do represent center of the sampling area.
+        slat = self.llcrnr_lat
+        slon = self.llcrnr_lon
+        lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
+        lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
+        # fortran array indice start at 1. so xindx >=1.
+        # python array indice start at 0.
         lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
         mgrid = np.meshgrid(lonlist, latlist)
@@ -458,18 +479,18 @@ class ModelBin:
 
     def readfile(self, filename, drange, verbose, century):
         """Data from the file is stored in an xarray, self.dset
-           returns False if all concentrations are zero else returns True.
-           INPUTS
-           filename - name of cdump file to open
-           drange - [date1, date2] - range of dates to load data for. if []
-                    then loads all data.
-                    date1 and date2  should be datetime ojbects.
-           verbose - turns on print statements
-           century - if None will try to guess the century by looking
-                    at the last two digits of the year.
-           For python 3 the numpy char4 are read in as a numpy.bytes_
-            class and need to be converted to a python
-           string by using decode('UTF-8').
+        returns False if all concentrations are zero else returns True.
+        INPUTS
+        filename - name of cdump file to open
+        drange - [date1, date2] - range of dates to load data for. if []
+                 then loads all data.
+                 date1 and date2  should be datetime ojbects.
+        verbose - turns on print statements
+        century - if None will try to guess the century by looking
+                 at the last two digits of the year.
+        For python 3 the numpy char4 are read in as a numpy.bytes_
+         class and need to be converted to a python
+        string by using decode('UTF-8').
 
         """
         # 8/16/2016 moved species=[]  to before while loop. Added print
@@ -493,27 +514,28 @@ class ModelBin:
         # start_loc in rec1 tell how many rec there are.
         tempzeroconcdates = []
         # Reads header data. This consists of records 1-5.
-        hdata1 = fromfile(fid, dtype=rec1, count=1)
+        hdata1 = np.fromfile(fid, dtype=rec1, count=1)
         nstartloc = self.parse_header(hdata1)
 
-        hdata2 = fromfile(fid, dtype=rec2, count=nstartloc)
+        hdata2 = np.fromfile(fid, dtype=rec2, count=nstartloc)
         century = self.parse_hdata2(hdata2, nstartloc, century)
 
-        hdata3 = fromfile(fid, dtype=rec3, count=1)
+        hdata3 = np.fromfile(fid, dtype=rec3, count=1)
         ahash = self.parse_hdata3(hdata3, ahash)
 
         # read record 4 which gives information about vertical levels.
-        hdata4a = fromfile(fid, dtype=rec4a, count=1)  # gets nmber of levels
-        hdata4b = fromfile(
+        hdata4a = np.fromfile(fid, dtype=rec4a, count=1)
+        hdata4b = np.fromfile(
             fid, dtype=rec4b, count=hdata4a["nlev"][0]
         )  # reads levels, count is number of levels.
         self.parse_hdata4(hdata4a, hdata4b)
 
         # read record 5 which gives information about pollutants / species.
-        hdata5a = fromfile(fid, dtype=rec5a, count=1)
-        fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
-        fromfile(fid, dtype=rec5c, count=1)
+        hdata5a = np.fromfile(fid, dtype=rec5a, count=1)
+        np.fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
+        np.fromfile(fid, dtype=rec5c, count=1)
         self.atthash["Number of Species"] = hdata5a["pollnum"][0]
+        self.atthash["Species ID"] = []
 
         # Loop to reads records 6-8. Number of loops is equal to number of
         # output times.
@@ -523,19 +545,18 @@ class ModelBin:
         ii = 0  # check to make sure don't go above max number of iterations
         iii = 0  # checks to see if some nonzero data was saved in xarray
         # Safety valve - will not allow more than 1000 loops to be executed.
-        imax = 1e3
+        imax = 1e8
         testf = True
         while testf:
-            hdata6 = fromfile(fid, dtype=rec6, count=1)
-            hdata7 = fromfile(fid, dtype=rec6, count=1)
+            hdata6 = np.fromfile(fid, dtype=rec6, count=1)
+            hdata7 = np.fromfile(fid, dtype=rec6, count=1)
             check, pdate1, pdate2 = self.parse_hdata6and7(hdata6, hdata7, century)
             if not check:
-                print(check, pdate1, pdate2)
                 break
             testf, savedata = check_drange(drange, pdate1, pdate2)
-            print("sample time", pdate1, " to ", pdate2)
+            if verbose:
+                print("sample time", pdate1, " to ", pdate2)
             # datelist = []
-            self.atthash["Species ID"] = []
             inc_iii = False
             # LOOP to go through each level
             for lev in range(self.atthash["Number of Levels"]):
@@ -543,14 +564,17 @@ class ModelBin:
                 for pollutant in range(self.atthash["Number of Species"]):
                     # record 8a has the number of elements (ne). If number of
                     # elements greater than 0 than there are concentrations.
-                    hdata8a = fromfile(fid, dtype=rec8a, count=1)
-                    self.atthash["Species ID"].append(
-                        hdata8a["poll"][0].decode("UTF-8")
-                    )
+                    hdata8a = np.fromfile(fid, dtype=rec8a, count=1)
+                    # self.atthash["Species ID"].append(
+                    #    hdata8a["poll"][0].decode("UTF-8")
+                    # )
                     # if number of elements is nonzero then
                     if hdata8a["ne"] >= 1:
+                        self.atthash["Species ID"].append(
+                            hdata8a["poll"][0].decode("UTF-8")
+                        )
                         # get rec8 - indx and jndx
-                        hdata8b = fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
+                        hdata8b = np.fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
                         # add sample start time to list of start times with
                         # non zero conc
                         self.nonzeroconcdates.append(pdate1)
@@ -560,16 +584,19 @@ class ModelBin:
                         )  # or add sample start time to list of start times
                         # with zero conc.
                     # This is just padding.
-                    fromfile(fid, dtype=rec8c, count=1)
+                    np.fromfile(fid, dtype=rec8c, count=1)
                     # if savedata is set and nonzero concentrations then save
                     # the data in a pandas dataframe
                     if savedata and hdata8a["ne"] >= 1:
                         self.nonzeroconcdates.append(pdate1)
                         inc_iii = True
-                        concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
+                        if self.sample_time_stamp == "end":
+                            concframe = self.parse_hdata8(hdata8a, hdata8b, pdate2)
+                        else:
+                            concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
                         dset = xr.Dataset.from_dataframe(concframe)
-                        if verbose:
-                            print("Adding ", "Pollutant", pollutant, "Level", lev)
+                        # if verbose:
+                        #    print("Adding ", "Pollutant", pollutant, "Level", lev)
                         # if this is the first time through. create dataframe
                         # for first level and pollutant.
                         if self.dset is None:
@@ -585,13 +612,17 @@ class ModelBin:
             #  imax iterations.
             if ii > imax:
                 testf = False
+                print("greater than imax", testf, ii, imax)
             if inc_iii:
                 iii += 1
-        self.atthash["Concentration Grid"] = ahash
-        print('KEYS', self.atthash.keys())
+        # self.atthash
+        self.atthash.update(ahash)
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
+        if self.dset is None:
+            print("DSET is NONE")
+            return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
             mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
@@ -600,9 +631,9 @@ class ModelBin:
 
             self.dset = self.dset.reset_coords()
             self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
-        if verbose:
-            print(self.dset)
-        if iii == 0:
+        # if verbose:
+        #    print(self.dset)
+        if iii == 0 and verbose:
             print(
                 "Warning: ModelBin class _readfile method: no data in the date range found"
             )
@@ -623,7 +654,16 @@ class ModelBin:
 # combine_cdump creates a 6 dimensional xarray dataarray object from cdump files.
 #
 
-def combine_dataset(blist, drange=None, species=None, verbose=False):
+
+def combine_dataset(
+    blist,
+    drange=None,
+    species=None,
+    century=None,
+    verbose=False,
+    sample_time_stamp="start",
+    check_grid=True,
+):
     """
     Inputs :
       blist : list of tuples
@@ -633,12 +673,19 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
      d1 datetime object. first date to keep in DatArrayarray
      d2 datetime object. last date to keep in DataArray
 
+    sample_time_stamp : str
+        if 'end' then time in xarray will be the end of sampling time period.
+        else time is start of sampling time period.
+
     RETURNS
      newhxr : an xarray data-array with 6 dimensions.
             lat, lon, time, level, ensemble tag, source tag
 
     Note that if more than one species is present in the files, they are
-    added to get concentration from all species.
+    added to get concentration from all species. If list of species is provided,
+    only those species will be added.
+
+    Files need to have the same concentration grid defined.
     """
     iii = 0
     ylist = []
@@ -666,23 +713,31 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
         fname = val[0]
         xsublist = []
         for fname in blist[key]:
-            # print('ALIGNING', iii, fname, key)
             if drange:
-                binfile = ModelBin(
-                    fname[0], drange=drange, verbose=verbose, readwrite="r"
+                century = int(drange[0].year / 100) * 100
+                hxr = open_dataset(
+                    fname[0],
+                    drange=drange,
+                    century=century,
+                    verbose=verbose,
+                    sample_time_stamp=sample_time_stamp,
+                    check_grid=False,
                 )
-                hxr = binfile.dset
-                hxr = open_dataset(fname[0], drange=drange)
             else:  # use all dates
-                print("open ", fname[0])
-                binfile = ModelBin(fname[0], verbose=verbose, readwrite="r")
-                hxr = binfile.dset
-                # try:
-                #    hxr = open_dataset(fname[0])
-                # except:
-                #    print('failed to open ', fname[0])
-                #    sys.exit()
-            mlat, mlon = getlatlon(hxr)
+                hxr = open_dataset(
+                    fname[0],
+                    century=century,
+                    verbose=verbose,
+                    sample_time_stamp=sample_time_stamp,
+                    check_grid=False,
+                )
+            try:
+                mlat, mlon = getlatlon(hxr)
+            except:
+                print("WARNING Cannot open ")
+                print(fname[0])
+                print(century)
+                print(hxr)
             if iii > 0:
                 t1 = np.array_equal(mlat, mlat_p)
                 t2 = np.array_equal(mlon, mlon_p)
@@ -707,8 +762,8 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             iii += 1
         sourcelist.append(key)
         xlist.append(xsublist)
-    if verbose:
-        print("aligned --------------------------------------")
+    # if verbose:
+    #    print("aligned --------------------------------------")
     # xnew is now encompasses the area of all the data-arrays
     # now go through and expand each one to the size of xnew.
     iii = 0
@@ -728,34 +783,103 @@ def combine_dataset(blist, drange=None, species=None, verbose=False):
             hlist.append(aaa)
         # concat along the 'ens' axis
         new = xr.concat(hlist, "ens")
-        print("HERE NEW", new)
         ylist.append(new)
         slist.append(sourcelist[jjj])
         jjj += 1
 
-    print('DTLIST', dtlist)
     dtlist = list(set(dtlist))
-    print("DT", dtlist, dtlist[0])
     dt = dtlist[0]
     newhxr = xr.concat(ylist, "source")
-    print("sourcelist", slist)
     newhxr["source"] = slist
-    print("NEW NEW NEW", newhxr)
     # newhxr['ens'] = metlist
 
     # calculate the lat lon grid for the expanded dataset.
     # and use that for the new coordinates.
-    mgrid = get_latlongrid(hxr, newhxr.x.values, newhxr.y.values)
-    newhxr = newhxr.drop("longitude")
-    newhxr = newhxr.drop("latitude")
-    newhxr = newhxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
-    newhxr = newhxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    #newhxr = reset_latlon_coords(newhxr)
+    #mgrid = get_latlongrid(hxr, newhxr.x.values, newhxr.y.values)
+    #newhxr = newhxr.drop("longitude")
+    #newhxr = newhxr.drop("latitude")
+    #newhxr = newhxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    #newhxr = newhxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
 
     # newhxr is an xarray data-array with 6 dimensions.
     # dt is the averaging time of the hysplit output.
     newhxr = newhxr.assign_attrs({"sample time hours": dt})
     newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
-    return newhxr
+    newhxr.attrs.update(hxr.attrs)
+    keylist = ["time description"]
+    newhxr = reset_latlon_coords(newhxr)
+    for key in keylist:
+        newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
+    if check_grid:
+        return fix_grid_continuity(newhxr)
+    else:
+        return newhxr
+
+
+def get_even_latlongrid(dset, xlim, ylim):
+    xindx = np.arange(xlim[0], xlim[1] + 1)
+    yindx = np.arange(ylim[0], ylim[1] + 1)
+    return get_latlongrid(dset, xindx, yindx)
+
+
+def reset_latlon_coords(hxr):
+    """
+    hxr : xarray DataSet as output from open_dataset or combine_dataset
+    """
+    mgrid = get_latlongrid(hxr, hxr.x.values, hxr.y.values)
+    hxr = hxr.drop("longitude")
+    hxr = hxr.drop("latitude")
+    hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    return hxr
+
+
+def fix_grid_continuity(dset):
+    # if grid already continuos don't do anything.
+    if check_grid_continuity(dset):
+        return dset
+
+    xv = dset.x.values
+    yv = dset.y.values
+
+    xlim = [xv[0], xv[-1]]
+    ylim = [yv[0], yv[-1]]
+
+    xindx = np.arange(xlim[0], xlim[1] + 1)
+    yindx = np.arange(ylim[0], ylim[1] + 1)
+
+    mgrid = get_even_latlongrid(dset, xlim, ylim)
+    conc = np.zeros_like(mgrid[0])
+    dummy = xr.DataArray(conc, dims=["y", "x"])
+    dummy = dummy.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    dummy = dummy.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    dummy = dummy.assign_coords(x=(("x"), xindx))
+    dummy = dummy.assign_coords(y=(("y"), yindx))
+    cdset, dummy2 = xr.align(dset, dummy, join="outer")
+    cdset = cdset.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    cdset = cdset.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    return cdset.fillna(0)
+
+
+def check_grid_continuity(dset):
+    """
+    checks to see if x and y coords are skipping over any grid points.
+    Since cdump files only store above 0 values, it is possible to have
+    a grid that is
+    y = [1,2,3,4,6,8]
+    if there are above zero values at 6 and 8 but not at 7.
+    This results in an xarray which has a grid that is not evenly spaced.
+    """
+    xv = dset.x.values
+    yv = dset.y.values
+    t1 = np.array([xv[i] - xv[i - 1] for i in np.arange(1, len(xv))])
+    t2 = np.array([yv[i] - yv[i - 1] for i in np.arange(1, len(yv))])
+    if np.any(t1 != 1):
+        return False
+    if np.any(t2 != 1):
+        return False
+    return True
 
 
 def get_latlongrid(dset, xindx, yindx):
@@ -766,26 +890,37 @@ def get_latlongrid(dset, xindx, yindx):
     yindx : list of integers
     RETURNS
     mgrid : output of numpy meshgrid function.
-            Two 2d arrays of latitude, longitude. 
+            Two 2d arrays of latitude, longitude.
+    The grid points in cdump file
+    represent center of the sampling area.
+
+    NOTES :
+    This may return a grid that is not evenly spaced.
+    For instance if yindx is something like [1,2,3,4,5,7] then
+    the grid will not have even spacing in latitude and will 'skip' a latitude point.
     """
-    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
 
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
-    print(nlat, nlon, dlat, dlon)
-    print("lon shape", lon.shape)
-    print("lat shape", lat.shape)
-    print(lat)
-    print(lon)
     lonlist = [lon[x - 1] for x in xindx]
     latlist = [lat[x - 1] for x in yindx]
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
+
+
+def get_index_fromgrid(dset, latgrid, longrid):
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
 
 
 def getlatlon(dset):
@@ -797,30 +932,35 @@ def getlatlon(dset):
     lat : 1D array of latitudes
     lon : 1D array of longitudes
     """
-    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
     return lat, lon
 
 
-def hysp_massload(dset, threshold=0, mult=1):
-    """ Calculate mass loading from HYSPLIT xarray
+def hysp_massload(dset, threshold=0, mult=1, zvals=None):
+    """Calculate mass loading from HYSPLIT xarray
     INPUTS
     dset: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
     threshold : float
     mult : float
-    Outputs: 
+    zvals : list of levels to calculate mass loading over.
+    Outputs:
     totl_aml : xarray data array
     total ash mass loading (summed over all layers), ash mass loading
     Units in (unit mass / m^2)
     """
+    # first calculate mass loading in each level.
     aml_alts = calc_aml(dset)
+    # Then choose which levels to use for total mass loading.
+    if zvals:
+        aml_alts = aml_alts.sel(z=zvals)
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
     # unitmass, mass63 = calc_MER(dset)
@@ -833,15 +973,16 @@ def hysp_massload(dset, threshold=0, mult=1):
     return total_aml
 
 
-def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
-                 mass_load=True, species=None):
-    """ Calculate ash top-height from HYSPLIT xarray
+def hysp_heights(
+    dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None
+):
+    """Calculate top-height from HYSPLIT xarray
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
-    threshold : ash mass loading threshold (threshold = xx)
+    threshold : mass loading threshold (threshold = xx)
     mult : convert from meters to other unit. default is 1/1000.0 to
            convert to km.
-    Outputs: ash top heights, altitude levels """
+    Outputs: ash top heights, altitude levels"""
 
     # either get mass loading of each point
     if mass_load:
@@ -863,11 +1004,15 @@ def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
     return top_height
 
 
+def calc_total_mass(dset):
+    return -1
+
+
 def calc_aml(dset, species=None):
-    """ Calculates the ash mass loading at each altitude for the dataset
+    """Calculates the mass loading at each altitude for the dataset
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
-    Output: total ash mass loading """
+    Output: total ash mass loading"""
     # Totals values for all particles
     if isinstance(dset, xr.core.dataset.Dataset):
         total_par = add_species(dset)
@@ -880,13 +1025,13 @@ def calc_aml(dset, species=None):
 
 
 def hysp_thresh(dset, threshold, mult=1):
-    """ Calculates a threshold mask array based on the
+    """Calculates a threshold mask array based on the
     ash mass loading from HYSPLIT xarray
     Inputs: xarray, ash mass loading threshold (threshold = xx)
-    Outputs: ash mass loading threshold mask array 
+    Outputs: ash mass loading threshold mask array
     Returns 0 where values are below or equal to threshold.
     Returns 1 where values are greather than threshold
-   
+
     """
     # Calculate ash mass loading for xarray
     aml_alts = calc_aml(dset)
@@ -905,21 +1050,21 @@ def hysp_thresh(dset, threshold, mult=1):
 
 def add_species(dset, species=None):
     """
-     species : list of Species ID's.
-               if none then all ids in the "species ID" attribute will be used.
-     Calculate sum of particles.
+    species : list of Species ID's.
+              if none then all ids in the "species ID" attribute will be used.
+    Calculate sum of particles.
     """
-    sflist = [] 
+    sflist = []
     splist = dset.attrs["Species ID"]
     if not species:
-       species = dset.attrs["Species ID"]
+        species = dset.attrs["Species ID"]
     else:
-       for val in species:
-           if val not in splist:
-              warn = 'WARNING: hysplit.add_species function : species not found '
-              warn += str(val) + '\n'
-              warn += ' valid species ids are ' + str.join(', ', splist)
-              print(warn)
+        for val in species:
+            if val not in splist:
+                warn = "WARNING: hysplit.add_species function"
+                warn += ": species not found" + str(val) + "\n"
+                warn += " valid species ids are " + str.join(", ", splist)
+                print(warn)
     sss = 0
     tmp = []
     # Looping through all species in dataset
@@ -943,7 +1088,7 @@ def _delta_multiply(pars):
     """
     # Calculate the delta altitude for each layer and
     # multiplies concentration by layer thickness to return mass load.
- 
+
     # pars: xarray data array
             concentration with z coordinate.
     # OUTPUT
