@@ -411,9 +411,6 @@ class ModelBin:
             int(hdata7["ohr"]),
             int(hdata7["omin"]),
         )
-        print(hdata6)
-        print(hdata7)
-        print(pdate2, pdate1)
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
         #self.atthash["Sampling Time"] = pdate2 - pdate1
@@ -794,11 +791,12 @@ def combine_dataset(
 
     # calculate the lat lon grid for the expanded dataset.
     # and use that for the new coordinates.
-    mgrid = get_latlongrid(hxr, newhxr.x.values, newhxr.y.values)
-    newhxr = newhxr.drop("longitude")
-    newhxr = newhxr.drop("latitude")
-    newhxr = newhxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
-    newhxr = newhxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    #newhxr = reset_latlon_coords(newhxr)
+    #mgrid = get_latlongrid(hxr, newhxr.x.values, newhxr.y.values)
+    #newhxr = newhxr.drop("longitude")
+    #newhxr = newhxr.drop("latitude")
+    #newhxr = newhxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    #newhxr = newhxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
 
     # newhxr is an xarray data-array with 6 dimensions.
     # dt is the averaging time of the hysplit output.
@@ -806,6 +804,7 @@ def combine_dataset(
     newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
     newhxr.attrs.update(hxr.attrs)
     keylist = ["time description"]
+    newhxr = reset_latlon_coords(newhxr)
     for key in keylist:
         newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
     if check_grid:
