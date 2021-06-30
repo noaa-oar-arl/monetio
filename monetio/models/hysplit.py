@@ -170,7 +170,9 @@ class ModelBin:
         # list of tuples  of averaging periods with nonzero concentrtations]
         self.nonzeroconcdates = []
         self.atthash = {}
-        self.atthash["Starting Locations"] = []
+        self.atthash["Starting Latitudes"] = []
+        self.atthash["Starting Longitudes"] = []
+        self.atthash["Starting Heights"] = []
         self.atthash["Source Date"] = []
         self.sample_time_stamp = sample_time_stamp
         self.llcrnr_lon = None
@@ -347,7 +349,11 @@ class ModelBin:
             lat = hdata2["s_lat"][nnn]
             lon = hdata2["s_lon"][nnn]
             ht = hdata2["s_ht"][nnn]
-            self.atthash["Starting Locations"].append((lat, lon, ht))
+
+            self.atthash["Starting Latitudes"].append(lat)
+            self.atthash["Starting Longitudes"].append(lon)
+            self.atthash["Starting Heights"].append(ht)
+
 
             # try to guess century if century not given
             if century is None:
@@ -366,7 +372,9 @@ class ModelBin:
                 hdata2["r_hr"][nnn],
                 hdata2["r_min"][nnn],
             )
-            self.atthash["Source Date"].append(sourcedate)
+
+            self.atthash["Source Date"].append(sourcedate.strftime('%Y%m%d.%H%M%S'))
+
         return century
 
     def parse_hdata3(self, hdata3, ahash):
@@ -607,7 +615,7 @@ class ModelBin:
                 print("greater than imax", testf, ii, imax)
             if inc_iii:
                 iii += 1
-        #self.atthash
+
         self.atthash.update(ahash)
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
@@ -794,6 +802,7 @@ def combine_dataset(
 #    yindx = np.arange(ylim[0], ylim[1] + 1)
 #    return get_latlongrid(dset, xindx, yindx)
 
+
 def reset_latlon_coords(hxr):
     """
     hxr : xarray DataSet as output from open_dataset or combine_dataset
@@ -803,13 +812,16 @@ def reset_latlon_coords(hxr):
     hxr = hxr.drop("latitude")
     hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
     hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
-    return hxr 
+
+    return hxr
+
+
 
 def fix_grid_continuity(dset):
     # if grid already continuos don't do anything.
     if check_grid_continuity(dset):
         return dset
-    
+
     xv = dset.x.values
     yv = dset.y.values
 
@@ -891,6 +903,15 @@ def get_index_fromgrid(dset, latgrid, longrid):
     nlon = dset.attrs["Number Lon Points"]
     dlat = dset.attrs["Latitude Spacing"]
     dlon = dset.attrs["Longitude Spacing"]
+
+def get_index_fromgrid(dset, latgrid, longrid):
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
+
 
 def getlatlon(dset):
     """
