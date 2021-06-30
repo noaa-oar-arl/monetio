@@ -395,8 +395,6 @@ class ModelBin:
         # if no data read then break out of the while loop.
         if not hdata6:
             return False, None, None
-        #print('HERE', hdata6["oyear"], type(hdata6["oyear"]))
-        #print('HERE', int(hdata6["oyear"]), type(hdata6["oyear"]))
         pdate1 = datetime.datetime(
             century + int(hdata6["oyear"]),
             int(hdata6["omonth"]),
@@ -446,8 +444,6 @@ class ModelBin:
         names = ["z" if x == "levels" else x for x in names]
         concframe.columns = names
         concframe.set_index(
-            # ['time', 'levels', 'longitude', 'latitude'],
-            # ['time', 'levels', 'longitude', 'latitude','x','y'],
             ["time", "z", "y", "x"],
             inplace=True,
         )
@@ -627,28 +623,12 @@ class ModelBin:
 
             self.dset = self.dset.reset_coords()
             self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
-        # if verbose:
-        #    print(self.dset)
         if iii == 0 and verbose:
             print(
                 "Warning: ModelBin class _readfile method: no data in the date range found"
             )
             return False
         return True
-
-
-# import datetime
-# import os
-# import sys
-# import xarray as xr
-# import numpy as np
-# from monet.models import hysplit
-# import monet.utilhysplit.hysp_func as hf
-# from netCDF4 import Dataset
-# import matplotlib.pyplot as plt
-
-# combine_cdump creates a 6 dimensional xarray dataarray object from cdump files.
-#
 
 
 def combine_dataset(
@@ -789,14 +769,6 @@ def combine_dataset(
     newhxr["source"] = slist
     # newhxr['ens'] = metlist
 
-    # calculate the lat lon grid for the expanded dataset.
-    # and use that for the new coordinates.
-    #newhxr = reset_latlon_coords(newhxr)
-    #mgrid = get_latlongrid(hxr, newhxr.x.values, newhxr.y.values)
-    #newhxr = newhxr.drop("longitude")
-    #newhxr = newhxr.drop("latitude")
-    #newhxr = newhxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
-    #newhxr = newhxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
 
     # newhxr is an xarray data-array with 6 dimensions.
     # dt is the averaging time of the hysplit output.
@@ -804,7 +776,11 @@ def combine_dataset(
     newhxr = newhxr.assign_attrs({"Species ID": list(set(splist))})
     newhxr.attrs.update(hxr.attrs)
     keylist = ["time description"]
+
+    # calculate the lat lon grid for the expanded dataset.
+    # and use that for the new coordinates.
     newhxr = reset_latlon_coords(newhxr)
+
     for key in keylist:
         newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
     if check_grid:
@@ -812,10 +788,11 @@ def combine_dataset(
     else:
         return newhxr
 
-def get_even_latlongrid(dset, xlim, ylim):
-    xindx = np.arange(xlim[0], xlim[1] + 1)
-    yindx = np.arange(ylim[0], ylim[1] + 1)
-    return get_latlongrid(dset, xindx, yindx)
+# This function seems not useful.
+#def get_even_latlongrid(dset, xlim, ylim):
+#    xindx = np.arange(xlim[0], xlim[1] + 1)
+#    yindx = np.arange(ylim[0], ylim[1] + 1)
+#    return get_latlongrid(dset, xindx, yindx)
 
 def reset_latlon_coords(hxr):
     """
@@ -842,7 +819,8 @@ def fix_grid_continuity(dset):
     xindx = np.arange(xlim[0], xlim[1] + 1)
     yindx = np.arange(ylim[0], ylim[1] + 1)
 
-    mgrid = get_even_latlongrid(dset, xlim, ylim)
+    mgrid = get_latlongrid(dset, xindx, yindx)
+    #mgrid = get_even_latlongrid(dset, xlim, ylim)
     conc = np.zeros_like(mgrid[0])
     dummy = xr.DataArray(conc, dims=["y", "x"])
     dummy = dummy.assign_coords(latitude=(("y", "x"), mgrid[1]))
