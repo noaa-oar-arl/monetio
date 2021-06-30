@@ -349,9 +349,11 @@ class ModelBin:
             lat = hdata2["s_lat"][nnn]
             lon = hdata2["s_lon"][nnn]
             ht = hdata2["s_ht"][nnn]
+
             self.atthash["Starting Latitudes"].append(lat)
             self.atthash["Starting Longitudes"].append(lon)
             self.atthash["Starting Heights"].append(ht)
+
 
             # try to guess century if century not given
             if century is None:
@@ -370,7 +372,9 @@ class ModelBin:
                 hdata2["r_hr"][nnn],
                 hdata2["r_min"][nnn],
             )
+
             self.atthash["Source Date"].append(sourcedate.strftime('%Y%m%d.%H%M%S'))
+
         return century
 
     def parse_hdata3(self, hdata3, ahash):
@@ -615,7 +619,7 @@ class ModelBin:
                 print("greater than imax", testf, ii, imax)
             if inc_iii:
                 iii += 1
-        # self.atthash
+
         self.atthash.update(ahash)
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
@@ -832,7 +836,9 @@ def reset_latlon_coords(hxr):
     hxr = hxr.drop("latitude")
     hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
     hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
+
     return hxr
+
 
 
 def fix_grid_continuity(dset):
@@ -913,6 +919,13 @@ def get_latlongrid(dset, xindx, yindx):
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
 
+def get_index_fromgrid(dset, latgrid, longrid):
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
 
 def get_index_fromgrid(dset, latgrid, longrid):
     llcrnr_lat = dset.attrs["llcrnr latitude"]
