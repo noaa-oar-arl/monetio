@@ -411,9 +411,12 @@ class ModelBin:
             int(hdata7["ohr"]),
             int(hdata7["omin"]),
         )
+        print(hdata6)
+        print(hdata7)
+        print(pdate2, pdate1)
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
-        self.atthash["Sampling Time"] = pdate2 - pdate1
+        #self.atthash["Sampling Time"] = pdate2 - pdate1
         self.atthash["sample time hours"] = sample_dt
         if self.sample_time_stamp == "end":
             self.atthash["time description"] = "End of sampling time period"
@@ -613,7 +616,6 @@ class ModelBin:
                 iii += 1
         #self.atthash
         self.atthash.update(ahash)
-        #self.atthash["Concentration Grid"] = ahash
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -811,18 +813,27 @@ def combine_dataset(
     else:
         return newhxr
 
-
 def get_even_latlongrid(dset, xlim, ylim):
     xindx = np.arange(xlim[0], xlim[1] + 1)
     yindx = np.arange(ylim[0], ylim[1] + 1)
     return get_latlongrid(dset, xindx, yindx)
 
+def reset_latlon_coords(hxr):
+    """
+    hxr : xarray DataSet as output from open_dataset or combine_dataset
+    """
+    mgrid = get_latlongrid(hxr, hxr.x.values, hxr.y.values)
+    hxr = hxr.drop("longitude")
+    hxr = hxr.drop("latitude")
+    hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    return hxr 
 
 def fix_grid_continuity(dset):
     # if grid already continuos don't do anything.
     if check_grid_continuity(dset):
         return dset
-
+    
     xv = dset.x.values
     yv = dset.y.values
 
@@ -882,13 +893,6 @@ def get_latlongrid(dset, xindx, yindx):
     For instance if yindx is something like [1,2,3,4,5,7] then
     the grid will not have even spacing in latitude and will 'skip' a latitude point.
     """
-    #llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    #llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    #nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    #nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    #dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    #dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
-
     llcrnr_lat = dset.attrs["llcrnr latitude"]
     llcrnr_lon = dset.attrs["llcrnr longitude"]
     nlat = dset.attrs["Number Lat Points"]
@@ -902,14 +906,6 @@ def get_latlongrid(dset, xindx, yindx):
     latlist = [lat[x - 1] for x in yindx]
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
-    # slat = self.llcrnr_lat
-    # slon = self.llcrnr_lon
-    # lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
-    # lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
-    # lonlist = [lon[x - 1] for x in xindx]
-    # latlist = [lat[x - 1] for x in yindx]
-    # mgrid = np.meshgrid(lonlist, latlist)
-
 
 def get_index_fromgrid(dset, latgrid, longrid):
     llcrnr_lat = dset.attrs["llcrnr latitude"]
@@ -918,7 +914,6 @@ def get_index_fromgrid(dset, latgrid, longrid):
     nlon = dset.attrs["Number Lon Points"]
     dlat = dset.attrs["Latitude Spacing"]
     dlon = dset.attrs["Longitude Spacing"]
-
 
 def getlatlon(dset):
     """
@@ -935,12 +930,6 @@ def getlatlon(dset):
     nlon = dset.attrs["Number Lon Points"]
     dlat = dset.attrs["Latitude Spacing"]
     dlon = dset.attrs["Longitude Spacing"]
-    #llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    #llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    #nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    #nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    #dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    #dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
     return lat, lon
