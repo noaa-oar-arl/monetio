@@ -392,23 +392,24 @@ class ModelBin:
         self.atthash["Level top heights (m)"] = hdata4b["levht"]
 
     def parse_hdata6and7(self, hdata6, hdata7, century):
-
         # if no data read then break out of the while loop.
         if not hdata6:
             return False, None, None
+        #print('HERE', hdata6["oyear"], type(hdata6["oyear"]))
+        #print('HERE', int(hdata6["oyear"]), type(hdata6["oyear"]))
         pdate1 = datetime.datetime(
-            century + hdata6["oyear"],
-            hdata6["omonth"],
-            hdata6["oday"],
-            hdata6["ohr"],
-            hdata6["omin"],
+            century + int(hdata6["oyear"]),
+            int(hdata6["omonth"]),
+            int(hdata6["oday"]),
+            int(hdata6["ohr"]),
+            int(hdata6["omin"]),
         )
         pdate2 = datetime.datetime(
-            century + hdata7["oyear"],
-            hdata7["omonth"],
-            hdata7["oday"],
-            hdata7["ohr"],
-            hdata7["omin"],
+            century + int(hdata7["oyear"]),
+            int(hdata7["omonth"]),
+            int(hdata7["oday"]),
+            int(hdata7["ohr"]),
+            int(hdata7["omin"]),
         )
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
@@ -610,7 +611,9 @@ class ModelBin:
                 print("greater than imax", testf, ii, imax)
             if inc_iii:
                 iii += 1
-        self.atthash["Concentration Grid"] = ahash
+        #self.atthash
+        self.atthash.update(ahash)
+        #self.atthash["Concentration Grid"] = ahash
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -879,12 +882,19 @@ def get_latlongrid(dset, xindx, yindx):
     For instance if yindx is something like [1,2,3,4,5,7] then
     the grid will not have even spacing in latitude and will 'skip' a latitude point.
     """
-    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    #llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
+    #llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
+    #nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
+    #nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
+    #dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
+    #dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
 
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
@@ -902,12 +912,12 @@ def get_latlongrid(dset, xindx, yindx):
 
 
 def get_index_fromgrid(dset, latgrid, longrid):
-    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
 
 
 def getlatlon(dset):
@@ -919,12 +929,18 @@ def getlatlon(dset):
     lat : 1D array of latitudes
     lon : 1D array of longitudes
     """
-    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    llcrnr_lat = dset.attrs["llcrnr latitude"]
+    llcrnr_lon = dset.attrs["llcrnr longitude"]
+    nlat = dset.attrs["Number Lat Points"]
+    nlon = dset.attrs["Number Lon Points"]
+    dlat = dset.attrs["Latitude Spacing"]
+    dlon = dset.attrs["Longitude Spacing"]
+    #llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
+    #llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
+    #nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
+    #nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
+    #dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
+    #dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
     return lat, lon
