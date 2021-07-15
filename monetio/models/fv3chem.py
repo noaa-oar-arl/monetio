@@ -21,7 +21,7 @@ def open_dataset(fname):
         if nemsio:
             f = xr.open_dataset(names[0])
             f = _fix_nemsio(f)
-            # f = _fix_time_nemsio(f, names[0])
+            f = _fix_time_nemsio(f, names[0])
             # f['geoht'] = _calc_nemsio_hgt(f)
         elif grib:
             f = xr.open_dataset(names[0])
