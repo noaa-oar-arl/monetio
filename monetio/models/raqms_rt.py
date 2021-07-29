@@ -3,7 +3,7 @@
 import xarray as xr
 
 def open_dataset(fname):
-    '''Open a single dataset from RAQMS output. Currently set for netcdf file format.
+    '''Open a single dataset from RAQMS netcdf output.
     Parameters
     ----------
     fname : string
@@ -21,8 +21,7 @@ def open_dataset(fname):
         else:
             raise ValueError
     except ValueError:
-        print('''File format not recognized. Note that files should be
-                preprocessed to netcdf.''')
+        print('''File format not recognized. Please check that files are RAQMS real-time forecasts.''')
     return f
 
 def open_mfdataset(fname):
