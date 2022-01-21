@@ -136,7 +136,7 @@ class ISH(object):
     def _clean_column(self, series, missing=9999, multiplier=1):
         series = series.apply(float)
         series[series == missing] = np.nan
-        return old_div(series, multiplier)
+        return series // multiplier
 
     def _clean_column_by_name(self, frame, name, *args, **kwargs):
         frame[name] = self._clean_column(frame[name], *args, **kwargs)
