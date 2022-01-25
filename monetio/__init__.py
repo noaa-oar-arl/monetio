@@ -24,6 +24,8 @@ ncep_grib = models.ncep_grib
 hysplit = models.hysplit
 hytraj = models.hytraj
 pardump = models.pardump
+hrrr_smoke = models.hrrr_smoke
+raqms_rt = models.raqms_rt
 
 # profiles
 icartt = profile.icartt
