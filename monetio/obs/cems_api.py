@@ -438,11 +438,11 @@ class EpaApiObject:
         data = self.get_raw_data()
         try:
             self.status_code = data.status_code
-        except:
+        except AttributeError:
             self.status_code = "None"
         try:
             jobject = data.json()
-        except BaseException:
+        except Exception:
             return data
         df = self.unpack(jobject)
         return df
@@ -533,12 +533,12 @@ class EmissionsCall(EpaApiObject):
                 fail = 0
                 try:
                     rval = datetime.datetime.strptime(rval, datefmt)
-                except:
+                except ValueError:
                     fail = 1
                 if fail == 1:
                     try:
                         rval = datetime.datetime.strptime(rval, datefmt2)
-                    except:
+                    except ValueError:
                         fail = 2
                         print(self.fname)
                         print("WARNING: Could not parse date " + rval)
@@ -561,7 +561,7 @@ class EmissionsCall(EpaApiObject):
         data = self.get_raw_data()
         try:
             self.status_code = data.status_code
-        except:
+        except AttributeError:
             self.status_code = None
         if data:
             df = self.unpack(data)
@@ -991,7 +991,7 @@ class MonitoringPlan(EpaApiObject):
 
         try:
             mhash = df.reset_index().to_dict("records")
-        except:
+        except Exception:
             mhash = None
         return mhash
 
@@ -1014,7 +1014,7 @@ class MonitoringPlan(EpaApiObject):
             return None
 
         temp["testdate"] = temp.apply(lambda row: test_end(row["endDateHour"], edate), axis=1)
-        temp = temp[temp["testdate"] == True]
+        temp = temp[temp["testdate"]]
         method = temp["methodCode"].unique()
 
         return method
@@ -1036,7 +1036,7 @@ class MonitoringPlan(EpaApiObject):
             else:
                 try:
                     return pd.to_datetime(x, format=sfmt)
-                except:
+                except Exception:
                     print("time value", x)
                     return pd.NaT
 
@@ -1095,7 +1095,7 @@ class MonitoringPlan(EpaApiObject):
 
         # The stackname may contain multiple 'units'
         stackname = ihash["unitStackName"]
-        stackhash = {}
+        # stackhash = {}
         shash = {}
 
         # first go through the unitStackConfigurations
@@ -1150,7 +1150,7 @@ class MonitoringPlan(EpaApiObject):
 
                     try:
                         dhash["stackht"] = float(att["stackHeight"]) * ft2m
-                    except:
+                    except ValueError:
                         dhash["stackht"] = np.NaN
                 else:
                     dhash["stackht"] = np.NaN
@@ -1330,7 +1330,7 @@ class FacilitiesData(EpaApiObject):
             # there are many None in end time field.
             try:
                 year = int(instr[0:4])
-            except:
+            except ValueError:
                 return None
             quarter = int(instr[4])
             if quarter == 1:
@@ -1375,7 +1375,7 @@ class FacilitiesData(EpaApiObject):
         Returns
         list of state abbreviations
         """
-        statelist = []
+        # statelist = []
         temp = self.df[self.df["oris"].isin(orislist)]
         return temp["state"].unique()
 
@@ -1412,7 +1412,7 @@ class FacilitiesData(EpaApiObject):
         temp = temp[temp["unit"] == unit]
 
         start = temp["begin time"].unique()
-        end = temp["end time"].unique()
+        # end = temp["end time"].unique()
         sdate = []
         for sss in start:
             sdate.append(self.process_unit_time(sss))
@@ -1432,7 +1432,7 @@ class FacilitiesData(EpaApiObject):
         klist = ["testdate", "begin time", "end time", "unit", "oris", "request_string"]
         print(temp[klist])
         print("--------------------------------------------")
-        temp = temp[temp["testdate"] == True]
+        temp = temp[temp["testdate"]]
         rstr = temp["request_string"].unique()
         return rstr
 
@@ -1597,12 +1597,11 @@ def get_monitoring_plan(oris, mid, mrequest, date1, dflist):
     # adds to list of oris, mid, stackht which will later be turned into
     # a dataframe with that information.
     status_code = 204
-    iii = 0
-    mhash = None
+    # mhash = None
     for mr in mrequest:
         print("Get Monitoring Plan " + mr)
         plan = MonitoringPlan(str(oris), mr, date1)
-        status_code = plan.status_code
+        status_code = plan.status_code  # noqa: F841
         stackht = plan.get_stackht(mid)
     if len(stackht) == 1:
         print(len(stackht))
@@ -1631,7 +1630,7 @@ def get_monitoring_plan(oris, mid, mrequest, date1, dflist):
         test = input(istr)
         try:
             stackht = float(test)
-        except:
+        except ValueError:
             stackht = None
     method = plan.get_method(mid, [date1, date1])
     print("METHODS returned", method, mid, str(oris))
@@ -1777,7 +1776,6 @@ class CEMS:
 
                 # find first valid monitoringplan by date.
                 mrequest = None
-                iii = 0
                 for udate in datelist:
                     mrequest = fac.get_unit_request(oris, mid, udate)
                     if mrequest:
@@ -1804,7 +1802,7 @@ class CEMS:
                         method = []
                     # add emissions for each quarter list.
                     for meth in method:
-                        rvalue = self.add_emissions(oris, mid, datelist, meth)
+                        _ = self.add_emissions(oris, mid, datelist, meth)
         # print(dflist)
 
         # create dataframe from dflist.
@@ -1838,6 +1836,7 @@ class CEMS:
         if emitdf.empty:
             return emitdf
         emitdf = emitdf.dropna(axis=0, subset=["so2_lbs"])
+
         # The LME data sometimes has duplicate rows.
         # causing emissions to be over-estimated.
         # emitdf = emitdf.drop_duplicates()
@@ -1881,8 +1880,8 @@ class CEMS:
                 try:
                     tempdf = emitdf.dropna(axis=0, subset=[ccc])
                     print(ccc + " na dropped", tempdf.shape)
-                except:
-                    print(ccc + " cannot drop error")
+                except Exception:
+                    print(ccc + " cannot drop, error")
         # print('stackht is na ---------------------------------')
         # tempdf = emitdf[emitdf['stackht'].isnull()]
         # print(tempdf[['oris','so2_lbs','unit','time local','stackht']])
