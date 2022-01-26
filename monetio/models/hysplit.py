@@ -1,11 +1,6 @@
-""" HYPSLIT MODEL READER """
-import sys
-import datetime
-import pandas as pd
-import xarray as xr
-import numpy as np
-
 """
+HYPSLIT MODEL READER
+
 This code developed at the NOAA Air Resources Laboratory.
 Alice Crawford
 Allison Ring
@@ -34,10 +29,16 @@ Change log
 
 
 """
+import datetime
+import sys
+
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 
 def open_dataset(
-    fname, drange=None, century=None, verbose=False, sample_time_stamp="start",check_grid=True
+    fname, drange=None, century=None, verbose=False, sample_time_stamp="start", check_grid=True
 ):
     """Short summary.
 
@@ -61,7 +62,7 @@ def open_dataset(
         else time is start of sampling time period.
 
     check_grid : boolean
-        if True call fix_grid_continuity to check to see that 
+        if True call fix_grid_continuity to check to see that
         xindx and yindx values are sequential (e.g. not [1,2,3,4,5,7]).
         If they are not, then add missing values to the xarray..
 
@@ -84,8 +85,11 @@ def open_dataset(
         sample_time_stamp=sample_time_stamp,
     )
     dset = binfile.dset
-    if check_grid: return fix_grid_continuity(dset)
-    else: return dset
+    if check_grid:
+        return fix_grid_continuity(dset)
+    else:
+        return dset
+
 
 def check_drange(drange, pdate1, pdate2):
     """
@@ -123,10 +127,10 @@ def check_drange(drange, pdate1, pdate2):
 
 class ModelBin:
     """
-       represents a binary cdump (concentration) output file from HYSPLIT
-       methods:
-       readfile - opens and reads contents of cdump file into an xarray
-       self.dset
+    represents a binary cdump (concentration) output file from HYSPLIT
+    methods:
+    readfile - opens and reads contents of cdump file into an xarray
+    self.dset
     """
 
     def __init__(
@@ -146,7 +150,7 @@ class ModelBin:
 
         sample_time_stamp : str
               if 'end' - time in xarray will indicate end of sampling time.
-              else  - time in xarray will indicate start of sampling time. 
+              else  - time in xarray will indicate start of sampling time.
         century : integer
         verbose : boolean
         read
@@ -176,16 +180,14 @@ class ModelBin:
         if readwrite == "r":
             if verbose:
                 print("reading " + filename)
-            self.dataflag = self.readfile(
-                filename, drange, verbose=verbose, century=century
-            )
+            self.dataflag = self.readfile(filename, drange, verbose=verbose, century=century)
 
     @staticmethod
     def define_struct():
         """Each record in the fortran binary begins and ends with 4 bytes which
         specify the length of the record. These bytes are called pad below.
         They are not used here, but are thrown out. The following block defines
-        a numpy dtype object for each record in the binary file. """
+        a numpy dtype object for each record in the binary file."""
         from numpy import dtype
 
         real4 = ">f"
@@ -317,10 +319,7 @@ class ModelBin:
            number of starting locations in file.
         """
         if len(hdata1["start_loc"]) != 1:
-            print(
-                "WARNING in ModelBin _readfile - number of starting locations "
-                "incorrect"
-            )
+            print("WARNING in ModelBin _readfile - number of starting locations " "incorrect")
             print(hdata1["start_loc"])
         # in python 3 np.fromfile reads the record into a list even if it is
         # just one number.
@@ -347,9 +346,7 @@ class ModelBin:
                     century = 2000
                 else:
                     century = 1900
-                print(
-                    "WARNING: Guessing Century for HYSPLIT concentration file", century
-                )
+                print("WARNING: Guessing Century for HYSPLIT concentration file", century)
             # add sourcedate which is datetime.datetime object
             sourcedate = datetime.datetime(
                 century + hdata2["r_year"][nnn],
@@ -389,10 +386,18 @@ class ModelBin:
         if not hdata6:
             return False, None, None
         pdate1 = datetime.datetime(
-            century + hdata6["oyear"], hdata6["omonth"], hdata6["oday"], hdata6["ohr"],hdata6["omin"]
+            century + hdata6["oyear"],
+            hdata6["omonth"],
+            hdata6["oday"],
+            hdata6["ohr"],
+            hdata6["omin"],
         )
         pdate2 = datetime.datetime(
-            century + hdata7["oyear"], hdata7["omonth"], hdata7["oday"], hdata7["ohr"],hdata7["omin"]
+            century + hdata7["oyear"],
+            hdata7["omonth"],
+            hdata7["oday"],
+            hdata7["ohr"],
+            hdata7["omin"],
         )
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
@@ -458,18 +463,18 @@ class ModelBin:
 
     def readfile(self, filename, drange, verbose, century):
         """Data from the file is stored in an xarray, self.dset
-           returns False if all concentrations are zero else returns True.
-           INPUTS
-           filename - name of cdump file to open
-           drange - [date1, date2] - range of dates to load data for. if []
-                    then loads all data.
-                    date1 and date2  should be datetime ojbects.
-           verbose - turns on print statements
-           century - if None will try to guess the century by looking
-                    at the last two digits of the year.
-           For python 3 the numpy char4 are read in as a numpy.bytes_
-            class and need to be converted to a python
-           string by using decode('UTF-8').
+        returns False if all concentrations are zero else returns True.
+        INPUTS
+        filename - name of cdump file to open
+        drange - [date1, date2] - range of dates to load data for. if []
+                 then loads all data.
+                 date1 and date2  should be datetime ojbects.
+        verbose - turns on print statements
+        century - if None will try to guess the century by looking
+                 at the last two digits of the year.
+        For python 3 the numpy char4 are read in as a numpy.bytes_
+         class and need to be converted to a python
+        string by using decode('UTF-8').
 
         """
         # 8/16/2016 moved species=[]  to before while loop. Added print
@@ -549,9 +554,7 @@ class ModelBin:
                     # )
                     # if number of elements is nonzero then
                     if hdata8a["ne"] >= 1:
-                        self.atthash["Species ID"].append(
-                            hdata8a["poll"][0].decode("UTF-8")
-                        )
+                        self.atthash["Species ID"].append(hdata8a["poll"][0].decode("UTF-8"))
                         # get rec8 - indx and jndx
                         hdata8b = np.fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
                         # add sample start time to list of start times with
@@ -591,7 +594,7 @@ class ModelBin:
             #  imax iterations.
             if ii > imax:
                 testf = False
-                print('greater than imax', testf, ii, imax)
+                print("greater than imax", testf, ii, imax)
             if inc_iii:
                 iii += 1
         self.atthash["Concentration Grid"] = ahash
@@ -599,7 +602,7 @@ class ModelBin:
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
         if self.dset is None:
-            print('DSET is NONE')
+            print("DSET is NONE")
             return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
@@ -612,9 +615,7 @@ class ModelBin:
         # if verbose:
         #    print(self.dset)
         if iii == 0 and verbose:
-            print(
-                "Warning: ModelBin class _readfile method: no data in the date range found"
-            )
+            print("Warning: ModelBin class _readfile method: no data in the date range found")
             return False
         return True
 
@@ -640,7 +641,7 @@ def combine_dataset(
     century=None,
     verbose=False,
     sample_time_stamp="start",
-    check_grid=True
+    check_grid=True,
 ):
     """
     Inputs :
@@ -663,7 +664,7 @@ def combine_dataset(
     added to get concentration from all species. If list of species is provided,
     only those species will be added.
 
-    Files need to have the same concentration grid defined. 
+    Files need to have the same concentration grid defined.
     """
     iii = 0
     ylist = []
@@ -699,7 +700,7 @@ def combine_dataset(
                     century=century,
                     verbose=verbose,
                     sample_time_stamp=sample_time_stamp,
-                    check_grid=False
+                    check_grid=False,
                 )
             else:  # use all dates
                 hxr = open_dataset(
@@ -707,7 +708,7 @@ def combine_dataset(
                     century=century,
                     verbose=verbose,
                     sample_time_stamp=sample_time_stamp,
-                    check_grid=False
+                    check_grid=False,
                 )
             try:
                 mlat, mlon = getlatlon(hxr)
@@ -787,17 +788,22 @@ def combine_dataset(
     keylist = ["time description"]
     for key in keylist:
         newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
-    if check_grid: return fix_grid_continuity(newhxr)
-    else: return newhxr
+    if check_grid:
+        return fix_grid_continuity(newhxr)
+    else:
+        return newhxr
+
 
 def get_even_latlongrid(dset, xlim, ylim):
-    xindx = np.arange(xlim[0], xlim[1]+1)
-    yindx = np.arange(ylim[0], ylim[1]+1)
-    return get_latlongrid(dset, xindx, yindx) 
+    xindx = np.arange(xlim[0], xlim[1] + 1)
+    yindx = np.arange(ylim[0], ylim[1] + 1)
+    return get_latlongrid(dset, xindx, yindx)
+
 
 def fix_grid_continuity(dset):
     # if grid already continuos don't do anything.
-    if check_grid_continuity(dset): return dset
+    if check_grid_continuity(dset):
+        return dset
 
     xv = dset.x.values
     yv = dset.y.values
@@ -805,21 +811,22 @@ def fix_grid_continuity(dset):
     xlim = [xv[0], xv[-1]]
     ylim = [yv[0], yv[-1]]
 
-    xindx = np.arange(xlim[0], xlim[1]+1)
-    yindx = np.arange(ylim[0], ylim[1]+1)
+    xindx = np.arange(xlim[0], xlim[1] + 1)
+    yindx = np.arange(ylim[0], ylim[1] + 1)
 
-    mgrid = get_even_latlongrid(dset,xlim,ylim)
+    mgrid = get_even_latlongrid(dset, xlim, ylim)
     conc = np.zeros_like(mgrid[0])
-    dummy = xr.DataArray(conc,dims=['y','x'])
-    dummy = dummy.assign_coords(latitude=(('y','x'),mgrid[1]))    
-    dummy = dummy.assign_coords(longitude=(('y','x'),mgrid[0]))    
-    dummy = dummy.assign_coords(x=(('x'),xindx))
-    dummy = dummy.assign_coords(y=(('y'),yindx))
-    cdset, dummy2 = xr.align(dset,dummy,join='outer')     
-    cdset = cdset.assign_coords(latitude=(('y','x'),mgrid[1]))    
-    cdset = cdset.assign_coords(longitude=(('y','x'),mgrid[0]))    
+    dummy = xr.DataArray(conc, dims=["y", "x"])
+    dummy = dummy.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    dummy = dummy.assign_coords(longitude=(("y", "x"), mgrid[0]))
+    dummy = dummy.assign_coords(x=(("x"), xindx))
+    dummy = dummy.assign_coords(y=(("y"), yindx))
+    cdset, dummy2 = xr.align(dset, dummy, join="outer")
+    cdset = cdset.assign_coords(latitude=(("y", "x"), mgrid[1]))
+    cdset = cdset.assign_coords(longitude=(("y", "x"), mgrid[0]))
 
     return cdset.fillna(0)
+
 
 def check_grid_continuity(dset):
     """
@@ -832,11 +839,14 @@ def check_grid_continuity(dset):
     """
     xv = dset.x.values
     yv = dset.y.values
-    t1 = np.array([xv[i] - xv[i-1] for i in np.arange(1,len(xv))])
-    t2 = np.array([yv[i] - yv[i-1] for i in np.arange(1,len(yv))])
-    if np.any(t1!=1): return False
-    if np.any(t2!=1): return False
+    t1 = np.array([xv[i] - xv[i - 1] for i in np.arange(1, len(xv))])
+    t2 = np.array([yv[i] - yv[i - 1] for i in np.arange(1, len(yv))])
+    if np.any(t1 != 1):
+        return False
+    if np.any(t2 != 1):
+        return False
     return True
+
 
 def get_latlongrid(dset, xindx, yindx):
     """
@@ -846,7 +856,7 @@ def get_latlongrid(dset, xindx, yindx):
     yindx : list of integers
     RETURNS
     mgrid : output of numpy meshgrid function.
-            Two 2d arrays of latitude, longitude. 
+            Two 2d arrays of latitude, longitude.
     The grid points in cdump file
     represent center of the sampling area.
 
@@ -868,13 +878,14 @@ def get_latlongrid(dset, xindx, yindx):
     latlist = [lat[x - 1] for x in yindx]
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
-        #slat = self.llcrnr_lat
-        #slon = self.llcrnr_lon
-        #lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
-        #lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
-        #lonlist = [lon[x - 1] for x in xindx]
-        #latlist = [lat[x - 1] for x in yindx]
-        #mgrid = np.meshgrid(lonlist, latlist)
+    # slat = self.llcrnr_lat
+    # slon = self.llcrnr_lon
+    # lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
+    # lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
+    # lonlist = [lon[x - 1] for x in xindx]
+    # latlist = [lat[x - 1] for x in yindx]
+    # mgrid = np.meshgrid(lonlist, latlist)
+
 
 def get_index_fromgrid(dset, latgrid, longrid):
     llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
@@ -906,14 +917,14 @@ def getlatlon(dset):
 
 
 def hysp_massload(dset, threshold=0, mult=1, zvals=None):
-    """ Calculate mass loading from HYSPLIT xarray
+    """Calculate mass loading from HYSPLIT xarray
     INPUTS
     dset: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
     threshold : float
     mult : float
     zvals : list of levels to calculate mass loading over.
-    Outputs: 
+    Outputs:
     totl_aml : xarray data array
     total ash mass loading (summed over all layers), ash mass loading
     Units in (unit mass / m^2)
@@ -935,16 +946,14 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     return total_aml
 
 
-def hysp_heights(
-    dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None
-):
-    """ Calculate top-height from HYSPLIT xarray
+def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None):
+    """Calculate top-height from HYSPLIT xarray
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
     threshold : mass loading threshold (threshold = xx)
     mult : convert from meters to other unit. default is 1/1000.0 to
            convert to km.
-    Outputs: ash top heights, altitude levels """
+    Outputs: ash top heights, altitude levels"""
 
     # either get mass loading of each point
     if mass_load:
@@ -967,14 +976,14 @@ def hysp_heights(
 
 
 def calc_total_mass(dset):
-    return -1 
+    return -1
 
 
 def calc_aml(dset, species=None):
-    """ Calculates the mass loading at each altitude for the dataset
+    """Calculates the mass loading at each altitude for the dataset
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
-    Output: total ash mass loading """
+    Output: total ash mass loading"""
     # Totals values for all particles
     if isinstance(dset, xr.core.dataset.Dataset):
         total_par = add_species(dset)
@@ -987,13 +996,13 @@ def calc_aml(dset, species=None):
 
 
 def hysp_thresh(dset, threshold, mult=1):
-    """ Calculates a threshold mask array based on the
+    """Calculates a threshold mask array based on the
     ash mass loading from HYSPLIT xarray
     Inputs: xarray, ash mass loading threshold (threshold = xx)
-    Outputs: ash mass loading threshold mask array 
+    Outputs: ash mass loading threshold mask array
     Returns 0 where values are below or equal to threshold.
     Returns 1 where values are greather than threshold
-   
+
     """
     # Calculate ash mass loading for xarray
     aml_alts = calc_aml(dset)
@@ -1012,9 +1021,9 @@ def hysp_thresh(dset, threshold, mult=1):
 
 def add_species(dset, species=None):
     """
-     species : list of Species ID's.
-               if none then all ids in the "species ID" attribute will be used.
-     Calculate sum of particles.
+    species : list of Species ID's.
+              if none then all ids in the "species ID" attribute will be used.
+    Calculate sum of particles.
     """
     sflist = []
     splist = dset.attrs["Species ID"]
@@ -1050,7 +1059,7 @@ def _delta_multiply(pars):
     """
     # Calculate the delta altitude for each layer and
     # multiplies concentration by layer thickness to return mass load.
- 
+
     # pars: xarray data array
             concentration with z coordinate.
     # OUTPUT

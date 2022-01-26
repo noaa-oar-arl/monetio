@@ -94,7 +94,7 @@ def dataset_to_monet(dset, lat_name="lat", lon_name="lon", latlon2d=False):
 
 
 def coards_to_netcdf(dset, lat_name="lat", lon_name="lon"):
-    from numpy import meshgrid, arange
+    from numpy import arange, meshgrid
 
     lon = dset[lon_name]
     lat = dset[lat_name]

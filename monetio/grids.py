@@ -17,8 +17,8 @@ def _geos_16_grid(dset):
         Description of returned object.
 
     """
-    from pyresample import geometry
     from numpy import asarray
+    from pyresample import geometry
 
     projection = dset.goes_imager_projection
     h = projection.perspective_point_height
@@ -36,9 +36,19 @@ def _geos_16_grid(dset):
     y_h = (y_ur - y_ll) / (len(y) - 1.0) / 2.0  # 1/2 grid size
     area_extent = (x_ll - x_h, y_ll - y_h, x_ur + x_h, y_ur + y_h)
 
-    proj_dict = {'a': float(a), 'b': float(b), 'lon_0': float(lon_0), 'h': float(h), 'proj': 'geos', 'units': 'm', 'sweep': sweep}
+    proj_dict = {
+        "a": float(a),
+        "b": float(b),
+        "lon_0": float(lon_0),
+        "h": float(h),
+        "proj": "geos",
+        "units": "m",
+        "sweep": sweep,
+    }
 
-    area = geometry.AreaDefinition('GEOS_ABI', 'ABI', 'GOES_ABI', proj_dict, len(x), len(y), asarray(area_extent))
+    area = geometry.AreaDefinition(
+        "GEOS_ABI", "ABI", "GOES_ABI", proj_dict, len(x), len(y), asarray(area_extent)
+    )
     return area
 
 
@@ -57,9 +67,9 @@ def _get_sinu_grid_df():
     """
     from pandas import read_csv
 
-    f = path[:-8] + 'data/sn_bound_10deg.txt'
+    f = path[:-8] + "data/sn_bound_10deg.txt"
     td = read_csv(f, skiprows=4, delim_whitespace=True)
-    td = td.assign(ihiv='h' + td.ih.astype(str).str.zfill(2) + 'v' + td.iv.astype(str).str.zfill(2))
+    td = td.assign(ihiv="h" + td.ih.astype(str).str.zfill(2) + "v" + td.iv.astype(str).str.zfill(2))
     return td
 
 
@@ -76,7 +86,7 @@ def _sinu_grid_latlon_boundary(h, v):
 def _get_sinu_xy(lon, lat):
     from pyproj import Proj
 
-    sinu = Proj('+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m')
+    sinu = Proj("+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m")
     return sinu(lon, lat)
 
 
@@ -85,7 +95,9 @@ def _get_sinu_latlon(x, y):
     from pyproj import Proj
 
     xv, yv = meshgrid(x, y)
-    sinu = Proj('+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m, +R=6371007.181')
+    sinu = Proj(
+        "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m, +R=6371007.181"
+    )
     return sinu(xv, yv, inverse=True)
 
 
@@ -104,23 +116,25 @@ def get_modis_latlon_from_swath_hv(h, v, dset):
     x = linspace(xmin, xmax, len(dset.x))
     y = linspace(ymin, ymax, len(dset.y))
     lon, lat = _get_sinu_latlon(x, y)
-    dset.coords['longitude'] = (('x', 'y'), lon)
-    dset.coords['latitude'] = (('x', 'y'), lat)
-    dset.attrs['area_extent'] = (x.min(), y.min(), x.max(), y.max())
-    dset.attrs['proj4_srs'] = '+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 ' '+b=6371007.181 +units=m'
+    dset.coords["longitude"] = (("x", "y"), lon)
+    dset.coords["latitude"] = (("x", "y"), lat)
+    dset.attrs["area_extent"] = (x.min(), y.min(), x.max(), y.max())
+    dset.attrs["proj4_srs"] = (
+        "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 " "+b=6371007.181 +units=m"
+    )
     return dset
 
 
 def get_sinu_area_def(dset):
-    from pyresample import utils
     from pyproj import Proj
+    from pyresample import utils
 
-    p = Proj(dset.attrs['proj4_srs'])
+    p = Proj(dset.attrs["proj4_srs"])
     proj4_args = p.srs
-    area_name = 'MODIS Grid Def'
-    area_id = 'modis'
+    area_name = "MODIS Grid Def"
+    area_id = "modis"
     proj_id = area_id
-    area_extent = dset.attrs['area_extent']
+    area_extent = dset.attrs["area_extent"]
     nx, ny = dset.longitude.shape
     return utils.get_area_def(area_id, area_name, proj_id, proj4_args, nx, ny, area_extent)
 
@@ -131,13 +145,18 @@ def get_ioapi_pyresample_area_def(ds, proj4_srs):
     y_size = ds.NROWS
     x_size = ds.NCOLS
     projection = utils.proj4_str_to_dict(proj4_srs)
-    proj_id = 'IOAPI_Dataset'
-    description = 'IOAPI area_def for pyresample'
-    area_id = 'MONET_Object_Grid'
+    proj_id = "IOAPI_Dataset"
+    description = "IOAPI area_def for pyresample"
+    area_id = "MONET_Object_Grid"
     x_ll, y_ll = ds.XORIG + ds.XCELL * 0.5, ds.YORIG + ds.YCELL * 0.5
-    x_ur, y_ur = ds.XORIG + (ds.NCOLS * ds.XCELL) + 0.5 * ds.XCELL, ds.YORIG + (ds.YCELL * ds.NROWS) + 0.5 * ds.YCELL
+    x_ur, y_ur = (
+        ds.XORIG + (ds.NCOLS * ds.XCELL) + 0.5 * ds.XCELL,
+        ds.YORIG + (ds.YCELL * ds.NROWS) + 0.5 * ds.YCELL,
+    )
     area_extent = (x_ll, y_ll, x_ur, y_ur)
-    area_def = geometry.AreaDefinition(area_id, description, proj_id, projection, x_size, y_size, area_extent)
+    area_def = geometry.AreaDefinition(
+        area_id, description, proj_id, projection, x_size, y_size, area_extent
+    )
     return area_def
 
 
@@ -160,10 +179,10 @@ def get_generic_projection_from_proj4(lat, lon, proj4_srs):
 
     """
     try:
-        from pyresample.utils import proj4_str_to_dict
         from pyresample.geometry import SwathDefinition
+        from pyresample.utils import proj4_str_to_dict
     except ImportError:
-        print('please install pyresample to use this functionality')
+        print("please install pyresample to use this functionality")
     swath = SwathDefinition(lats=lat, lons=lon)
     area = swath.compute_optimal_bb_area(proj4_str_to_dict(proj4_srs))
     return area
@@ -209,29 +228,35 @@ def _ioapi_grid_from_dataset(ds, earth_radius=6370000):
     """
 
     pargs = dict()
-    pargs['lat_1'] = ds.P_ALP
-    pargs['lat_2'] = ds.P_BET
-    pargs['lat_0'] = ds.YCENT
-    pargs['lon_0'] = ds.P_GAM
-    pargs['center_lon'] = ds.XCENT
-    pargs['x0'] = ds.XORIG
-    pargs['y0'] = ds.YORIG
-    pargs['r'] = earth_radius
+    pargs["lat_1"] = ds.P_ALP
+    pargs["lat_2"] = ds.P_BET
+    pargs["lat_0"] = ds.YCENT
+    pargs["lon_0"] = ds.P_GAM
+    pargs["center_lon"] = ds.XCENT
+    pargs["x0"] = ds.XORIG
+    pargs["y0"] = ds.YORIG
+    pargs["r"] = earth_radius
     proj_id = ds.GDTYP
     if proj_id == 2:
         # Lambert
-        p4 = '+proj=lcc +lat_1={lat_1} +lat_2={lat_2} ' '+lat_0={lat_0} +lon_0={lon_0} ' '+x_0=0 +y_0=0 +datum=WGS84 +units=m +a={r} +b={r}'
+        p4 = (
+            "+proj=lcc +lat_1={lat_1} +lat_2={lat_2} "
+            "+lat_0={lat_0} +lon_0={lon_0} "
+            "+x_0=0 +y_0=0 +datum=WGS84 +units=m +a={r} +b={r}"
+        )
         p4 = p4.format(**pargs)
     elif proj_id == 4:
         # Polar stereo
-        p4 = '+proj=stere +lat_ts={lat_1} +lon_0={lon_0} +lat_0=90.0' '+x_0=0 +y_0=0 +a={r} +b={r}'
+        p4 = "+proj=stere +lat_ts={lat_1} +lon_0={lon_0} +lat_0=90.0" "+x_0=0 +y_0=0 +a={r} +b={r}"
         p4 = p4.format(**pargs)
     elif proj_id == 3:
         # Mercator
-        p4 = '+proj=merc +lat_ts={lat_1} ' '+lon_0={center_lon} ' '+x_0={x0} +y_0={y0} +a={r} +b={r}'
+        p4 = (
+            "+proj=merc +lat_ts={lat_1} " "+lon_0={center_lon} " "+x_0={x0} +y_0={y0} +a={r} +b={r}"
+        )
         p4 = p4.format(**pargs)
     else:
-        raise NotImplementedError('IOAPI proj not implemented yet: ' '{}'.format(proj_id))
+        raise NotImplementedError("IOAPI proj not implemented yet: " "{}".format(proj_id))
     # area_def = _get_ioapi_pyresample_area_def(ds)
     return p4  # , area_def
 
@@ -253,7 +278,7 @@ def grid_from_dataset(ds, earth_radius=6370000):
 
     """
     # maybe its an IOAPI file
-    if hasattr(ds, 'IOAPI_VERSION') or hasattr(ds, 'P_ALP'):
+    if hasattr(ds, "IOAPI_VERSION") or hasattr(ds, "P_ALP"):
         # IOAPI_VERSION
         return _ioapi_grid_from_dataset(ds, earth_radius=earth_radius)
 

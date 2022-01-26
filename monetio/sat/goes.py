@@ -1,13 +1,15 @@
 """ this will read the goes_r data"""
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
 try:
     import s3fs
 
     has_s3fs = True
 except ImportError:
-    print("Please install s3fs if retrieving from the Amazon S3 Servers.  Otherwise continue with local data")
+    print(
+        "Please install s3fs if retrieving from the Amazon S3 Servers.  Otherwise continue with local data"
+    )
     has_s3fs = False
 
 try:
@@ -175,8 +177,8 @@ class GOES(object):
         return out
 
     def _get_grid(self, ds):
+        from numpy import meshgrid, ndarray
         from pyproj import CRS, Proj
-        from numpy import ndarray, meshgrid
 
         proj_dict = ds.goes_imager_projection.attrs
         for i in proj_dict.keys():

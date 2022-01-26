@@ -1,7 +1,8 @@
 import datetime
 import sys
-import xarray as xr
+
 import pandas as pd
+import xarray as xr
 from numpy import NaN
 
 
@@ -226,7 +227,14 @@ class Dataset:
         # File volume number, number of file volumes (these integer values are used when the data require more than one file per day; for data that require only one file these values are set to 1, 1) - comma delimited.
         prnt(self.splitChar.join([str(self.VOL), str(self.NVOL)]))
         # UTC date when data begin, UTC date of data reduction or revision - comma delimited (yyyy, mm, dd, yyyy, mm, dd).
-        prnt(self.splitChar.join([datetime.datetime.strftime(x, "%Y, %m, %d") for x in [self.dateValid, self.dateRevised]]))
+        prnt(
+            self.splitChar.join(
+                [
+                    datetime.datetime.strftime(x, "%Y, %m, %d")
+                    for x in [self.dateValid, self.dateRevised]
+                ]
+            )
+        )
         # Data Interval (This value describes the time spacing (in seconds) between consecutive data records. It is the (constant) interval between values of the independent variable. For 1 Hz data the data interval value is 1 and for 10 Hz data the value is 0.1. All intervals longer than 1 second must be reported as Start and Stop times, and the Data Interval value is set to 0. The Mid-point time is required when it is not at the average of Start and Stop times. For additional information see Section 2.5 below.).
         prnt("0")
         # Description or name of independent variable (This is the name chosen for the start time. It always refers to the number of seconds UTC from the start of the day on which measurements began. It should be noted here that the independent variable should monotonically increase even when crossing over to a second day.).
@@ -267,7 +275,17 @@ class Dataset:
         """
         Create ICARTT-compliant file name based on the information contained in the dataset
         """
-        return self.dataID + "_" + self.locationID + "_" + datetime.datetime.strftime(self.dateValid, "%Y%m%d") + "_" + "R" + self.revision + ".ict"
+        return (
+            self.dataID
+            + "_"
+            + self.locationID
+            + "_"
+            + datetime.datetime.strftime(self.dateValid, "%Y%m%d")
+            + "_"
+            + "R"
+            + self.revision
+            + ".ict"
+        )
 
     # sanitize function
     def __readline(self, do_split=True):
@@ -310,8 +328,12 @@ class Dataset:
         # line 7 - UTC date when data begin, UTC date of data reduction or revision
         # - comma delimited (yyyy, mm, dd, yyyy, mm, dd).
         dmp = self.__readline()
-        self.dateValid = datetime.datetime.strptime("".join(["{:s}".format(x) for x in dmp[0:3]]), "%Y%m%d")
-        self.dateRevised = datetime.datetime.strptime("".join(["{:s}".format(x) for x in dmp[3:6]]), "%Y%m%d")
+        self.dateValid = datetime.datetime.strptime(
+            "".join(["{:s}".format(x) for x in dmp[0:3]]), "%Y%m%d"
+        )
+        self.dateRevised = datetime.datetime.strptime(
+            "".join(["{:s}".format(x) for x in dmp[3:6]]), "%Y%m%d"
+        )
 
         # line 8 - Data Interval (This value describes the time spacing (in seconds)
         # between consecutive data records. It is the (constant) interval between
@@ -362,7 +384,10 @@ class Dataset:
             dvname += [dmp[0]]
             dvunits += [dmp[1]]
 
-        self.DVAR = [Variable(name, unit, scale, miss) for name, unit, scale, miss in zip(dvname, dvunits, dvscale, dvmiss)]
+        self.DVAR = [
+            Variable(name, unit, scale, miss)
+            for name, unit, scale, miss in zip(dvname, dvunits, dvscale, dvmiss)
+        ]
 
         # line 14 + nvar - Number of SPECIAL comment lines (Integer value
         # indicating the number of lines of special comments, NOT including this
@@ -425,7 +450,9 @@ class Dataset:
 
         nul = [self.input_fhandle.readline() for i in range(self.nheader)]
 
-        self.data = [self.__nan_miss_float(line.split(self.splitChar)) for line in self.input_fhandle]
+        self.data = [
+            self.__nan_miss_float(line.split(self.splitChar)) for line in self.input_fhandle
+        ]
 
         self.input_fhandle.close()
 

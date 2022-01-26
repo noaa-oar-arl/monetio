@@ -24,12 +24,13 @@ from dask.diagnostics import ProgressBar
 
 try:
     from suds.client import *
+
     has_suds = True
 except ImportError:
     has_suds = False
 DEBUG_PRINTING = False
 
-defaultURL = 'https://modis.ornl.gov/cgi-bin/MODIS/soapservice/MODIS_soapservice.wsdl'
+defaultURL = "https://modis.ornl.gov/cgi-bin/MODIS/soapservice/MODIS_soapservice.wsdl"
 
 pbar = ProgressBar()
 pbar.register()
@@ -67,12 +68,12 @@ class modisData(object):
 
     def getFilename(self):
 
-        d = '.'
+        d = "."
 
         fn = self.product
         fn = fn + d + self.band
-        fn = fn + d + 'LAT__' + str(self.latitude)
-        fn = fn + d + 'LON__' + str(self.longitude)
+        fn = fn + d + "LAT__" + str(self.latitude)
+        fn = fn + d + "LON__" + str(self.longitude)
         fn = fn + d + self.dateStr[0]
         fn = fn + d + self.dateStr[-1]
         fn = fn + d + str(int(self.nrows))
@@ -82,9 +83,9 @@ class modisData(object):
 
     def pickle(self):
 
-        fn = self.getFilename() + '.' + 'pkl'
+        fn = self.getFilename() + "." + "pkl"
 
-        f = open(fn, 'w')
+        f = open(fn, "w")
         pickle.dump(self, f)
         f.close()
 
@@ -98,7 +99,7 @@ class modisData(object):
 
         if np.size(self.data) != np.size(self.QA):
             # should do this using an exception
-            print >> sys.stderr, 'data and QA are different sizes'
+            print >>sys.stderr, "data and QA are different sizes"
             sys.exit()
 
         r = np.shape(self.data)[0]
@@ -112,14 +113,14 @@ class modisData(object):
 
 def __getDummyDateList():
     """
-        Generate a dummy date list for testing without
-        hitting the server
-        """
+    Generate a dummy date list for testing without
+    hitting the server
+    """
 
     D = []
     for y in range(2001, 2010):
         for d in range(1, 365, 1):
-            D.append('A%04d%03d' % (y, d))
+            D.append("A%04d%03d" % (y, d))
 
     return D
 
@@ -129,21 +130,21 @@ def __error(msg):
 
 
 def latLonErr():
-    __error('Latitude and longitude must both be specified')
+    __error("Latitude and longitude must both be specified")
 
 
 def serverDataErr():
-    __error('Server not returning data (possibly busy)')
+    __error("Server not returning data (possibly busy)")
 
 
 def mkIntDate(s):
     """
-        Convert the webserver formatted dates
-        to an integer format by stripping the
-        leading char and casting
-        """
+    Convert the webserver formatted dates
+    to an integer format by stripping the
+    leading char and casting
+    """
     n = s.__len__()
-    d = int(s[-(n - 1):n])
+    d = int(s[-(n - 1) : n])
 
     return d
 
@@ -161,42 +162,37 @@ def printList(l):
 
 def printModisData(m):
 
-    print('server:', m.server)
-    print('product:', m.product)
-    print('latitude:', m.latitude)
-    print('longitude:', m.longitude)
+    print("server:", m.server)
+    print("product:", m.product)
+    print("latitude:", m.latitude)
+    print("longitude:", m.longitude)
 
-    print('band:', m.band)
-    print('nrows:', m.nrows)
-    print('ncols:', m.ncols)
-    print('cellsize:', m.cellsize)
-    print('scale:', m.scale)
-    print('units:', m.units)
-    print('xllcorner:', m.yllcorner)
-    print('yllcorner:', m.xllcorner)
+    print("band:", m.band)
+    print("nrows:", m.nrows)
+    print("ncols:", m.ncols)
+    print("cellsize:", m.cellsize)
+    print("scale:", m.scale)
+    print("units:", m.units)
+    print("xllcorner:", m.yllcorner)
+    print("yllcorner:", m.xllcorner)
 
-    print('kmAboveBelow:', m.kmAboveBelow)
-    print('kmLeftRight:', m.kmLeftRight)
+    print("kmAboveBelow:", m.kmAboveBelow)
+    print("kmLeftRight:", m.kmLeftRight)
 
-    print('dates:', m.dateStr)
+    print("dates:", m.dateStr)
 
-    print('QA:', m.QA)
+    print("QA:", m.QA)
     print(m.data)
 
 
 def __debugPrint(o):
 
     if DEBUG_PRINTING:
-        print >> sys.stderr, 'DB> ', o
+        print >>sys.stderr, "DB> ", o
         sys.stderr.flush
 
 
-def modisGetQA(m,
-               QAname,
-               client=None,
-               chunkSize=8,
-               kmAboveBelow=0,
-               kmLeftRight=0):
+def modisGetQA(m, QAname, client=None, chunkSize=8, kmAboveBelow=0, kmLeftRight=0):
 
     startDate = m.dateInt[0]
     endDate = m.dateInt[-1]
@@ -211,24 +207,27 @@ def modisGetQA(m,
         endDate=endDate,
         chunkSize=chunkSize,
         kmAboveBelow=kmAboveBelow,
-        kmLeftRight=kmLeftRight)
+        kmLeftRight=kmLeftRight,
+    )
 
     m.QA = copy(q.data)
 
 
-def modisClient(client=None,
-                product=None,
-                band=None,
-                lat=None,
-                lon=None,
-                startDate=None,
-                endDate=None,
-                chunkSize=8,
-                kmAboveBelow=0,
-                kmLeftRight=0):
+def modisClient(
+    client=None,
+    product=None,
+    band=None,
+    lat=None,
+    lon=None,
+    startDate=None,
+    endDate=None,
+    chunkSize=8,
+    kmAboveBelow=0,
+    kmLeftRight=0,
+):
     """
-        modisClient: function for building a modisData object
-        """
+    modisClient: function for building a modisData object
+    """
 
     m = modisData()
 
@@ -304,8 +303,7 @@ def modisClient(client=None,
 
         j = min(chunkSize, dateList.__len__() - i)
 
-        __debugPrint(
-            'i=%d, j=%d, dateList__len__()=%d' % (i, j, dateList.__len__()))
+        __debugPrint("i=%d, j=%d, dateList__len__()=%d" % (i, j, dateList.__len__()))
         while mkIntDate(dateList[i + j - 1]) > endDate:
             j = j - 1
 
@@ -314,8 +312,9 @@ def modisClient(client=None,
 
         # print >> sys.stderr, requestStart, requestEnd
 
-        data = client.service.getsubset(lat, lon, product, band, requestStart,
-                                        requestEnd, kmAboveBelow, kmLeftRight)
+        data = client.service.getsubset(
+            lat, lon, product, band, requestStart, requestEnd, kmAboveBelow, kmLeftRight
+        )
 
         # print(data)
         # now fill up the data structure with the returned data...
@@ -346,7 +345,7 @@ def modisClient(client=None,
 
         n = n + 1
 
-    return (m)
+    return m
 
 
 def _nearest(items, pivot):
@@ -361,26 +360,28 @@ def get_available_products():
     # print(prodList)
 
 
-def get_available_bands(product='MOD12A2H'):
+def get_available_bands(product="MOD12A2H"):
     client = setClient()
     print(client.service.getbands(product))
 
 
-def _get_single_retrieval(date,
-                          product='MOD12A2H',
-                          band='Lai_500m',
-                          quality_control=None,
-                          lat=0,
-                          lon=0,
-                          kmAboveBelow=100,
-                          kmLeftRight=100):
+def _get_single_retrieval(
+    date,
+    product="MOD12A2H",
+    band="Lai_500m",
+    quality_control=None,
+    lat=0,
+    lon=0,
+    kmAboveBelow=100,
+    kmLeftRight=100,
+):
     import pandas as pd
+
     client = setClient()
     # prodList = modisClient(client)
     # bandList = modisClient(client, product='MOD15A2H')
-    dateList = modisClient(
-        client, product=product, band=band, lat=lat, lon=lon)
-    dates = pd.to_datetime(dateList, format='A%Y%j')
+    dateList = modisClient(client, product=product, band=band, lat=lat, lon=lon)
+    dates = pd.to_datetime(dateList, format="A%Y%j")
     date = pd.to_datetime(date)
     if isinstance(date, pd.Timestamp):
         dates = _nearest(dates, date)
@@ -390,10 +391,11 @@ def _get_single_retrieval(date,
             band=band,
             lat=lat,
             lon=lon,
-            startDate=int(dates.strftime('%Y%j')),
-            endDate=int((dates + pd.Timedelta(1, units='D')).strftime('%Y%j')),
+            startDate=int(dates.strftime("%Y%j")),
+            endDate=int((dates + pd.Timedelta(1, units="D")).strftime("%Y%j")),
             kmAboveBelow=kmAboveBelow,
-            kmLeftRight=kmLeftRight)
+            kmLeftRight=kmLeftRight,
+        )
     else:
         m = modisClient(
             client,
@@ -401,24 +403,22 @@ def _get_single_retrieval(date,
             band=band,
             lat=lat,
             lon=lon,
-            startDate=int(dates.min().strftime('%Y%j')),
-            endDate=int(date.max().strftime('%Y%j')),
+            startDate=int(dates.min().strftime("%Y%j")),
+            endDate=int(date.max().strftime("%Y%j")),
             kmAboveBelow=kmAboveBelow,
-            kmLeftRight=kmLeftRight)
+            kmLeftRight=kmLeftRight,
+        )
     if quality_control is not None:
         modisGetQA(
-            m,
-            quality_control,
-            client=client,
-            kmAboveBelow=kmAboveBelow,
-            kmLeftRight=kmLeftRight)
+            m, quality_control, client=client, kmAboveBelow=kmAboveBelow, kmLeftRight=kmLeftRight
+        )
 
     m.applyScale()
     return m
 
 
 def _fix_array(m):
-    return m.data.reshape(m.ncols, m.nrows, order='C')[::-1, :]
+    return m.data.reshape(m.ncols, m.nrows, order="C")[::-1, :]
 
 
 def _make_xarray_dataarray(m):
@@ -437,21 +437,20 @@ def _make_xarray_dataarray(m):
     """
     import xarray as xr
     from pandas import to_datetime
-    da = xr.DataArray(
-        m.data.reshape(m.ncols, m.nrows, order='C')[::-1, :], dims=('x', 'y'))
-    da.attrs['long_name'] = m.band
-    da.attrs['product'] = m.product
-    da.attrs['cellsize'] = m.cellsize
-    da.attrs['units'] = m.units
-    da.attrs['server'] = m.server
-    lon, lat = _get_latlon(m.xllcorner, m.yllcorner, m.cellsize, m.ncols,
-                           m.nrows)
+
+    da = xr.DataArray(m.data.reshape(m.ncols, m.nrows, order="C")[::-1, :], dims=("x", "y"))
+    da.attrs["long_name"] = m.band
+    da.attrs["product"] = m.product
+    da.attrs["cellsize"] = m.cellsize
+    da.attrs["units"] = m.units
+    da.attrs["server"] = m.server
+    lon, lat = _get_latlon(m.xllcorner, m.yllcorner, m.cellsize, m.ncols, m.nrows)
     da.name = m.band
-    da['time'] = to_datetime(str(m.dateInt[0]), format='%Y%j')
+    da["time"] = to_datetime(str(m.dateInt[0]), format="%Y%j")
     # print(da)
     # print(lon.shape)
-    da.coords['longitude'] = (('x', 'y'), lon)
-    da.coords['latitude'] = (('x', 'y'), lat)
+    da.coords["longitude"] = (("x", "y"), lon)
+    da.coords["latitude"] = (("x", "y"), lat)
     return da
 
 
@@ -477,10 +476,10 @@ def _get_latlon(xll, yll, cell_width, nx, ny):
         returns the 2d arrays of lon, lat
 
     """
-    from pyproj import Proj
     from numpy import linspace, meshgrid
-    sinu = Proj(
-        '+proj=sinu +a=6371007.181 +b=6371007.181 +units=m +R=6371007.181')
+    from pyproj import Proj
+
+    sinu = Proj("+proj=sinu +a=6371007.181 +b=6371007.181 +units=m +R=6371007.181")
     x = linspace(xll, xll + cell_width * nx, nx)
     y = linspace(yll, yll + cell_width * ny, ny)
     xx, yy = meshgrid(x, y)
@@ -488,20 +487,23 @@ def _get_latlon(xll, yll, cell_width, nx, ny):
     return lon, lat
 
 
-def open_dataset(date,
-                 product='MOD12A2H',
-                 band='Lai_500m',
-                 quality_control=None,
-                 latitude=0,
-                 longitude=0,
-                 kmAboveBelow=100,
-                 kmLeftRight=100):
+def open_dataset(
+    date,
+    product="MOD12A2H",
+    band="Lai_500m",
+    quality_control=None,
+    latitude=0,
+    longitude=0,
+    kmAboveBelow=100,
+    kmLeftRight=100,
+):
     import pandas as pd
+
     try:
         if has_suds is False:
             raise ImportError
     except ImportError:
-        print('Please install a suds client')
+        print("Please install a suds client")
     date = pd.to_datetime(date)
     m = _get_single_retrieval(
         date,
@@ -511,34 +513,43 @@ def open_dataset(date,
         lat=latitude,
         lon=longitude,
         kmAboveBelow=kmAboveBelow,
-        kmLeftRight=kmLeftRight)
+        kmLeftRight=kmLeftRight,
+    )
     da = _make_xarray_dataarray(m)
     return da
 
 
-def open_mfdataset(dates,
-                   product='MOD12A2H',
-                   band='Lai_500m',
-                   quality_control=None,
-                   latitude=0,
-                   longitude=0,
-                   kmAboveBelow=100,
-                   kmLeftRight=100):
+def open_mfdataset(
+    dates,
+    product="MOD12A2H",
+    band="Lai_500m",
+    quality_control=None,
+    latitude=0,
+    longitude=0,
+    kmAboveBelow=100,
+    kmLeftRight=100,
+):
+    import dask
     import pandas as pd
     import xarray as xr
-    import dask
+
     dates = pd.to_datetime(dates)
     od = dask.delayed(open_dataset)
-    das = dask.delayed([
-        od(i,
-           product=product,
-           band=band,
-           quality_control=quality_control,
-           latitude=latitude,
-           longitude=longitude,
-           kmAboveBelow=kmAboveBelow,
-           kmLeftRight=kmLeftRight) for i in dates
-    ])
-    da = xr.concat(das.compute(), dim='time')
-    da['time'] = dates
+    das = dask.delayed(
+        [
+            od(
+                i,
+                product=product,
+                band=band,
+                quality_control=quality_control,
+                latitude=latitude,
+                longitude=longitude,
+                kmAboveBelow=kmAboveBelow,
+                kmLeftRight=kmLeftRight,
+            )
+            for i in dates
+        ]
+    )
+    da = xr.concat(das.compute(), dim="time")
+    da["time"] = dates
     return da

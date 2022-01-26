@@ -1,17 +1,3 @@
-from __future__ import print_function
-import os
-import datetime
-import sys
-import pandas as pd
-import numpy as np
-import requests
-import copy
-
-# import pytz
-import seaborn as sns
-from urllib.parse import quote
-import monetio.obs.obs_util as obs_util
-
 """
 NAME: cems_api.py
 PGRMMER: Alice Crawford   ORG: ARL
@@ -48,6 +34,22 @@ sendrequest
 getkey
 
 """
+from __future__ import print_function
+
+import copy
+import datetime
+import os
+import sys
+from urllib.parse import quote
+
+import numpy as np
+import pandas as pd
+import requests
+
+# import pytz
+import seaborn as sns
+
+import monetio.obs.obs_util as obs_util
 
 
 def test_end(endtime, current):
@@ -457,18 +459,20 @@ class EmissionsCall(EpaApiObject):
     Attributes
     """
 
-    def __init__(self, oris, mid, year, quarter, fname=None, calltype='CEM', save=True, prompt=False):
+    def __init__(
+        self, oris, mid, year, quarter, fname=None, calltype="CEM", save=True, prompt=False
+    ):
         self.oris = oris  # oris code of facility
         self.mid = mid  # monitoring location id.
         self.year = str(year)
         self.quarter = str(quarter)
         calltype = calltype.upper().strip()
-        if calltype == 'F23':
-            calltype = 'AD'
+        if calltype == "F23":
+            calltype = "AD"
         if not fname:
             fname = "Emissions." + self.year + ".q" + self.quarter
-            if calltype == 'AD':
-                fname += '.AD'
+            if calltype == "AD":
+                fname += ".AD"
             fname += "." + str(self.mid) + "." + str(oris) + ".csv"
         self.dfall = pd.DataFrame()
 
@@ -512,9 +516,9 @@ class EmissionsCall(EpaApiObject):
         if not df.empty:
             self.status_code = 200
             print("SO2 DATA EXISTS")
-            temp = df[df['so2_lbs'] > 0]
+            temp = df[df["so2_lbs"] > 0]
             if temp.empty:
-                print('SO2 lbs all zero')
+                print("SO2 lbs all zero")
             # check for  two date formats.
 
             # -----------------------------------------
@@ -570,14 +574,14 @@ class EmissionsCall(EpaApiObject):
         iii = 0
         cols = []
         tra = []
-        print('----UNPACK-----------------')
+        print("----UNPACK-----------------")
         for line in data.iter_lines(decode_unicode=True):
             # if iii < 5:
             # print('LINE')
             # print(line)
             # 1. Process First line
-            temp = line.split(',')
-            if temp[-1] and self.calltype == 'LME':
+            temp = line.split(",")
+            if temp[-1] and self.calltype == "LME":
                 print(line)
 
             if iii == 0:
@@ -636,16 +640,16 @@ class EmissionsCall(EpaApiObject):
         df = pd.DataFrame(tra, columns=cols)
         df.apply(pd.to_numeric, errors="ignore")
         df = self.manage_date(df)
-        if self.calltype == 'AD':
-            df['SO2MODC'] = -8
-        if self.calltype == 'LME':
-            df['SO2MODC'] = -9
+        if self.calltype == "AD":
+            df["SO2MODC"] = -8
+        if self.calltype == "LME":
+            df["SO2MODC"] = -9
         df = self.convert_cols(df)
         df = self.manage_so2modc(df)
         df = get_so2(df)
         # the LME data sometimes has duplicate rows.
         # causing emissions to be over-estimated.
-        if self.calltype == 'LME':
+        if self.calltype == "LME":
             df = df.drop_duplicates()
         return df
 
@@ -685,12 +689,15 @@ class EmissionsCall(EpaApiObject):
             if so2modc != 0 or not formula:
                 return so2modc
             else:
-                if 'F-23' in str(formula):
+                if "F-23" in str(formula):
                     return -7
                 else:
                     return -10
 
-        df["SO2MODC"] = df.apply(lambda row: checkmodc(row["SO2CEMSO2FormulaCode"], row['SO2MODC'], row['so2_lbs']), axis=1)
+        df["SO2MODC"] = df.apply(
+            lambda row: checkmodc(row["SO2CEMSO2FormulaCode"], row["SO2MODC"], row["so2_lbs"]),
+            axis=1,
+        )
         return df
 
     def convert_cols(self, df):
@@ -756,7 +763,7 @@ class EmissionsCall(EpaApiObject):
         # if operating time is zero then map to 0 (it is '' in file)
         optime = "OperatingTime"
         cname = self.so2name
-        if self.calltype == 'LME':
+        if self.calltype == "LME":
             df["so2_lbs"] = df.apply(lambda row: lme_getmass(row[cname]), axis=1)
         else:
             df["so2_lbs"] = df.apply(lambda row: getmass(row[optime], row[cname]), axis=1)
@@ -992,7 +999,7 @@ class MonitoringPlan(EpaApiObject):
         # print(self.df)
         df = self.df[self.df["name"] == unit]
         # print(df)
-        stackhts = df['stackht'].unique()
+        stackhts = df["stackht"].unique()
         # print('get stackht', stackhts)
         return stackhts
 
@@ -1008,7 +1015,7 @@ class MonitoringPlan(EpaApiObject):
 
         temp["testdate"] = temp.apply(lambda row: test_end(row["endDateHour"], edate), axis=1)
         temp = temp[temp["testdate"] == True]
-        method = temp['methodCode'].unique()
+        method = temp["methodCode"].unique()
 
         return method
 
@@ -1024,17 +1031,21 @@ class MonitoringPlan(EpaApiObject):
         def parsedate(x, sfmt):
             if not x:
                 return pd.NaT
-            elif x == 'None':
+            elif x == "None":
                 return pd.NaT
             else:
                 try:
                     return pd.to_datetime(x, format=sfmt)
                 except:
-                    print('time value', x)
+                    print("time value", x)
                     return pd.NaT
 
         df = pd.read_csv(
-            self.fname, index_col=[0], converters=chash, parse_dates=['beginDateHour', 'endDateHour'], date_parser=lambda x: parsedate(x, self.dfmt)
+            self.fname,
+            index_col=[0],
+            converters=chash,
+            parse_dates=["beginDateHour", "endDateHour"],
+            date_parser=lambda x: parsedate(x, self.dfmt),
         )
 
         self.dfall = df.copy()
@@ -1123,7 +1134,7 @@ class MonitoringPlan(EpaApiObject):
             dhash = {}
 
             name = unithash["name"]
-            print('NAME ', name)
+            print("NAME ", name)
             dhash["name"] = name
             if name in shash.keys():
                 dhash["stackunit"] = shash[name]
@@ -1154,32 +1165,34 @@ class MonitoringPlan(EpaApiObject):
             iii = 0
             for method in unithash["monitoringMethods"]:
                 # print('METHOD LIST', method)
-                if 'SO2' in method["parameterCode"]:
-                    print('SO2 data')
+                if "SO2" in method["parameterCode"]:
+                    print("SO2 data")
                     dhash["parameterCode"] = method["parameterCode"]
                     dhash["methodCode"] = method["methodCode"]
-                    dhash["beginDateHour"] = pd.to_datetime(method["beginDateHour"], format=self.dfmt)
+                    dhash["beginDateHour"] = pd.to_datetime(
+                        method["beginDateHour"], format=self.dfmt
+                    )
                     dhash["endDateHour"] = pd.to_datetime(method["endDateHour"], format=self.dfmt)
                     dhash["oris"] = self.oris
                     dhash["mid"] = self.mid
                     dhash["request_date"] = self.date
-                    print('Monitoring Location ------------------')
+                    print("Monitoring Location ------------------")
                     print(dhash)
-                    print('------------------')
+                    print("------------------")
                     dlist.append(copy.deepcopy(dhash))
                     iii += 1
             # if there is no monitoring method for SO2
             if iii == 0:
-                dhash["parameterCode"] = 'None'
-                dhash["methodCode"] = 'None'
+                dhash["parameterCode"] = "None"
+                dhash["methodCode"] = "None"
                 dhash["beginDateHour"] = pd.NaT
                 dhash["endDateHour"] = pd.NaT
                 dhash["oris"] = self.oris
                 dhash["mid"] = self.mid
                 dhash["request_date"] = self.date
-                print('Monitoring Location ------------------')
+                print("Monitoring Location ------------------")
                 print(dhash)
-                print('------------------')
+                print("------------------")
                 dlist.append(copy.deepcopy(dhash))
 
         # print(dlist)
@@ -1206,9 +1219,11 @@ class MonitoringPlan(EpaApiObject):
                         stackht = nhash[sid]
             return stackht
 
-        df["stackht"] = df.apply(lambda row: find_stackht(row["name"], row["stackht"], shash, nhash), axis=1)
+        df["stackht"] = df.apply(
+            lambda row: find_stackht(row["name"], row["stackht"], shash, nhash), axis=1
+        )
         df["stackht_unit"] = "m"
-        print('DF2 ------------------')
+        print("DF2 ------------------")
         print(df)
         return df
 
@@ -1608,7 +1623,7 @@ def get_monitoring_plan(oris, mid, mrequest, date1, dflist):
     #        mhash = mhash[0]
     #        stackht = float(mhash["stackht"])
     else:
-        print('Stack height not determined ', stackht)
+        print("Stack height not determined ", stackht)
         stackht = None
         istr = "\n" + "Could not retrieve stack height from monitoring plan \n"
         istr += "Please enter stack height (in meters) \n"
@@ -1619,12 +1634,12 @@ def get_monitoring_plan(oris, mid, mrequest, date1, dflist):
         except:
             stackht = None
     method = plan.get_method(mid, [date1, date1])
-    print('METHODS returned', method, mid, str(oris))
+    print("METHODS returned", method, mid, str(oris))
     # catchall so do not double count.
     # currently CEM and CEMF23 result in same EmissionCall request string.
     if method:
-        if 'CEM' in method and 'CEMF23' in method:
-            method = 'CEM'
+        if "CEM" in method and "CEMF23" in method:
+            method = "CEM"
     dflist.append((str(oris), mid, stackht))
 
     return dflist, method

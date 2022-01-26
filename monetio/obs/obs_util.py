@@ -6,7 +6,7 @@ import sys
 import numpy as np
 
 
-def find_near(df, latlon, distance=100, sid='site_num', drange=None):
+def find_near(df, latlon, distance=100, sid="site_num", drange=None):
     """find all values in the df dataframe column sid which are within distance
     (km) of lat lon point. output dictionary with key as value in column sid
     and value tuple (latitude, longitude)
@@ -41,7 +41,7 @@ def find_near(df, latlon, distance=100, sid='site_num', drange=None):
     return lhash
 
 
-def write_datem(df, obscolumn='obs', dname='datemfile.txt', sitename='1', info=None, drange=None):
+def write_datem(df, obscolumn="obs", dname="datemfile.txt", sitename="1", info=None, drange=None):
     """returns string in datem format (See NOAA ARL).
     datem format has the following columns:
     Year, Month, Day, Hour, Duration, lat, lon, Concentration (units), site
@@ -69,48 +69,54 @@ def write_datem(df, obscolumn='obs', dname='datemfile.txt', sitename='1', info=N
     if drange:
         df = timefilter(df, drange)
 
-    units = df['units'].tolist()
+    units = df["units"].tolist()
     units = list(set(units))
     sdate = datetime.datetime(2010, 1, 1, 0)
     if len(units) > 1:
-        print('WARNING, more than one type of unit ', units)
-    ustr = ''
+        print("WARNING, more than one type of unit ", units)
+    ustr = ""
     for uuu in units:
-        ustr += uuu + ' '
+        ustr += uuu + " "
     runstring = "Beginning date " + sdate.strftime("%Y %m %d %H:%M") + " UTC ---"
-    runstring += 'Information '
+    runstring += "Information "
     if info:
         runstring += info + "\n"
     else:
         runstring += "\n"
-    runstring += 'Year, Month, Day, Hour:Minute (UTC), Dur(hhmm) ,  LAT, LON, Concentration (' + ustr + "), sid, height\n"
-    lat = df['latitude']
-    lon = df['longitude']
+    runstring += (
+        "Year, Month, Day, Hour:Minute (UTC), Dur(hhmm) ,  LAT, LON, Concentration ("
+        + ustr
+        + "), sid, height\n"
+    )
+    lat = df["latitude"]
+    lon = df["longitude"]
     cval = df[obscolumn]
     # print t2
-    t1 = df['time']
-    duration = ' 0100 '
-    height = '20'
+    t1 = df["time"]
+    duration = " 0100 "
+    height = "20"
     if sitename in df.columns.values:
         sval = df[sitename]
     else:
         sval = [sitename] * len(cval)
     for val in zip(t1, lat, lon, cval, sval):
-        runstring += val[0].strftime('%Y  %m  %d  %H%M') + duration
+        runstring += val[0].strftime("%Y  %m  %d  %H%M") + duration
         try:
-            runstring += str(val[1]) + ' ' + str(val[2]) + ' '
+            runstring += str(val[1]) + " " + str(val[2]) + " "
         except RuntimeError:
-            print('WARNING1', val[1])
+            print("WARNING1", val[1])
             print(val[2])
             print(type(val[1]))
             print(type(val[2]))
             sys.exit()
         if isinstance(val[4], str):
-            runstring += "{:.3f}".format(val[3]) + ' ' + val[4] + ' ' + height + "\n"
+            runstring += "{:.3f}".format(val[3]) + " " + val[4] + " " + height + "\n"
         else:
-            runstring += "{:.3f}".format(val[3]) + ' ' + "{0:d}".format(val[4]) + ' ' + height + "\n"
+            runstring += (
+                "{:.3f}".format(val[3]) + " " + "{0:d}".format(val[4]) + " " + height + "\n"
+            )
 
-    with open(dname, 'w') as fid:
+    with open(dname, "w") as fid:
         fid.write(runstring)
     return runstring
 
@@ -126,9 +132,9 @@ def get_lhash(df, idn):
     value a tuple of (lat, lon)  Useful for getting lat lon locations of
     different sites in a dataframe.
     """
-    if 'latitude' in list(df.columns.values):
+    if "latitude" in list(df.columns.values):
         dftemp = df.copy()
-        pairs = zip(dftemp[idn], zip(dftemp['latitude'], dftemp['longitude']))
+        pairs = zip(dftemp[idn], zip(dftemp["latitude"], dftemp["longitude"]))
         pairs = list(set(pairs))
         lhash = dict(pairs)  # key is facility id and value is name.
         print(lhash)
@@ -143,7 +149,7 @@ def summarize(df, verbose=False):
         for ccc in columns:
             print(ccc)
             print(df[ccc].unique())
-    print('-------------------------------')
+    print("-------------------------------")
     for ccc in columns:
         print(ccc)
 
@@ -168,10 +174,10 @@ def latlonfilter(df, llcrnr, urcrnr):
     lat2 = urcrnr[0]
     lon1 = llcrnr[1]
     lon2 = urcrnr[1]
-    df = df[df['latitude'] < lat2]
-    df = df[df['latitude'] > lat1]
-    df = df[df['longitude'] > lon1]
-    df = df[df['longitude'] < lon2]
+    df = df[df["latitude"] < lat2]
+    df = df[df["latitude"] > lat1]
+    df = df[df["longitude"] > lon1]
+    df = df[df["longitude"] < lon2]
     return df
 
 
@@ -184,6 +190,6 @@ def timefilter(df, daterange, inplace=True):
     inplace: boolean
               if TRUE then replaces self.df attribute
     """
-    df = df[df['time'] > daterange[0]]
-    df = df[df['time'] < daterange[1]]
+    df = df[df["time"] > daterange[0]]
+    df = df[df["time"] < daterange[1]]
     return df

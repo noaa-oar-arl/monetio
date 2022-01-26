@@ -8,5 +8,5 @@ review:
   fail_on_comments: false
 files:
   ignore:
-    - 'docs/**/*'
-    - 'monet/data/*'
+    - "docs/**/*"
+    - "monet/data/*"
