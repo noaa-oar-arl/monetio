@@ -1,4 +1,3 @@
-import inspect
 import os
 
 import xarray as xr
@@ -8,9 +7,9 @@ base_dir = "/pub/smcd/jhuang/npp.viirs.aerosol.data/edraot550/"
 
 
 def open_dataset(date, resolution="high", datapath="."):
-    current = change_dir(datapath)
+    current = change_dir(datapath)  # noqa: F841
     # check resolution; by default 0.1 degree data is assumed
-    if resolution is "high" or resolution is "h":
+    if resolution in {"high", "h"}:
         # this is the 0.1 degree data
         nlat = 1800
         nlon = 3600
@@ -29,12 +28,10 @@ def open_dataset(date, resolution="high", datapath="."):
 
 
 def open_mfdataset(dates, resolution="high", datapath="."):
-    from xarray import concat
-
     das = []
     for i in dates:
         das.append(open_dataset(i, resolution=resolution, datapath=datapath))
-    ds = concat(das, dim="time")
+    ds = xr.concat(das, dim="time")
     return ds
 
 
@@ -85,7 +82,7 @@ def download_data(date, resolution="high"):
         date = Timestamp(date)
         year = date.strftime("%Y")
         yyyymmdd = date.strftime("%Y%m%d")
-    if resolution is "high":
+    if resolution == "high":
         file = "npp_aot550_edr_gridded_0.10_{}.high.bin.gz".format(yyyymmdd)
     else:
         file = "npp_aot550_edr_gridded_0.25_{}.high.bin.gz".format(yyyymmdd)
