@@ -11,13 +11,13 @@ setup(
     include_package_data=True,
     author="Barry D. Baker",
     author_email="barry.baker@noaa.gov",
-    maintainer="Barry Baker",
+    maintainer="Barry D. Baker",
     maintainer_email="barry.baker@noaa.gov",
     packages=find_packages(),
     package_data={
         "": ["data/*.txt", "data/*.dat", "data/*.hdf", "data/*.ncf", "data/*.jpg", "data/*.png"]
     },
     keywords=["model", "verification", "hysplit", "cmaq", "atmosphere", "camx", "evaluation"],
-    description="The Model and Observation Evaluation Toolkit (MONET)",
+    description="The Model and Observation Evaluation Toolkit (MONET) I/O",
     install_requires=["pandas", "netcdf4", "xarray", "scipy", "dask", "s3fs"],
 )
