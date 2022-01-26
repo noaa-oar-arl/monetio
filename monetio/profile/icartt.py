@@ -193,7 +193,7 @@ class Dataset:
         Units of variable <name>
         """
         res = [x.units for x in self.VAR if x.name == name]
-        if len(res) is 0:
+        if len(res) == 0:
             res = [""]
         return res[0]
 
@@ -202,7 +202,7 @@ class Dataset:
         Index of variable <name> in data array
         """
         res = [i for i, x in enumerate(self.VAR) if x.name == name]
-        if len(res) is 0:
+        if len(res) == 0:
             res = [-1]
         return res[0]
 
@@ -249,7 +249,7 @@ class Dataset:
         # Missing data indicators (This is -9999 (or -99999, etc.) for any missing data condition, except for the main time (independent) variable which is never missing) - comma delimited.
         prnt(self.splitChar.join([str(x.miss) for x in self.DVAR]))
         # Variable names and units (Short variable name and units are required, and optional long descriptive name, in that order, and separated by commas. If the variable is unitless, enter the keyword "none" for its units. Each short variable name and units (and optional long name) are entered on one line. The short variable name must correspond exactly to the name used for that variable as a column header, i.e., the last header line prior to start of data.).
-        nul = [prnt(x.desc) for x in self.DVAR]
+        _ = [prnt(x.desc) for x in self.DVAR]
         if self.format == 2110:
             # Number of variables (Integer value showing the number of dependent variables: the total number of columns of data is this value plus one.).
             prnt(self.nauxvar)
@@ -258,18 +258,18 @@ class Dataset:
             # Missing data indicators (This is -9999 (or -99999, etc.) for any missing data condition, except for the main time (independent) variable which is never missing) - comma delimited.
             prnt(self.splitChar.join([str(x.miss) for x in self.AUXVAR]))
             # Variable names and units (Short variable name and units are required, and optional long descriptive name, in that order, and separated by commas. If the variable is unitless, enter the keyword "none" for its units. Each short variable name and units (and optional long name) are entered on one line. The short variable name must correspond exactly to the name used for that variable as a column header, i.e., the last header line prior to start of data.).
-            nul = [prnt(x.desc) for x in self.AUXVAR]
+            _ = [prnt(x.desc) for x in self.AUXVAR]
 
         # Number of SPECIAL comment lines (Integer value indicating the number of lines of special comments, NOT including this line.).
         prnt("{:d}".format(self.nscom))
         # Special comments (Notes of problems or special circumstances unique to this file. An example would be comments/problems associated with a particular flight.).
-        nul = [prnt(x) for x in self.SCOM]
+        _ = [prnt(x) for x in self.SCOM]
         # Number of Normal comments (i.e., number of additional lines of SUPPORTING information: Integer value indicating the number of lines of additional information, NOT including this line.).
         prnt("{:d}".format(self.nncom))
         # Normal comments (SUPPORTING information: This is the place for investigators to more completely describe the data and measurement parameters. The supporting information structure is described below as a list of key word: value pairs. Specifically include here information on the platform used, the geo-location of data, measurement technique, and data revision comments. Note the non-optional information regarding uncertainty, the upper limit of detection (ULOD) and the lower limit of detection (LLOD) for each measured variable. The ULOD and LLOD are the values, in the same units as the measurements that correspond to the flags -7777s and -8888s within the data, respectively. The last line of this section should contain all the short variable names on one line. The key words in this section are written in BOLD below and must appear in this section of the header along with the relevant data listed after the colon. For key words where information is not needed or applicable, simply enter N/A.).
-        nul = [prnt(x) for x in self.NCOM]
+        _ = [prnt(x) for x in self.NCOM]
         # data!
-        nul = [prnt(self.splitChar.join([str(y) for y in x])) for x in self.data]
+        _ = [prnt(self.splitChar.join([str(y) for y in x])) for x in self.data]
 
     def make_filename(self):
         """
@@ -448,7 +448,7 @@ class Dataset:
         if self.input_fhandle.closed:
             self.input_fhandle = open(self.input_fhandle.name)
 
-        nul = [self.input_fhandle.readline() for i in range(self.nheader)]
+        _ = [self.input_fhandle.readline() for _ in range(self.nheader)]
 
         self.data = [
             self.__nan_miss_float(line.split(self.splitChar)) for line in self.input_fhandle
@@ -464,7 +464,7 @@ class Dataset:
         if self.input_fhandle.closed:
             self.input_fhandle = open(self.input_fhandle.name)
 
-        nul = [self.input_fhandle.readline() for i in range(self.nheader)]
+        _ = [self.input_fhandle.readline() for _ in range(self.nheader)]
 
         first = self.input_fhandle.readline()
         self.data = [self.__nan_miss_float(first.split(self.splitChar))]
@@ -515,14 +515,15 @@ class Dataset:
         self.splitChar = ","
 
         # read data if f is not None
+        encoding = "utf-8"
         if f is not None:
             if isinstance(f, str):
                 text = f
                 decoded = False
-                self.input_fhandle = open(f, "r", encoding="utf-8")
+                self.input_fhandle = open(f, "r", encoding=encoding)
             else:
-                text = f.decode(encoding)
-                decoded = True
+                text = f.decode(encoding)  # noqa: F841
+                decoded = True  # noqa: F841
             # if isinstance(f, (str, unicode)):
             # self.input_fhandle = open(f, 'r')
             # else:
