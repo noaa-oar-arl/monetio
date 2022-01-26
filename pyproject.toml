@@ -3,6 +3,6 @@
 line-length = 100
 
 [tool.isort]
-known_third_party = ["dask", "netCDF4", "numpy", "pandas", "pyresample", "requests", "scipy", "seaborn", "xarray"]
+known_first_party = "monetio"
 profile = "black"
 line_length = 100
