@@ -154,7 +154,7 @@ def _fix_nemsio(f):
         Description of returned object.
 
     """
-    from numpy import meshgrid
+    # from numpy import meshgrid
 
     # # f = _rename_func(f, rename_dict)
     # lat = f.lat.values
@@ -167,7 +167,7 @@ def _fix_nemsio(f):
     f = _rename_func(f, {})
     try:
         f["geohgt"] = _calc_nemsio_hgt(f)
-    except:
+    except Exception:
         print("geoht calculation not completed")
     # try:
     #     from pyresample import utils
@@ -224,11 +224,11 @@ def _fix_grib2(f):
         Description of returned object.
 
     """
-    from numpy import meshgrid
+    # from numpy import meshgrid
 
     rename_dict = {
         "AOTK_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere": "pm25aod550",
-        "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "pmaod550",
+        # "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "pmaod550",
         "AOTK_aerosol_EQ_Dust_Dry_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere": "dust25aod550",
         "AOTK_chemical_Dust_Dry_aerosol_size__2e_05_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "dust25aod550",
         "AOTK_aerosol_EQ_Sea_Salt_Dry_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere": "salt25aod550",
@@ -240,17 +240,17 @@ def _fix_grib2(f):
         "AOTK_aerosol_EQ_Black_Carbon_Dry_aerosol_size_LT_2eM05_aerosol_wavelength_GE_5D45eM07_LE_5D65eM07_entireatmosphere": "bc25aod550",
         "AOTK_chemical_Black_Carbon_Dry_aerosol_size__2e_05_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "bc25aod550",
         "COLMD_aerosol_EQ_Total_Aerosol_aerosol_size_LT_1eM05_entireatmosphere": "tc_aero10",
-        "COLMD_chemical_Total_Aerosol_aerosol_size__1e_05_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_aero10",
+        # "COLMD_chemical_Total_Aerosol_aerosol_size__1e_05_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_aero10",
         "COLMD_aerosol_EQ_Total_Aerosol_aerosol_size_LT_2D5eM06_entireatmosphere": "tc_aero25",
-        "COLMD_chemical_Total_Aerosol_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_aero25",
+        # "COLMD_chemical_Total_Aerosol_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_aero25",
         "COLMD_aerosol_EQ_Dust_Dry_aerosol_size_LT_2D5eM06_entireatmosphere": "tc_dust25",
         "COLMD_chemical_Dust_Dry_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_dust25",
         "COLMD_aerosol_EQ_Sea_Salt_Dry_aerosol_size_LT_2D5eM06_entireatmosphere": "tc_salt25",
         "COLMD_chemical_Sea_Salt_Dry_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_salt25",
         "COLMD_aerosol_EQ_Black_Carbon_Dry_aerosol_size_LT_2D36eM08_entireatmosphere": "tc_bc236",
-        "COLMD_chemical_Black_Carbon_Dry_aerosol_size__2_36e_08_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_bc236",
+        # "COLMD_chemical_Black_Carbon_Dry_aerosol_size__2_36e_08_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_bc236",
         "COLMD_aerosol_EQ_Particulate_Organic_Matter_Dry_aerosol_size_LT_4D24eM08_entireatmosphere": "tc_oc424",
-        "COLMD_chemical_Particulate_Organic_Matter_Dry_aerosol_size__4_24e_08_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_oc424",
+        # "COLMD_chemical_Particulate_Organic_Matter_Dry_aerosol_size__4_24e_08_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_oc424",
         "COLMD_aerosol_EQ_Sulphate_Dry_aerosol_size_LT_2D5eM06_entireatmosphere": "tc_sulf25",
         "COLMD_chemical_Sulphate_Dry_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_entireatmosphere": "tc_sulf25",
         "PMTF_chemical_Dust_Dry_aerosol_size__2_5e_06_aerosol_wavelength_____code_table_4_91_255_surface": "sfc_dust25",
@@ -275,14 +275,14 @@ def _fix_grib2(f):
         "PMTF_chemical_chemical_62014_aerosol_size__2_36e_08_aerosol_wavelength_____code_table_4_91_255_1hybridlevel": "aero1_mr0p0236",
         "PMTF_chemical_chemical_62013_aerosol_size__2_36e_08_aerosol_wavelength_____code_table_4_91_255_1hybridlevel": "aero2_mr0p0236",
         "level": "z",
-        "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_1_1e_05_1_12e_05_entireatmosphere": "pm25aod11100",
-        "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_1_628e_06_1_652e_06_entireatmosphere": "pm25aod1640",
+        # "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_1_1e_05_1_12e_05_entireatmosphere": "pm25aod11100",
+        # "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_1_628e_06_1_652e_06_entireatmosphere": "pm25aod1640",
         "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_8_41e_07_8_76e_07_entireatmosphere": "pm25aod860",
         "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_6_2e_07_6_7e_07_entireatmosphere": "pm25aod640",
-        "var0_20_112_chemical_Black_Carbon_Dry_aerosol_size__7e_07_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "bc07aod550",
-        "var0_20_112_chemical_Particulate_Organic_Matter_Dry_aerosol_size__7e_07_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "oc07aod550",
-        "var0_20_112_chemical_Sulphate_Dry_aerosol_size__7e_07_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "sulf07aod550",
-        "var0_20_112_chemical_Sea_Salt_Dry_aerosol_size__2e_05_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "salt25aod550",
+        # "var0_20_112_chemical_Black_Carbon_Dry_aerosol_size__7e_07_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "bc07aod550",
+        # "var0_20_112_chemical_Particulate_Organic_Matter_Dry_aerosol_size__7e_07_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "oc07aod550",
+        # "var0_20_112_chemical_Sulphate_Dry_aerosol_size__7e_07_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "sulf07aod550",
+        # "var0_20_112_chemical_Sea_Salt_Dry_aerosol_size__2e_05_aerosol_wavelength_5_45e_07_5_65e_07_entireatmosphere": "salt25aod550",
         "AOTK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_3_38e_07_3_42e_07_entireatmosphere": "pm25aod340",
         "ASYSFK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_3_38e_07_3_42e_07_entireatmosphere": "AF_pm25aod340",
         "SSALBK_chemical_Total_Aerosol_aerosol_size__2e_05_aerosol_wavelength_3_38e_07_3_42e_07_entireatmosphere": "ssa_pm25aod340",
