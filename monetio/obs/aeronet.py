@@ -465,13 +465,11 @@ class AERONET:
     def dust_detect(self):
         """Detect dust from AERONET. See [Dubovik et al., 2002].
 
-        AOD_1020 > 0.3 and AE(440,870) < 0.6
+        Looks for
 
-        Returns
-        -------
-        type
-            Description of returned object.
+            AOD_1020 > 0.3 and AE(440,870) < 0.6
 
+        and adds a Boolean `'dust'` column to :attr:`df`.
         """
         self.df["dust"] = (self.df["aod_1020nm"] > 0.3) & (
             self.df["440-870_angstrom_exponent"] < 0.6
