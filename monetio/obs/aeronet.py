@@ -10,7 +10,7 @@ try:
     from joblib import Parallel, delayed
 
     has_joblib = True
-except:
+except ImportError:
     has_joblib = False
 
 
@@ -18,11 +18,21 @@ def dateparse(x):
     return datetime.strptime(x, "%d:%m:%Y %H:%M:%S")
 
 
-def add_local(fname, product="AOD15", dates=None, latlonbox=None, freq=None, interp_to_values=None):
+def add_local(
+    fname,
+    product="AOD15",
+    dates=None,
+    latlonbox=None,
+    freq=None,
+    interp_to_values=None,
+    daily=False,
+    inv_type=None,
+    detect_dust=False,
+):
     a = AERONET()
     a.url = fname
     # df = a.read_aeronet(fname)
-    self.prod = product.upper()
+    a.prod = product.upper()
     if daily:
         a.daily = 20  # daily data
     else:
@@ -31,9 +41,10 @@ def add_local(fname, product="AOD15", dates=None, latlonbox=None, freq=None, int
         a.inv_type = "ALM15"
     else:
         a.inv_type = inv_type
-    if "AOD" in self.prod:
+    if "AOD" in a.prod:
         if interp_to_values is not None:
-            if ~isinstance(interp_to_values, ndarray):
+            # TODO: could probably use np.asanyarray here
+            if not isinstance(interp_to_values, ndarray):
                 a.new_aod_values = array(interp_to_values)
             else:
                 a.new_aod_values = interp_to_values
@@ -41,7 +52,7 @@ def add_local(fname, product="AOD15", dates=None, latlonbox=None, freq=None, int
     try:
         a.url = fname
         a.read_aeronet()
-    except:
+    except Exception:
         print("Error reading:" + fname)
     if freq is not None:
         a.df = a.df.groupby("siteid").resample(freq).mean().reset_index()
@@ -307,7 +318,7 @@ class AERONET(object):
         self.build_url()
         try:
             self.read_aeronet()
-        except:
+        except Exception:
             print(self.url)
         if freq is not None:
             self.df = self.df.groupby("siteid").resample(freq).mean().reset_index()
@@ -329,10 +340,15 @@ class AERONET(object):
 
     def calc_new_aod_values(self):
         def _tspack_aod_interp(row, new_wv=[440.0, 470.0, 550.0, 670.0, 870.0, 1020.0, 1240.0]):
+            import numpy as np
+
             try:
                 import pytspack
             except ImportError:
                 print("You must install pytspack before using this function")
+
+            new_wv = np.asarray(new_wv)
+
             # df_aod_nu = self._aeronet_aod_and_nu(row)
             aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
             aods = row[aod_columns]
@@ -360,28 +376,29 @@ class AERONET(object):
         out.columns = names.values
         self.df = pd.concat([self.df, out], axis=1)
 
-    @staticmethod
-    def _tspack_aod_interp(row, new_wv=[440.0, 470.0, 550.0, 670.0, 870.0, 1020.0, 1240.0]):
-        try:
-            import pytspack
-        except ImportError:
-            print("You must install pytspack before using this function")
-        # df_aod_nu = self._aeronet_aod_and_nu(row)
-        aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
-        aods = row[aod_columns]
-        wv = [float(aod_column.replace("aod_", "").replace("nm", "")) for aod_column in aod_columns]
-        a = pd.DataFrame({"aod": aods}).reset_index()
-        a["wv"] = wv
-        df_aod_nu = a.dropna()
-        df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
-        if len(df_aod_nu_sorted) < 2:
-            return xi * NaN
-        else:
-            x, y, yp, sigma = pytspack.tspsi(
-                df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values
-            )
-            yi = pytspack.hval(self.new_aod_values, x, y, yp, sigma)
-            return yi
+    # @staticmethod
+    # def _tspack_aod_interp(row, new_wv=[440.0, 470.0, 550.0, 670.0, 870.0, 1020.0, 1240.0]):
+    #     try:
+    #         import pytspack
+    #     except ImportError:
+    #         print("You must install pytspack before using this function")
+
+    #     # df_aod_nu = self._aeronet_aod_and_nu(row)
+    #     aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
+    #     aods = row[aod_columns]
+    #     wv = [float(aod_column.replace("aod_", "").replace("nm", "")) for aod_column in aod_columns]
+    #     a = pd.DataFrame({"aod": aods}).reset_index()
+    #     a["wv"] = wv
+    #     df_aod_nu = a.dropna()
+    #     df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
+    #     if len(df_aod_nu_sorted) < 2:
+    #         return xi * NaN
+    #     else:
+    #         x, y, yp, sigma = pytspack.tspsi(
+    #             df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values
+    #         )
+    #         yi = pytspack.hval(self.new_aod_values, x, y, yp, sigma)
+    #         return yi
 
     @staticmethod
     def _aeronet_aod_and_nu(row):
