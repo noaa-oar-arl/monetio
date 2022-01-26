@@ -3,6 +3,8 @@ def nearest(items, pivot):
 
 
 def search_listinlist(array1, array2):
+    import numpy as np
+
     # find intersections
 
     s1 = set(array1.flatten())
@@ -23,6 +25,7 @@ def search_listinlist(array1, array2):
 
 
 def linregress(x, y):
+    import numpy as np
     import statsmodels.api as sm
 
     xx = sm.add_constant(x)
@@ -73,10 +76,9 @@ def wsdir2uv(ws, wdir):
 
 
 def long_to_wide(df):
-    from pandas import Series, merge
+    from pandas import merge
 
     w = df.pivot_table(values="obs", index=["time", "siteid"], columns="variable").reset_index()
-    cols = Series(df.columns)
     g = df.groupby("variable")
     for name, group in g:
         w[name + "_unit"] = group.units.unique()[0]

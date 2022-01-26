@@ -95,7 +95,7 @@ def get_startlocs(tdump):
     # Going back to first line of file
     tdump.seek(0)
     # Gets the metinfo
-    metinfo = get_metinfo(tdump)
+    _ = get_metinfo(tdump)
     # Read next line - get number of starting locations
     dim2 = list(tdump.readline().strip().split(" "))
     start_locs = []
@@ -160,7 +160,7 @@ def get_traj(tdump):
     # Going back to first line of file
     tdump.seek(0)
     # Gets the starting locations
-    stlocs = get_startlocs(tdump)
+    _ = get_startlocs(tdump)
     # Read the number (and names) of additional variables in traj file
     varibs = re.sub(r"\s+", ",", tdump.readline().strip())
     varibs = varibs.split(",")
@@ -176,7 +176,7 @@ def get_traj(tdump):
         "longitude",
         "altitude",
     ] + variables
-    traj = pd.read_csv(tdump, header=None, sep="\s+", parse_dates={"time": [2, 3, 4, 5, 6]})
+    traj = pd.read_csv(tdump, header=None, sep=r"\s+", parse_dates={"time": [2, 3, 4, 5, 6]})
     # Adds headers to dataframe
     traj.columns = heads
     # Makes all headers lowercase

@@ -247,9 +247,6 @@ class AQS(object):
             Description of returned object.
 
         """
-        import requests
-        from numpy import NaN
-
         if daily:
             beginning = self.baseurl + "daily_"
             fname = "daily_"

@@ -13,7 +13,7 @@ except ImportError:
     has_s3fs = False
 
 try:
-    import h5py
+    import h5py  # noqa: F401
 
     has_h5py = True
 except ImportError:
@@ -21,7 +21,7 @@ except ImportError:
     has_h5py = False
 
 try:
-    import h5netcdf
+    import h5netcdf  # noqa: F401
 
     has_h5netcdf = True
 except ImportError:
@@ -197,7 +197,7 @@ class GOES(object):
         ds = ds.set_coords(["latitude", "longitude"])
         return ds
 
-    def open_local(self):
+    def open_local(self, f):
         # open file object
         fo = self.fs.open(f)
         out = xr.open_dataset(fo, engine="h5netcdf")

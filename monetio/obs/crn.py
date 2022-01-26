@@ -478,23 +478,23 @@ class CRN(object):
 
         """
         self.df["units"] = ""
-        for i in self.df.variable.unique():
-            if self.daily and i is "SOLARAD":
-                self.df.loc[self.df.variable == i, "units"] = "MJ/m^2"
-            elif "T_" in i:
-                self.df.loc[self.df.variable == i, "units"] = "K"
-                self.df.loc[self.df.variable == i, "obs"] += 273.15
-            elif "FLAG" in i or "TYPE" in i:
+        for v in self.df.variable.unique():
+            if self.daily and v == "SOLARAD":
+                self.df.loc[self.df.variable == v, "units"] = "MJ/m^2"
+            elif "T_" in v:
+                self.df.loc[self.df.variable == v, "units"] = "K"
+                self.df.loc[self.df.variable == v, "obs"] += 273.15
+            elif "FLAG" in v or "TYPE" in v:
                 pass
-            elif "TEMP" in i:
-                self.df.loc[self.df.variable == i, "units"] = "K"
-                self.df.loc[self.df.variable == i, "obs"] += 273.15
-            elif "MOISTURE" in i:
-                self.df.loc[self.df.variable == i, "units"] = "m^3/m^3"
-            elif "RH" in i:
-                self.df.loc[self.df.variable == i, "units"] = "%"
-            elif "P_CALC" is i:
-                self.df.loc[self.df.variable == i, "units"] = "mm"
+            elif "TEMP" in v:
+                self.df.loc[self.df.variable == v, "units"] = "K"
+                self.df.loc[self.df.variable == v, "obs"] += 273.15
+            elif "MOISTURE" in v:
+                self.df.loc[self.df.variable == v, "units"] = "m^3/m^3"
+            elif "RH" in v:
+                self.df.loc[self.df.variable == v, "units"] = "%"
+            elif v == "P_CALC":
+                self.df.loc[self.df.variable == v, "units"] = "mm"
 
     def set_daterange(self, begin="", end=""):
         """Short summary.

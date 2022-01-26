@@ -1,8 +1,10 @@
+import os
+
 import requests
 
 
 class SessionWithHeaderRedirection(requests.Session):
-    """NASA Session genergator
+    """NASA Session generator
 
     Parameters
     ----------
@@ -19,8 +21,6 @@ class SessionWithHeaderRedirection(requests.Session):
         Description of attribute `AUTH_HOST`.
 
     """
-
-    import requests
 
     AUTH_HOST = "urs.earthdata.nasa.gov"
 
@@ -69,6 +69,8 @@ def get_nasa_data(username, password, filename):
 
 
 def get_filenames_http(archive_url, ext):
+    from bs4 import BeautifulSoup
+
     r = requests.get(archive_url)
     soup = BeautifulSoup(r.content, "html.parser")
     links = soup.findAll("a")
