@@ -87,7 +87,7 @@ def open_dataset(fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicat
     for i in dset.variables:
         if "units" in dset[i].attrs:
             if "micrograms" in dset[i].attrs["units"]:
-                dset[i].attrs["units"] = "$\mu g m^{-3}$"
+                dset[i].attrs["units"] = r"$\mu g m^{-3}$"
 
     return dset
 
@@ -166,7 +166,7 @@ def open_mfdataset(
     for i in dset.variables:
         if "units" in dset[i].attrs:
             if "micrograms" in dset[i].attrs["units"]:
-                dset[i].attrs["units"] = "$\mu g m^{-3}$"
+                dset[i].attrs["units"] = r"$\mu g m^{-3}$"
 
     return dset
 
@@ -306,7 +306,7 @@ def add_lazy_pm25(d):
             newweights = weights.loc[index]
             d["PM25"] = add_multiple_lazy(d, newkeys, weights=newweights)
             d["PM25"] = d["PM25"].assign_attrs(
-                {"units": "$\mu g m^{-3}$", "name": "PM2.5", "long_name": "PM2.5"}
+                {"units": r"$\mu g m^{-3}$", "name": "PM2.5", "long_name": "PM2.5"}
             )
     return d
 
@@ -323,7 +323,7 @@ def add_lazy_pm10(d):
             d["PM10"] = add_multiple_lazy(d, newkeys)
             d["PM10"] = d["PM10"].assign_attrs(
                 {
-                    "units": "$\mu g m^{-3}$",
+                    "units": r"$\mu g m^{-3}$",
                     "name": "PM10",
                     "long_name": "Particulate Matter < 10 microns",
                 }
@@ -340,7 +340,7 @@ def add_lazy_pm_course(d):
         d["PM_COURSE"] = add_multiple_lazy(d, newkeys)
         d["PM_COURSE"] = d["PM_COURSE"].assign_attrs(
             {
-                "units": "$\mu g m^{-3}$",
+                "units": r"$\mu g m^{-3}$",
                 "name": "PM_COURSE",
                 "long_name": "Course Mode Particulate Matter",
             }
@@ -358,7 +358,7 @@ def add_lazy_clf(d):
         neww = weights.loc[index]
         d["CLf"] = add_multiple_lazy(d, newkeys, weights=neww)
         d["CLf"] = d["CLf"].assign_attrs(
-            {"units": "$\mu g m^{-3}$", "name": "CLf", "long_name": "Fine Mode particulate Cl"}
+            {"units": r"$\mu g m^{-3}$", "name": "CLf", "long_name": "Fine Mode particulate Cl"}
         )
     return d
 
@@ -373,7 +373,7 @@ def add_lazy_caf(d):
         neww = weights.loc[index]
         d["CAf"] = add_multiple_lazy(d, newkeys, weights=neww)
         d["CAf"] = d["CAf"].assign_attrs(
-            {"units": "$\mu g m^{-3}$", "name": "CAf", "long_name": "Fine Mode particulate CA"}
+            {"units": r"$\mu g m^{-3}$", "name": "CAf", "long_name": "Fine Mode particulate CA"}
         )
     return d
 
@@ -388,7 +388,7 @@ def add_lazy_naf(d):
         neww = weights.loc[index]
         d["NAf"] = add_multiple_lazy(d, newkeys, weights=neww)
         d["NAf"] = d["NAf"].assign_attrs(
-            {"units": "$\mu g m^{-3}$", "name": "NAf", "long_name": "NAf"}
+            {"units": r"$\mu g m^{-3}$", "name": "NAf", "long_name": "NAf"}
         )
     return d
 
@@ -403,7 +403,7 @@ def add_lazy_so4f(d):
         neww = weights.loc[index]
         d["SO4f"] = add_multiple_lazy(d, newkeys, weights=neww)
         d["SO4f"] = d["SO4f"].assign_attrs(
-            {"units": "$\mu g m^{-3}$", "name": "SO4f", "long_name": "SO4f"}
+            {"units": r"$\mu g m^{-3}$", "name": "SO4f", "long_name": "SO4f"}
         )
     return d
 
@@ -418,7 +418,7 @@ def add_lazy_nh4f(d):
         neww = weights.loc[index]
         d["NH4f"] = add_multiple_lazy(d, newkeys, weights=neww)
         d["NH4f"] = d["NH4f"].assign_attrs(
-            {"units": "$\mu g m^{-3}$", "name": "NH4f", "long_name": "NH4f"}
+            {"units": r"$\mu g m^{-3}$", "name": "NH4f", "long_name": "NH4f"}
         )
     return d
 
@@ -433,7 +433,7 @@ def add_lazy_no3f(d):
         neww = weights.loc[index]
         d["NO3f"] = add_multiple_lazy(d, newkeys, weights=neww)
         d["NO3f"] = d["NO3f"].assign_attrs(
-            {"units": "$\mu g m^{-3}$", "name": "NO3f", "long_name": "NO3f"}
+            {"units": r"$\mu g m^{-3}$", "name": "NO3f", "long_name": "NO3f"}
         )
     return d
 
@@ -509,7 +509,6 @@ def _predefined_mapping_tables(dset):
         "NOY": ["NOy"],
         "NOX": ["NOx"],
         "SO2": ["SO2"],
-        "NOX": ["NOx"],
         "NO": ["NO"],
         "NO2": ["NO2"],
         "SO4f": ["SO4f"],
@@ -543,7 +542,6 @@ def _predefined_mapping_tables(dset):
         "NOY": ["NOy"],
         "NOX": ["NOx"],
         "SO2": ["SO2"],
-        "NOX": ["NOx"],
         "NO": ["NO"],
         "NO2": ["NO2"],
         "SO4f": ["SO4f"],

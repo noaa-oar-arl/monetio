@@ -23,11 +23,12 @@ import numpy as np
 from dask.diagnostics import ProgressBar
 
 try:
-    from suds.client import *
+    from suds.client import Client
 
     has_suds = True
 except ImportError:
     has_suds = False
+
 DEBUG_PRINTING = False
 
 defaultURL = "https://modis.ornl.gov/cgi-bin/MODIS/soapservice/MODIS_soapservice.wsdl"
@@ -98,8 +99,8 @@ class modisData(object):
     def filterQA(self, QAOK, fill=np.nan):
 
         if np.size(self.data) != np.size(self.QA):
-            # should do this using an exception
-            print >>sys.stderr, "data and QA are different sizes"
+            # TODO: should do this using an exception
+            print("data and QA are different sizes", file=sys.stderr)
             sys.exit()
 
         r = np.shape(self.data)[0]
@@ -154,10 +155,10 @@ def setClient(wsdlurl=defaultURL):
     return Client(wsdlurl)
 
 
-def printList(l):
+def printList(lst):
 
-    for i in range(l.__len__()):
-        print(l[i])
+    for i in range(lst.__len__()):
+        print(lst[i])
 
 
 def printModisData(m):
@@ -188,7 +189,7 @@ def printModisData(m):
 def __debugPrint(o):
 
     if DEBUG_PRINTING:
-        print >>sys.stderr, "DB> ", o
+        print("DB> ", o, file=sys.stderr)
         sys.stderr.flush
 
 

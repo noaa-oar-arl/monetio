@@ -1,14 +1,10 @@
 import datetime
 import os
-import sys
 
 import numpy as np
-import xarray as xr
 
 # import monet.utilhysplit.hysp_func as hf
 from netCDF4 import Dataset
-
-from monetio.models import hysplit
 
 # import matplotlib.pyplot as plt
 
@@ -107,9 +103,8 @@ def get_topbottom(lev):
 
 def handle_levels(levlist):
     nlev = len(levlist)
-    # divide into three pieces
+    # Divide into three pieces
     piece = int(np.floor(nlev / 3.0))
-    jjj = 0
     lev1 = levlist[0:piece]
     lev2 = levlist[piece : 2 * piece]
     lev3 = levlist[2 * piece :]
@@ -131,8 +126,8 @@ def cdump2awips(xrash1, dt, outname, mscale=1, munit="unit", format="NETCDF4", d
     xrash.transpose("time", "ensemble", "x", "y", "z")
     # array with mass loading rather than concentration.
     mass = mass_loading(xrash)
-    levelra = xrash.z.values
-    nra = xrash.values
+    # levelra = xrash.z.values
+    # nra = xrash.values
 
     iii = 0
     for tm in xrash.time.values:
@@ -149,17 +144,18 @@ def cdump2awips(xrash1, dt, outname, mscale=1, munit="unit", format="NETCDF4", d
         # DEFINE DIMENSIONS
         lat_shape = xrash.shape[2]
         lon_shape = xrash.shape[3]
-        lat = fid.createDimension("latitude", lat_shape)
-        lon = fid.createDimension("longitude", lon_shape)
+        # lat = fid.createDimension("latitude", lat_shape)
+        # lon = fid.createDimension("longitude", lon_shape)
 
         clevs = [0.2, 2, 4, 10, 100]
-        clevels = fid.createDimension("contour_levels", len(clevs))
+        # clevels = fid.createDimension("contour_levels", len(clevs))
         ens_shape = xrash.coords["ensemble"].shape[0]
-        ensemble = fid.createDimension("ensid", ens_shape)
+        # ensemble = fid.createDimension("ensid", ens_shape)
 
-        time = fid.createDimension("time", 1)  # one time per file
-        bnds = fid.createDimension("bnds", 2)  # two bounds per time.
-        origin = fid.createDimension("origins", 1)
+        # time = fid.createDimension("time", 1)  # one time per file
+        # bnds = fid.createDimension("bnds", 2)  # two bounds per time.
+        # origin = fid.createDimension("origins", 1)
+
         # Scalar variables
 
         # latra, lonra = hf.getlatlon(hxr)
@@ -265,9 +261,7 @@ def cdump2awips(xrash1, dt, outname, mscale=1, munit="unit", format="NETCDF4", d
         sourceid[:] = xrash.coords["source"].values
         ensid[:] = np.arange(1, ens_shape + 1)
         fid.close()
-        import sys
 
-        # sys.exit()
         iii += 1
 
 
@@ -309,8 +303,8 @@ def makeconc(xrash, date1, level, mult=1, tr=True, verbose=False):
 
 
 def maketestblist():
-    d1 = datetime.datetime(2008, 8, 8, 12)
-    d2 = datetime.datetime(2008, 8, 8, 13)
+    # d1 = datetime.datetime(2008, 8, 8, 12)
+    # d2 = datetime.datetime(2008, 8, 8, 13)
     blist = {}
     flist = []
     dname = "/pub/Scratch/alicec/KASATOCHI/cylindrical/e3/"
@@ -338,9 +332,9 @@ def maketestncfile():
     cdump2awips(blist, oname, d1=d1, d2=d2)
 
 
-def maketestra():
-    d1 = None
-    d2 = None
-    blist = maketestblist()
-    xrash, dt = combine_cdump(blist, d1=d1, d2=d2)
-    return xrash, dt
+# def maketestra():
+#     d1 = None
+#     d2 = None
+#     blist = maketestblist()
+#     xrash, dt = combine_cdump(blist, d1=d1, d2=d2)
+#     return xrash, dt

@@ -2,8 +2,6 @@
 
 from builtins import object, zip
 
-import dask
-import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 from dask.diagnostics import ProgressBar
@@ -186,7 +184,7 @@ class ISH(object):
         """
 
         furls = []
-        fnames = []
+        # fnames = []
         print("Building AIRNOW URLs...")
         url = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-lite"
         dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
@@ -244,7 +242,7 @@ class ISH(object):
         import dask
         import dask.dataframe as dd
 
-        dfs = [dask.delayed(read_csv)(f) for f in urls]
+        dfs = [dask.delayed(self.read_csv)(f) for f in urls]
         dff = dd.from_delayed(dfs)
         df = dff.compute(num_workers=n_procs)
         return df

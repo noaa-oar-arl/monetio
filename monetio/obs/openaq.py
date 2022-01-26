@@ -25,10 +25,8 @@
     """
 import json
 
-import dask
-import dask.dataframe as dd
 import pandas as pd
-from numpy import NaN, vectorize
+from numpy import NaN
 
 
 def add_data(dates, n_procs=1):
@@ -54,7 +52,6 @@ def add_data(dates, n_procs=1):
 class OPENAQ:
     def __init__(self):
         import s3fs
-        from numpy import vectorize
 
         self.fs = s3fs.S3FileSystem(anon=True)
         self.s3bucket = "openaq-fetches/realtime"
