@@ -1,9 +1,10 @@
-# this is written to retrive airnow data concatenate and add to pandas array
-# for usage
+"""
+AERONET
+"""
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
-from numpy import NaN, array, ndarray
 
 try:
     from joblib import Parallel, delayed
@@ -13,21 +14,16 @@ except ImportError:
     has_joblib = False
 
 
-def dateparse(x):
-    return datetime.strptime(x, "%d:%m:%Y %H:%M:%S")
-
-
 def add_local(
     fname,
     product="AOD15",
-    dates=None,
-    latlonbox=None,
     freq=None,
     interp_to_values=None,
     daily=False,
     inv_type=None,
     detect_dust=False,
 ):
+    """Read a local file downloaded from the AERONET Web Service."""
     a = AERONET()
     a.url = fname
     # df = a.read_aeronet(fname)
@@ -43,8 +39,8 @@ def add_local(
     if "AOD" in a.prod:
         if interp_to_values is not None:
             # TODO: could probably use np.asanyarray here
-            if not isinstance(interp_to_values, ndarray):
-                a.new_aod_values = array(interp_to_values)
+            if not isinstance(interp_to_values, np.ndarray):
+                a.new_aod_values = np.array(interp_to_values)
             else:
                 a.new_aod_values = interp_to_values
     # a.build_url()
@@ -65,38 +61,73 @@ def add_local(
 def add_data(
     dates=None,
     product="AOD15",
-    latlonbox=None,
-    daily=False,
-    interp_to_aod_values=None,
+    *,
     inv_type=None,
-    freq=None,
+    latlonbox=None,
     siteid=None,
+    daily=False,
+    #
+    # post-proc
+    freq=None,
     detect_dust=False,
+    interp_to_aod_values=None,
+    #
+    # joblib
     n_procs=1,
     verbose=10,
 ):
+    """Load AERONET data from the AERONET Web Service.
+
+    Parameters
+    ----------
+    dates : array-like of datetime-like
+        Expressing the desired min and max dates to retrieve.
+        If unset, the current day will be fetched.
+    product : str
+    inv_type : str
+        Inversion product type.
+    latlonbox : array-like of float
+        ``[lat1, lon1, lat2, lon2]``,
+        where ``lat1, lon1`` is the lower-left corner
+        and ``lat2, lon2`` is the upper-right corner.
+    siteid : str
+        <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>
+    daily : bool
+        Load daily averaged data.
+    freq : str
+        Frequency used to resample the DataFrame.
+    detect_dust : bool
+    interp_to_aod_values : array-like of float
+        Values to interpolate AOD values to.
+    n_procs : int
+        For joblib.
+    verbose : int
+        For joblib.
+    """
     a = AERONET()
+
     if interp_to_aod_values is not None:
-        if ~isinstance(interp_to_aod_values, ndarray):
-            interp_to_aod_values = array(interp_to_aod_values)
-    if has_joblib and (n_procs > 1):
+        interp_to_aod_values = np.asarray(interp_to_aod_values)
+
+    kwargs = dict(
+        product=product,
+        inv_type=inv_type,
+        latlonbox=latlonbox,
+        siteid=siteid,
+        daily=daily,
+        detect_dust=detect_dust,
+        interp_to_aod_values=interp_to_aod_values,
+    )
+
+    requested_parallel = n_procs > 1 or n_procs == -1
+    if has_joblib and requested_parallel:
+        # Split up by day
         min_date = dates.min()
         max_date = dates.max()
-        # find days from here to there
-        days = pd.date_range(start=min_date, end=max_date, freq="D")
-        days1 = pd.date_range(start=min_date, end=max_date, freq="D") + pd.Timedelta(1, unit="D")
-        vars = dict(
-            product=product,
-            latlonbox=latlonbox,
-            daily=daily,
-            interp_to_aod_values=interp_to_aod_values,
-            inv_type=inv_type,
-            siteid=siteid,
-            freq=None,
-            detect_dust=detect_dust,
-        )
+        days = pd.date_range(start=min_date, end=max_date, freq="D")  # TODO: subtract 1?
+        days1 = days + pd.Timedelta(days=1)
         dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
-            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **vars)
+            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **kwargs, freq=None)
             for d1, d2 in zip(days, days1)
         )
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
@@ -105,22 +136,17 @@ def add_data(
             df = df.groupby("siteid").resample(freq).mean().reset_index()
         return df.reset_index(drop=True)
     else:
-        if ~has_joblib and (n_procs > 1):
+        if not has_joblib and requested_parallel:
             print(
-                "Please install joblib to use the parallel feature of monetio.aeronet. Proceeding in serial mode..."
+                "Please install joblib to use the parallel feature of monetio.aeronet. "
+                "Proceeding in serial mode..."
             )
         df = a.add_data(
             dates=dates,
-            product=product,
-            latlonbox=latlonbox,
-            daily=daily,
-            interp_to_aod_values=interp_to_aod_values,
-            inv_type=inv_type,
-            siteid=siteid,
+            **kwargs,
             freq=freq,
-            detect_dust=detect_dust,
         )
-    return df.reset_index(drop=True)
+    return df  # .reset_index(drop=True)
 
 
 def _parallel_aeronet_call(
@@ -150,116 +176,140 @@ def _parallel_aeronet_call(
 
 
 class AERONET:
-    def __init__(self):
-        from numpy import arange, concatenate
+    """Read AERONET data, with some post-processing capabilities."""
 
-        self.baseurl = "https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_v3?"
-        self.dates = [
-            datetime.strptime("2016-06-06 12:00:00", "%Y-%m-%d %H:%M:%S"),
-            datetime.strptime("2016-06-10 13:00:00", "%Y-%m-%d %H:%M:%S"),
-        ]
-        self.datestr = []
-        self.df = pd.DataFrame()
-        self.daily = None
+    objtype = "AERONET"
+    usecols = np.r_[:30, 65:83]
+
+    _valid_prod_noninv = (
+        "AOD10",
+        "AOD15",
+        "AOD20",
+        "SDA10",
+        "SDA15",
+        "SDA20",
+        "TOT10",
+        "TOT15",
+        "TOT20",
+    )
+    _valid_prod_inv = (
+        "SIZ",
+        "RIN",
+        "CAD",
+        "VOL",
+        "TAB",
+        "AOD",
+        "SSA",
+        "ASY",
+        "FRC",
+        "LID",
+        "FLX",
+        # "ALL",
+        # "PFN",
+        # "U27",
+    )
+    _valid_inv_type = (
+        "ALM15",
+        "ALM20",
+        "HYB15",
+        "HYB20",
+    )
+
+    def __init__(self):
+        # Main attributes
+        self.url = None
+        self.df = None
+
+        # Settings controlling the URL generation
+        self.dates = None  # array-like of datetime-like
         self.prod = None
         self.inv_type = None
-        self.siteid = None
-        self.objtype = "AERONET"
-        self.usecols = concatenate((arange(30), arange(65, 83)))
-        # [21.1,-131.6686,53.04,-58.775] #[latmin,lonmin,latmax,lonmax]
+        self.daily = None
         self.latlonbox = None
-        self.url = None
+        self.siteid = None
+
         self.new_aod_values = None
 
     def build_url(self):
-        sy = self.dates.min().strftime("%Y")
-        sm = self.dates.min().strftime("%m").zfill(2)
-        sd = self.dates.min().strftime("%d").zfill(2)
-        sh = self.dates.min().strftime("%H").zfill(2)
-        ey = self.dates.max().strftime("%Y").zfill(2)
-        em = self.dates.max().strftime("%m").zfill(2)
-        ed = self.dates.max().strftime("%d").zfill(2)
-        eh = self.dates.max().strftime("%H").zfill(2)
-        if self.prod in [
-            "AOD10",
-            "AOD15",
-            "AOD20",
-            "SDA10",
-            "SDA15",
-            "SDA20",
-            "TOT10",
-            "TOT15",
-            "TOT20",
-        ]:
-            base_url = "https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_v3?"
-            inv_type = None
-        else:
-            base_url = "https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_inv_v3?"
-            if self.inv_type == "ALM15":
-                inv_type = "&ALM15=1"
-            else:
-                inv_type = "&AML20=1"
-        date_portion = (
-            "year="
-            + sy
-            + "&month="
-            + sm
-            + "&day="
-            + sd
-            + "&hour="
-            + sh
-            + "&year2="
-            + ey
-            + "&month2="
-            + em
-            + "&day2="
-            + ed
-            + "&hour2="
-            + eh
+        """Use attributes to build a URL and set :attr:`url`.
+
+        Targetting either of
+        - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_new.html
+        - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
+        """
+        assert self.dates is not None, "required parameter"
+        d1, d2 = self.dates.min(), self.dates.max()
+        sy = d1.strftime(r"%Y")
+        sm = d1.strftime(r"%m")
+        sd = d1.strftime(r"%d")
+        sh = d1.strftime(r"%H")
+        ey = d2.strftime(r"%Y")
+        em = d2.strftime(r"%m")
+        ed = d2.strftime(r"%d")
+        eh = d2.strftime(r"%H")
+        dates_ = (
+            f"year={sy}&month={sm}&day={sd}&hour={sh}"
+            f"&year2={ey}&month2={em}&day2={ed}&hour2={eh}"
         )
-        # print(self.prod, inv_type)
-        if self.inv_type is not None:
-            product = "&product=" + self.prod
+
+        assert self.prod is not None, "required parameter"
+
+        if self.inv_type is None:
+            # AOD products
+            # https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_new.html
+
+            if self.prod in self._valid_prod_noninv:
+                base_url = "https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_v3?"
+            else:
+                raise ValueError(f"invalid product {self.prod!r}")
+            inv_type_ = ""
+            product_ = f"&{self.prod}=1"
+
+        elif self.inv_type in self._valid_inv_type:
+            # Inversion products
+            # https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
+
+            if self.prod in self._valid_prod_inv:
+                base_url = "https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_inv_v3?"
+            else:
+                raise ValueError(f"invalid product {self.prod!r}")
+            inv_type_ = f"&{self.inv_type}=1"
+            product_ = f"&product={self.prod}"
+
         else:
-            product = "&" + self.prod + "=1"
-            self.inv_type = ""
-        time = "&AVG=" + str(self.daily)
+            raise ValueError(f"invalid inv type: {self.inv_type!r}")
+
+        assert self.daily in {10, 20}, "required parameter"
+        avg_ = f"&AVG={self.daily}"
+
         if self.siteid is not None:
-            latlonbox = f"&site={self.siteid}"
+            latlonbox_ = f"&site={self.siteid}"
         elif self.latlonbox is None:
-            latlonbox = ""
+            latlonbox_ = ""
         else:
             lat1 = str(float(self.latlonbox[0]))
             lon1 = str(float(self.latlonbox[1]))
             lat2 = str(float(self.latlonbox[2]))
             lon2 = str(float(self.latlonbox[3]))
-            latlonbox = "&lat1=" + lat1 + "&lat2=" + lat2 + "&lon1=" + lon1 + "&lon2=" + lon2
-        # print(base_url)
-        # print(date_portion)
-        # print(product)
-        # print(inv_type)
-        # print(time)
-        # print(latlonbox)
-        if inv_type is None:
-            inv_type = ""
-        self.url = base_url + date_portion + product + inv_type + time + latlonbox + "&if_no_html=1"
+            latlonbox_ = f"&lat1={lat1}&lat2={lat2}&lon1={lon1}&lon2={lon2}"
+
+        self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{latlonbox_}&if_no_html=1"
 
     def read_aeronet(self):
+        """Use :meth:`build_url` to set a URL and then load a DataFrame from it,
+        settings :attr:`df`.
+        """
         print("Reading Aeronet Data...")
-        # header = self.get_columns()
         df = pd.read_csv(
             self.url,
             engine="python",
-            header=None,
-            skiprows=6,
+            header="infer",
+            skiprows=5,
             parse_dates={"time": [1, 2]},
-            date_parser=dateparse,
+            date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
-        # df.rename(columns={'date_time': 'time'}, inplace=True)
-        columns = self.get_columns()
-        df.columns = columns  # self.get_columns()
-        df.index = df.time
+        df.rename(columns=str.lower, inplace=True)
         df.rename(
             columns={
                 "site_latitude(degrees)": "latitude",
@@ -269,19 +319,11 @@ class AERONET:
             },
             inplace=True,
         )
+        if df.siteid.unique().size == 1:
+            df.set_index("time", inplace=True)
         df.dropna(subset=["latitude", "longitude"], inplace=True)
-        df.dropna(axis=1, how="all", inplace=True)
+        df.dropna(axis=1, how="all", inplace=True)  # empty columns
         self.df = df
-
-    def get_columns(self):
-        header = pd.read_csv(self.url, skiprows=5, header=None, nrows=1).values.flatten()
-        final = ["time"]
-        for i in header:
-            if "Date(" in i or "Time(" in i:
-                pass
-            else:
-                final.append(i.lower())
-        return final
 
     def add_data(
         self,
@@ -312,19 +354,27 @@ class AERONET:
             self.inv_type = "ALM15"
         else:
             self.inv_type = inv_type
-        if "AOD" in self.prod:
+        if self.prod.startswith("AOD"):
             self.new_aod_values = interp_to_aod_values
+
         self.build_url()
         try:
             self.read_aeronet()
-        except Exception:
-            print(self.url)
+        except Exception as e:
+            raise Exception(
+                f"loading from URL {self.url!r} failed. "
+                "If using `siteid`, check that the site is valid."
+            ) from e
+
         if freq is not None:
             self.df = self.df.groupby("siteid").resample(freq).mean().reset_index()
+
         if detect_dust:
             self.dust_detect()
+
         if self.new_aod_values is not None:
             self.calc_new_aod_values()
+
         return self.df
 
     def calc_550nm(self):
@@ -360,7 +410,7 @@ class AERONET:
             df_aod_nu = a.dropna()
             df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
             if len(df_aod_nu_sorted) < 2:
-                return new_wv * NaN
+                return new_wv * np.NaN
             else:
                 x, y, yp, sigma = pytspack.tspsi(
                     df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values
@@ -391,7 +441,7 @@ class AERONET:
     #     df_aod_nu = a.dropna()
     #     df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
     #     if len(df_aod_nu_sorted) < 2:
-    #         return xi * NaN
+    #         return xi * np.NaN
     #     else:
     #         x, y, yp, sigma = pytspack.tspsi(
     #             df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values

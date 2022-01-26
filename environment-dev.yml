@@ -13,6 +13,10 @@ dependencies:
   - scipy
   - xarray
   #
+  # optional
+  - joblib
+  - requests
+  #
   # test
   - pytest
   #
