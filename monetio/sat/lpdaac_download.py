@@ -42,7 +42,7 @@ prompts = [
 # ---------------------------------SET UP WORKSPACE---------------------------------------------- #
 # Create a list of files to download based on input type of files above
 if files.endswith(".txt"):
-    fileList = open(files, "r").readlines()  # If input is textfile w file URLs
+    fileList = open(files).readlines()  # If input is textfile w file URLs
 elif isinstance(files, str):
     fileList = [files]  # If input is a single file
 
@@ -66,23 +66,19 @@ except FileNotFoundError:
         ),
         shell=True,
     )
+    Popen(f"echo login {getpass(prompt=prompts[0])} >> {homeDir + os.sep}.netrc", shell=True)
     Popen(
-        "echo login {} >> {}.netrc".format(getpass(prompt=prompts[0]), homeDir + os.sep), shell=True
-    )
-    Popen(
-        "echo password {} >> {}.netrc".format(getpass(prompt=prompts[1]), homeDir + os.sep),
+        f"echo password {getpass(prompt=prompts[1])} >> {homeDir + os.sep}.netrc",
         shell=True,
     )
 
 # Determine OS and edit netrc file if it exists but is not set up for NASA Earthdata Login
 except TypeError:
     homeDir = os.path.expanduser("~")
-    Popen("echo machine {1} >> {0}.netrc".format(homeDir + os.sep, urs), shell=True)
+    Popen(f"echo machine {urs} >> {homeDir + os.sep}.netrc", shell=True)
+    Popen(f"echo login {getpass(prompt=prompts[0])} >> {homeDir + os.sep}.netrc", shell=True)
     Popen(
-        "echo login {} >> {}.netrc".format(getpass(prompt=prompts[0]), homeDir + os.sep), shell=True
-    )
-    Popen(
-        "echo password {} >> {}.netrc".format(getpass(prompt=prompts[1]), homeDir + os.sep),
+        f"echo password {getpass(prompt=prompts[1])} >> {homeDir + os.sep}.netrc",
         shell=True,
     )
 
@@ -123,7 +119,7 @@ for f in fileList:
                     if not chunk:
                         break
                     d.write(chunk)
-            print("Downloaded file: {}".format(saveName))
+            print(f"Downloaded file: {saveName}")
 
 
 def download_file(saveDir, netrcDir):

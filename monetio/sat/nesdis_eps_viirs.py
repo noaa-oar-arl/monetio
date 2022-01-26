@@ -22,13 +22,11 @@ def open_dataset(date, datapath="."):
         Description of returned object.
 
     """
-    import six
-
     current = change_dir(datapath)
     nlat = 720
     nlon = 1440
     lon, lat = _get_latlons(nlat, nlon)
-    if isinstance(date, six.string_types):
+    if isinstance(date, str):
         fname, date = download_data(date)
     else:
         fname, date = download_data(date)
@@ -154,7 +152,7 @@ def download_data(date, resolution="high"):
         yyyymmdd = date.strftime("%Y%m%d")
         # npp_eaot_ip_gridded_0.25_20181222.high.nc
     # print(year, yyyymmdd)
-    file = "npp_eaot_ip_gridded_0.25_{}.high.nc".format(yyyymmdd)
+    file = f"npp_eaot_ip_gridded_0.25_{yyyymmdd}.high.nc"
     exists = os.path.isfile(file)
     if ~exists:
         ftp = ftplib.FTP(server)
@@ -162,7 +160,7 @@ def download_data(date, resolution="high"):
         ftp.cwd(base_dir + year)
         ftp.retrbinary("RETR " + file, open(file, "wb").write)
     else:
-        print("File Already Exists! Reading: {}".format(file))
+        print(f"File Already Exists! Reading: {file}")
     return file, date
 
 

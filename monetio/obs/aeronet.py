@@ -1,6 +1,5 @@
 # this is written to retrive airnow data concatenate and add to pandas array
 # for usage
-from builtins import object, str
 from datetime import datetime
 
 import pandas as pd
@@ -150,7 +149,7 @@ def _parallel_aeronet_call(
     return df
 
 
-class AERONET(object):
+class AERONET:
     def __init__(self):
         from numpy import arange, concatenate
 
@@ -226,7 +225,7 @@ class AERONET(object):
             self.inv_type = ""
         time = "&AVG=" + str(self.daily)
         if self.siteid is not None:
-            latlonbox = "&site={}".format(self.siteid)
+            latlonbox = f"&site={self.siteid}"
         elif self.latlonbox is None:
             latlonbox = ""
         else:

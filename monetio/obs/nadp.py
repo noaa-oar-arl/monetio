@@ -1,6 +1,5 @@
 """ READS NAPD DATA """
 
-from builtins import object
 
 import pandas as pd
 from numpy import NaN
@@ -12,7 +11,7 @@ def add_data(dates, network="NTN", siteid=None, weekly=True):
     return df
 
 
-class NADP(object):
+class NADP:
     def __init__(self):
         self.weekly = True
         self.network = None

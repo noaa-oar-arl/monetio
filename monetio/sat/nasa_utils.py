@@ -82,7 +82,7 @@ def get_available_satellites(archive_url="https://e4ftl01.cr.usgs.gov"):
 
 
 def get_available_product(archive_url="https://e4ftl01.cr.usgs.gov", satellite=None):
-    url = "{}/{}".format(archive_url, satellite)
+    url = f"{archive_url}/{satellite}"
     return get_filenames_http(url, "/")
 
 
@@ -115,6 +115,6 @@ def get_files_to_download(year, doy, tiles, output_path, ext, sat="MOLA", produc
     #    return list(files_on_http2 - files_on_system)
     # GET THE FILES NOT CURRENTLY ON THE SYSTEM
     basenames = [os.path.basename(f) for f in files]
-    files_on_system = [os.path.isfile("{}/{}".format(output_path, f)) for f in basenames]
+    files_on_system = [os.path.isfile(f"{output_path}/{f}") for f in basenames]
     files_to_download = array(files)[~array(files_on_system)]
     return files_to_download, basenames

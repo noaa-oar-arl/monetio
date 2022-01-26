@@ -61,7 +61,7 @@ def get_date_fmt(date, verbose=False):
     return fmt
 
 
-class CEMS(object):
+class CEMS:
     """
      Class for data from continuous emission monitoring systems (CEMS).
      Data from power plants can be downloaded from
@@ -503,7 +503,7 @@ class CEMS(object):
         # create column with datetime information
         # from column with month-day-year and column with hour.
         dftime = dftemp.apply(
-            lambda x: pd.datetime.strptime("{0} {1}".format(x["date"], x["hour"]), dfmt), axis=1
+            lambda x: pd.datetime.strptime("{} {}".format(x["date"], x["hour"]), dfmt), axis=1
         )
         dftemp = pd.concat([dftime, dftemp], axis=1)
         dftemp.rename(columns={0: "time local"}, inplace=True)

@@ -37,7 +37,7 @@ pbar = ProgressBar()
 pbar.register()
 
 
-class modisData(object):
+class modisData:
     def __init__(self):
 
         self.server = None

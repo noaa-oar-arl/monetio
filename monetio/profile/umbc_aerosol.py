@@ -1,5 +1,4 @@
 import os
-from builtins import object
 
 import pandas as pd
 import xarray as xr
@@ -22,7 +21,7 @@ def open_mfdataset(fname):
     return xr.concat(dsets, dim="time")
 
 
-class CL51(object):
+class CL51:
     """Short summary.
 
     Attributes

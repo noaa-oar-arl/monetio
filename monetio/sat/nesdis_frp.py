@@ -17,12 +17,12 @@ def download_data(date, ftype="meanFRP"):
         date = Timestamp(date)
         yyyymmdd = date.strftime("%Y%m%d")
 
-    url_ftype = "&files={}.".format(ftype)
+    url_ftype = f"&files={ftype}."
 
     for i in arange(1, 7, dtype=int).astype(str):
-        tile = ".FV3C384Grid.tile{}.bin".format(i)
-        url = "{}{}{}{}{}".format(base_dir, yyyymmdd, url_ftype, yyyymmdd, tile)
-        fname = "{}.{}.FV3.C384Grid.tile{}.bin".format(ftype, yyyymmdd, i)
+        tile = f".FV3C384Grid.tile{i}.bin"
+        url = f"{base_dir}{yyyymmdd}{url_ftype}{yyyymmdd}{tile}"
+        fname = f"{ftype}.{yyyymmdd}.FV3.C384Grid.tile{i}.bin"
         print("Retrieving file:", fname)
         r = rq.get(url)
         with open(fname, "wb") as f:

@@ -1,13 +1,13 @@
 import inspect
 import os
 
-# this is a class to deal with aqs data
-from builtins import object, zip
-
 import pandas as pd
 from dask.diagnostics import ProgressBar
 
 from .epa_util import read_monitor_file
+
+# this is a class to deal with aqs data
+
 
 pbar = ProgressBar()
 pbar.register()
@@ -44,7 +44,7 @@ def add_data(
         return df
 
 
-class AQS(object):
+class AQS:
     """Short summary.
 
     Attributes
@@ -438,7 +438,7 @@ class AQS(object):
             drop_monitor_cols = False
         if daily:
             if drop_monitor_cols:
-                monitor_drop = ["msa_name", "city_name", u"local_site_name", u"address", u"datum"]
+                monitor_drop = ["msa_name", "city_name", "local_site_name", "address", "datum"]
                 self.monitor_df.drop(monitor_drop, axis=1, inplace=True)
         # else:
         #     monitor_drop = [u'datum']

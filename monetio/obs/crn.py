@@ -113,7 +113,6 @@ Daily Data
 
 import inspect
 import os
-from builtins import object, zip
 
 import pandas as pd
 from numpy import array
@@ -127,7 +126,7 @@ def add_data(dates, param=None, daily=False, sub_hourly=False, download=False, l
     return df
 
 
-class CRN(object):
+class CRN:
     def __init__(self):
         self.dates = None
         self.daily = False

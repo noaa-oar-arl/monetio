@@ -1,10 +1,8 @@
-from builtins import object
-
 import pandas as pd
 from numpy import NaN
 
 
-class IMPROVE(object):
+class IMPROVE:
     """Short summary.
 
     Attributes
@@ -60,7 +58,7 @@ class IMPROVE(object):
         """
         from .epa_util import read_monitor_file
 
-        f = open(fname, "r")
+        f = open(fname)
         lines = f.readlines()
         skiprows = 0
         skip = False

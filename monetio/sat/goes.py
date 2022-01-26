@@ -84,25 +84,25 @@ def open_dataset(date=None, filename=None, satellite="16", product=None):
     return ds
 
 
-class GOES(object):
+class GOES:
     def __init__(self):
         self.date = None
         self.satellite = "16"
         self.product = "ABI-L2-AODF"
-        self.baseurl = "s3://noaa-goes{}/".format(self.satellite)
-        self.url = "{}".format(self.baseurl)
+        self.baseurl = f"s3://noaa-goes{self.satellite}/"
+        self.url = f"{self.baseurl}"
         self.filename = None
         self.fs = None
 
     def _update_baseurl(self):
-        self.baseurl = "s3://noaa-goes{}/".format(self.satellite)
+        self.baseurl = f"s3://noaa-goes{self.satellite}/"
 
     def set_product(self, product=None):
         try:
             if product is None:
                 raise ValueError
             else:
-                self.url = "{}{}/".format(self.baseurl, product)
+                self.url = f"{self.baseurl}{product}/"
         except ValueError:
             print("kwarg product must have a value")
 
@@ -113,7 +113,7 @@ class GOES(object):
     def date_to_url(self):
         date = pd.Timestamp(self.date)
         date_url_bit = date.strftime("%Y/%j/%H/")
-        self.url = "{}{}".format(self.url, date_url_bit)
+        self.url = f"{self.url}{date_url_bit}"
 
     def _get_files(self, url=None):
         try:
@@ -163,7 +163,7 @@ class GOES(object):
         self._update_baseurl()
         self._set_s3fs()
         self.product = self._product_exists(product)
-        self.url = "{}{}/".format(self.baseurl, self.product)  # add product to url
+        self.url = f"{self.baseurl}{self.product}/"  # add product to url
         self.date_to_url()  # add date to url
 
         # find closest file to give date

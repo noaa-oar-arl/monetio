@@ -1,6 +1,5 @@
 """Python module for reading NOAA ISH files"""
 
-from builtins import object, zip
 
 import numpy as np
 import pandas as pd
@@ -25,7 +24,7 @@ def add_data(
     )
 
 
-class ISH(object):
+class ISH:
     """Integrated Surface Hourly (also known as ISD, Integrated Surface Data)
 
     Attributes
@@ -193,7 +192,7 @@ class ISH(object):
                 dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date + ".gz"
             )
             for fname in dfloc.fname.values:
-                furls.append("{}/{}/{}".format(url, date, fname))
+                furls.append(f"{url}/{date}/{fname}")
             # f = url + i.strftime('%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat')
             # fname = i.strftime('HourlyData_%Y%m%d%H.dat')
             # furls.append(f)

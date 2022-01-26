@@ -110,11 +110,9 @@ def write_datem(df, obscolumn="obs", dname="datemfile.txt", sitename="1", info=N
             print(type(val[2]))
             sys.exit()
         if isinstance(val[4], str):
-            runstring += "{:.3f}".format(val[3]) + " " + val[4] + " " + height + "\n"
+            runstring += f"{val[3]:.3f}" + " " + val[4] + " " + height + "\n"
         else:
-            runstring += (
-                "{:.3f}".format(val[3]) + " " + "{0:d}".format(val[4]) + " " + height + "\n"
-            )
+            runstring += f"{val[3]:.3f}" + " " + f"{val[4]:d}" + " " + height + "\n"
 
     with open(dname, "w") as fid:
         fid.write(runstring)

@@ -34,7 +34,6 @@ sendrequest
 getkey
 
 """
-from __future__ import print_function
 
 import copy
 import datetime
@@ -1213,7 +1212,7 @@ class MonitoringPlan(EpaApiObject):
                 # this handles case when height is specified for the unitId
                 # and not the stackId
                 else:
-                    ahash = dict((y, x) for x, y in shash.items())
+                    ahash = {y: x for x, y in shash.items()}
                     if name in ahash.keys():
                         sid = ahash[name]
                         stackht = nhash[sid]
@@ -1968,6 +1967,6 @@ def match_column(df, varname):
 
 
 def latlon2str(lat, lon):
-    latstr = "{:.4}".format(lat)
-    lonstr = "{:.4}".format(lon)
+    latstr = f"{lat:.4}"
+    lonstr = f"{lon:.4}"
     return (latstr, lonstr)

@@ -1,6 +1,5 @@
 """Python module for reading NOAA ISH files"""
 
-from builtins import object, zip
 
 import dask
 import dask.dataframe as dd
@@ -44,7 +43,7 @@ def add_data(self, dates, box=None, country=None, state=None, site=None, resampl
     return df
 
 
-class ISH(object):
+class ISH:
     """Integrated Surface Hourly (also known as ISD, Integrated Surface Data)
 
     Attributes
@@ -180,7 +179,7 @@ class ISH(object):
 
         # index by time
         frame["time"] = [
-            pd.Timestamp("{:08}{:04}".format(date, htime))
+            pd.Timestamp(f"{date:08}{htime:04}")
             for date, htime in zip(frame["date"], frame["htime"])
         ]
         # these fields were combined into 'time'

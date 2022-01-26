@@ -83,9 +83,9 @@ def download_data(date, resolution="high"):
         year = date.strftime("%Y")
         yyyymmdd = date.strftime("%Y%m%d")
     if resolution == "high":
-        file = "npp_aot550_edr_gridded_0.10_{}.high.bin.gz".format(yyyymmdd)
+        file = f"npp_aot550_edr_gridded_0.10_{yyyymmdd}.high.bin.gz"
     else:
-        file = "npp_aot550_edr_gridded_0.25_{}.high.bin.gz".format(yyyymmdd)
+        file = f"npp_aot550_edr_gridded_0.25_{yyyymmdd}.high.bin.gz"
     ftp = ftplib.FTP(server)
     ftp.login()
     # print(base_dir)

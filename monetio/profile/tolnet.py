@@ -1,5 +1,4 @@
 import os
-from builtins import object
 
 import pandas as pd
 import xarray as xr
@@ -158,7 +157,7 @@ def tolnet_plot(dset, var="O3MR", units="ppbv", tolnet_cmap=True, **kwargs):
     # plt.colorbar(label="O3 [ppbv]")
 
 
-class TOLNet(object):
+class TOLNet:
     """Short summary.
 
     Attributes
