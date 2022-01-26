@@ -667,6 +667,7 @@ def combine_dataset(
     Files need to have the same concentration grid defined.
     """
     iii = 0
+    mlat_p = mlon_p = None
     ylist = []
     dtlist = []
     splist = []
@@ -712,7 +713,7 @@ def combine_dataset(
                 )
             try:
                 mlat, mlon = getlatlon(hxr)
-            except:
+            except Exception:
                 print("WARNING Cannot open ")
                 print(fname[0])
                 print(century)
@@ -888,12 +889,13 @@ def get_latlongrid(dset, xindx, yindx):
 
 
 def get_index_fromgrid(dset, latgrid, longrid):
-    llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
-    nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
-    nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
-    dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
-    dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    # llcrnr_lat = dset.attrs["Concentration Grid"]["llcrnr latitude"]
+    # llcrnr_lon = dset.attrs["Concentration Grid"]["llcrnr longitude"]
+    # nlat = dset.attrs["Concentration Grid"]["Number Lat Points"]
+    # nlon = dset.attrs["Concentration Grid"]["Number Lon Points"]
+    # dlat = dset.attrs["Concentration Grid"]["Latitude Spacing"]
+    # dlon = dset.attrs["Concentration Grid"]["Longitude Spacing"]
+    return NotImplementedError
 
 
 def getlatlon(dset):

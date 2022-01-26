@@ -1,4 +1,3 @@
-import inspect
 import os
 
 import xarray as xr
@@ -85,7 +84,6 @@ def read_data(fname, lat, lon, date):
         Description of returned object.
 
     """
-    from numpy import nan
     from pandas import to_datetime
 
     f = xr.open_dataset(fname)

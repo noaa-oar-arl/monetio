@@ -91,7 +91,7 @@ tries = 0
 while tries < 30:
     try:
         netrc(netrcDir).authenticators(urs)[2]
-    except:
+    except Exception:
         time.sleep(2.0)
     tries += 1
 
@@ -129,4 +129,4 @@ for f in fileList:
 def download_file(saveDir, netrcDir):
     if not os.path.exists(saveDir):
         os.makedirs(saveDir)
-    saveName = os.path.join(saveDir, f.split("/")[-1].strip())
+    # saveName = os.path.join(saveDir, f.split("/")[-1].strip())

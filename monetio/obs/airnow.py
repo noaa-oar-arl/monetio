@@ -1,35 +1,9 @@
-"""Short summary.
+"""AirNow"""
 
-    Attributes
-    ----------
-    url : type
-        Description of attribute `url`.
-    dates : type
-        Description of attribute `dates`.
-    df : type
-        Description of attribute `df`.
-    daily : type
-        Description of attribute `daily`.
-    objtype : type
-        Description of attribute `objtype`.
-    filelist : type
-        Description of attribute `filelist`.
-    monitor_file : type
-        Description of attribute `monitor_file`.
-    __class__ : type
-        Description of attribute `__class__`.
-    monitor_df : type
-        Description of attribute `monitor_df`.
-    savecols : type
-        Description of attribute `savecols`.
-    """
-
-import inspect
 import os
 
 # this is written to retrive airnow data concatenate and add to pandas array
 # for usage
-from builtins import object
 from datetime import datetime
 
 import pandas as pd
