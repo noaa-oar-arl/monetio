@@ -7,6 +7,6 @@ fixers:
 review:
   fail_on_comments: false
 files:
-    ignore:
-        - 'docs/**/*'
-        - 'monet/data/*'
+  ignore:
+    - 'docs/**/*'
+    - 'monet/data/*'
