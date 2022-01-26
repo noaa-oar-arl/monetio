@@ -1,6 +1,4 @@
 import xarray as xr
-from pyresample.utils import wrap_longitudes
-from scipy.io import FortranFile
 
 try:
     import fv3grid as fg
@@ -30,6 +28,9 @@ def open_dataset(fname, dtype="f4", res="C384", tile=1):
         Description of returned object.
 
     """
+    from pyresample.utils import wrap_longitudes
+    from scipy.io import FortranFile
+
     w = FortranFile(fname)
     a = w.read_reals(dtype=dtype)
     r = int(res[1:])
@@ -66,6 +67,8 @@ def to_prepchem_binary(data, fname="output.bin", dtype="f4"):
         Description of returned object.
 
     """
+    from scipy.io import FortranFile
+
     f = FortranFile(fname, "w")
     f.write_record(data.astype(dtype))
     f.close()
