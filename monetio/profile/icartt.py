@@ -1,7 +1,8 @@
 import datetime
 import sys
-import xarray as xr
+
 import pandas as pd
+import xarray as xr
 from numpy import NaN
 
 
@@ -184,7 +185,7 @@ class Dataset:
         """
         idx = self.index(name)
         if idx == -1:
-            raise Exception("{:s} not found in data".format(name))
+            raise Exception(f"{name:s} not found in data")
         return [x[idx] for x in self.data]
 
     def units(self, name):
@@ -192,7 +193,7 @@ class Dataset:
         Units of variable <name>
         """
         res = [x.units for x in self.VAR if x.name == name]
-        if len(res) is 0:
+        if len(res) == 0:
             res = [""]
         return res[0]
 
@@ -201,7 +202,7 @@ class Dataset:
         Index of variable <name> in data array
         """
         res = [i for i, x in enumerate(self.VAR) if x.name == name]
-        if len(res) is 0:
+        if len(res) == 0:
             res = [-1]
         return res[0]
 
@@ -214,7 +215,7 @@ class Dataset:
             f.write(str(txt) + "\n")
 
         # Number of lines in header, file format index (most files use 1001) - comma delimited.
-        prnt("{:d}, {:d}".format(self.nheader, self.format))
+        prnt(f"{self.nheader:d}, {self.format:d}")
         # PI last name, first name/initial.
         prnt(self.PI)
         # Organization/affiliation of PI.
@@ -226,7 +227,14 @@ class Dataset:
         # File volume number, number of file volumes (these integer values are used when the data require more than one file per day; for data that require only one file these values are set to 1, 1) - comma delimited.
         prnt(self.splitChar.join([str(self.VOL), str(self.NVOL)]))
         # UTC date when data begin, UTC date of data reduction or revision - comma delimited (yyyy, mm, dd, yyyy, mm, dd).
-        prnt(self.splitChar.join([datetime.datetime.strftime(x, "%Y, %m, %d") for x in [self.dateValid, self.dateRevised]]))
+        prnt(
+            self.splitChar.join(
+                [
+                    datetime.datetime.strftime(x, "%Y, %m, %d")
+                    for x in [self.dateValid, self.dateRevised]
+                ]
+            )
+        )
         # Data Interval (This value describes the time spacing (in seconds) between consecutive data records. It is the (constant) interval between values of the independent variable. For 1 Hz data the data interval value is 1 and for 10 Hz data the value is 0.1. All intervals longer than 1 second must be reported as Start and Stop times, and the Data Interval value is set to 0. The Mid-point time is required when it is not at the average of Start and Stop times. For additional information see Section 2.5 below.).
         prnt("0")
         # Description or name of independent variable (This is the name chosen for the start time. It always refers to the number of seconds UTC from the start of the day on which measurements began. It should be noted here that the independent variable should monotonically increase even when crossing over to a second day.).
@@ -237,37 +245,47 @@ class Dataset:
         # Number of variables (Integer value showing the number of dependent variables: the total number of columns of data is this value plus one.).
         prnt(self.ndvar)
         # Scale factors (1 for most cases, except where grossly inconvenient) - comma delimited.
-        prnt(self.splitChar.join(["{:6.3f}".format(x.scale) for x in self.DVAR]))
+        prnt(self.splitChar.join([f"{x.scale:6.3f}" for x in self.DVAR]))
         # Missing data indicators (This is -9999 (or -99999, etc.) for any missing data condition, except for the main time (independent) variable which is never missing) - comma delimited.
         prnt(self.splitChar.join([str(x.miss) for x in self.DVAR]))
         # Variable names and units (Short variable name and units are required, and optional long descriptive name, in that order, and separated by commas. If the variable is unitless, enter the keyword "none" for its units. Each short variable name and units (and optional long name) are entered on one line. The short variable name must correspond exactly to the name used for that variable as a column header, i.e., the last header line prior to start of data.).
-        nul = [prnt(x.desc) for x in self.DVAR]
+        _ = [prnt(x.desc) for x in self.DVAR]
         if self.format == 2110:
             # Number of variables (Integer value showing the number of dependent variables: the total number of columns of data is this value plus one.).
             prnt(self.nauxvar)
             # Scale factors (1 for most cases, except where grossly inconvenient) - comma delimited.
-            prnt(self.splitChar.join(["{:6.3f}".format(x.scale) for x in self.AUXVAR]))
+            prnt(self.splitChar.join([f"{x.scale:6.3f}" for x in self.AUXVAR]))
             # Missing data indicators (This is -9999 (or -99999, etc.) for any missing data condition, except for the main time (independent) variable which is never missing) - comma delimited.
             prnt(self.splitChar.join([str(x.miss) for x in self.AUXVAR]))
             # Variable names and units (Short variable name and units are required, and optional long descriptive name, in that order, and separated by commas. If the variable is unitless, enter the keyword "none" for its units. Each short variable name and units (and optional long name) are entered on one line. The short variable name must correspond exactly to the name used for that variable as a column header, i.e., the last header line prior to start of data.).
-            nul = [prnt(x.desc) for x in self.AUXVAR]
+            _ = [prnt(x.desc) for x in self.AUXVAR]
 
         # Number of SPECIAL comment lines (Integer value indicating the number of lines of special comments, NOT including this line.).
-        prnt("{:d}".format(self.nscom))
+        prnt(f"{self.nscom:d}")
         # Special comments (Notes of problems or special circumstances unique to this file. An example would be comments/problems associated with a particular flight.).
-        nul = [prnt(x) for x in self.SCOM]
+        _ = [prnt(x) for x in self.SCOM]
         # Number of Normal comments (i.e., number of additional lines of SUPPORTING information: Integer value indicating the number of lines of additional information, NOT including this line.).
-        prnt("{:d}".format(self.nncom))
+        prnt(f"{self.nncom:d}")
         # Normal comments (SUPPORTING information: This is the place for investigators to more completely describe the data and measurement parameters. The supporting information structure is described below as a list of key word: value pairs. Specifically include here information on the platform used, the geo-location of data, measurement technique, and data revision comments. Note the non-optional information regarding uncertainty, the upper limit of detection (ULOD) and the lower limit of detection (LLOD) for each measured variable. The ULOD and LLOD are the values, in the same units as the measurements that correspond to the flags -7777s and -8888s within the data, respectively. The last line of this section should contain all the short variable names on one line. The key words in this section are written in BOLD below and must appear in this section of the header along with the relevant data listed after the colon. For key words where information is not needed or applicable, simply enter N/A.).
-        nul = [prnt(x) for x in self.NCOM]
+        _ = [prnt(x) for x in self.NCOM]
         # data!
-        nul = [prnt(self.splitChar.join([str(y) for y in x])) for x in self.data]
+        _ = [prnt(self.splitChar.join([str(y) for y in x])) for x in self.data]
 
     def make_filename(self):
         """
         Create ICARTT-compliant file name based on the information contained in the dataset
         """
-        return self.dataID + "_" + self.locationID + "_" + datetime.datetime.strftime(self.dateValid, "%Y%m%d") + "_" + "R" + self.revision + ".ict"
+        return (
+            self.dataID
+            + "_"
+            + self.locationID
+            + "_"
+            + datetime.datetime.strftime(self.dateValid, "%Y%m%d")
+            + "_"
+            + "R"
+            + self.revision
+            + ".ict"
+        )
 
     # sanitize function
     def __readline(self, do_split=True):
@@ -310,8 +328,10 @@ class Dataset:
         # line 7 - UTC date when data begin, UTC date of data reduction or revision
         # - comma delimited (yyyy, mm, dd, yyyy, mm, dd).
         dmp = self.__readline()
-        self.dateValid = datetime.datetime.strptime("".join(["{:s}".format(x) for x in dmp[0:3]]), "%Y%m%d")
-        self.dateRevised = datetime.datetime.strptime("".join(["{:s}".format(x) for x in dmp[3:6]]), "%Y%m%d")
+        self.dateValid = datetime.datetime.strptime("".join([f"{x:s}" for x in dmp[0:3]]), "%Y%m%d")
+        self.dateRevised = datetime.datetime.strptime(
+            "".join([f"{x:s}" for x in dmp[3:6]]), "%Y%m%d"
+        )
 
         # line 8 - Data Interval (This value describes the time spacing (in seconds)
         # between consecutive data records. It is the (constant) interval between
@@ -362,7 +382,10 @@ class Dataset:
             dvname += [dmp[0]]
             dvunits += [dmp[1]]
 
-        self.DVAR = [Variable(name, unit, scale, miss) for name, unit, scale, miss in zip(dvname, dvunits, dvscale, dvmiss)]
+        self.DVAR = [
+            Variable(name, unit, scale, miss)
+            for name, unit, scale, miss in zip(dvname, dvunits, dvscale, dvmiss)
+        ]
 
         # line 14 + nvar - Number of SPECIAL comment lines (Integer value
         # indicating the number of lines of special comments, NOT including this
@@ -423,9 +446,11 @@ class Dataset:
         if self.input_fhandle.closed:
             self.input_fhandle = open(self.input_fhandle.name)
 
-        nul = [self.input_fhandle.readline() for i in range(self.nheader)]
+        _ = [self.input_fhandle.readline() for _ in range(self.nheader)]
 
-        self.data = [self.__nan_miss_float(line.split(self.splitChar)) for line in self.input_fhandle]
+        self.data = [
+            self.__nan_miss_float(line.split(self.splitChar)) for line in self.input_fhandle
+        ]
 
         self.input_fhandle.close()
 
@@ -437,7 +462,7 @@ class Dataset:
         if self.input_fhandle.closed:
             self.input_fhandle = open(self.input_fhandle.name)
 
-        nul = [self.input_fhandle.readline() for i in range(self.nheader)]
+        _ = [self.input_fhandle.readline() for _ in range(self.nheader)]
 
         first = self.input_fhandle.readline()
         self.data = [self.__nan_miss_float(first.split(self.splitChar))]
@@ -488,14 +513,15 @@ class Dataset:
         self.splitChar = ","
 
         # read data if f is not None
+        encoding = "utf-8"
         if f is not None:
             if isinstance(f, str):
                 text = f
                 decoded = False
-                self.input_fhandle = open(f, "r", encoding="utf-8")
+                self.input_fhandle = open(f, encoding=encoding)
             else:
-                text = f.decode(encoding)
-                decoded = True
+                text = f.decode(encoding)  # noqa: F841
+                decoded = True  # noqa: F841
             # if isinstance(f, (str, unicode)):
             # self.input_fhandle = open(f, 'r')
             # else:

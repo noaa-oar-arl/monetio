@@ -1,17 +1,19 @@
 """ this will read the goes_r data"""
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
 try:
     import s3fs
 
     has_s3fs = True
 except ImportError:
-    print("Please install s3fs if retrieving from the Amazon S3 Servers.  Otherwise continue with local data")
+    print(
+        "Please install s3fs if retrieving from the Amazon S3 Servers.  Otherwise continue with local data"
+    )
     has_s3fs = False
 
 try:
-    import h5py
+    import h5py  # noqa: F401
 
     has_h5py = True
 except ImportError:
@@ -19,7 +21,7 @@ except ImportError:
     has_h5py = False
 
 try:
-    import h5netcdf
+    import h5netcdf  # noqa: F401
 
     has_h5netcdf = True
 except ImportError:
@@ -82,25 +84,25 @@ def open_dataset(date=None, filename=None, satellite="16", product=None):
     return ds
 
 
-class GOES(object):
+class GOES:
     def __init__(self):
         self.date = None
         self.satellite = "16"
         self.product = "ABI-L2-AODF"
-        self.baseurl = "s3://noaa-goes{}/".format(self.satellite)
-        self.url = "{}".format(self.baseurl)
+        self.baseurl = f"s3://noaa-goes{self.satellite}/"
+        self.url = f"{self.baseurl}"
         self.filename = None
         self.fs = None
 
     def _update_baseurl(self):
-        self.baseurl = "s3://noaa-goes{}/".format(self.satellite)
+        self.baseurl = f"s3://noaa-goes{self.satellite}/"
 
     def set_product(self, product=None):
         try:
             if product is None:
                 raise ValueError
             else:
-                self.url = "{}{}/".format(self.baseurl, product)
+                self.url = f"{self.baseurl}{product}/"
         except ValueError:
             print("kwarg product must have a value")
 
@@ -111,7 +113,7 @@ class GOES(object):
     def date_to_url(self):
         date = pd.Timestamp(self.date)
         date_url_bit = date.strftime("%Y/%j/%H/")
-        self.url = "{}{}".format(self.url, date_url_bit)
+        self.url = f"{self.url}{date_url_bit}"
 
     def _get_files(self, url=None):
         try:
@@ -161,7 +163,7 @@ class GOES(object):
         self._update_baseurl()
         self._set_s3fs()
         self.product = self._product_exists(product)
-        self.url = "{}{}/".format(self.baseurl, self.product)  # add product to url
+        self.url = f"{self.baseurl}{self.product}/"  # add product to url
         self.date_to_url()  # add date to url
 
         # find closest file to give date
@@ -175,8 +177,8 @@ class GOES(object):
         return out
 
     def _get_grid(self, ds):
+        from numpy import meshgrid, ndarray
         from pyproj import CRS, Proj
-        from numpy import ndarray, meshgrid
 
         proj_dict = ds.goes_imager_projection.attrs
         for i in proj_dict.keys():
@@ -195,7 +197,7 @@ class GOES(object):
         ds = ds.set_coords(["latitude", "longitude"])
         return ds
 
-    def open_local(self):
+    def open_local(self, f):
         # open file object
         fo = self.fs.open(f)
         out = xr.open_dataset(fo, engine="h5netcdf")

@@ -128,7 +128,7 @@ where pm25 is a :py:class:`~xarray.DataArray` as it is a single variable.
 Prep-Chem-Sources
 -----------------
 
-A reader and writer was built into 
+A reader and writer was built into
 
 
 HYSPLIT
@@ -250,7 +250,7 @@ To calcluate mass loading
 
 All points with value below or equal to threshold will be returned as 0.
 mult is a multiplicative factor applied before the thresholding.
-species can be a list of values from the "Species ID" attribute. 
+species can be a list of values from the "Species ID" attribute.
 If it is None then all species will be used.
 
 To find top heights
@@ -261,11 +261,7 @@ To find top heights
 
 returns xarray DataArray which gives top height of each level which contains mass loading higher
 than the given threshold value. mult is a mutiplicative factor applied before thresholding.
-height_mult is a multiplicative factor used to convert heights from meters to some other unit. 
+height_mult is a multiplicative factor used to convert heights from meters to some other unit.
 In this example heights are converted to km.
 mass_load is a boolean which indicates whether the height should be determined from the mass loading value (True)
-or the concentration value (False). 
-
-
-
-
+or the concentration value (False).
