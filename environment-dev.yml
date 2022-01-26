@@ -2,7 +2,7 @@ name: monetio-dev
 channels:
   - conda-forge
 dependencies:
-  - python=3.8
+  - python>=3.7
   #
   # core
   - dask
@@ -20,6 +20,6 @@ dependencies:
   # test
   - pytest
   #
-  - pip
+  - pip>=21.1
   - pip:
       - "-e ."
