@@ -326,7 +326,7 @@ class AERONET:
             if self.siteid in get_valid_sites().siteid.values:
                 loc_ = f"&site={self.siteid}"
             else:
-                raise ValueError(f"invalid site {self.siteid}")
+                raise ValueError(f"invalid site {self.siteid!r}")
         elif self.latlonbox is None:
             loc_ = ""
         else:
@@ -383,9 +383,8 @@ class AERONET:
         self.latlonbox = latlonbox
         self.siteid = siteid
         if dates is None:  # get the current day
-            self.dates = pd.date_range(
-                start=pd.to_datetime("today"), end=pd.to_datetime("now"), freq="H"
-            )
+            now = datetime.utcnow()
+            self.dates = pd.date_range(start=now.date(), end=now, freq="H")
         else:
             self.dates = dates
         self.prod = product.upper()
