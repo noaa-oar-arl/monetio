@@ -343,11 +343,12 @@ class AERONET:
         settings :attr:`df`.
         """
         print("Reading Aeronet Data...")
+        inv = self.inv_type is not None
         df = pd.read_csv(
             self.url,
             engine="python",
             header="infer",
-            skiprows=5,
+            skiprows=5 if not inv else 6,
             parse_dates={"time": [1, 2]},
             date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
@@ -355,10 +356,15 @@ class AERONET:
         df.rename(columns=str.lower, inplace=True)
         df.rename(
             columns={
+                "aeronet_site": "siteid",
+                # non-inv
                 "site_latitude(degrees)": "latitude",
                 "site_longitude(degrees)": "longitude",
                 "site_elevation(m)": "elevation",
-                "aeronet_site": "siteid",
+                # inv
+                "latitude(degrees)": "latitude",
+                "longitude(degrees)": "longitude",
+                "elevation(m)": "elevation",
             },
             inplace=True,
         )
@@ -372,13 +378,16 @@ class AERONET:
         self,
         dates=None,
         product="AOD15",
+        *,
+        inv_type=None,
+        siteid=None,
         latlonbox=None,
         daily=False,
-        interp_to_aod_values=None,
-        inv_type=None,
+        #
+        # post-proc
         freq=None,
-        siteid=None,
         detect_dust=False,
+        interp_to_aod_values=None,
     ):
         self.latlonbox = latlonbox
         self.siteid = siteid
@@ -392,12 +401,10 @@ class AERONET:
             self.daily = 20  # daily data
         else:
             self.daily = 10  # all points
-        if inv_type is not None:
-            self.inv_type = "ALM15"
-        else:
-            self.inv_type = inv_type
-        if self.prod.startswith("AOD"):
-            self.new_aod_values = interp_to_aod_values
+        self.inv_type = inv_type
+        self.new_aod_values = interp_to_aod_values
+        if self.new_aod_values and not self.prod.startswith("AOD"):
+            print("`interp_to_aod_values` will be ignored")
 
         self.build_url()
         try:

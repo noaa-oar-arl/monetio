@@ -75,4 +75,18 @@ def test_add_data_one_site():
     assert (df.siteid == "SERC").all()
 
 
+def test_add_data_inv():
+    dates = pd.date_range("2021/08/01", "2021/08/02")
+
+    df = aeronet.add_data(dates, inv_type="ALM15", product="SIZ")
+    assert df.inversion_data_quality_level.eq("lev15").all()
+    assert df.retrieval_measurement_scan_type.eq("Almucantar").all()
+
+    df = aeronet.add_data(dates, inv_type="HYB15", product="SIZ")
+    assert df.inversion_data_quality_level.eq("lev15").all()
+    assert df.retrieval_measurement_scan_type.eq("Hybrid").all()
+
+    # TODO: find a time with Level 2.0 retrievals
+
+
 # [21.1,-131.6686,53.04,-58.775]
