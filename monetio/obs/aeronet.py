@@ -18,44 +18,44 @@ except ImportError:
 def add_local(
     fname,
     product="AOD15",
-    freq=None,
-    interp_to_values=None,
-    daily=False,
+    *,
     inv_type=None,
+    daily=False,  # TODO: not needed?
+    #
+    # post-proc
+    freq=None,
     detect_dust=False,
+    interp_to_aod_values=None,
 ):
     """Read a local file downloaded from the AERONET Web Service."""
     a = AERONET()
-    a.url = fname
-    # df = a.read_aeronet(fname)
     a.prod = product.upper()
+    a.inv_type = inv_type
     if daily:
         a.daily = 20  # daily data
     else:
         a.daily = 10  # all points
-    if inv_type is not None:
-        a.inv_type = "ALM15"
-    else:
-        a.inv_type = inv_type
-    if "AOD" in a.prod:
-        if interp_to_values is not None:
-            # TODO: could probably use np.asanyarray here
-            if not isinstance(interp_to_values, np.ndarray):
-                a.new_aod_values = np.array(interp_to_values)
-            else:
-                a.new_aod_values = interp_to_values
-    # a.build_url()
+    a.new_aod_values = interp_to_aod_values
+    if a.new_aod_values and not a.prod.startswith("AOD"):
+        print("`interp_to_aod_values` will be ignored")
+
+    a.build_url()  # just for validation
+    a.url = fname  # reset
     try:
-        a.url = fname
         a.read_aeronet()
-    except Exception:
-        print("Error reading:" + fname)
+    except Exception as e:
+        raise Exception(f"loading file {fname!r} failed.") from e
+
+    # TODO: DRY wrt. class
     if freq is not None:
         a.df = a.df.groupby("siteid").resample(freq).mean().reset_index()
+
     if detect_dust:
         a.dust_detect()
+
     if a.new_aod_values is not None:
         a.calc_new_aod_values()
+
     return a.df
 
 
@@ -103,6 +103,8 @@ def add_data(
     detect_dust : bool
     interp_to_aod_values : array-like of float
         Values to interpolate AOD values to.
+
+        Currently requires pytspack.
     n_procs : int
         For joblib.
     verbose : int
@@ -339,9 +341,7 @@ class AERONET:
         self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{loc_}&if_no_html=1"
 
     def read_aeronet(self):
-        """Use :meth:`build_url` to set a URL and then load a DataFrame from it,
-        settings :attr:`df`.
-        """
+        """Load a DataFrame from :attr:`url`, setting :attr:`df`."""
         print("Reading Aeronet Data...")
         inv = self.inv_type is not None
         df = pd.read_csv(
@@ -389,6 +389,9 @@ class AERONET:
         detect_dust=False,
         interp_to_aod_values=None,
     ):
+        """Use :meth:`build_url` to set a URL, then read a DataFrame from it
+        and set :attr:`df`.
+        """
         self.latlonbox = latlonbox
         self.siteid = siteid
         if dates is None:  # get the current day
@@ -397,11 +400,11 @@ class AERONET:
         else:
             self.dates = dates
         self.prod = product.upper()
+        self.inv_type = inv_type
         if daily:
             self.daily = 20  # daily data
         else:
             self.daily = 10  # all points
-        self.inv_type = inv_type
         self.new_aod_values = interp_to_aod_values
         if self.new_aod_values and not self.prod.startswith("AOD"):
             print("`interp_to_aod_values` will be ignored")
@@ -444,6 +447,7 @@ class AERONET:
                 import pytspack
             except ImportError:
                 print("You must install pytspack before using this function")
+                raise
 
             new_wv = np.asarray(new_wv)
 
