@@ -57,7 +57,18 @@ def test_build_url_bad_prod():
     a.build_url()
 
 
-def test_add_data():
+def test_valid_sites_col_rename():
+    assert (
+        aeronet.get_valid_sites().columns == ["siteid", "longitude", "latitude", "elevation"]
+    ).all()
+
+
+def test_add_data_bad_siteid():
+    with pytest.raises(ValueError, match="invalid site"):
+        aeronet.add_data(siteid="Rivendell")
+
+
+def test_add_data_one_site():
     dates = pd.date_range("2021/08/01", "2021/08/03")
     df = aeronet.add_data(dates, siteid="SERC")
     assert df.index.size > 0

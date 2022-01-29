@@ -2,6 +2,7 @@
 AERONET
 """
 from datetime import datetime
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -92,6 +93,9 @@ def add_data(
         and ``lat2, lon2`` is the upper-right corner.
     siteid : str
         <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>
+
+        Note that `siteid` takes precendence over `latlonbox`
+        if both are specified.
     daily : bool
         Load daily averaged data.
     freq : str
@@ -103,6 +107,10 @@ def add_data(
         For joblib.
     verbose : int
         For joblib.
+
+    Returns
+    -------
+    pandas.DataFrame
     """
     a = AERONET()
 
@@ -147,6 +155,34 @@ def add_data(
             freq=freq,
         )
     return df  # .reset_index(drop=True)
+
+
+@lru_cache(1)
+def get_valid_sites():
+    """Load the AERONET site list as a DataFrame,
+    reading from <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>.
+    """
+    from urllib.error import URLError
+
+    try:
+        df = pd.read_csv(
+            "https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt",
+            skiprows=1,
+        ).rename(
+            columns={
+                "Site_Name": "siteid",
+                "Longitude(decimal_degrees)": "longitude",
+                "Latitude(decimal_degrees)": "latitude",
+                "Elevation(meters)": "elevation",
+            },
+        )
+    except URLError:
+        print("getting valid sites failed")
+        return None
+    except Exception:
+        raise
+
+    return df
 
 
 def _parallel_aeronet_call(
@@ -283,17 +319,24 @@ class AERONET:
         avg_ = f"&AVG={self.daily}"
 
         if self.siteid is not None:
-            latlonbox_ = f"&site={self.siteid}"
+            # Validate here, since the Web Service doesn't do any validation and just returns all
+            # sites if the site isn't valid.
+            # Note that having a valid site ID doesn't mean there will be any data
+            # (depends on time period).
+            if self.siteid in get_valid_sites().siteid.values:
+                loc_ = f"&site={self.siteid}"
+            else:
+                raise ValueError(f"invalid site {self.siteid}")
         elif self.latlonbox is None:
-            latlonbox_ = ""
+            loc_ = ""
         else:
             lat1 = str(float(self.latlonbox[0]))
             lon1 = str(float(self.latlonbox[1]))
             lat2 = str(float(self.latlonbox[2]))
             lon2 = str(float(self.latlonbox[3]))
-            latlonbox_ = f"&lat1={lat1}&lat2={lat2}&lon1={lon1}&lon2={lon2}"
+            loc_ = f"&lat1={lat1}&lat2={lat2}&lon1={lon1}&lon2={lon2}"
 
-        self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{latlonbox_}&if_no_html=1"
+        self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{loc_}&if_no_html=1"
 
     def read_aeronet(self):
         """Use :meth:`build_url` to set a URL and then load a DataFrame from it,
