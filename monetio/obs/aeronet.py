@@ -17,10 +17,7 @@ except ImportError:
 
 def add_local(
     fname,
-    product="AOD15",
     *,
-    inv_type=None,
-    daily=False,  # TODO: not needed?
     #
     # post-proc
     freq=None,
@@ -29,24 +26,24 @@ def add_local(
 ):
     """Read a local file downloaded from the AERONET Web Service."""
     a = AERONET()
-    a.prod = product.upper()
-    a.inv_type = inv_type
-    if daily:
-        a.daily = 20  # daily data
-    else:
-        a.daily = 10  # all points
+
+    # Detect whether inv should be left as None or not
+    with open(fname) as f:
+        if "Inversion" in f.readline():
+            a.inv_type = True
+    # TODO: actually detect the specific inv type
+
     a.new_aod_values = interp_to_aod_values
     if a.new_aod_values and not a.prod.startswith("AOD"):
         print("`interp_to_aod_values` will be ignored")
 
-    a.build_url()  # just for validation
-    a.url = fname  # reset
+    a.url = fname
     try:
         a.read_aeronet()
     except Exception as e:
         raise Exception(f"loading file {fname!r} failed.") from e
 
-    # TODO: DRY wrt. class
+    # TODO: DRY wrt. class?
     if freq is not None:
         a.df = a.df.groupby("siteid").resample(freq).mean().reset_index()
 
@@ -357,6 +354,7 @@ class AERONET:
         df.rename(
             columns={
                 "aeronet_site": "siteid",
+                "aeronet_aeronet_site": "siteid",  # sometimes happens?
                 # non-inv
                 "site_latitude(degrees)": "latitude",
                 "site_longitude(degrees)": "longitude",

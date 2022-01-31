@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from monetio import aeronet
+
+DATA = Path(__file__).parent / "data"
 
 
 def test_build_url_required_param_checks():
@@ -90,3 +94,31 @@ def test_add_data_inv():
 
 
 # [21.1,-131.6686,53.04,-58.775]
+
+
+def test_load_local():
+    # The example file is based on one of the provided examples:
+    # https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_v3?year=2000&month=6&day=1&year2=2000&month2=6&day2=14&AOD15=1&AVG=10
+    # but with
+    # - no-HTML mode
+    # - site `Mauna_Loa` selected
+    # https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_v3?year=2000&month=6&day=1&year2=2000&month2=6&day2=14&AOD15=1&AVG=10&if_no_html=1&site=Mauna_Loa
+
+    fp = DATA / "aeronet-AOD15-example.txt"
+    assert fp.is_file()
+
+    df = aeronet.add_local(fp)
+    assert df.index.size > 0
+    assert (df.siteid == "Mauna_Loa").all(0)
+
+
+def test_load_local_inv():
+    # One of the provided examples:
+    # https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_inv_v3?site=Cart_Site&year=2002&month=6&day=1&year2=2003&month2=6&day2=14&product=SIZ&AVG=20&ALM15=1&if_no_html=1
+
+    fp = DATA / "aeronet-inv-ALM15-SIZ-example.txt"
+    assert fp.is_file()
+
+    df = aeronet.add_local(fp)
+    assert df.index.size > 0
+    assert (df.siteid == "Cart_Site").all(0)
