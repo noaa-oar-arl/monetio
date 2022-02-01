@@ -1,8 +1,5 @@
-from ._version import __version__
-
-del _version
-
 from . import grids, models, obs, profile, sat
+from ._version import __version__
 
 # point observations
 airnow = obs.airnow
@@ -36,7 +33,7 @@ tolnet = profile.tolnet
 # sat
 goes = sat.goes
 
-__all__ = ["models", "obs", "sat", "util", "grids", "profile"]
+__all__ = ["models", "obs", "sat", "util", "grids", "profile", "__version__"]
 
 
 def rename_latlon(ds):
