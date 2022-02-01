@@ -1,5 +1,6 @@
+from ._version import __version__  # isort: skip
+
 from . import grids, models, obs, profile, sat
-from ._version import __version__
 
 # point observations
 airnow = obs.airnow
