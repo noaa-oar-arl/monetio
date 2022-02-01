@@ -1,3 +1,7 @@
+from ._version import __version__
+
+del _version
+
 from . import grids, models, obs, profile, sat
 
 # point observations
