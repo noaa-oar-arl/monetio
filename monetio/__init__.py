@@ -1,3 +1,5 @@
+from ._version import __version__  # isort: skip
+
 from . import grids, models, obs, profile, sat
 
 # point observations
@@ -32,7 +34,7 @@ tolnet = profile.tolnet
 # sat
 goes = sat.goes
 
-__all__ = ["models", "obs", "sat", "util", "grids", "profile"]
+__all__ = ["models", "obs", "sat", "util", "grids", "profile", "__version__"]
 
 
 def rename_latlon(ds):
