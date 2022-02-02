@@ -5,25 +5,8 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
-# -- Path setup --------------------------------------------------------------
+import monetio
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import sys
-from unittest.mock import MagicMock
-
-
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-
-# sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-sys.path.insert(0, os.path.abspath("../"))
 # -- Project information -----------------------------------------------------
 
 project = "monetio"
@@ -31,37 +14,18 @@ copyright = "2018, Barry Baker"
 author = "Barry Baker"
 
 # The short X.Y version
-version = ""
+version = monetio.__version__
 # The full version, including alpha/beta/rc tags
-release = ""
+release = version
 
 # -- General configuration ---------------------------------------------------
 
-# If your documentation needs a minimal Sphinx version, state it here.
-#
-# needs_sphinx = '1.0'
-
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.extlinks",
 ]
-# exclude_patterns = ['_build', '**.ipynb_checkpoints']
-
-extlinks = {
-    "issue": ("https://github.com/noaa-oar-arl/monetio/issues/%s", "GH"),
-    "pull": ("https://github.com/noaa-oar-arl/monetio/pull/%s", "PR"),
-}
-
-autosummary_generate = True
-numpydoc_class_members_toctree = True
-napoleon_google_docstring = False
-napoleon_use_param = False
-napoleon_use_ivar = False  # True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -90,6 +54,18 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
 
+# -- Extension configuration -------------------------------------------------
+
+extlinks = {
+    "issue": ("https://github.com/noaa-oar-arl/monetio/issues/%s", "GH"),
+    "pull": ("https://github.com/noaa-oar-arl/monetio/pull/%s", "PR"),
+}
+
+autosummary_generate = True
+napoleon_google_docstring = False
+napoleon_use_param = False
+napoleon_use_ivar = False  # True
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -101,7 +77,9 @@ html_theme = "sphinx_rtd_theme"
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    "logo_only": True,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -122,10 +100,6 @@ html_static_path = ["_static"]
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = "monetiodoc"
-
-html_theme_options = {
-    "logo_only": True,
-}
 
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
@@ -187,5 +161,3 @@ texinfo_documents = [
         "Miscellaneous",
     ),
 ]
-
-# -- Extension configuration -------------------------------------------------
