@@ -9,4 +9,4 @@ It was originally part of the Model and ObservatioN Evaluation Tool ([MONET](htt
 
 Please refer to <https://monetio.readthedocs.io> for the documentation.
 
-Baker, Barry; Pan, Li. 2017. “Overview of the Model and Observation Evaluation Toolkit (MONET) Version 1.0 for Evaluating Atmospheric Transport Models.” Atmosphere 8, no. 11: 210
+See [`CITATION.cff`](./CITATION.cff) for citation info or use [the GitHub support](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files).
