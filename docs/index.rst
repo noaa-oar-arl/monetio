@@ -39,6 +39,7 @@ Features include:
 .. toctree::
    :maxdepth: 4
    :caption: Getting Started
+   :hidden:
 
    why-monet
    installing
@@ -78,13 +79,8 @@ Supported datasets
 * `ISH <https://www.ncdc.noaa.gov/isd/>`_
 
 
-
-
-
-**Help \& Reference**
-
 .. toctree::
    :maxdepth: 10
-   :caption: Help \& Reference
+   :caption: Help & Reference
 
    api

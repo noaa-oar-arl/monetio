@@ -61,9 +61,18 @@ extlinks = {
     "pull": ("https://github.com/noaa-oar-arl/monetio/pull/%s", "PR"),
 }
 
-autosummary_generate = True
+autosummary_generate = True  # default in Sphinx v4
+
+autodoc_default_options = {
+    "members": True,
+    "special-members": "__init__",
+}
+autodoc_member_order = "groupwise"
+
 napoleon_google_docstring = False
+napoleon_numpy_docstring = True
 napoleon_use_param = False
+napoleon_use_rtype = False
 napoleon_use_ivar = False  # True
 
 # -- Options for HTML output -------------------------------------------------
