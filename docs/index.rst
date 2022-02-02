@@ -1,5 +1,5 @@
 Model and ObservatioN Evaluation Toolkit (MONET) Input Output (IO)
-=================================================
+==================================================================
 
 **MONETIO** is an open source project and Python package that aims to create a
 common platform for atmospheric composition data for weather and
@@ -45,7 +45,7 @@ Features include:
    observations
    models
    tutorial
-   monetio_wcoss
+   wcoss
 
 Get in touch
 ------------
@@ -81,10 +81,10 @@ Supported datasets
 
 
 
-**Help & Reference**
+**Help \& Reference**
 
 .. toctree::
    :maxdepth: 10
-   :caption: Help * Reference
+   :caption: Help \& Reference
 
    api

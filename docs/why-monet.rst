@@ -43,6 +43,7 @@ Plots|
 .. |Difference PDFS Plots| image:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/no2_diffpdf.jpg?raw=true
 
 
-.. _ndarray: http://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html
+.. _ndarray: https://numpy.org/doc/stable/reference/arrays.ndarray.html
 .. _netCDF: http://www.unidata.ucar.edu/software/netcdf
-.. _pandas: http://pandas.pydata.org
+.. _pandas: https://pandas.pydata.org
+.. _xarray: https://xarray.pydata.org

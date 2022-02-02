@@ -48,7 +48,8 @@ or you can manually download it from GitHub and install it using the setup.py::
     $ cd MONET
     $ pip install setup.py
 
-.. [1] MONET plans to drop support for python 2.7 sometime in 2019. This
+.. note::
+   MONET plans to drop support for python 2.7 sometime in 2019. This
    means that new releases of xarray published after this date will only be
    installable on python 3+ environments, but older versions of xarray will
    always be available to python 2.7 users. For more information see the
