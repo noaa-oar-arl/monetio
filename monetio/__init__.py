@@ -1,12 +1,15 @@
-from . import grids, models, obs, profile, sat
+from . import grids
+from .models import camx, cmaq, fv3chem, hysplit, hytraj, ncep_grib, pardump, prepchem
+from .obs import aeronet, airnow, aqs, cems, crn, improve, ish, ish_lite, nadp, openaq, pams
+from .profile import icartt, tolnet
+from .sat import goes
 
 __version__ = "0.1"
 
-# __all__ = ["models", "obs", "sat", "util", "grids", "profile", "__version__"]
 __all__ = [
     "__version__",
     #
-    # utility functions here
+    # utility functions
     "rename_latlon",
     "rename_to_monet_latlon",
     "dataset_to_monet",
@@ -15,42 +18,36 @@ __all__ = [
     # utility modules
     "grids",
     #
-    "aeronet",
+    # point obs
     "airnow",
+    "aeronet",
     "aqs",
+    "cems",  # TODO: module with add_data
+    "crn",
+    "improve",  # TODO: module with add_data
+    "ish",
+    "ish_lite",
+    "nadp",
+    "openaq",
+    "pams",
+    #
+    # profile obs
+    "icartt",
+    "tolnet",
+    #
+    # satellite obs
+    "goes",
+    #
+    # models
+    "camx",
+    "cmaq",
+    "fv3chem",
+    "hysplit",
+    "hytraj",
+    "ncep_grib",
+    "pardump",
+    "prepchem",
 ]
-
-# point observations
-airnow = obs.airnow
-aeronet = obs.aeronet
-aqs = obs.aqs
-cems = obs.cems
-crn = obs.crn
-improve = obs.improve
-ish = obs.ish
-ish_lite = obs.ish_lite
-nadp = obs.nadp
-openaq = obs.openaq
-pams = obs.pams
-
-# models
-fv3chem = models.fv3chem
-cmaq = models.cmaq
-camx = models.camx
-prepchem = models.prepchem
-ncep_grib = models.ncep_grib
-# emitimes = models.emitimes
-# cdump2netcdf = models.cdump2netcdf
-hysplit = models.hysplit
-hytraj = models.hytraj
-pardump = models.pardump
-
-# profiles
-icartt = profile.icartt
-tolnet = profile.tolnet
-
-# sat
-goes = sat.goes
 
 
 def rename_latlon(ds):

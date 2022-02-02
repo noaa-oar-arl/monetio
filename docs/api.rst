@@ -16,13 +16,13 @@ Data sources
 Point observations
 ^^^^^^^^^^^^^^^^^^
 
-In general, these modules provide an ``add_data`` function for retrieving data.
+In general, these modules provide an ``add_data`` function for retrieving data,
+for example, :func:`monetio.aeronet.add_data`.
 
 .. autosummary::
-   :toctree: api/
-   :recursive:
 
    monetio.aeronet
+   monetio.aeronet.add_data
    monetio.airnow
    monetio.aqs
 
@@ -33,7 +33,6 @@ Utility functions
 There are a few top-level utility functions.
 
 .. autosummary::
-   :toctree: api/
 
    monetio.rename_latlon
    monetio.rename_to_monet_latlon
