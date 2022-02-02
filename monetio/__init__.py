@@ -2,6 +2,24 @@ from . import grids, models, obs, profile, sat
 
 __version__ = "0.1"
 
+# __all__ = ["models", "obs", "sat", "util", "grids", "profile", "__version__"]
+__all__ = [
+    "__version__",
+    #
+    # utility functions here
+    "rename_latlon",
+    "rename_to_monet_latlon",
+    "dataset_to_monet",
+    "coards_to_netcdf",
+    #
+    # utility modules
+    "grids",
+    #
+    "aeronet",
+    "airnow",
+    "aqs",
+]
+
 # point observations
 airnow = obs.airnow
 aeronet = obs.aeronet
@@ -33,8 +51,6 @@ tolnet = profile.tolnet
 
 # sat
 goes = sat.goes
-
-__all__ = ["models", "obs", "sat", "util", "grids", "profile", "__version__"]
 
 
 def rename_latlon(ds):
@@ -119,6 +135,9 @@ def coards_to_netcdf(ds, *, lat_name="lat", lon_name="lon"):
 
     Also normalizes the latitude/longitude names to ``'latitude'``/``'longitude'``,
     with dimensions ``('y', 'x')``.
+
+    .. note::
+       The name is a reference to the COARDS conventions.
 
     Parameters
     ----------
