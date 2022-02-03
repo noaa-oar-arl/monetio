@@ -337,6 +337,24 @@ class AERONET:
 
         self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{loc_}&if_no_html=1"
 
+    def _lines_from_url(self, *, n=10):
+        """Read the first `n` lines from the URL using `requests`,
+        returning the result as a string.
+        """
+        from itertools import islice
+
+        if isinstance(self.url, str) and self.url.startswith("http"):
+            import requests
+
+            r = requests.get(self.url, stream=True)
+            r.raise_for_status()
+            s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+        else:
+            with open(self.url) as f:
+                s = "\n".join(islice(f, n))
+
+        return s
+
     def read_aeronet(self):
         """Load a DataFrame from :attr:`url`, setting :attr:`df`."""
         print("Reading Aeronet Data...")
@@ -345,11 +363,22 @@ class AERONET:
             sda = self.prod.startswith("SDA")
         else:
             sda = False
+        skiprows = 5 if not inv else 6
+
+        # Get info lines (before the header line with column names)
+        info = self._lines_from_url(n=skiprows)
+        if len(info.splitlines()) == 1:
+            raise Exception("valid query but no data found")
+        elif info.startswith("<html>"):
+            # Web Service showing an error message on the page (or `&if_no_html=1` manually removed)
+            # With the `build_url` validation, we shouldn't get here
+            raise Exception("invalid query, open the URL to check the error")
+
         df = pd.read_csv(
             self.url,
             engine="python",
             header="infer",
-            skiprows=5 if not inv else 6,
+            skiprows=skiprows,
             parse_dates={"time": [1, 2]},
             usecols=range(80) if sda else None,
             # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
@@ -376,6 +405,8 @@ class AERONET:
             df.set_index("time", inplace=True)
         df.dropna(subset=["latitude", "longitude"], inplace=True)
         df.dropna(axis=1, how="all", inplace=True)  # empty columns
+        if hasattr(df, "attrs"):
+            df.attrs["info"] = info
         self.df = df
 
     def add_data(
@@ -403,7 +434,10 @@ class AERONET:
             self.dates = pd.date_range(start=now.date(), end=now, freq="H")
         else:
             self.dates = dates
-        self.prod = product.upper()
+        if product is not None:
+            self.prod = product.upper()
+        else:
+            self.prod = product
         self.inv_type = inv_type
         if daily:
             self.daily = 20  # daily data
