@@ -101,7 +101,7 @@ def add_data(
         See https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt for all valid site IDs.
 
         .. warning::
-           Whether you will obtain data depends on the sites activate
+           Whether you will obtain data depends on the sites active
            during the `dates` time period.
 
         .. note::

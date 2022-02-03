@@ -26,6 +26,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.autosectionlabel",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -98,6 +99,9 @@ napoleon_type_aliases = {
     #
     "path-like": ":term:`path-like <path-like object>`",
 }
+
+autosectionlabel_prefix_document = True
+autosectionlabel_maxdepth = 2
 
 # -- Options for HTML output -------------------------------------------------
 

@@ -14,7 +14,7 @@ for example, :func:`monetio.aeronet.add_data`.
 AERONET
 ^^^^^^^
 
-.. automodule:: monetio.aeronet
+See :ref:`observations:AERONET` for more information.
 
 .. autosummary::
 
@@ -29,7 +29,7 @@ AERONET
 AirNow
 ^^^^^^
 
-.. automodule:: monetio.airnow
+See :ref:`observations:AirNow` for more information.
 
 .. autosummary::
 
