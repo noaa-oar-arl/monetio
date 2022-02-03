@@ -45,4 +45,4 @@ jobs:
           conda list
 
       - name: Test with pytest
-        run: pytest
+        run: pytest -n auto
