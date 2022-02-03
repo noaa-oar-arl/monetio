@@ -64,6 +64,7 @@ def add_data(
     latlonbox=None,
     siteid=None,
     daily=False,
+    lunar=False,
     #
     # post-proc
     freq=None,
@@ -95,6 +96,9 @@ def add_data(
         if both are specified.
     daily : bool
         Load daily averaged data.
+    lunar : bool
+        Load provisional lunar "Direct Moon" data instead of the default "Direct Sun".
+        Only for non-version products.
     freq : str
         Frequency used to resample the DataFrame.
     detect_dust : bool
@@ -122,6 +126,7 @@ def add_data(
         latlonbox=latlonbox,
         siteid=siteid,
         daily=daily,
+        lunar=lunar,
         detect_dust=detect_dust,
         interp_to_aod_values=interp_to_aod_values,
     )
@@ -189,6 +194,7 @@ def _parallel_aeronet_call(
     product="AOD15",
     latlonbox=None,
     daily=False,
+    lunar=False,
     interp_to_aod_values=None,
     inv_type=None,
     freq=None,
@@ -201,6 +207,7 @@ def _parallel_aeronet_call(
         product=product,
         latlonbox=latlonbox,
         daily=daily,
+        lunar=lunar,
         interp_to_aod_values=interp_to_aod_values,
         inv_type=inv_type,
         siteid=siteid,
@@ -260,6 +267,7 @@ class AERONET:
         self.prod = None
         self.inv_type = None
         self.daily = None
+        self.lunar = None
         self.latlonbox = None
         self.siteid = None
 
@@ -317,6 +325,14 @@ class AERONET:
         assert self.daily in {10, 20}, "required parameter"
         avg_ = f"&AVG={self.daily}"
 
+        if self.lunar is not None:
+            if self.lunar in {0, 1}:
+                lunar_ = f"&lunar_merge={self.lunar}"
+            else:
+                raise ValueError(f"invalid lunar setting {self.lunar!r}")
+        else:
+            lunar_ = ""
+
         if self.siteid is not None:
             # Validate here, since the Web Service doesn't do any validation and just returns all
             # sites if the site isn't valid.
@@ -335,7 +351,7 @@ class AERONET:
             lon2 = str(float(self.latlonbox[3]))
             loc_ = f"&lat1={lat1}&lat2={lat2}&lon1={lon1}&lon2={lon2}"
 
-        self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{loc_}&if_no_html=1"
+        self.url = f"{base_url}{dates_}{product_}{avg_}{lunar_}{inv_type_}{loc_}&if_no_html=1"
 
     def _lines_from_url(self, *, n=10):
         """Read the first `n` lines from the URL using `requests`,
@@ -418,6 +434,7 @@ class AERONET:
         siteid=None,
         latlonbox=None,
         daily=False,
+        lunar=False,
         #
         # post-proc
         freq=None,
@@ -443,6 +460,10 @@ class AERONET:
             self.daily = 20  # daily data
         else:
             self.daily = 10  # all points
+        if lunar:
+            self.lunar = 1  # provisional lunar data
+        else:
+            self.lunar = 0  # no lunar
         self.new_aod_values = interp_to_aod_values
         if self.new_aod_values and not self.prod.startswith("AOD"):
             print("`interp_to_aod_values` will be ignored")

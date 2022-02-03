@@ -142,3 +142,13 @@ def test_load_local_inv():
     df = aeronet.add_local(fp)
     assert df.index.size > 0
     assert (df.siteid == "Cart_Site").all(0)
+
+
+def test_add_data_lunar():
+    dates = pd.date_range("2021/08/01", "2021/08/02")
+    df = aeronet.add_data(dates, lunar=True, daily=True)  # only daily-average data at this time
+    assert df.index.size > 0
+
+    dates = pd.date_range("2022/01/20", "2022/01/21")
+    df = aeronet.add_data(dates, lunar=True, siteid="Tucson")
+    assert df.index.size > 0
