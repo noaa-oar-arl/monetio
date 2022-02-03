@@ -25,6 +25,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.extlinks",
+    "sphinx.ext.intersphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -61,6 +62,13 @@ extlinks = {
     "pull": ("https://github.com/noaa-oar-arl/monetio/pull/%s", "PR"),
 }
 
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "xarray": ("https://xarray.pydata.org/en/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+}
+
 autosummary_generate = True  # default in Sphinx v4
 autosummary_ignore_module_all = False
 
@@ -78,6 +86,18 @@ napoleon_numpy_docstring = True
 napoleon_use_param = False
 napoleon_use_rtype = False
 napoleon_use_ivar = False  # True
+napoleon_preprocess_types = True
+napoleon_type_aliases = {
+    "DataArray": "~xarray.DataArray",
+    "Dataset": "~xarray.Dataset",
+    "DataFrame": "~pandas.DataFrame",
+    "Series": "~pandas.Series",
+    #
+    "array_like": ":term:`array_like`",
+    "array-like": ":term:`array-like <array_like>`",
+    #
+    "path-like": ":term:`path-like <path-like object>`",
+}
 
 # -- Options for HTML output -------------------------------------------------
 

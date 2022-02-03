@@ -82,5 +82,7 @@ Supported datasets
 .. toctree::
    :maxdepth: 10
    :caption: Help & Reference
+   :hidden:
 
    api
+   get-in-touch
