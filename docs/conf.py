@@ -64,12 +64,14 @@ extlinks = {
 autosummary_generate = True  # default in Sphinx v4
 autosummary_ignore_module_all = False
 
-autodoc_default_options = {
-    "members": True,
-    "undoc-members": True,
-    "special-members": "__init__",
-}
-autodoc_member_order = "groupwise"
+# autodoc_mock_imports = []
+
+# autodoc_default_options = {
+#     "members": True,
+#     "undoc-members": True,
+#     "special-members": "__init__",
+# }
+# autodoc_member_order = "groupwise"
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True

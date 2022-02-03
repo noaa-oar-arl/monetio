@@ -19,12 +19,20 @@ Point observations
 In general, these modules provide an ``add_data`` function for retrieving data,
 for example, :func:`monetio.aeronet.add_data`.
 
+AERONET
+"""""""
+
+.. automodule:: monetio.aeronet
+
 .. autosummary::
 
-   monetio.aeronet
    monetio.aeronet.add_data
-   monetio.airnow
-   monetio.aqs
+   monetio.aeronet.add_local
+   monetio.aeronet.get_valid_sites
+
+.. autofunction:: monetio.aeronet.add_data
+.. autofunction:: monetio.aeronet.add_local
+.. autofunction:: monetio.aeronet.get_valid_sites
 
 
 Utility functions
