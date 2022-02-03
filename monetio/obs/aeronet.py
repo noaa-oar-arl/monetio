@@ -341,12 +341,18 @@ class AERONET:
         """Load a DataFrame from :attr:`url`, setting :attr:`df`."""
         print("Reading Aeronet Data...")
         inv = self.inv_type is not None
+        if self.prod is not None:
+            sda = self.prod.startswith("SDA")
+        else:
+            sda = False
         df = pd.read_csv(
             self.url,
             engine="python",
             header="infer",
             skiprows=5 if not inv else 6,
             parse_dates={"time": [1, 2]},
+            usecols=range(80) if sda else None,
+            # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
             date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
