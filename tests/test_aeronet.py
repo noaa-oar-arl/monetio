@@ -93,6 +93,15 @@ def test_add_data_inv():
     # TODO: find a time with Level 2.0 retrievals
 
 
+@pytest.mark.parametrize("product", aeronet.AERONET._valid_prod_noninv)
+def test_add_data_all_noninv(product):
+    dates = pd.date_range("2021/08/01", "2021/08/02")
+    site = "Mauna_Loa"
+
+    df = aeronet.add_data(dates, product=product, siteid=site)
+    assert df.index.size > 0
+
+
 # [21.1,-131.6686,53.04,-58.775]
 
 
