@@ -98,7 +98,7 @@ def add_data(
         Load daily averaged data.
     lunar : bool
         Load provisional lunar "Direct Moon" data instead of the default "Direct Sun".
-        Only for non-version products.
+        Only for non-inversion products.
     freq : str
         Frequency used to resample the DataFrame.
     detect_dust : bool
