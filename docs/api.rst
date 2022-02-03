@@ -26,6 +26,17 @@ AERONET
 .. autofunction:: monetio.aeronet.add_local
 .. autofunction:: monetio.aeronet.get_valid_sites
 
+AirNow
+^^^^^^
+
+.. automodule:: monetio.airnow
+
+.. autosummary::
+
+   monetio.airnow.add_data
+
+.. autofunction:: monetio.airnow.add_data
+
 
 Utility functions
 =================
