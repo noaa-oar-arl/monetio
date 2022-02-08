@@ -153,14 +153,14 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
     else:
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     dff = dd.from_delayed(dfs)
-    df = dff.compute(num_workers=n_procs)
+    df = dff.compute(num_workers=n_procs)  # FIXME: use .reset_index()
     df["time"] = pd.to_datetime(
         df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True
     )  # TODO: move to read_csv
     df.drop(["date"], axis=1, inplace=True)
     df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
     print("    Adding in Meta-data")
-    df = get_station_locations(df)  # FIXME: adds a bunch of extra rows
+    df = get_station_locations(df)
     df = df[savecols]
     df.drop_duplicates(inplace=True)
     df = filter_bad_values(df)
@@ -240,7 +240,9 @@ def get_station_locations(df):  # TODO: better name might be `add_station_locati
     from .epa_util import read_monitor_file
 
     monitor_df = read_monitor_file(airnow=True)
-    df = pd.merge(df, monitor_df, on="siteid")  # , how='left')
+    df = df.merge(monitor_df.drop_duplicates(), on="siteid", how="left", copy=False)
+    # TODO: maybe eliminate need for drop dup here
+
     return df
 
 
