@@ -15,6 +15,7 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+
     steps:
       - uses: actions/checkout@v2
 
@@ -41,3 +42,27 @@ jobs:
 
       - name: Test with pytest
         run: pytest
+
+  docs:
+    name: Check docs build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python (Conda)
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: "3.8"
+          channels: conda-forge,nodefaults
+          activate-environment: monetio-docs
+          environment-file: docs/environment-docs.yml
+
+      - name: linkcheck
+        run: sphinx-build -b linkcheck docs docs/_build/linkcheck
+
+      - name: sphinx-build -W
+        run: sphinx-build -b html -W docs docs/_build/html
