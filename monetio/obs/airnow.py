@@ -127,19 +127,23 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, download=False, n_procs=1):
+def aggregate_files(dates=dates, *, download=False, n_procs=1):
     """Short summary.
 
     Parameters
     ----------
-    download : type
-        Description of parameter `download` (the default is False).
+    dates : array-like of datetime-like
+        Passed to :func:`build_urls`.
+    download : bool, optional
+        Whether to first download the AirNow files to the local directory
+        before loading.
+    n_procs : int
+        For Dask.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
+        Of the combined AirNow hourly files.
     """
     import dask
     import dask.dataframe as dd
@@ -156,7 +160,7 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
     df = dff.compute(num_workers=n_procs)  # FIXME: use .reset_index()
     df["time"] = pd.to_datetime(
         df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True
-    )  # TODO: move to read_csv
+    )  # TODO: move to read_csv? (and some of this other stuff too?)
     df.drop(["date"], axis=1, inplace=True)
     df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
     print("    Adding in Meta-data")
@@ -167,21 +171,22 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
     return df
 
 
-def add_data(dates, download=False, wide_fmt=True, n_procs=1):
+def add_data(dates, *, download=False, wide_fmt=True, n_procs=1):
     """Short summary.
 
     Parameters
     ----------
-    dates : type
-        Description of parameter `dates`.
-    download : type
-        Description of parameter `download` (the default is False).
+    dates : array-like of datetime-like
+        Passed to :func:`build_urls`.
+    download : bool, optional
+        Whether to first download the AirNow files to the local directory.
+    wide_fmt : bool
+    n_procs : int
+        For Dask.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
     """
     from ..util import long_to_wide
 
@@ -194,19 +199,21 @@ def add_data(dates, download=False, wide_fmt=True, n_procs=1):
     return df
 
 
-def filter_bad_values(df):
-    """Short summary.
+def filter_bad_values(df, *, max=3000):
+    """Mark ``obs`` values less than 0 or greater than `max` as NaN.
+
+    Parameters
+    ----------
+    max : int
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
     """
     from numpy import NaN
 
-    df.loc[(df.obs > 3000) | (df.obs < 0), "obs"] = NaN
-    return df
+    df.loc[(df.obs > max) | (df.obs < 0), "obs"] = NaN
+    return df  # TODO: dropna here (since it is called `filter_bad_values`)?
 
 
 def daterange(**kwargs):
