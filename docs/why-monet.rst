@@ -19,17 +19,17 @@ Gallery
 -------
 
 
-.. figure:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/pm2.5_timeseries.jpg?raw=true
+.. figure:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/pm2.5_timeseries.jpg
    :alt: Time Series
 
    Time Series
 
-.. figure:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/pm2.5_timeseries_rmse.jpg?raw=true
+.. figure:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/pm2.5_timeseries_rmse.jpg
    :alt: Time Series of RMSE
 
    Time Series of RMSE
 
-.. figure:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/ozone_spatial.jpg?raw=true
+.. figure:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/ozone_spatial.jpg
    :alt: Spatial Plots
 
    Spatial Plots
@@ -37,10 +37,10 @@ Gallery
 |Scatter Plots| |PDFS Plots| |Difference Scatter Plots| |Difference PDFS
 Plots|
 
-.. |Scatter Plots| image:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/no2_scatter.jpg?raw=true
-.. |PDFS Plots| image:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/no2_pdf.jpg?raw=true
-.. |Difference Scatter Plots| image:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/no2_diffscatter.jpg?raw=true
-.. |Difference PDFS Plots| image:: https://github.com/noaa-oar-arl/MONET/blob/stable/sample_figures/no2_diffpdf.jpg?raw=true
+.. |Scatter Plots| image:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/no2_scatter.jpg
+.. |PDFS Plots| image:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/no2_pdf.jpg
+.. |Difference Scatter Plots| image:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/no2_diffscatter.jpg
+.. |Difference PDFS Plots| image:: https://raw.githubusercontent.com/noaa-oar-arl/MONET/master/sample_figures/no2_diffpdf.jpg
 
 
 .. _ndarray: https://numpy.org/doc/stable/reference/arrays.ndarray.html

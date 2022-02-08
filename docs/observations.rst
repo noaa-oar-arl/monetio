@@ -150,7 +150,8 @@ Loading Specfic Network
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Sometimes you may want to load a specific network that is available in the AQS data
-files.  For instance, lets load data from the Chemical Speciation Network (CSN; https://www3.epa.gov/ttnamti1/speciepg.html).
+files.  For instance, lets load data from the Chemical Speciation Network (CSN;
+https://www.epa.gov/amtic/chemical-speciation-network-csn).
 As of writting this tutorial we will load the 2017 data as it is complete.
 
 .. code::   python
@@ -162,12 +163,12 @@ Available Networks
 ^^^^^^^^^^^^^^^^^^
 
 * NCORE (https://www3.epa.gov/ttn/amtic/ncore.html)
-* CSN (https://www3.epa.gov/ttnamti1/speciepg.html)
+* CSN (https://www.epa.gov/amtic/chemical-speciation-network-csn)
 * CASTNET (https://www.epa.gov/castnet)
 * IMPROVE (http://vista.cira.colostate.edu/Improve/)
-* PAMS (https://www3.epa.gov/ttnamti1/pamsmain.html)
+* PAMS (https://www.epa.gov/amtic/photochemical-assessment-monitoring-stations-pams)
 * SCHOOL AIR TOXICS (https://www3.epa.gov/ttnamti1/airtoxschool.html)
-* NEAR ROAD (NO2; https://www3.epa.gov/ttn/amtic/nearroad.html)
+* NEAR ROAD (NO2; https://www.epa.gov/amtic/no2-monitoring-near-road-monitoring)
 * NATTS (https://www3.epa.gov/ttnamti1/natts.html)
 
 AERONET
@@ -277,7 +278,7 @@ NTN
 
     Sites predominantly are located away from urban areas and point sources of pollution. Each site has a precipitation
     chemistry collector and gage. The automated collector ensures that the sample is exposed only during precipitation (wet-only-sampling)."
-    - http://nadp.slh.wisc.edu/NTN/
+    - https://nadp.slh.wisc.edu/NTN/
 
 Available Measurements
 ======================
@@ -296,7 +297,7 @@ MDN
 ^^^
 
     "The MDN is the only network providing a longterm record of total mercury (Hg) concentration and deposition in precipitation in the United States and Canada. All MDN sites follow standard procedures and have uniform precipitation chemistry collectors and gages. The automated collector has the same basic design as the NTN collector but is modified to preserve mercury. Modifications include a glass funnel, connecting tube, bottle for collecting samples, and an insulated enclosure to house this sampling train. The funnel and connecting tube reduce sample exposure to the open atmosphere and limit loss of dissolved mercury. As an additional sample preservation measure, the collection bottle is charged with 20 mL of a one percent hydrochloric acid solution."
-    - http://nadp.slh.wisc.edu/MDN/
+    - https://nadp.slh.wisc.edu/MDN/
 
 Available Measurements
 ======================
@@ -381,8 +382,8 @@ wind speed (ws), wind direction (wdir), as well as various quality flags.
 ICARTT
 ------
 
-MONET is capable of reading the NASA ICARTT data format (https://go.nasa.gov/2F4yQWI).  Many field
-campaigns save data in ICARTT format.  Methods are available to combine flight data.
+MONET is capable of reading the NASA ICARTT data format (https://www-air.larc.nasa.gov/missions/etc/IcarttDataFormat.htm).
+Many field campaigns save data in ICARTT format.  Methods are available to combine flight data.
 
 .. code:: python
 
