@@ -51,7 +51,7 @@ def build_urls(dates):
     fnames = []
     print("Building AIRNOW URLs...")
     # 2017/20170131/HourlyData_2017012408.dat
-    url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"
+    url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: other S3 servers?
     for i in dates:
         f = url + i.strftime("%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat")
         fname = i.strftime("HourlyData_%Y%m%d%H.dat")
@@ -88,9 +88,13 @@ def read_csv(fn):
     except Exception:
         cols = ["date", "time", "siteid", "site", "utcoffset", "variable", "units", "obs", "source"]
         dft = pd.DataFrame(columns=cols)
-    dft["obs"] = dft.obs.astype(float)
-    dft["siteid"] = dft.siteid.str.zfill(9)
-    dft["utcoffset"] = dft.utcoffset.astype(int)
+    dft["obs"] = dft.obs.astype(
+        float
+    )  # TODO: could use smaller float type, provided precision is low
+    dft["siteid"] = dft.siteid.str.zfill(
+        9
+    )  # TODO: does nothing; and some site IDs are longer (12) or start with letters
+    dft["utcoffset"] = dft.utcoffset.astype(int)  # FIXME: some sites have fractional UTC offset
     return dft
 
 
@@ -116,7 +120,9 @@ def retrieve(url, fname):
         print(url)
         print("\n")
         r = requests.get(url)
-        open(fname, "wb").write(r.content)
+        r.raise_for_status()
+        with open(fname, "wb") as f:
+            f.write(r.content)
     else:
         print("\n File Exists: " + fname)
 
@@ -148,11 +154,13 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     dff = dd.from_delayed(dfs)
     df = dff.compute(num_workers=n_procs)
-    df["time"] = pd.to_datetime(df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True)
+    df["time"] = pd.to_datetime(
+        df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True
+    )  # TODO: move to read_csv
     df.drop(["date"], axis=1, inplace=True)
     df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
     print("    Adding in Meta-data")
-    df = get_station_locations(df)
+    df = get_station_locations(df)  # FIXME: adds a bunch of extra rows
     df = df[savecols]
     df.drop_duplicates(inplace=True)
     df = filter_bad_values(df)
@@ -220,7 +228,7 @@ def daterange(**kwargs):
     return pd.date_range(**kwargs)
 
 
-def get_station_locations(df):
+def get_station_locations(df):  # TODO: better name might be `add_station_locations`
     """Short summary.
 
     Returns
