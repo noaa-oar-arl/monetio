@@ -85,14 +85,10 @@ def long_to_wide(df):
             print(f"warning: non-unique units found, {units!r}, taking first")
         w[f"{name}_unit"] = units[0]
 
-    # Get non-time-varying site info to add
-    # (For rows with same site ID, first is taken)
-    drop = ["time", "time_local", "utcoffset", "variable", "units", "obs"]
-    site_info = df.drop_duplicates(subset="siteid").drop(drop, axis=1)
+    # Get site info to add, allowing for possible time variation
+    site_info = df.drop(["variable", "obs", "units"], axis=1).drop_duplicates()
 
-    # TODO: time_local? (and utcoffset, which could vary with time if daylight savings is accounted for)
-
-    return w.merge(site_info, on="siteid", how="left")
+    return w.merge(site_info, on=["time", "siteid"], how="left")  # .reset_index()
 
 
 def calc_8hr_rolling_max(df, col=None, window=None):
