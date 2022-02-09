@@ -76,14 +76,23 @@ def wsdir2uv(ws, wdir):
 
 
 def long_to_wide(df):
-    from pandas import merge
-
     w = df.pivot_table(values="obs", index=["time", "siteid"], columns="variable").reset_index()
-    g = df.groupby("variable")
-    for name, group in g:
-        w[name + "_unit"] = group.units.unique()[0]
-    # mergeon = hstack((index.values, df.variable.unique()))
-    return merge(w, df.drop_duplicates(subset=["latitude", "longitude"]), on=["siteid", "time"])
+
+    # Add units (columns)
+    for name, group in df.groupby("variable"):
+        units = group.units.unique().tolist()
+        if len(units) > 1:
+            print(f"warning: non-unique units found, {units!r}, taking first")
+        w[f"{name}_unit"] = units[0]
+
+    # Get non-time-varying site info to add
+    # (For rows with same site ID, first is taken)
+    drop = ["time", "time_local", "utcoffset", "variable", "units", "obs"]
+    site_info = df.drop_duplicates(subset="siteid").drop(drop, axis=1)
+
+    # TODO: time_local? (and utcoffset, which could vary with time if daylight savings is accounted for)
+
+    return w.merge(site_info, on="siteid", how="left")
 
 
 def calc_8hr_rolling_max(df, col=None, window=None):

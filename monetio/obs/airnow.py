@@ -157,7 +157,7 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1):
     else:
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     dff = dd.from_delayed(dfs)
-    df = dff.compute(num_workers=n_procs)  # FIXME: use .reset_index()
+    df = dff.compute(num_workers=n_procs).reset_index()
     df["time"] = pd.to_datetime(
         df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True
     )  # TODO: move to read_csv? (and some of this other stuff too?)
@@ -168,7 +168,7 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1):
     df = df[savecols]
     df.drop_duplicates(inplace=True)
     df = filter_bad_values(df)
-    return df
+    return df.reset_index()
 
 
 def add_data(dates, *, download=False, wide_fmt=True, n_procs=1):
@@ -193,10 +193,10 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1):
     df = aggregate_files(dates=dates, download=download, n_procs=n_procs)
     if wide_fmt:
         df = long_to_wide(df)
-        return df.drop_duplicates(subset=["time", "latitude", "longitude", "siteid"])
+        return df.drop_duplicates(subset=["time", "latitude", "longitude", "siteid"]).reset_index()
+        # TODO: shouldn't be any such dups (test)
     else:
         return df
-    return df
 
 
 def filter_bad_values(df, *, max=3000):
