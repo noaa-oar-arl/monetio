@@ -35,7 +35,7 @@ def find_near(df, latlon, distance=100, sid="site_num", drange=None):
     for key in lhash.keys:
         xd = (lhash[key][1] - latlon[1]) * degree2km * np.cos(latlon[1] * np.pi / 180.0)
         yd = (lhash[key][0] - latlon[0]) * degree2km
-        dd = (xd ** 2 + yd ** 2) ** 0.5
+        dd = (xd**2 + yd**2) ** 0.5
         if dd > distance:
             lhash.pop(key, None)
     return lhash
