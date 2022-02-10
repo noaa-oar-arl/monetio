@@ -23,7 +23,7 @@ the binary nemsio data into netCDF, nemsio2nc4.py.
 This is a command-line script that converts the nemsio data output by
 the FV3 system to netcdf4 files using a combination of mkgfsnemsioctl
 found within the fv3 workflow and the climate data operators (cdo). This
-tool is available on github at https://github.com/bbakernoaa/nemsio2nc4
+tool is available on github at https://github.com/noaa-oar-arl/nemsio2nc4
 
 ::
 
@@ -72,7 +72,7 @@ convert the grib2 aerosol data to netcdf files. fv3grib2nc4.py will
 create seperate files for each of the three layer types; '1 hybrid
 layer', 'entire atmosphere', and 'surface'. These are the three layers
 that currently hold aerosol data. The tool is available at
-https://github.com/bbakernoaa/fv3grib2nc4
+https://github.com/noaa-oar-arl/fv3grib2nc4
 
 ::
 
@@ -338,7 +338,7 @@ For more information on plotting with xarray and matplotlib some useful
 links are shown below
 
 -  `Xarray
-   Plotting <http://xarray.pydata.org/en/stable/plotting.html#two-dimensions>`__
+   Plotting <https://xarray.pydata.org/en/stable/user-guide/plotting.html#two-dimensions>`__
 -  `Matplotlib
    Colorbars <https://matplotlib.org/tutorials/colors/colormaps.html>`__
 

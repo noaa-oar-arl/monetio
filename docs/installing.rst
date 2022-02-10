@@ -5,17 +5,17 @@ Required dependencies
 ---------------------
 
 - Python 3.6+
-- `numpy <http://www.numpy.org/>`__ (1.11 or later)
-- `pandas <http://pandas.pydata.org/>`__ (0.18.0 or later)
-- `xarray <http://xarray.pydata.org/>`__ (0.10 or later)
-- `dask <http://dask.pydata.org/>`__
-- `netcdf4 <http://unidata.github.io/netcdf4-python/>`__
-- `s3fs <https://github.com/dask/s3fs>`__
+- `numpy <https://numpy.org/>`__ (1.11 or later)
+- `pandas <https://pandas.pydata.org/>`__ (0.18.0 or later)
+- `xarray <https://xarray.pydata.org/>`__ (0.10 or later)
+- `dask <https://dask.org/>`__
+- `netcdf4 <https://unidata.github.io/netcdf4-python/>`__
+- `s3fs <https://github.com/fsspec/s3fs>`__
 
 For parallel computing
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- `dask.array <http://dask.pydata.org>`__ (0.9.0 or later): required for
+- `dask.array <https://dask.org>`__ (0.9.0 or later): required for
 
 Instructions
 ------------
@@ -32,7 +32,7 @@ If you choose to install it manually you can install the dependencies we recomme
     $ conda config --add channels conda-forge
     $ conda install xarray dask netCDF4 numpy pandas s3fs
 
-We recommend using the community maintained `conda-forge <https://conda-forge.github.io/>`_ channel
+We recommend using the community maintained `conda-forge <https://conda-forge.org/>`_ channel
 if you need difficult\-to\-build dependencies such as cartopy, pynio or PseudoNetCDF::
 
     $ conda install -c conda-forge xarray pandas matplotlib seaborn cartopy pseudonetcdf
@@ -48,11 +48,12 @@ or you can manually download it from GitHub and install it using the setup.py::
     $ cd MONET
     $ pip install setup.py
 
-.. [1] MONET plans to drop support for python 2.7 sometime in 2019. This
+.. note::
+   MONET plans to drop support for python 2.7 sometime in 2019. This
    means that new releases of xarray published after this date will only be
    installable on python 3+ environments, but older versions of xarray will
    always be available to python 2.7 users. For more information see the
    following references:
 
-      - `Python 3 Statement <http://www.python3statement.org/>`__
+      - `Python 3 Statement <https://python3statement.org/>`__
       - `Tips on porting to Python 3 <https://docs.python.org/3/howto/pyporting.html>`__

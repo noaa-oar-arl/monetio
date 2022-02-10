@@ -2,7 +2,7 @@
 Data is taken from the Climate Reference Network.  This is to expand validation
  of the NOAA ARL model validation leveraging inhouse datasets.
 
-    Data available at https://www.ncdc.noaa.gov/crn/qcdatasets.html
+    Data available at https://www.ncei.noaa.gov/access/crn/
 
     Here we use the hourly data.
 

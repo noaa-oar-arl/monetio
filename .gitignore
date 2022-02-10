@@ -3,6 +3,8 @@
 .DS_Store
 ._.DS_Store
 
+docs/api/
+
 
 # Default GitHub .gitignore for Python below:
 
