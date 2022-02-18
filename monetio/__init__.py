@@ -1,4 +1,4 @@
-from . import grids, models, obs, profile, sat
+from . import grids, models, obs, profile, sat, hdf
 
 __version__ = "0.1"
 
@@ -33,8 +33,13 @@ tolnet = profile.tolnet
 
 # sat
 goes = sat.goes
+modis_l2 = sat.modis_l2
 
-__all__ = ["models", "obs", "sat", "util", "grids", "profile", "__version__"]
+# hdf
+hdfio = hdf.hdfio
+
+
+__all__ = ["models", "obs", "sat", "hdf", "util", "grids", "profile", "__version__"]
 
 
 def rename_latlon(ds):
