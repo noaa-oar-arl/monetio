@@ -7,8 +7,7 @@ from collections import OrderedDict
 import numpy as np
 import xarray as xr
 
-sys.path.append('../../util')
-from hdfio import hdf_open, hdf_close, hdf_list, hdf_read
+from monetio.hdf.hdfio import hdf_open, hdf_close, hdf_list, hdf_read
 
 
 def read_dataset(fname, variable_dict):
