@@ -405,17 +405,17 @@ class ModelBin:
             return False, None, None
         pdate1 = datetime.datetime(
             century + int(hdata6["oyear"]),
-            int(hdata6["omonth"]),
-            int(hdata6["oday"]),
-            int(hdata6["ohr"]),
-            int(hdata6["omin"]),
+            int(hdata6["omonth"][0]),
+            int(hdata6["oday"][0]),
+            int(hdata6["ohr"][0]),
+            int(hdata6["omin"][0]),
         )
         pdate2 = datetime.datetime(
-            century + int(hdata7["oyear"]),
-            int(hdata7["omonth"]),
-            int(hdata7["oday"]),
-            int(hdata7["ohr"]),
-            int(hdata7["omin"]),
+            century + int(hdata7["oyear"][0]),
+            int(hdata7["omonth"][0]),
+            int(hdata7["oday"][0]),
+            int(hdata7["ohr"][0]),
+            int(hdata7["omin"][0]),
         )
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
@@ -594,8 +594,9 @@ class ModelBin:
                             concframe = self.parse_hdata8(hdata8a, hdata8b, pdate2)
                         else:
                             concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
+                        if pdate1 == pdate2 :   ax.contourf(x,y,z,transform=transform,cmap=cmap)
                         dset = xr.Dataset.from_dataframe(concframe)
-                        # if verbose:
+                        #if verbose:
                         #    print("Adding ", "Pollutant", pollutant, "Level", lev)
                         # if this is the first time through. create dataframe
                         # for first level and pollutant.
@@ -604,7 +605,10 @@ class ModelBin:
                         else:  # create dataframe for level and pollutant and
                             # then merge with main dataframe.
                             # self.dset = xr.concat([self.dset, dset],'levels')
+                            #self.dset = xr.merge([self.dset, dset],compat='override')
                             self.dset = xr.merge([self.dset, dset])
+                            #self.dset = xr.combine_by_coords([self.dset, dset])
+                            #self.dset = xr.merge([self.dset, dset], compat='override')
                         ii += 1
                 # END LOOP to go through each pollutant
             # END LOOP to go through each level
@@ -770,9 +774,10 @@ def combine_dataset(
         ylist.append(new)
         slist.append(sourcelist[jjj])
         jjj += 1
-
-    dtlist = list(set(dtlist))
-    dt = dtlist[0]
+    if len(dtlist)>0:
+        dtlist = list(set(dtlist))
+        dt = dtlist[0]
+    
     newhxr = xr.concat(ylist, "source")
     newhxr["source"] = slist
     # newhxr['ens'] = metlist
@@ -812,7 +817,6 @@ def reset_latlon_coords(hxr):
     hxr = hxr.drop("latitude")
     hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
     hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
-
     return hxr
 
 
