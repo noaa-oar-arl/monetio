@@ -156,7 +156,7 @@ open\_mfdataset. Lets grab the first nine days of July 2018.
 
 We can visualize these in a seaborn FacetGrid through xarray. For more
 information on FacetGrid in ``xarray`` plotting please look here:
-http://xarray.pydata.org/en/stable/plotting.html#faceting
+https://xarray.pydata.org/en/stable/user-guide/plotting.html#faceting
 
 .. code-block:: python
 

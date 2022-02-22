@@ -1,0 +1,25 @@
+name: monetio-dev
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.6
+  #
+  # core
+  - dask
+  - netcdf4
+  - numpy
+  - pandas
+  - s3fs
+  - scipy
+  - xarray
+  #
+  # optional
+  - joblib
+  - requests
+  #
+  # test
+  - pytest
+  #
+  - pip>=21.1
+  - pip:
+      - "-e ."

@@ -6,7 +6,7 @@ The first tutorial for MONET will load data from the AQS data,
 specifically the PAMS dataset, and show to reshape the dataframe and do
 a statistical analysis with different meteorological and composition
 data. For more examples, please see
-http://monet-arl.readthedocs.io/en/develop/. This will later be able to
+https://monet-arl.readthedocs.io/en/develop/. This will later be able to
 be found on the github page and readthedocs.
 
 We will first begin by importing monet and a few helper classes for

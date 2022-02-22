@@ -1,5 +1,5 @@
 Model and ObservatioN Evaluation Toolkit (MONET) Input Output (IO)
-=================================================
+==================================================================
 
 **MONETIO** is an open source project and Python package that aims to create a
 common platform for atmospheric composition data for weather and
@@ -39,13 +39,14 @@ Features include:
 .. toctree::
    :maxdepth: 4
    :caption: Getting Started
+   :hidden:
 
    why-monet
    installing
    observations
    models
    tutorial
-   monetio_wcoss
+   wcoss
 
 Get in touch
 ------------
@@ -62,7 +63,7 @@ Supported datasets
 
 * `HYSPLIT <https://www.ready.noaa.gov/HYSPLIT.php/>`_
 * `CMAQ <https://www.epa.gov/cmaq/>`_
-* `CAMx <http://www.camx.com/about/default.aspx/>`_
+* `CAMx <https://www.camx.com/about/>`_
 * FV3-CHEM (comming soon)
 * WRF-CHEM (comming soon)
 
@@ -71,20 +72,17 @@ Supported datasets
 * `AirNow <https://www.airnow.gov/>`_
 * `AQS <https://www.epa.gov/aqs/>`_
 * `AERONET <https://aeronet.gsfc.nasa.gov/>`_
-* `CRN <https://www.ncdc.noaa.gov/crn/>`_
+* `CRN <https://www.ncei.noaa.gov/access/crn/>`_
 * `TOLNet <https://www-air.larc.nasa.gov/missions/TOLNet/>`_
 * `CEMS <https://www.epa.gov/emc/emc-continuous-emission-monitoring-systems/>`_
 * `IMPROVE <http://vista.cira.colostate.edu/Improve/>`_
-* `ISH <https://www.ncdc.noaa.gov/isd/>`_
+* `ISH <https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database>`_
 
-
-
-
-
-**Help & Reference**
 
 .. toctree::
    :maxdepth: 10
-   :caption: Help * Reference
+   :caption: Help & Reference
+   :hidden:
 
    api
+   get-in-touch

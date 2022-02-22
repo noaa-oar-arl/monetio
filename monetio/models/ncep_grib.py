@@ -24,9 +24,10 @@ def open_dataset(fname):
         else:
             raise ValueError
     except ValueError:
-        print('''File format not recognized. Note that you must preprocess the
-              files with fv3grib2nc4 available on github. https://github.com/noaa-oar-arl/fv3grib2nc4'''
-              )
+        print(
+            """File format not recognized. Note that you must preprocess the
+              files with fv3grib2nc4 available on github. https://github.com/noaa-oar-arl/fv3grib2nc4"""
+        )
     return f
 
 
@@ -47,15 +48,16 @@ def open_mfdataset(fname):
     names, grib = _ensure_mfdataset_filenames(fname)
     try:
         if grib:
-            f = xr.open_mfdataset(names, concat_dim='time', engine='pynio')
+            f = xr.open_mfdataset(names, concat_dim="time", engine="pynio")
             f = _fix_grib2(f)
         else:
             raise ValueError
     except ValueError:
-        print('''File format not recognized. Note that you must preprocess the
+        print(
+            """File format not recognized. Note that you must preprocess the
              files with nemsio2nc4 or fv3grib2nc4 available on github. Do not
-             mix and match file types.  Ensure all are the same file format.'''
-              )
+             mix and match file types.  Ensure all are the same file format."""
+        )
     return f
 
 
@@ -74,13 +76,14 @@ def _ensure_mfdataset_filenames(fname):
 
     """
     from glob import glob
+
     from numpy import sort
-    import six
-    if isinstance(fname, six.string_types):
+
+    if isinstance(fname, str):
         names = sort(glob(fname))
     else:
         names = sort(fname)
-    gribs = [True for i in names if 'grb2' in i or 'grib2' in i]
+    gribs = [True for i in names if "grb2" in i or "grib2" in i]
     grib = False
     if len(gribs) >= 1:
         grib = True
@@ -105,8 +108,8 @@ def _rename_func(f, rename_dict):
     """
     final_dict = {}
     for i in f.data_vars.keys():
-        if 'midlayer' in i:
-            rename_dict[i] = i.split('midlayer')[0]
+        if "midlayer" in i:
+            rename_dict[i] = i.split("midlayer")[0]
     for i in rename_dict.keys():
         if i in f.data_vars.keys():
             final_dict[i] = rename_dict[i]
@@ -128,13 +131,14 @@ def _fix_grib2(f):
 
     """
     from numpy import meshgrid
+
     latitude = f.lat_0.values
     longitude = f.lon_0.values
-    f['latitude'] = range(len(f.latitude))
-    f['longitude'] = range(len(f.longitude))
-    f = f.rename({'latitude': 'y', 'longitude': 'x'})
+    f["latitude"] = range(len(f.latitude))
+    f["longitude"] = range(len(f.longitude))
+    f = f.rename({"latitude": "y", "longitude": "x"})
     lon, lat = meshgrid(longitude, latitude)
-    f['longitude'] = (('y', 'x'), lon)
-    f['latitude'] = (('y', 'x'), lat)
-    f = f.set_coords(['latitude', 'longitude'])
+    f["longitude"] = (("y", "x"), lon)
+    f["latitude"] = (("y", "x"), lat)
+    f = f.set_coords(["latitude", "longitude"])
     return f

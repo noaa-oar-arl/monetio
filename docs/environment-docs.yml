@@ -1,0 +1,28 @@
+name: monetio-docs
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.8
+  #
+  # core
+  - dask
+  - netcdf4
+  - numpy
+  - pandas
+  - s3fs
+  - scipy
+  - xarray
+  #
+  # optional
+  - joblib
+  - requests
+  #
+  # docs
+  - sphinx=4.*
+  - sphinx-autobuild
+  - sphinx_rtd_theme
+  #
+  - pip>=21.1
+  - pip:
+      - "-e ../"

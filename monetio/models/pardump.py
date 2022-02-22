@@ -1,9 +1,4 @@
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
-import datetime
-import numpy as np
-import pandas as pd
-
-
 """
 PGRMMR: Alice Crawford ORG: NOAA/ARL
 PYTHON 3
@@ -19,6 +14,10 @@ FUNCTIONS
 
 
 """
+import datetime
+
+import numpy as np
+import pandas as pd
 
 
 def open_dataset(fname, drange=None, century=2000, verbose=False):
@@ -40,9 +39,9 @@ def open_dataset(fname, drange=None, century=2000, verbose=False):
 
 class Pardump:
     """methods for writing and reading a pardump file.
-       __init__  initializes structure of binary file.
-       write   writes a pardump file.
-       read    reads a pardump file. returns a  pandas DataFrame.
+    __init__  initializes structure of binary file.
+    write   writes a pardump file.
+    read    reads a pardump file. returns a  pandas DataFrame.
     """
 
     def __init__(self, fname="PARINIT"):
@@ -51,7 +50,7 @@ class Pardump:
         ##'p' variables coorespond to padding that fortran adds.
         """
         self.fname = fname
-        #self.dtfmt = "%Y%m%d%H%M"
+        # self.dtfmt = "%Y%m%d%H%M"
 
         tp1 = ">f"  # big endian float.
         tp2 = ">i"  # big endian integer.
@@ -210,7 +209,7 @@ class Pardump:
 
                 # Only store data if it is in the daterange specified.
                 if testdate:
-                    #print("Adding data ", hdata, pdate)
+                    # print("Adding data ", hdata, pdate)
                     # otherwise get endian error message when create dataframe.
                     ndata = data.byteswap().newbyteorder()
                     par_frame = pd.DataFrame.from_records(ndata)  # create data frame
@@ -234,9 +233,7 @@ class Pardump:
                         parframe_all = par_frame.copy()
                     else:
                         parframe_all = pd.concat([parframe_all, par_frame], axis=0)
-                    par_frame = pd.concat(
-                        [par_frame], keys=[self.fname]
-                    )  # add a filename key
+                    par_frame = pd.concat([par_frame], keys=[self.fname])  # add a filename key
 
                 iii += 1
 
@@ -251,13 +248,7 @@ class Pardump:
                     #   if verbose:
                     #      print "Before date. Closing file"
                 if iii > imax:
-                    print(
-                        "Read pardump. Limited to"
-                        + str(imax)
-                        + "  iterations. Stopping"
-                    )
+                    print("Read pardump. Limited to" + str(imax) + "  iterations. Stopping")
                     testf = False
-        parframe_all = pd.concat(
-            [parframe_all], keys=[self.fname]
-        )  # add a filename key
+        parframe_all = pd.concat([parframe_all], keys=[self.fname])  # add a filename key
         return parframe_all

@@ -1,11 +1,6 @@
-""" HYPSLIT MODEL READER """
-import sys
-import datetime
-import pandas as pd
-import xarray as xr
-import numpy as np
-
 """
+HYPSLIT MODEL READER
+
 This code developed at the NOAA Air Resources Laboratory.
 Alice Crawford
 Allison Ring
@@ -34,6 +29,12 @@ Change log
 
 
 """
+import datetime
+import sys
+
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 
 def open_dataset(
@@ -43,7 +44,7 @@ def open_dataset(
     verbose=False,
     sample_time_stamp="start",
     check_grid=True,
-):
+    ):
     """Short summary.
 
     Parameters
@@ -186,9 +187,7 @@ class ModelBin:
         if readwrite == "r":
             if verbose:
                 print("reading " + filename)
-            self.dataflag = self.readfile(
-                filename, drange, verbose=verbose, century=century
-            )
+            self.dataflag = self.readfile(filename, drange, verbose=verbose, century=century)
 
     @staticmethod
     def define_struct():
@@ -327,10 +326,7 @@ class ModelBin:
            number of starting locations in file.
         """
         if len(hdata1["start_loc"]) != 1:
-            print(
-                "WARNING in ModelBin _readfile - number of starting locations "
-                "incorrect"
-            )
+            print("WARNING in ModelBin _readfile - number of starting locations " "incorrect")
             print(hdata1["start_loc"])
         # in python 3 np.fromfile reads the record into a list even if it is
         # just one number.
@@ -361,9 +357,7 @@ class ModelBin:
                     century = 2000
                 else:
                     century = 1900
-                print(
-                    "WARNING: Guessing Century for HYSPLIT concentration file", century
-                )
+                print("WARNING: Guessing Century for HYSPLIT concentration file", century)
             # add sourcedate which is datetime.datetime object
             sourcedate = datetime.datetime(
                 century + hdata2["r_year"][nnn],
@@ -570,9 +564,7 @@ class ModelBin:
                     # )
                     # if number of elements is nonzero then
                     if hdata8a["ne"] >= 1:
-                        self.atthash["Species ID"].append(
-                            hdata8a["poll"][0].decode("UTF-8")
-                        )
+                        self.atthash["Species ID"].append(hdata8a["poll"][0].decode("UTF-8"))
                         # get rec8 - indx and jndx
                         hdata8b = np.fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
                         # add sample start time to list of start times with
@@ -636,9 +628,7 @@ class ModelBin:
             self.dset = self.dset.reset_coords()
             self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
         if iii == 0 and verbose:
-            print(
-                "Warning: ModelBin class _readfile method: no data in the date range found"
-            )
+            print("Warning: ModelBin class _readfile method: no data in the date range found")
             return False
         return True
 
@@ -676,6 +666,7 @@ def combine_dataset(
     Files need to have the same concentration grid defined.
     """
     iii = 0
+    mlat_p = mlon_p = None
     ylist = []
     dtlist = []
     splist = []
@@ -721,7 +712,7 @@ def combine_dataset(
                 )
             try:
                 mlat, mlon = getlatlon(hxr)
-            except:
+            except Exception:
                 print("WARNING Cannot open ")
                 print(fname[0])
                 print(century)
@@ -968,8 +959,7 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
 
 
 def hysp_heights(
-    dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None
-):
+    dset, threshold, mult=1, height_mult=1/1000.0, mass_load=True, species=None):
     """Calculate top-height from HYSPLIT xarray
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset

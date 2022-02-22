@@ -1,5 +1,4 @@
 import os
-from builtins import object
 
 import pandas as pd
 import xarray as xr
@@ -12,15 +11,17 @@ def open_dataset(fname):
 
 def open_mfdataset(fname):
     from glob import glob
+
     from numpy import sort
+
     t = CL51()
     dsets = []
     for i in sort(glob(fname)):
         dsets.append(t.add_data(i))
-    return xr.concat(dsets, dim='time')
+    return xr.concat(dsets, dim="time")
 
 
-class CL51(object):
+class CL51:
     """Short summary.
 
     Attributes
@@ -39,10 +40,9 @@ class CL51(object):
     """
 
     def __init__(self):
-        self.objtype = 'TOLNET'
+        self.objtype = "TOLNET"
         self.cwd = os.getcwd()
-        self.dates = pd.date_range(
-            start='2017-09-25', end='2017-09-26', freq='H')
+        self.dates = pd.date_range(start="2017-09-25", end="2017-09-26", freq="H")
         self.dset = None
         self.daily = False
 
@@ -61,9 +61,10 @@ class CL51(object):
 
         """
         from h5py import File
+
         f = File(fname)
-        atts = f['Instrument_Attributes']
-        data = f['DATA']
+        atts = f["Instrument_Attributes"]
+        data = f["DATA"]
         self.dset = self.make_xarray_dataset(data, atts)
         return self.dset
 
@@ -85,26 +86,26 @@ class CL51(object):
 
         """
         from numpy import array, ndarray
+
         # altitude variables
-        alt = data['Altitude_m'][:].squeeze()
+        alt = data["Altitude_m"][:].squeeze()
 
         # time variables
-        time = pd.to_datetime(data['UnixTime_UTC'][:], unit='s')
+        time = pd.to_datetime(data["UnixTime_UTC"][:], unit="s")
         # Back Scatter
-        bsc = data['Profile_bsc'][:]
+        bsc = data["Profile_bsc"][:]
 
         dataset = xr.Dataset()
-        dataset['z'] = (('z'), alt)
-        dataset['time'] = (('time'), time)
-        dataset['x'] = (('x'), [0])
-        dataset['y'] = (('y'), [0])
+        dataset["z"] = (("z"), alt)
+        dataset["time"] = (("time"), time)
+        dataset["x"] = (("x"), [0])
+        dataset["y"] = (("y"), [0])
 
-        dataset['bsc'] = (('time', 'z'), bsc)
+        dataset["bsc"] = (("time", "z"), bsc)
 
         for i in list(atts.attrs.keys()):
             # print(type(atts.attrs[i]))
-            if isinstance(atts.attrs[i], list) or isinstance(
-                    atts.attrs[i], ndarray):
+            if isinstance(atts.attrs[i], list) or isinstance(atts.attrs[i], ndarray):
                 # print('here')
                 dataset.attrs[i] = atts.attrs[i][0]
             else:
@@ -116,8 +117,6 @@ class CL51(object):
         a = dataset.Location_lon.astype(float)
         longitude = float(a)
 
-        dataset.coords['latitude'] = (('y', 'x'), array(latitude).reshape(
-            1, 1))
-        dataset.coords['longitude'] = (('y', 'x'), array(longitude).reshape(
-            1, 1))
+        dataset.coords["latitude"] = (("y", "x"), array(latitude).reshape(1, 1))
+        dataset.coords["longitude"] = (("y", "x"), array(longitude).reshape(1, 1))
         return dataset
