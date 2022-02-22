@@ -404,14 +404,14 @@ class ModelBin:
         if not hdata6:
             return False, None, None
         pdate1 = datetime.datetime(
-            century + int(hdata6["oyear"]),
+            century + int(hdata6["oyear"][0]),
             int(hdata6["omonth"][0]),
             int(hdata6["oday"][0]),
             int(hdata6["ohr"][0]),
             int(hdata6["omin"][0]),
         )
         pdate2 = datetime.datetime(
-            century + int(hdata7["oyear"][0]),
+            centruy + int(hdata7["oyear"][0]),
             int(hdata7["omonth"][0]),
             int(hdata7["oday"][0]),
             int(hdata7["ohr"][0]),
