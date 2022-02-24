@@ -77,6 +77,7 @@ def test_add_data_one_site():
     df = aeronet.add_data(dates, siteid="SERC")
     assert df.index.size > 0
     assert (df.siteid == "SERC").all()
+    assert df.attrs["info"].startswith("AERONET Data Download")
 
 
 def test_add_data_inv():
@@ -91,6 +92,24 @@ def test_add_data_inv():
     assert df.retrieval_measurement_scan_type.eq("Hybrid").all()
 
     # TODO: find a time with Level 2.0 retrievals
+
+
+@pytest.mark.parametrize("product", aeronet.AERONET._valid_prod_noninv)
+def test_add_data_all_noninv(product):
+    dates = pd.date_range("2021/08/01", "2021/08/02")
+    site = "Mauna_Loa"
+
+    df = aeronet.add_data(dates, product=product, siteid=site)
+    assert df.index.size > 0
+
+
+def test_add_data_valid_empty_query():
+    dates = pd.date_range("2021/08/01", "2021/08/02")
+    site = "Tucson"
+
+    with pytest.raises(Exception, match="loading from URL .+ failed") as ei:
+        aeronet.add_data(dates, product="AOD20", siteid=site)
+    assert "valid query but no data found" in str(ei.value.__cause__)
 
 
 # [21.1,-131.6686,53.04,-58.775]
@@ -110,6 +129,7 @@ def test_load_local():
     df = aeronet.add_local(fp)
     assert df.index.size > 0
     assert (df.siteid == "Mauna_Loa").all(0)
+    assert df.attrs["info"].startswith("AERONET Data Download")
 
 
 def test_load_local_inv():
@@ -122,3 +142,13 @@ def test_load_local_inv():
     df = aeronet.add_local(fp)
     assert df.index.size > 0
     assert (df.siteid == "Cart_Site").all(0)
+
+
+def test_add_data_lunar():
+    dates = pd.date_range("2021/08/01", "2021/08/02")
+    df = aeronet.add_data(dates, lunar=True, daily=True)  # only daily-average data at this time
+    assert df.index.size > 0
+
+    dates = pd.date_range("2022/01/20", "2022/01/21")
+    df = aeronet.add_data(dates, lunar=True, siteid="Tucson")
+    assert df.index.size > 0
