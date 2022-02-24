@@ -9,4 +9,7 @@ It was originally part of the Model and ObservatioN Evaluation Tool ([MONET](htt
 
 Please refer to <https://monetio.readthedocs.io> for the documentation.
 
+Check [the `develop` branch](https://github.com/noaa-oar-arl/monetio/tree/develop) for the most recent updates.
+In most cases, pull requests should target this branch.
+
 See [`CITATION.cff`](./CITATION.cff) for citation info or use [the GitHub support](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files).

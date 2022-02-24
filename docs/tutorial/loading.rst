@@ -150,7 +150,8 @@ Loading Specfic Network
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Sometimes you may want to load a specific network that is available in the AQS data
-files.  For instance, lets load data from the Chemical Speciation Network (CSN; https://www3.epa.gov/ttnamti1/speciepg.html).
+files.  For instance, lets load data from the Chemical Speciation Network (CSN;
+https://www.epa.gov/amtic/chemical-speciation-network-csn).
 As of writting this tutorial we will load the 2017 data as it is complete.
 
 .. code::   python
@@ -162,12 +163,12 @@ Available Networks
 ^^^^^^^^^^^^^^^^^^
 
 * NCORE (https://www3.epa.gov/ttn/amtic/ncore.html)
-* CSN (https://www3.epa.gov/ttnamti1/speciepg.html)
+* CSN (https://www.epa.gov/amtic/chemical-speciation-network-csn)
 * CASTNET (https://www.epa.gov/castnet)
 * IMPROVE (http://vista.cira.colostate.edu/Improve/)
-* PAMS (https://www3.epa.gov/ttnamti1/pamsmain.html)
+* PAMS (https://www.epa.gov/amtic/photochemical-assessment-monitoring-stations-pams)
 * SCHOOL AIR TOXICS (https://www3.epa.gov/ttnamti1/airtoxschool.html)
-* NEAR ROAD (NO2; https://www3.epa.gov/ttn/amtic/nearroad.html)
+* NEAR ROAD (NO2; https://www.epa.gov/amtic/no2-monitoring-near-road-monitoring)
 * NATTS (https://www3.epa.gov/ttnamti1/natts.html)
 
 AERONET

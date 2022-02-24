@@ -24,7 +24,14 @@ def add_local(
     detect_dust=False,
     interp_to_aod_values=None,
 ):
-    """Read a local file downloaded from the AERONET Web Service."""
+    """Read a local file downloaded from the AERONET Web Service.
+
+    Parameters
+    ----------
+    fname
+        Suitable input for :func:`pandas.read_csv`, e.g. a relative path as a string
+        or a :term:`path-like <path-like object>`.
+    """
     a = AERONET()
 
     # Detect whether inv should be left as None or not
@@ -90,10 +97,17 @@ def add_data(
         where ``lat1, lon1`` is the lower-left corner
         and ``lat2, lon2`` is the upper-right corner.
     siteid : str
-        <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>
+        Site identifier string.
 
-        Note that `siteid` takes precendence over `latlonbox`
-        if both are specified.
+        See https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt for all valid site IDs.
+
+        .. warning::
+           Whether you will obtain data depends on the sites active
+           during the `dates` time period.
+
+        .. note::
+           `siteid` takes precendence over `latlonbox`
+           if both are specified.
     daily : bool
         Load daily averaged data.
     lunar : bool
@@ -163,8 +177,8 @@ def add_data(
 
 @lru_cache(1)
 def get_valid_sites():
-    """Load the AERONET site list as a DataFrame,
-    reading from <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>.
+    """Load the AERONET site list as a :class:`~pandas.DataFrame`,
+    reading from https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt.
     """
     from urllib.error import URLError
 

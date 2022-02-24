@@ -27,7 +27,7 @@ First we will set the path to the data files
 
 This will return an :py:class:`~xarray.Dataset`.
 
-.. code:: python
+.. code:: text
 
   print(c)
   <xarray.Dataset>
