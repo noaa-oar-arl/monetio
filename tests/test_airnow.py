@@ -3,6 +3,11 @@ import pandas as pd
 from monetio import airnow
 
 
+def _check_df(df):
+    assert df.index.size >= 1
+    assert not any(col in df.columns for col in ["index", "level_0"])
+
+
 def test_build_urls():
     dates = pd.date_range("2021/01/01", "2021/01/05", freq="H")
 
@@ -22,12 +27,12 @@ def test_add_data_hourly():
 
     # Wide format (default)
     df = airnow.add_data(dates)
-    assert df.index.size > 1
+    _check_df(df)
     assert all(col in df.columns for col in ["OZONE", "OZONE_unit"])
 
     # Non-wide
     df = airnow.add_data(dates, wide_fmt=False)
-    assert df.index.size > 1
+    _check_df(df)
     assert all(col in df.columns for col in ["variable", "units", "obs"])
 
 
@@ -36,7 +41,7 @@ def test_add_data_daily():
 
     # Wide format (default)
     df = airnow.add_data(dates, daily=True)
-    assert df.index.size > 1
+    _check_df(df)
     assert all(
         col in df.columns for col in ["OZONE-1HR", "OZONE-8HR", "OZONE-1HR_unit", "OZONE-8HR_unit"]
     )
@@ -44,6 +49,6 @@ def test_add_data_daily():
 
     # Non-wide
     df = airnow.add_data(dates, daily=True, wide_fmt=False)
-    assert df.index.size > 1
+    _check_df(df)
     assert all(col in df.columns for col in ["variable", "units", "obs"])
     assert df.time.unique().size == 3

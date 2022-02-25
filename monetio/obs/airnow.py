@@ -211,7 +211,7 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
 
     df = filter_bad_values(df)
 
-    return df.reset_index()
+    return df.reset_index(drop=True)
 
 
 def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
@@ -246,11 +246,14 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
 
     df = aggregate_files(dates=dates, download=download, n_procs=n_procs, daily=daily)
     if wide_fmt:
-        df = long_to_wide(df)
-        return df.drop_duplicates(subset=["time", "latitude", "longitude", "siteid"]).reset_index()
+        df = (
+            long_to_wide(df)
+            .drop_duplicates(subset=["time", "latitude", "longitude", "siteid"])
+            .reset_index(drop=True)
+        )
         # TODO: shouldn't be any such dups (test)
-    else:
-        return df
+
+    return df
 
 
 def filter_bad_values(df, *, max=3000):
