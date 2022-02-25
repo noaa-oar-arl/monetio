@@ -38,31 +38,39 @@ savecols = [
 ]
 
 
-def build_urls(dates):
-    """Short summary.
+def build_urls(dates, *, daily=False):
+    """Construct AirNow file URLs for `dates`.
 
     Returns
     -------
-    helper function to build urls
-
+    urls, fnames : pandas.Series
     """
+    dates = pd.DatetimeIndex(dates)
+    if daily:
+        dates = dates.floor("D").unique()
+    else:  # hourly
+        dates = dates.floor("H").unique()
 
-    furls = []
+    urls = []
     fnames = []
     print("Building AIRNOW URLs...")
-    # 2017/20170131/HourlyData_2017012408.dat
-    url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"
-    for i in dates:
-        f = url + i.strftime("%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat")
-        fname = i.strftime("HourlyData_%Y%m%d%H.dat")
-        furls.append(f)
+    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: other S3 servers?
+    for dt in dates:
+        if daily:
+            fname = "daily_data.dat"
+        else:
+            fname = dt.strftime(r"HourlyData_%Y%m%d%H.dat")
+        # 2017/20170131/HourlyData_2017012408.dat
+        url = base_url + dt.strftime(r"%Y/%Y%m%d/") + fname
+        urls.append(url)
         fnames.append(fname)
     # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
+    # or https://files.airnowtech.org/?prefix=airnow/2017/20170108/
 
-    # files needed for comparison
-    url = pd.Series(furls, index=None)
+    # Note: files needed for comparison
+    urls = pd.Series(urls, index=None)
     fnames = pd.Series(fnames, index=None)
-    return url, fnames
+    return urls, fnames
 
 
 def read_csv(fn):
@@ -79,18 +87,50 @@ def read_csv(fn):
         Description of returned object.
 
     """
+    hourly_cols = [
+        "date",
+        "time",
+        "siteid",
+        "site",
+        "utcoffset",
+        "variable",
+        "units",
+        "obs",
+        "source",
+    ]
+    daily_cols = ["date", "siteid", "site", "variable", "units", "obs", "hours", "source"]
     try:
         dft = pd.read_csv(
-            fn, delimiter="|", header=None, error_bad_lines=False, encoding="ISO-8859-1"
-        )
-        cols = ["date", "time", "siteid", "site", "utcoffset", "variable", "units", "obs", "source"]
-        dft.columns = cols
+            fn,
+            delimiter="|",
+            header=None,
+            error_bad_lines=False,
+            warn_bad_lines=True,
+            encoding="ISO-8859-1",
+        )  # TODO: `error_bad_lines` is deprecated from v1.3
     except Exception:
-        cols = ["date", "time", "siteid", "site", "utcoffset", "variable", "units", "obs", "source"]
-        dft = pd.DataFrame(columns=cols)
+        dft = pd.DataFrame(columns=hourly_cols)
+        # TODO: warning message or error instead?
+        # TODO: or hourly/daily option (to return proper empty df)?
+
+    # Assign column names
+    ncols = dft.columns.size
+    daily = False
+    if ncols == len(hourly_cols):
+        dft.columns = hourly_cols
+    elif ncols == len(hourly_cols) - 1:  # daily data
+        daily = True
+        dft.columns = daily_cols
+    else:
+        raise Exception(f"unexpected number of columns: {ncols}")
+
     dft["obs"] = dft.obs.astype(float)
+    # ^ TODO: could use smaller float type, provided precision is low
     dft["siteid"] = dft.siteid.str.zfill(9)
-    dft["utcoffset"] = dft.utcoffset.astype(int)
+    # ^ TODO: does nothing; and some site IDs are longer (12) or start with letters
+    if not daily:
+        dft["utcoffset"] = dft.utcoffset.astype(int)  # FIXME: some sites have fractional UTC offset
+
     return dft
 
 
@@ -116,30 +156,37 @@ def retrieve(url, fname):
         print(url)
         print("\n")
         r = requests.get(url)
-        open(fname, "wb").write(r.content)
+        r.raise_for_status()
+        with open(fname, "wb") as f:
+            f.write(r.content)
     else:
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, download=False, n_procs=1):
+def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
     """Short summary.
 
     Parameters
     ----------
-    download : type
-        Description of parameter `download` (the default is False).
+    dates : array-like of datetime-like
+        Passed to :func:`build_urls`.
+    download : bool, optional
+        Whether to first download the AirNow files to the local directory
+        before loading.
+    n_procs : int
+        For Dask.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
+        Of the combined AirNow hourly files.
     """
     import dask
     import dask.dataframe as dd
 
     print("Aggregating AIRNOW files...")
-    urls, fnames = build_urls(dates)
+
+    urls, fnames = build_urls(dates, daily=daily)
     if download:
         for url, fname in zip(urls, fnames):
             retrieve(url, fname)
@@ -147,58 +194,88 @@ def aggregate_files(dates=dates, download=False, n_procs=1):
     else:
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     dff = dd.from_delayed(dfs)
-    df = dff.compute(num_workers=n_procs)
-    df["time"] = pd.to_datetime(df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True)
+    df = dff.compute(num_workers=n_procs).reset_index()
+
+    # Datetime conversion
+    if daily:
+        df["time"] = pd.to_datetime(df.date, format=r"%m/%d/%y", exact=True)
+    else:
+        df["time"] = pd.to_datetime(
+            df.date + " " + df.time, format=r"%m/%d/%y %H:%M", exact=True
+        )  # TODO: move to read_csv? (and some of this other stuff too?)
+        df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
     df.drop(["date"], axis=1, inplace=True)
-    df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
+
     print("    Adding in Meta-data")
     df = get_station_locations(df)
-    df = df[savecols]
+    if daily:
+        df = df[[col for col in savecols if col not in {"time_local", "utcoffset"}]]
+    else:
+        df = df[savecols]
     df.drop_duplicates(inplace=True)
+
     df = filter_bad_values(df)
-    return df
+
+    return df.reset_index(drop=True)
 
 
-def add_data(dates, download=False, wide_fmt=True, n_procs=1):
-    """Short summary.
+def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
+    """Retrieve and load AirNow data as a DataFrame.
+
+    Note: to obtain full hourly data you must pass all desired hours
+    in `dates`.
 
     Parameters
     ----------
-    dates : type
-        Description of parameter `dates`.
-    download : type
-        Description of parameter `download` (the default is False).
+    dates : array-like of datetime-like
+        Passed to :func:`build_urls`.
+    download : bool, optional
+        Whether to first download the AirNow files to the local directory.
+    wide_fmt : bool
+    n_procs : int
+        For Dask.
+    daily : bool
+        Whether to get daily data only
+        (only unique days in `dates` will be used).
+
+        Info: https://files.airnowtech.org/airnow/docs/DailyDataFactSheet.pdf
+
+        Note: ``daily_data_v2.dat`` (includes AQI) is not available for all times,
+        so we use ``daily_data.dat``.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
     """
     from ..util import long_to_wide
 
-    df = aggregate_files(dates=dates, download=download, n_procs=n_procs)
+    df = aggregate_files(dates=dates, download=download, n_procs=n_procs, daily=daily)
     if wide_fmt:
-        df = long_to_wide(df)
-        return df.drop_duplicates(subset=["time", "latitude", "longitude", "siteid"])
-    else:
-        return df
+        df = (
+            long_to_wide(df)
+            .drop_duplicates(subset=["time", "latitude", "longitude", "siteid"])
+            .reset_index(drop=True)
+        )
+        # TODO: shouldn't be any such dups (test)
+
     return df
 
 
-def filter_bad_values(df):
-    """Short summary.
+def filter_bad_values(df, *, max=3000):
+    """Mark ``obs`` values less than 0 or greater than `max` as NaN.
+
+    Parameters
+    ----------
+    max : int
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
     """
     from numpy import NaN
 
-    df.loc[(df.obs > 3000) | (df.obs < 0), "obs"] = NaN
-    return df
+    df.loc[(df.obs > max) | (df.obs < 0), "obs"] = NaN
+    return df  # TODO: dropna here (since it is called `filter_bad_values`)?
 
 
 def daterange(**kwargs):
@@ -220,7 +297,7 @@ def daterange(**kwargs):
     return pd.date_range(**kwargs)
 
 
-def get_station_locations(df):
+def get_station_locations(df):  # TODO: better name might be `add_station_locations`
     """Short summary.
 
     Returns
@@ -232,7 +309,9 @@ def get_station_locations(df):
     from .epa_util import read_monitor_file
 
     monitor_df = read_monitor_file(airnow=True)
-    df = pd.merge(df, monitor_df, on="siteid")  # , how='left')
+    df = df.merge(monitor_df.drop_duplicates(), on="siteid", how="left", copy=False)
+    # TODO: maybe eliminate need for drop dup here
+
     return df
 
 
