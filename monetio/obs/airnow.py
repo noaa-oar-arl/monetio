@@ -38,31 +38,39 @@ savecols = [
 ]
 
 
-def build_urls(dates):
-    """Short summary.
+def build_urls(dates, *, daily=False):
+    """Construct AirNow file URLs for `dates`.
 
     Returns
     -------
-    helper function to build urls
-
+    urls, fnames : pandas.Series
     """
+    dates = pd.DatetimeIndex(dates)
+    if daily:
+        dates = dates.floor("D").unique()
+    else:  # hourly
+        dates = dates.floor("H").unique()
 
-    furls = []
+    urls = []
     fnames = []
     print("Building AIRNOW URLs...")
-    # 2017/20170131/HourlyData_2017012408.dat
-    url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: other S3 servers?
-    for i in dates:
-        f = url + i.strftime("%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat")
-        fname = i.strftime("HourlyData_%Y%m%d%H.dat")
-        furls.append(f)
+    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: other S3 servers?
+    for dt in dates:
+        if daily:
+            fname = "daily_data.dat"
+        else:
+            fname = dt.strftime(r"HourlyData_%Y%m%d%H.dat")
+        # 2017/20170131/HourlyData_2017012408.dat
+        url = base_url + dt.strftime(r"%Y/%Y%m%d/") + fname
+        urls.append(url)
         fnames.append(fname)
     # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
+    # or https://files.airnowtech.org/?prefix=airnow/2017/20170108/
 
-    # files needed for comparison
-    url = pd.Series(furls, index=None)
+    # Note: files needed for comparison
+    urls = pd.Series(urls, index=None)
     fnames = pd.Series(fnames, index=None)
-    return url, fnames
+    return urls, fnames
 
 
 def read_csv(fn):
@@ -79,22 +87,45 @@ def read_csv(fn):
         Description of returned object.
 
     """
+    hourly_cols = [
+        "date",
+        "time",
+        "siteid",
+        "site",
+        "utcoffset",
+        "variable",
+        "units",
+        "obs",
+        "source",
+    ]
+    daily_cols = ["date", "siteid", "site", "variable", "units", "obs", "hours", "source"]
     try:
         dft = pd.read_csv(
             fn, delimiter="|", header=None, error_bad_lines=False, encoding="ISO-8859-1"
         )
-        cols = ["date", "time", "siteid", "site", "utcoffset", "variable", "units", "obs", "source"]
-        dft.columns = cols
     except Exception:
-        cols = ["date", "time", "siteid", "site", "utcoffset", "variable", "units", "obs", "source"]
-        dft = pd.DataFrame(columns=cols)
-    dft["obs"] = dft.obs.astype(
-        float
-    )  # TODO: could use smaller float type, provided precision is low
-    dft["siteid"] = dft.siteid.str.zfill(
-        9
-    )  # TODO: does nothing; and some site IDs are longer (12) or start with letters
-    dft["utcoffset"] = dft.utcoffset.astype(int)  # FIXME: some sites have fractional UTC offset
+        dft = pd.DataFrame(columns=hourly_cols)
+        # TODO: warning message or error instead?
+        # TODO: or hourly/daily option (to return proper empty df)?
+
+    # Assign column names
+    ncols = dft.columns.size
+    daily = False
+    if ncols == len(hourly_cols):
+        dft.columns = hourly_cols
+    elif ncols == len(hourly_cols) - 1:  # daily data
+        daily = True
+        dft.columns = daily_cols
+    else:
+        raise Exception(f"unexpected number of columns: {ncols}")
+
+    dft["obs"] = dft.obs.astype(float)
+    # ^ TODO: could use smaller float type, provided precision is low
+    dft["siteid"] = dft.siteid.str.zfill(9)
+    # ^ TODO: does nothing; and some site IDs are longer (12) or start with letters
+    if not daily:
+        dft["utcoffset"] = dft.utcoffset.astype(int)  # FIXME: some sites have fractional UTC offset
+
     return dft
 
 
@@ -127,7 +158,7 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, *, download=False, n_procs=1):
+def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
     """Short summary.
 
     Parameters
@@ -149,7 +180,8 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1):
     import dask.dataframe as dd
 
     print("Aggregating AIRNOW files...")
-    urls, fnames = build_urls(dates)
+
+    urls, fnames = build_urls(dates, daily=daily)
     if download:
         for url, fname in zip(urls, fnames):
             retrieve(url, fname)
@@ -158,21 +190,35 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1):
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     dff = dd.from_delayed(dfs)
     df = dff.compute(num_workers=n_procs).reset_index()
-    df["time"] = pd.to_datetime(
-        df.date + " " + df.time, format="%m/%d/%y %H:%M", exact=True
-    )  # TODO: move to read_csv? (and some of this other stuff too?)
+
+    # Datetime conversion
+    if daily:
+        df["time"] = pd.to_datetime(df.date, format=r"%m/%d/%y", exact=True)
+    else:
+        df["time"] = pd.to_datetime(
+            df.date + " " + df.time, format=r"%m/%d/%y %H:%M", exact=True
+        )  # TODO: move to read_csv? (and some of this other stuff too?)
+        df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
     df.drop(["date"], axis=1, inplace=True)
-    df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
+
     print("    Adding in Meta-data")
     df = get_station_locations(df)
-    df = df[savecols]
+    if daily:
+        df = df[[col for col in savecols if col not in {"time_local", "utcoffset"}]]
+    else:
+        df = df[savecols]
     df.drop_duplicates(inplace=True)
+
     df = filter_bad_values(df)
+
     return df.reset_index()
 
 
-def add_data(dates, *, download=False, wide_fmt=True, n_procs=1):
-    """Short summary.
+def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
+    """Retrieve and load AirNow data as a DataFrame.
+
+    Note: to obtain full hourly data you must pass all desired hours
+    in `dates`.
 
     Parameters
     ----------
@@ -183,6 +229,14 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1):
     wide_fmt : bool
     n_procs : int
         For Dask.
+    daily : bool
+        Whether to get daily data only
+        (only unique days in `dates` will be used).
+
+        Info: https://files.airnowtech.org/airnow/docs/DailyDataFactSheet.pdf
+
+        Note: ``daily_data_v2.dat`` (includes AQI) is not available for all times,
+        so we use ``daily_data.dat``.
 
     Returns
     -------
@@ -190,7 +244,7 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1):
     """
     from ..util import long_to_wide
 
-    df = aggregate_files(dates=dates, download=download, n_procs=n_procs)
+    df = aggregate_files(dates=dates, download=download, n_procs=n_procs, daily=daily)
     if wide_fmt:
         df = long_to_wide(df)
         return df.drop_duplicates(subset=["time", "latitude", "longitude", "siteid"]).reset_index()
