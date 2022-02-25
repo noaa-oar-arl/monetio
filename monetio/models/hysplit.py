@@ -681,13 +681,13 @@ def combine_dataset(
         else:
             blist[val[1]] = [(val[0], val[2])]
 
-    #mgrid = []
+    # mgrid = []
     # first loop go through to get expanded dataset.
     xlist = []
     sourcelist = []
     enslist = []
     for key in blist:
-        #fname = val[0]
+        # fname = val[0]
         xsublist = []
         for fname in blist[key]:
             if drange:
@@ -790,6 +790,7 @@ def combine_dataset(
         rval = newhxr
     return rval
 
+
 # This function seems not useful.
 # def get_even_latlongrid(dset, xlim, ylim):
 #    xindx = np.arange(xlim[0], xlim[1] + 1)
@@ -889,13 +890,14 @@ def get_latlongrid(dset, xindx, yindx):
     return mgrid
 
 
-#def get_index_fromgrid(dset):
+# def get_index_fromgrid(dset):
 #    llcrnr_lat = dset.attrs["llcrnr latitude"]
 #    llcrnr_lon = dset.attrs["llcrnr longitude"]
 #    nlat = dset.attrs["Number Lat Points"]
 #    nlon = dset.attrs["Number Lon Points"]
 #    dlat = dset.attrs["Latitude Spacing"]
 #    dlon = dset.attrs["Longitude Spacing"]
+
 
 def getlatlon(dset):
     """
@@ -947,8 +949,7 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     return total_aml
 
 
-def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0, 
-                 mass_load=True, species=None):
+def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0, mass_load=True, species=None):
     """Calculate top-height from HYSPLIT xarray
     Input: xarray dataset output by open_dataset OR
            xarray data array output by combine_dataset
@@ -977,7 +978,7 @@ def hysp_heights(dset, threshold, mult=1, height_mult=1 / 1000.0,
     return top_height
 
 
-#def calc_total_mass(dset):
+# def calc_total_mass(dset):
 #    return -1
 
 
