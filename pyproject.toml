@@ -12,6 +12,7 @@ line_length = 100
 
 [tool.pytest.ini_options]
 filterwarnings = [
-   "ignore:The error_bad_lines argument has been deprecated:FutureWarning::",
-   "ignore:The warn_bad_lines argument has been deprecated:FutureWarning::",
+    "ignore:The distutils package is deprecated:DeprecationWarning:joblib.backports",
+    "ignore:The error_bad_lines argument has been deprecated:FutureWarning::",
+    "ignore:The warn_bad_lines argument has been deprecated:FutureWarning::",
 ]
