@@ -102,7 +102,7 @@ def read_csv(fn):
     try:
         dft = pd.read_csv(
             fn, delimiter="|", header=None, error_bad_lines=False, encoding="ISO-8859-1"
-        )
+        )  # TODO: `error_bad_lines` is deprecated
     except Exception:
         dft = pd.DataFrame(columns=hourly_cols)
         # TODO: warning message or error instead?
