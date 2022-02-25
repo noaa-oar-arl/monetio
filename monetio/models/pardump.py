@@ -189,7 +189,11 @@ class Pardump:
                 else:
                     year = hdata["year"]
                 pdate = datetime.datetime(
-                    int(year), int(hdata["month"]), int(hdata["day"]), int(hdata["hour"]), int(hdata["minute"])
+                    int(year),
+                    int(hdata["month"]),
+                    int(hdata["day"]),
+                    int(hdata["hour"]),
+                    int(hdata["minute"]),
                 )
                 # if drange==[]:
                 #   drange = [pdate, pdate]
