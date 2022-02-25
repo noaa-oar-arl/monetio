@@ -1,3 +1,5 @@
+![MONETIO logo](https://raw.githubusercontent.com/noaa-oar-arl/monetio/stable/docs/_static/MONETIO%20logo.png)
+
 ## The Model and ObservatioN Evaluation Tool I/O package
 
 [![CI status](https://github.com/noaa-oar-arl/monetio/actions/workflows/ci.yml/badge.svg)](https://github.com/noaa-oar-arl/monetio/actions/workflows/ci.yml)
