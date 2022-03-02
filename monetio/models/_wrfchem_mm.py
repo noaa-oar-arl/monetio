@@ -1,4 +1,4 @@
-""" RAPchem File reader """
+""" WRF-Chem File reader """
 import xarray as xr
 from numpy import array, concatenate
 from pandas import Series, to_datetime
