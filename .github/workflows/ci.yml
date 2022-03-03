@@ -51,6 +51,7 @@ jobs:
   docs:
     name: Check docs build
     runs-on: ubuntu-latest
+    if: github.repository == 'noaa-oar-arl/monetio'
     defaults:
       run:
         shell: bash -l {0}
