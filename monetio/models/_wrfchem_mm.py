@@ -1,8 +1,6 @@
 """ WRF-Chem File reader """
 import xarray as xr
-from netCDF4 import Dataset
 from pandas import Series
-from wrf import ALL_TIMES, extract_global_attrs, getvar
 
 
 def can_do(index):
@@ -52,6 +50,9 @@ def open_mfdataset(
 
 
     """
+    from netCDF4 import Dataset
+    from wrf import ALL_TIMES, extract_global_attrs, getvar
+
     # Get dictionary of summed species for the mechanism of choice.
     dict_sum = dict_species_sums(mech=mech)
 

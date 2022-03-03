@@ -1,7 +1,6 @@
 """ CESM File Reader """
 import xarray as xr
 from numpy import meshgrid
-from pyresample.utils import wrap_longitudes
 
 
 def open_mfdataset(
@@ -33,6 +32,8 @@ def open_mfdataset(
 
 
     """
+    from pyresample.utils import wrap_longitudes
+
     # check that the files are netcdf format
     names, netcdf = _ensure_mfdataset_filenames(fname)
 
