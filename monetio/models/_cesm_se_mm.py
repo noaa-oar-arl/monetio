@@ -2,15 +2,17 @@
 import xarray as xr
 
 
-def open_mfdataset(fname,
-                   earth_radius=6370000,
-                   convert_to_ppb=True,
-                   var_list = ['O3','NO','NO2','lat','lon'],
-                   scrip_file = '',
-                   **kwargs):
+def open_mfdataset(
+    fname,
+    earth_radius=6370000,
+    convert_to_ppb=True,
+    var_list=["O3", "NO", "NO2", "lat", "lon"],
+    scrip_file="",
+    **kwargs
+):
     """Method to open multiple (or single) CESM SE netcdf files.
        This method extends the xarray.open_mfdataset functionality
-       It is the main method called by the driver. Other functions defined 
+       It is the main method called by the driver. Other functions defined
        in this file are internally called by open_mfdataset and are preceeded
        by an underscore (e.g. _get_latlon).
 
@@ -38,7 +40,7 @@ def open_mfdataset(fname,
     """
     # check that the files are netcdf format
     names, netcdf = _ensure_mfdataset_filenames(fname)
-    
+
     # open the dataset using xarray
     try:
         if netcdf:
@@ -46,75 +48,72 @@ def open_mfdataset(fname,
         else:
             raise ValueError
     except ValueError:
-        print('''File format not recognized. Note that files should be in netcdf
-                format. Do not mix and match file types.''')
-    
-    # To keep lat & lon variables in the dataset
-    if 'lat' not in var_list:
-        var_list.append( 'lat' )
-    if 'lon' not in var_list:
-        var_list.append( 'lon' )
+        print(
+            """File format not recognized. Note that files should be in netcdf
+                format. Do not mix and match file types."""
+        )
 
-    
+    # To keep lat & lon variables in the dataset
+    if "lat" not in var_list:
+        var_list.append("lat")
+    if "lon" not in var_list:
+        var_list.append("lon")
+
     # ===========================
     # Process the loaded data
-    #extract variables of choice
+    # extract variables of choice
     dset = dset_load.get(var_list)
-    #rename altitude variable to z for monet use
-    dset = dset.rename({'lev':'z'})
-    #re-order so surface is associated with the first vertical index
-    dset = dset.sortby('z',ascending=False)
+    # rename altitude variable to z for monet use
+    dset = dset.rename({"lev": "z"})
+    # re-order so surface is associated with the first vertical index
+    dset = dset.sortby("z", ascending=False)
     # ===========================
-    
-        
+
     # Make sure this dataset has unstructured grid
     dset.attrs["mio_has_unstructured_grid"] = True
     dset.attrs["mio_scrip_file"] = scrip_file
-    
-    
+
     # convert units
     if convert_to_ppb:
         for i in dset.variables:
-            if 'units' in dset[i].attrs:
+            if "units" in dset[i].attrs:
                 # convert all gas species from mol/mol to ppbv
-                if 'mol/mol' in dset[i].attrs['units']:
+                if "mol/mol" in dset[i].attrs["units"]:
                     dset[i] *= 1e09
-                    dset[i].attrs['units'] = 'ppbV'
+                    dset[i].attrs["units"] = "ppbV"
                 # convert 'kg/m3 to \mu g/m3 '
-                elif 'kg/m3' in dset[i].attrs['units']:
+                elif "kg/m3" in dset[i].attrs["units"]:
                     dset[i] *= 1e09
-                    dset[i].attrs['units'] = '$\mu g m^{-3}$'
-                    
+                    dset[i].attrs["units"] = r"$\mu g m^{-3}$"
 
-    # dset_scrip = xr.open_dataset( scrip_file )                
+    # dset_scrip = xr.open_dataset( scrip_file )
     # return dset, dset_scrip
     return dset
 
 
-"""
------------------------------------------
-Below are internal functions to this file
------------------------------------------
-"""
+# -----------------------------------------
+# Below are internal functions to this file
+# -----------------------------------------
+
 
 def _ensure_mfdataset_filenames(fname):
-    '''Checks if dataset in netcdf format
+    """Checks if dataset in netcdf format
     Parameters
     ----------
     fname : string or list of strings
     Returns
     -------
     type
-    '''
+    """
     from glob import glob
-    from numpy import sort
-    import six
 
-    if isinstance(fname, six.string_types):
+    from numpy import sort
+
+    if isinstance(fname, str):
         names = sort(glob(fname))
     else:
         names = sort(fname)
-    netcdfs = [True for i in names if 'nc' in i]
+    netcdfs = [True for i in names if "nc" in i]
     netcdf = False
     if len(netcdfs) >= 1:
         netcdf = True
