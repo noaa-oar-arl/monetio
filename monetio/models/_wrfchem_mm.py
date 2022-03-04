@@ -205,7 +205,12 @@ def open_mfdataset(
         dset2 = dset
     else:
         # Expand into z coordinate so that format is consistent.
-        dset2 = dset.expand_dims("z", axis=3).copy()
+        if "bottom_top" in dset.dims:
+            # Workaround for tutorial version of the WRF-Chem example dataset
+            # TODO: eliminate need
+            dset2 = dset.rename({"bottom_top": "z"})
+        else:
+            dset2 = dset.expand_dims("z", axis=3).copy()
 
     dset2 = dset2.reset_coords()
     dset2 = dset2.set_coords(["latitude", "longitude"])
