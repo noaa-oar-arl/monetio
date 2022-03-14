@@ -28,8 +28,6 @@ def open_dataset(fp):
 
     sd = pyhdf_SD.SD(fp)
 
-    sd = pyhdf_SD.SD(fp)
-
     data_vars = {}
     for name, _ in sd.datasets().items():
         sds = sd.select(name)
@@ -59,7 +57,7 @@ def open_dataset(fp):
         ds = ds.set_coords(vn).rename_dims({dim_name0: dim_name})
 
     # Rename time and scan dims
-    for ref, new_dim in [("DATETIME", "time"), ("ALTITUDE", "scan")]:
+    for ref, new_dim in [("DATETIME", "time"), ("ALTITUDE", "altitude")]:
         n = ds[ref].size
         time_dims = [
             dim_name
