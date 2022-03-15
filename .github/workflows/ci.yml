@@ -46,7 +46,7 @@ jobs:
           conda list
 
       - name: Test with pytest
-        run: pytest -n auto
+        run: pytest -n auto -v
 
   docs:
     name: Check docs build
