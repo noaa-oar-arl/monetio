@@ -52,14 +52,16 @@ def open_dataset(fp):
     )
 
     # Set instrument position as coords
-    for vn in ["LATITUDE.INSTRUMENT", "LONGITUDE.INSTRUMENT", "ALTITUDE.INSTRUMENT"]:
+    instru_coords = ["LATITUDE.INSTRUMENT", "LONGITUDE.INSTRUMENT", "ALTITUDE.INSTRUMENT"]
+    for vn in instru_coords:
         da = ds[vn]
         (dim_name0,) = da.dims
-        dim_name = vn.lower().replace(".", "_")
+        dim_name = _rename_var(vn)
         ds = ds.set_coords(vn).rename_dims({dim_name0: dim_name})
 
     # Rename time and scan dims
-    for ref, new_dim in [("DATETIME", "time"), ("ALTITUDE", "altitude")]:
+    rename_main_dims = {"DATETIME": "time", "ALTITUDE": "altitude"}
+    for ref, new_dim in rename_main_dims.items():
         n = ds[ref].size
         time_dims = [
             dim_name
@@ -88,14 +90,19 @@ def open_dataset(fp):
     assert abs(tstop_from_attr.tz_localize(None) - tub[-1]) < pd.Timedelta(
         milliseconds=100
     ), "times should be consistent with DATA_STOP_DATE attr"
-    ds["time"] = ("time", t)
     ds["DATETIME"].values = t
     ds["DATETIME.START"].values = tub
     ds["DATETIME.STOP"].values = tlb
 
-    # TODO: coordinates match dim names (so can use sel)
+    # Match coords to dim names (so can use sel and such)
+    ds = ds.rename_vars(rename_main_dims)
+    ds = ds.rename_vars({old: _rename_var(old) for old in instru_coords})
 
     return ds
+
+
+def _rename_var(vn):
+    return vn.lower().replace(".", "_")
 
 
 def _dti_from_mjd2000(x):
