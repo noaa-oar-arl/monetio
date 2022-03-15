@@ -15,7 +15,7 @@ import xarray as xr
 from ..util import _import_required
 
 
-def open_dataset(fp, *, rename_all=True):
+def open_dataset(fp, *, rename_all=True, squeeze=True):
     """
     Parameters
     ----------
@@ -32,6 +32,9 @@ def open_dataset(fp, *, rename_all=True):
         e.g. ::
 
             ds.integration_time
+    squeeze : bool, default: True
+        Apply ``.squeeze()`` before returning the Dataset.
+        This simplifies working with the Dataset for the case of one instrument/location.
 
     Returns
     -------
@@ -122,6 +125,9 @@ def open_dataset(fp, *, rename_all=True):
     # Rename other variables
     if rename_all:
         ds = ds.rename_vars({old: _rename_var(old) for old in ds.data_vars})
+
+    if squeeze:
+        ds = ds.squeeze()
 
     return ds
 
