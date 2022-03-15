@@ -1,12 +1,13 @@
 """
-GEOMS - The Generic Earth Observation Metadata Standard
+GEOMS -- The Generic Earth Observation Metadata Standard
 
 This is a format for storing profile data,
 used by several LiDAR networks.
 
-It is currently TOLnet's format of choice.
+It is currently `TOLNet <https://www-air.larc.nasa.gov/missions/TOLNet/>`__'s
+format of choice.
 
-More info: https://evdc.esa.int/documentation/geoms/
+For more info, see: https://evdc.esa.int/documentation/geoms/
 """
 import numpy as np
 import pandas as pd
@@ -16,7 +17,8 @@ from ..util import _import_required
 
 
 def open_dataset(fp, *, rename_all=True, squeeze=True):
-    """
+    """Open a file in GEOMS format, e.g. modern TOLNet files.
+
     Parameters
     ----------
     fp
