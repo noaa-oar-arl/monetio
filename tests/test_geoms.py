@@ -14,12 +14,14 @@ TEST_FP = (HERE / "data/tolnet-hdf4-test-data.hdf").absolute().as_posix()
 def test_open():
     ds = geoms.open_dataset(TEST_FP)
     assert "o3_mixing_ratio_volume_derived" in ds.variables
+    assert tuple(ds["o3_mixing_ratio_volume_derived"].dims) == ("time", "altitude")
     assert tuple(ds.dims) == ("time", "altitude")
 
 
 def test_open_no_rename_vars():
     ds = geoms.open_dataset(TEST_FP, rename_all=False)
     assert "O3.MIXING.RATIO.VOLUME_DERIVED" in ds.variables
+    assert tuple(ds["O3.MIXING.RATIO.VOLUME_DERIVED"].dims) == ("time", "altitude")
     assert tuple(ds.dims) == ("time", "altitude")
 
 
