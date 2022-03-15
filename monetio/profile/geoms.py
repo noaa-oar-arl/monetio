@@ -8,6 +8,7 @@ It is currently TOLnet's format of choice.
 
 More info: https://evdc.esa.int/documentation/geoms/
 """
+import numpy as np
 import pandas as pd
 import xarray as xr
 
@@ -78,9 +79,9 @@ def open_dataset(fp):
     # Convert time arrays to datetime format
     tstart_from_attr = pd.Timestamp(attrs["DATA_START_DATE"])
     tstop_from_attr = pd.Timestamp(attrs["DATA_STOP_DATE"])
-    t = _dti_from_mjd2000(ds.DATETIME.values)
-    tlb = _dti_from_mjd2000(ds["DATETIME.START"].values)  # lower bounds
-    tub = _dti_from_mjd2000(ds["DATETIME.STOP"].values)  # upper
+    t = _dti_from_mjd2000(ds.DATETIME)
+    tlb = _dti_from_mjd2000(ds["DATETIME.START"])  # lower bounds
+    tub = _dti_from_mjd2000(ds["DATETIME.STOP"])  # upper
     assert abs(tstart_from_attr.tz_localize(None) - tlb[0]) < pd.Timedelta(
         milliseconds=100
     ), "times should be consistent with DATA_START_DATE attr"
@@ -98,6 +99,8 @@ def open_dataset(fp):
 
 
 def _dti_from_mjd2000(x):
+    """Convert xr.DataArray of GEOMS times to a pd.DatetimeIndex."""
+    assert x.VAR_UNITS == "MJD2K" or x.VAR_UNITS == "MJD2000"
     # 2400000.5 -- offset for MJD
     # 51544 -- offset between MJD2000 and MJD
-    return pd.to_datetime(x + 2400000.5 + 51544, unit="D", origin="julian")
+    return pd.to_datetime(np.asarray(x) + 2400000.5 + 51544, unit="D", origin="julian")
