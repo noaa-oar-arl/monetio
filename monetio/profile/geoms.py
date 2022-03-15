@@ -81,10 +81,20 @@ def open_dataset(fp, *, rename_all=True):
         ]
         ds = ds.rename_dims({dim_name: new_dim for dim_name in time_dims})
 
-    # TODO: the fakeDims with length 5
+    # Deal with remaining fakeDims
     # 'PRESSURE_INDEPENDENT_SOURCE'
     # 'TEMPERATURE_INDEPENDENT_SOURCE'
     # These are '|S1' char arrays that need to be joined to make strings
+    remaining_vns = [
+        vn for vn, da in ds.variables.items() if any(dim.startswith("fakeDim") for dim in da.dims)
+    ]
+    for vn in remaining_vns:
+        da = ds[vn]
+        assert da.dtype.kind == "S"
+        (dim0, dim1) = da.dims
+        assert dim1.startswith("fakeDim") and not dim0.startswith("fakeDim")
+        strings = [b"".join(row).decode() for row in da.values]
+        ds[vn] = ((dim0,), strings, da.attrs)
 
     # Set time and altitude (dims of a LiDAR scan) as coords
     ds = ds.set_coords(["DATETIME", "ALTITUDE"])
