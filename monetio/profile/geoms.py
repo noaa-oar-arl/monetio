@@ -15,12 +15,23 @@ import xarray as xr
 from ..util import _import_required
 
 
-def open_dataset(fp):
+def open_dataset(fp, *, rename_all=True):
     """
     Parameters
     ----------
     fp
         File path.
+    rename_all : bool, default: True
+        Rename all non-coordinate variables:
+
+        * lowercase
+        * convert ``.`` to ``_``
+
+        as done for the coordinate variables regardless of this setting.
+        These conversions allow for easy access to the variables as attributes,
+        e.g. ::
+
+            ds.integration_time
 
     Returns
     -------
@@ -98,11 +109,15 @@ def open_dataset(fp):
     ds = ds.rename_vars(rename_main_dims)
     ds = ds.rename_vars({old: _rename_var(old) for old in instru_coords})
 
+    # Rename other variables
+    if rename_all:
+        ds = ds.rename_vars({old: _rename_var(old) for old in ds.data_vars})
+
     return ds
 
 
-def _rename_var(vn):
-    return vn.lower().replace(".", "_")
+def _rename_var(vn, *, under="_", dot="_"):
+    return vn.lower().replace("_", under).replace(".", dot)
 
 
 def _dti_from_mjd2000(x):
