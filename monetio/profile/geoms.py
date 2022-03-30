@@ -9,6 +9,8 @@ format of choice.
 
 For more info, see: https://evdc.esa.int/documentation/geoms/
 """
+import warnings
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -101,6 +103,10 @@ def open_dataset(fp, *, rename_all=True, squeeze=True):
         strings = [b"".join(row).decode() for row in da.values]
         ds[vn] = ((dim0,), strings, da.attrs)
 
+    unique_dims = {dim for v in ds.variables.values() for dim in v.dims}
+    if any(dim.startswith("fakeDim") for dim in unique_dims):
+        warnings.warn(f"There are still some fakeDim's around in the set of dims: {unique_dims}")
+
     # Set time and altitude (dims of a LiDAR scan) as coords
     ds = ds.set_coords(["DATETIME", "ALTITUDE"])
 
@@ -127,6 +133,15 @@ def open_dataset(fp, *, rename_all=True, squeeze=True):
     # Rename other variables
     if rename_all:
         ds = ds.rename_vars({old: _rename_var(old) for old in ds.data_vars})
+
+    # latitude_instrument -> latitude
+    if "latitude_instrument" in ds.coords and "latitude" not in ds.coords:
+        ds = ds.rename(
+            {
+                "latitude_instrument": "latitude",
+                "longitude_instrument": "longitude",
+            }
+        )
 
     if squeeze:
         ds = ds.squeeze()

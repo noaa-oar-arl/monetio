@@ -29,8 +29,8 @@ def test_open_no_rename_vars():
 def test_open_no_squeeze():
     ds = geoms.open_dataset(TEST_FP, squeeze=False)
     assert ds.dims == {
-        "latitude_instrument": 1,
-        "longitude_instrument": 1,
+        "latitude": 1,
+        "longitude": 1,
         "altitude_instrument": 1,
         "time": 28,
         "altitude": 496,
