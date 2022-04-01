@@ -1,5 +1,64 @@
 """
-AERONET
+AERONET -- AErosol RObotic NETwork
+
+Primary website: https://aeronet.gsfc.nasa.gov/
+
+    For more than 25 years, the project has provided long-term, continuous and readily accessible
+    public domain database of aerosol optical, microphysical and radiative properties
+    for aerosol research and characterization, validation of satellite retrievals,
+    and synergism with other databases.
+    The network imposes standardization of instruments, calibration, processing and distribution.
+
+    --- https://aeronet.gsfc.nasa.gov/
+
+
+MONETIO uses the AERONET Web Services to access data.
+All data products available through their web service portals are available
+except for the raw sky scans.
+This includes the AOD (aerosol optical depth) and SSA (single-scattering albedo)
+as well as the inversion products.
+
+Available Measurements
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. csv-table:: AOD and SDA Measurements
+   :header: "Product", "Explanation"
+   :widths: 20, 80
+
+   "AOD10", "Aerosol Optical Depth Level 1.0"
+   "AOD15", "Aerosol Optical Depth Level 1.5"
+   "AOD20", "Aerosol Optical Depth Level 2.0"
+   "SDA10", "SDA Retrieval Level 1.0"
+   "SDA15", "SDA Retrieval Level 1.5"
+   "SDA20", "SDA Retrieval Level 2.0"
+   "TOT10", "Total Optical Depth based on AOD Level 1.0 (all points only)"
+   "TOT15", "Total Optical Depth based on AOD Level 1.5 (all points only)"
+   "TOT20", "Total Optical Depth based on AOD Level 2.0 (all points only)"
+
+* Source: https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_new.html
+* SDA: spectral de-convolution algorithm (presumably), described on
+  `this page <https://aeronet.gsfc.nasa.gov/new_web/man_data.html>`__.
+
+.. csv-table:: Inversion Products
+   :header: "Product", "Explanation"
+   :widths: 15, 85
+
+   "SIZ",	"Size distribution"
+   "RIN",	"Refractive indicies (real and imaginary)"
+   "CAD",	"Coincident AOT data with almucantar retrieval"
+   "VOL",	"Volume concentration, volume mean radius, effective radius and standard deviation"
+   "TAB",	"AOT absorption"
+   "AOD",	"AOT extinction"
+   "SSA",	"Single scattering albedo"
+   "ASY",	"Asymmetry factor"
+   "FRC",	"Radiative Forcing"
+   "LID",	"Lidar and Depolarization Ratios"
+   "FLX",	"Spectral flux"
+   "ALL",	"All of the above retrievals (SIZ to FLUX) in one file"
+   "PFN*",	"Phase function (available for only all points data format: AVG=10)"
+
+* Source: https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
+* AOT: aerosol optical thickness
 """
 from datetime import datetime
 from functools import lru_cache

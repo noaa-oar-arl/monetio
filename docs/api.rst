@@ -14,7 +14,10 @@ for example, :func:`monetio.aeronet.add_data`.
 AERONET
 ^^^^^^^
 
-See :ref:`observations:AERONET` for more information.
+.. automodule:: monetio.aeronet
+
+Functions
+^^^^^^^^^
 
 .. autosummary::
 
