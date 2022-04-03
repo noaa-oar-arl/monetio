@@ -1,4 +1,15 @@
-"""AirNow"""
+"""
+AirNow -- a near-realtime dataset for air composition and meteorology measurements
+
+Primary website: https://www.airnow.gov/
+
+AirNow is a partnership of AirNow is a partnership of the U.S. Environmental Protection Agency,
+National Oceanic and Atmospheric Administration (NOAA), and many other partners[#partners]_.
+AirNow provides the official Air Quality Index (AQI).
+
+
+.. [#partners] https://www.airnow.gov/partners/
+"""
 
 import os
 
