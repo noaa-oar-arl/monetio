@@ -26,6 +26,7 @@ ncep_grib = models.ncep_grib
 hysplit = models.hysplit
 hytraj = models.hytraj
 pardump = models.pardump
+raqms = models.raqms
 
 # profiles
 icartt = profile.icartt
@@ -34,6 +35,8 @@ tolnet = profile.tolnet
 # sat
 goes = sat.goes
 modis_l2 = sat.modis_l2
+omps_limb = sat.omps_limb
+omps_nadir = sat.omps_nadir
 
 # hdf
 hdfio = hdf.hdfio
