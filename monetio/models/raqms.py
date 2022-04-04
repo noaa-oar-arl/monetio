@@ -1,9 +1,9 @@
-# Reader for RAQMS real-time files. Differs from FV3-RAQMS as dynamical core is UW Hybrid model rather than UFS.
+# Reader for RAQMS real-time files.
 
 import xarray as xr
 
 def open_dataset(fname):
-    '''Open a single dataset from fv3-raqms output. Currently set for netcdf file format.
+    '''Open a single dataset from RAQMS output. Currently set for netcdf file format.
     Parameters
     ----------
     fname : string
@@ -27,7 +27,7 @@ def open_dataset(fname):
     return f
 
 def open_mfdataset(fname):
-    '''Open a multiple file dataset from fv3-raqms output.
+    '''Open a multiple file dataset from RAQMS output.
     Parameters
     ----------
     fname : string
@@ -76,7 +76,7 @@ def _fix_time(f):
     return f
 
 def _ensure_mfdataset_filenames(fname):
-    '''Checks if netcdf dataset
+    '''Checks if RAQMS netcdf dataset
     Parameters
     ----------
     fname : string or list of strings

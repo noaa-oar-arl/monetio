@@ -1,5 +1,15 @@
 def read_omps_limb(file):
-    '''
+    '''Method to read OMPS limb profiler Ozone level 2 hdf5 files from NASA repository
+        (https://ozoneaq.gsfc.nasa.gov/data/omps/#)
+    Parameters
+    __________
+    filename : string
+        filename is the path to the file
+    
+    Returns
+    _______
+    xarray dataset
+    
     '''
     
     import pandas as pd
@@ -63,25 +73,3 @@ def read_omps_limb(file):
             attrs={'missing_value':-999}
         )         
     return ds
-
-def omps_pairing(model_data,observation_data):
-    import stratify
-    import xesmf as xe
-    import xarray as xr
-    
-    # lat/lon interpolation
-    print(observation_data)
-    ds_out = xr.Dataset({'latitude': (['x'], observation_data.latitude.values),
-                         'longitude': (['x'], observation_data.longitude.values),
-                         })
-    
-    regridder = xe.Regridder(model_data.obj,ds_out,method='bilinear')
-    model_o3 = regridder(model_data.obj.o3vmr)
-    model_z = regridder(model_data.obj.zdash)
-    print(model_z)
-    # altitude interpolation
-    new_ozone = stratify(observation_data.altitude.values,model_z.values/1000.,model_o3.values,axis=1)
-    
-    # time interpolation
-    print(new_ozone.shape)
-    return new_ozone
