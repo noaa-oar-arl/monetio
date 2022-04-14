@@ -26,7 +26,7 @@ def read_dataset(fname, variable_dict):
     ds = xr.Dataset()
 
     f = hdf_open(fname)
-    # hdf_list(f)
+    hdf_list(f)
     latitude = hdf_read(f, 'Latitude')
     longitude = hdf_read(f, 'Longitude')
     start_time = hdf_read(f, 'Scan_Start_Time')
