@@ -45,6 +45,20 @@ Functions
 .. autofunction:: monetio.airnow.add_data
 .. autofunction:: monetio.airnow.read_csv
 
+AQS
+^^^
+
+.. automodule:: monetio.aqs
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.aqs.add_data
+
+.. autofunction:: monetio.aqs.add_data
+
 
 Utility functions
 =================

@@ -258,10 +258,11 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
         Passed to :func:`build_urls`.
     download : bool, optional
         Whether to first download the AirNow files to the local directory.
-    wide_fmt : bool
-    n_procs : int
+    wide_fmt : bool, default: True
+        Whether to convert the table to wide format (column for each variable).
+    n_procs : int, default: 1
         For Dask.
-    daily : bool
+    daily : bool, default: False
         Whether to get daily data only
         (only unique days in `dates` will be used).
 

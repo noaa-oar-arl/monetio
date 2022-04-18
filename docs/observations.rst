@@ -20,58 +20,6 @@ First we will import several libraries to aid for in the future.
 EPA AQS
 -------
 
-MONET is able to use the EPA AQS data that is collected and reported on an hourly and daily time scale.
-
-    "The Air Quality System (AQS) contains ambient air pollution data collected by EPA, state, local, and tribal air pollution control agencies from over thousands of monitors.  AQS also contains meteorological data, descriptive information about each monitoring station (including its geographic location and its operator), and data quality assurance/quality control information.  AQS data is used to:
-    assess air quality,
-    evaluate State Implementation Plans for non-attainment areas,
-    prepare reports for Congress as mandated by the Clean Air Act." - https://www.epa.gov/aqs
-
-We will begin by loading hourly ozone concentrations from 2018.  The EPA AQS data
-is seperated into yearly files and seperate files for hourly and daily data.  The
-files are also seperated by which variable is measured.  For instance, hourly ozone files
-for the entire year of 2018 are found in https://aqs.epa.gov/aqsweb/airdata/hourly_44201_2018.zip.
-We will first load a single variable and then add multiple later on.
-
-.. code::  python
-
-  #first determine the dates
-  dates = pd.date_range(start='2018-01-01', end='2018-12-31', freq='H')
-  # load the data
-  df = aqs.add_data(dates, param=['OZONE'])
-
-If you would rather daily data to get the 8HR max ozone concentration or daily maximum
-concentration you can add the *daily* kwarg.
-
-.. code::   python
-
-  df = aqs.add_data(dates, param=['OZONE'], daily=True)
-
-As in AirNow you can download the data to the local disk using the *download*
-
-.. code::   python
-
-  df = aqs.add_data(dates, param=['OZONE'], daily=True, download=True)
-
-
-Available Measurements
-^^^^^^^^^^^^^^^^^^^^^^
-
-* O3 (OZONE)
-* PM2.5 (PM2.5)
-* PM2.5_frm (PM2.5)
-* PM10
-* SO2
-* NO2
-* CO
-* NONOxNOy
-* VOC
-* Speciated PM (SPEC)
-* Speciated PM10 (PM10SPEC)
-* Wind Speed and Direction (WIND, WS, WDIR)
-* Temperature (TEMP)
-* Relative Humidity and Dew Point Temperature (RHDP)
-
 Loading Multiple Measurements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -1,3 +1,41 @@
+"""
+AQS -- the EPA Air Quality System
+
+Primary website: https://www.epa.gov/aqs
+
+The EPA AQS is a collection of ambient air pollution data measured by
+the EPA, state and local government agencies, and `tribal <https://www.epa.gov/tribal-air>`__
+air pollution control agencies.
+
+MONETIO can retrieve hourly and daily AQS data.
+A certain AQS file:
+
+* corresponds to a certain year
+* is either hourly or daily
+* contains just one variable (e.g. ozone)
+
+For example, the hourly ozone data file for 2018 can be found at:
+https://aqs.epa.gov/aqsweb/airdata/hourly_44201_2018.zip
+
+Available Measurements
+^^^^^^^^^^^^^^^^^^^^^^
+
+* O3 (OZONE)
+* PM2.5 (PM2.5)
+* PM2.5_frm (PM2.5)
+* PM10
+* SO2
+* NO2
+* CO
+* NONOxNOy
+* VOC
+* Speciated PM (SPEC)
+* Speciated PM10 (PM10SPEC)
+* Wind Speed and Direction (WIND, WS, WDIR)
+* Temperature (TEMP)
+* Relative Humidity and Dew Point Temperature (RHDP)
+
+"""
 import inspect
 import os
 
@@ -16,6 +54,7 @@ pbar.register()
 def add_data(
     dates,
     param=None,
+    *,
     daily=False,
     network=None,
     download=False,
@@ -24,7 +63,56 @@ def add_data(
     n_procs=1,
     meta=False,
 ):
+    """Retrieve and load AQS data as a DataFrame.
+
+    Parameters
+    ----------
+    dates : array-like of datetime-like
+        Dates to retrieve.
+    param : str or list of str, optional
+        Parameters to retrieve.
+        By default::
+
+            params = [
+                "SPEC",
+                "PM10", "PM2.5", "PM2.5_FRM",
+                "CO", "OZONE", "SO2",
+                "VOC", "NONOXNOY",
+                "WIND", "TEMP", "RHDP",
+            ]
+    daily : bool, default: False
+        Whether to retrieve daily data. Default is to retrieve hourly.
+    network : str, optional
+        Subset the returned data by measurement network.
+        Only used if combined with ``meta=True``.
+    download : bool, default: False
+        Download the AQS files to the local directory.
+        By default they are loaded into memory and not kept.
+    local : bool, default: False
+        Load the files from the local directory instead of retrieving from the AQS web server.
+    wide_fmt : bool, default: True
+        Whether to convert the table to wide format (column for each variable).
+    n_procs : int, optional
+        For Dask.
+        Since the AQS data are in yearly files, this is only relevant if you are
+        requesting multiple years.
+    meta : bool, default: Falsea
+        Whether to add additional site metadata.
+
+    Returns
+    -------
+    DataFrame
+    """
     from ..util import long_to_wide
+
+    # if daily and wide_fmt and not meta:
+    #     raise ValueError("returning wide-format daily data requires `meta=True`")
+    #         .. important::
+    #            Retrieving wide-format daily data (the default) currently requires ``meta=True``
+    #            in order to obtain UTC offsets for computing UTC time.
+
+    if network is not None and not meta:
+        raise ValueError("subsetting by network before returning requires `meta=True`")
 
     a = AQS()
     df = a.add_data(
@@ -39,9 +127,9 @@ def add_data(
     )
 
     if wide_fmt:
-        return long_to_wide(df)
-    else:
-        return df
+        df = long_to_wide(df)
+
+    return df.reset_index(drop=True)
 
 
 class AQS:
@@ -182,10 +270,12 @@ class AQS:
             Description of returned object.
 
         """
+        from datetime import datetime
+
         if "daily" in url:
 
             def dateparse(x):
-                return pd.datetime.strptime(x, "%Y-%m-%d")
+                return datetime.strptime(x, "%Y-%m-%d")
 
             df = pd.read_csv(
                 url,
@@ -206,6 +296,7 @@ class AQS:
                     "time_local": ["Date Local", "Time Local"],
                 },
                 infer_datetime_format=True,
+                dtype={17: str},
             )
             # print(df.columns.values)
             df.columns = self.columns_rename(df.columns.values)
@@ -400,6 +491,8 @@ class AQS:
                 "TEMP",
                 "RHDP",
             ]
+        elif isinstance(param, str):
+            params = [param]
         else:
             params = param
         urls, fnames = self.build_urls(params, dates, daily=daily)
@@ -413,13 +506,17 @@ class AQS:
             dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in urls]
         dff = dd.from_delayed(dfs)
         dfff = dff.compute(num_workers=n_procs)
+        if daily:
+            # Daily data are just by date
+            dfff["time"] = dfff.time_local
         if meta:
             return self.add_data2(dfff, daily, network)
         else:
             return dfff
 
     def add_data2(self, df, daily=False, network=None):
-        """
+        """Add additional site metadata.
+
         Parameters
         ------------
         df : dataframe
@@ -444,17 +541,25 @@ class AQS:
         #     monitor_drop = [u'datum']
         #     self.monitor_df.drop(monitor_drop, axis=1, inplace=True)
         if network is not None:
-            monitors = self.monitor_df.loc[self.monitor_df.isin([network])].drop_duplicates(
-                subset=["siteid"]
-            )
+            # TODO: really should split the networks strings (on semicolon) to ensure no false positive matchs
+            monitors = self.monitor_df.loc[
+                self.monitor_df.networks.astype(str).str.contains(network)
+            ].drop_duplicates(subset=["siteid"])
         else:
-            monitors = self.monitor_df.drop_duplicates(subset=["siteid"])
-        # AMC - merging only on siteid was causing latitude_x latitude_y to be
-        # created.
+            monitors = self.monitor_df.drop_duplicates(subset=["networks", "siteid"])
         mlist = ["siteid"]
         self.df = pd.merge(self.df, monitors, on=mlist, how="left")
-        if daily:
-            self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="H")
+        if "latitude_x" in self.df:
+            self.df = self.df.drop(columns=["latitude_y", "longitude_y"]).rename(
+                columns={
+                    "latitude_x": "latitude",
+                    "longitude_x": "longitude",
+                }
+            )
+        if network is not None:
+            self.df = self.df.dropna(subset="networks")
+        # if daily:
+        #     self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="H")
         if pd.Series(self.df.columns).isin(["parameter_name"]).max():
             self.df.drop("parameter_name", axis=1, inplace=True)
         return self.df  # .copy()
