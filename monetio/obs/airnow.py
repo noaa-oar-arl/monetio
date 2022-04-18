@@ -4,8 +4,25 @@ AirNow -- a near-realtime dataset for air composition and meteorology measuremen
 Primary website: https://www.airnow.gov/
 
 AirNow is a partnership of AirNow is a partnership of the U.S. Environmental Protection Agency,
-National Oceanic and Atmospheric Administration (NOAA), and many other partners[#partners]_.
+National Oceanic and Atmospheric Administration (NOAA), and many other partners [#partners]_.
 AirNow provides the official Air Quality Index (AQI).
+
+Available Measurements
+^^^^^^^^^^^^^^^^^^^^^^
+
+* O3 (OZONE)
+* PM2.5
+* PM10
+* SO2
+* NO2
+* CO
+* NO2
+* NOx
+* NO
+* Wind Speed and Direction (WS, WDIR)
+* Temperature (TEMP)
+* Relative Humidity (RH)
+* Solar Radiation (SRAD)
 
 
 .. [#partners] https://www.airnow.gov/partners/
@@ -85,18 +102,17 @@ def build_urls(dates, *, daily=False):
 
 
 def read_csv(fn):
-    """Short summary.
+    """Read an AirNow CSV file.
 
     Parameters
     ----------
-    fn : string
-        file name to read
+    fn : str
+        File to read, passed to :func:`pandas.read_csv`.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    DataFrame
+        Without the processing and extra variables that :func:`add_data` provides.
     """
     hourly_cols = [
         "date",
@@ -270,6 +286,9 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
         # TODO: shouldn't be any such dups (test)
 
     return df
+
+
+# TODO: add_local
 
 
 def filter_bad_values(df, *, max=3000):

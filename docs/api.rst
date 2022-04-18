@@ -17,7 +17,7 @@ AERONET
 .. automodule:: monetio.aeronet
 
 Functions
-^^^^^^^^^
++++++++++
 
 .. autosummary::
 
@@ -32,13 +32,18 @@ Functions
 AirNow
 ^^^^^^
 
-See :ref:`observations:AirNow` for more information.
+.. automodule:: monetio.airnow
+
+Functions
++++++++++
 
 .. autosummary::
 
    monetio.airnow.add_data
+   monetio.airnow.read_csv
 
 .. autofunction:: monetio.airnow.add_data
+.. autofunction:: monetio.airnow.read_csv
 
 
 Utility functions
