@@ -20,10 +20,10 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache Conda packages
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v3.0.2
         env:
           CACHE_NUMBER: 0 # increase to reset cache if the environment.yml has not changed
         with:
@@ -46,7 +46,7 @@ jobs:
           conda list
 
       - name: Test with pytest
-        run: pytest -n auto
+        run: pytest -n auto -v
 
   docs:
     name: Check docs build
@@ -57,7 +57,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Python (Conda)
         uses: conda-incubator/setup-miniconda@v2
