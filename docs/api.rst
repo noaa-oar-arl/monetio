@@ -2,6 +2,11 @@
 API
 ===
 
+.. contents::
+   :depth: 3
+   :local:
+
+
 Data sources
 ============
 
@@ -36,6 +41,18 @@ See :ref:`observations:AirNow` for more information.
    monetio.airnow.add_data
 
 .. autofunction:: monetio.airnow.add_data
+
+
+Profile observations
+--------------------
+
+.. automodule:: monetio.geoms
+
+.. autosummary::
+
+   monetio.geoms.open_dataset
+
+.. autofunction:: monetio.geoms.open_dataset
 
 
 Utility functions

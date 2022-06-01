@@ -349,3 +349,30 @@ def calc_13_category_usda_soil_type(clay, sand, silt):
     stype[where((clay >= 40) & (silt >= 40) & (clay != 255))] = 11  # silty clay
     stype[where((clay >= 40) & (sand <= 45) & (silt < 40) & (clay != 255))] = 12  # clay
     return stype
+
+
+_module_install_names = {
+    # module: GH, PyPI, conda-forge
+    "pyhdf": ("fhs/pyhdf", "pyhdf", "pyhdf"),
+}
+
+
+def _install_message(mod_name):
+    if mod_name not in _module_install_names:
+        return ""
+
+    gh, pypi_name, cf_name = _module_install_names[mod_name]
+    cf_ = f"Try installing from conda-forge using `conda install -c conda-forge {cf_name}`."
+
+    return f"{cf_}"
+
+
+def _import_required(mod_name: str):
+    from importlib import import_module
+
+    try:
+        return import_module(mod_name)
+    except ImportError as e:
+        raise RuntimeError(
+            f"importing required module '{mod_name}' failed. {_install_message(mod_name)}"
+        ) from e
