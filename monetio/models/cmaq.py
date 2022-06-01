@@ -115,7 +115,7 @@ def open_mfdataset(
     """
 
     # open the dataset using xarray
-    dset = xr.open_mfdataset(fname, concat_dim="TSTEP", **kwargs)
+    dset = xr.open_mfdataset(fname, combine="nested", concat_dim="TSTEP", **kwargs)
 
     # add lazy diagnostic variables
     dset = add_lazy_pm25(dset)

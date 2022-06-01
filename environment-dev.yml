@@ -15,6 +15,7 @@ dependencies:
   #
   # optional
   - joblib
+  - pyhdf
   - requests
   #
   # test
