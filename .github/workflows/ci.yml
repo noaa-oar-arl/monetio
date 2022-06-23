@@ -16,7 +16,7 @@ jobs:
     if: github.repository == 'noaa-oar-arl/monetio'
     strategy:
       matrix:
-        python-version: ["3.6", "3.8"]
+        python-version: ["3.6", "3.8", "3.10"]
     defaults:
       run:
         shell: bash -l {0}
@@ -24,28 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Cache Conda packages
-        uses: actions/cache@v3.0.3
-        env:
-          CACHE_NUMBER: 0 # increase to reset cache if the environment.yml has not changed
+      - name: Set up Python (micromamba)
+        uses: mamba-org/provision-with-micromamba@v12
         with:
-          path: ~/conda_pkgs_dir
-          key:
-            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-py${{ matrix.python-version }}-${{
-            hashFiles('environment-dev.yml') }}
-
-      - name: Set up Python (Conda)
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          python-version: "${{ matrix.python-version }}"
-          activate-environment: monetio-dev
           environment-file: environment-dev.yml
-          use-only-tar-bz2: true # needs to be set for caching to work
-
-      - name: Check Conda
-        run: |
-          conda info -a
-          conda list
+          cache-env: true
+          extra-specs: |
+            python=${{ matrix.python-version }}
 
       - name: Test with pytest
         run: pytest -n auto -v
@@ -61,13 +46,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python (Conda)
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Set up Python (micromamba)
+        uses: mamba-org/provision-with-micromamba@v12
         with:
-          python-version: "3.8"
-          channels: conda-forge,nodefaults
-          activate-environment: monetio-docs
           environment-file: docs/environment-docs.yml
+          cache-env: true
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck
