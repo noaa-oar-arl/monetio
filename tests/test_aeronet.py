@@ -152,3 +152,13 @@ def test_add_data_lunar():
     dates = pd.date_range("2022/01/20", "2022/01/21")
     df = aeronet.add_data(dates, lunar=True, siteid="Tucson")
     assert df.index.size > 0
+
+
+def test_serial_freq():
+    # For MM data proc example
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    df = aeronet.add_data(dates, freq="2H", n_procs=1)
+    assert (
+        pd.DatetimeIndex(sorted(df.time.unique()))
+        == pd.date_range("2019-09-01", freq="2H", periods=12)
+    ).all()
