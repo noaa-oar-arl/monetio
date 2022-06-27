@@ -41,7 +41,7 @@ def add_local(
     # TODO: actually detect the specific inv type
 
     a.new_aod_values = interp_to_aod_values
-    if a.new_aod_values and not a.prod.startswith("AOD"):
+    if a.new_aod_values is not None and not a.prod.startswith("AOD"):
         print("`interp_to_aod_values` will be ignored")
 
     a.url = fname
@@ -52,7 +52,7 @@ def add_local(
 
     # TODO: DRY wrt. class?
     if freq is not None:
-        a.df = a.df.groupby("siteid").resample(freq).mean().reset_index()
+        a.df = a.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
 
     if detect_dust:
         a.dust_detect()
@@ -475,7 +475,7 @@ class AERONET:
         else:
             self.lunar = 0  # no lunar
         self.new_aod_values = interp_to_aod_values
-        if self.new_aod_values and not self.prod.startswith("AOD"):
+        if self.new_aod_values is not None and not self.prod.startswith("AOD"):
             print("`interp_to_aod_values` will be ignored")
 
         self.build_url()
@@ -488,7 +488,9 @@ class AERONET:
             ) from e
 
         if freq is not None:
-            self.df = self.df.groupby("siteid").resample(freq).mean().reset_index()
+            self.df = (
+                self.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+            )
 
         if detect_dust:
             self.dust_detect()
