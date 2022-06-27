@@ -1,11 +1,19 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from monetio import aeronet
 
 DATA = Path(__file__).parent / "data"
+
+try:
+    import pytspack  # noqa: F401
+except ImportError:
+    has_pytspack = False
+else:
+    has_pytspack = True
 
 
 def test_build_url_required_param_checks():
@@ -162,3 +170,12 @@ def test_serial_freq():
         pd.DatetimeIndex(sorted(df.time.unique()))
         == pd.date_range("2019-09-01", freq="2H", periods=12)
     ).all()
+
+
+@pytest.mark.skipif(has_pytspack, reason="has pytspack")
+def test_interp_without_tspack():
+    # For MM data proc example
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
+    with pytest.raises(ImportError, match="'pytspack'"):
+        aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
