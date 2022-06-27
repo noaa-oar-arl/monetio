@@ -177,7 +177,7 @@ def test_interp_without_pytspack():
     # For MM data proc example
     dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
-    with pytest.raises(ImportError, match="'pytspack'"):
+    with pytest.raises(RuntimeError, match="You must install pytspack"):
         aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
 
 

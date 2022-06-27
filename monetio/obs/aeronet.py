@@ -516,9 +516,11 @@ class AERONET:
 
             try:
                 import pytspack
-            except ImportError:
-                print("You must install pytspack before using this function")
-                raise
+            except ImportError as e:
+                raise RuntimeError(
+                    "You must install pytspack before using this function.\n"
+                    "See https://github.com/noaa-oar-arl/pytspack/"
+                ) from e
 
             new_wv = np.asarray(new_wv)
 
