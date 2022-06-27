@@ -173,9 +173,30 @@ def test_serial_freq():
 
 
 @pytest.mark.skipif(has_pytspack, reason="has pytspack")
-def test_interp_without_tspack():
+def test_interp_without_pytspack():
     # For MM data proc example
     dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
     with pytest.raises(ImportError, match="'pytspack'"):
         aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
+
+
+@pytest.mark.skipif(not has_pytspack, reason="no pytspack")
+def test_interp_with_pytspack():
+    # For MM data proc example
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
+    df = aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
+    # Note: default wls for this period:
+    #
+    # wls = sorted(df.columns[df.columns.str.startswith("aod")].str.slice(4, -2).astype(int).tolist())
+    #
+    # [340, 380, 400, 412, 440,
+    #  443, 490, 500, 510, 532,
+    #  551, 555, 560, 620, 667,
+    #  675, 681, 709, 779, 865,
+    #  870, 1020, 1640]
+    #
+    # Note: Some of the ones we want already are in there (340 and 440 nm)
+    # TODO: add `_old` to the old ones or `_new` to the new ones? Or remove the old ones?
+    assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
