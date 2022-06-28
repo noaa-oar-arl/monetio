@@ -659,7 +659,7 @@ class AQS:
                 .to_string(index=False)
             )
             warnings.warn(f"Short names not available for these variables:\n{_tbl}")
-        df.loc[df.variable == "", "variable"] = df.parameter_name
+        df.loc[con, "variable"] = df.parameter_name
 
         return df
 
