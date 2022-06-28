@@ -10,4 +10,7 @@ def test_aqs():
     # Note: will retrieve full year
     network = "NCORE"  # CSN NCORE CASTNET
     with pytest.warns(UserWarning, match="Short names not available for these variables"):
-        aqs.add_data(dates, param=["PM10SPEC", "SPEC"], network=network, wide_fmt=False, daily=True)
+        df = aqs.add_data(
+            dates, param=["PM10SPEC", "SPEC"], network=network, wide_fmt=False, daily=True
+        )
+    assert (df.variable == "").sum() == 0
