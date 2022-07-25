@@ -1,9 +1,9 @@
-name: monetio-dev
+name: monetio-docs
 channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python>=3.6
+  - python=3.9
   #
   # core
   - dask
@@ -16,13 +16,13 @@ dependencies:
   #
   # optional
   - joblib
-  - pyhdf
   - requests
   #
-  # test
-  - pytest
-  - pytest-xdist
+  # docs
+  - sphinx=4.*
+  - sphinx-autobuild
+  - sphinx_rtd_theme
   #
   - pip>=21.1
   - pip:
-      - "-e ."
+      - "-e ../"

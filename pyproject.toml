@@ -9,3 +9,11 @@ line-length = 100
 known_first_party = "monetio"
 profile = "black"
 line_length = 100
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:The distutils package is deprecated:DeprecationWarning:joblib.backports",
+    "ignore:The error_bad_lines argument has been deprecated:FutureWarning::",
+    "ignore:The warn_bad_lines argument has been deprecated:FutureWarning::",
+    "ignore:The NPY_CHAR type_num is deprecated. Please port your code to use NPY_STRING instead.:DeprecationWarning::",
+]

@@ -13,18 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
-      - uses: pre-commit/action@v2.0.3
+          python-version: "3.9"
+      - uses: pre-commit/action@v3.0.0
 
   cff:
     name: Validate CITATION.cff
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: citation-file-format/cffconvert-github-action@2.0.0
         with:
           args: "--validate"

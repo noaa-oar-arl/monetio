@@ -13,87 +13,17 @@ def can_do(index):
         return False
 
 
-def open_dataset(fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicates=False, **kwargs):
-    """Method to open CMAQ IOAPI netcdf files.
-
-    Parameters
-    ----------
-    fname : string or list
-        fname is the path to the file or files.  It will accept hot keys in
-        strings as well.
-    earth_radius : float
-        The earth radius used for the map projection
-    convert_to_ppb : boolean
-        If true the units of the gas species will be converted to ppbV
-
-    Returns
-    -------
-    xarray.DataSet
-
-
-    """
-
-    # open the dataset using xarray
-    dset = xr.open_dataset(fname, **kwargs)
-
-    # add lazy diagnostic variables
-    dset = add_lazy_pm25(dset)
-    dset = add_lazy_pm10(dset)
-    dset = add_lazy_pm_course(dset)
-    dset = add_lazy_clf(dset)
-    dset = add_lazy_naf(dset)
-    dset = add_lazy_caf(dset)
-    dset = add_lazy_noy(dset)
-    dset = add_lazy_nox(dset)
-    dset = add_lazy_no3f(dset)
-    dset = add_lazy_nh4f(dset)
-    dset = add_lazy_so4f(dset)
-    dset = add_lazy_rh(dset)
-
-    # get the grid information
-    grid = grid_from_dataset(dset, earth_radius=earth_radius)
-    area_def = get_ioapi_pyresample_area_def(dset, grid)
-    # assign attributes for dataset and all DataArrays
-    dset = dset.assign_attrs({"proj4_srs": grid})
-    for i in dset.variables:
-        dset[i] = dset[i].assign_attrs({"proj4_srs": grid})
-        for j in dset[i].attrs:
-            dset[i].attrs[j] = dset[i].attrs[j].strip()
-        # dset[i] = dset[i].assign_attrs({'area': area_def})
-    # dset = dset.assign_attrs(area=area_def)
-
-    # get the times
-    print(dset)
-    dset = _get_times(dset, drop_duplicates=drop_duplicates)
-
-    # get the lat lon
-    dset = _get_latlon(dset, area_def)
-
-    # get Predefined mapping tables for observations
-    # dset = _predefined_mapping_tables(dset)
-
-    # rename dimensions
-    dset = dset.rename({"COL": "x", "ROW": "y", "LAY": "z"})
-
-    # convert all gas species to ppbv
-    if convert_to_ppb:
-        for i in dset.variables:
-            if "units" in dset[i].attrs:
-                if "ppmV" in dset[i].attrs["units"]:
-                    dset[i] *= 1000.0
-                    dset[i].attrs["units"] = "ppbV"
-
-    # convert 'micrograms to \mu g'
-    for i in dset.variables:
-        if "units" in dset[i].attrs:
-            if "micrograms" in dset[i].attrs["units"]:
-                dset[i].attrs["units"] = r"$\mu g m^{-3}$"
-
-    return dset
-
-
 def open_mfdataset(
-    fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicates=False, **kwargs
+    fname,
+    earth_radius=6370000,
+    convert_to_ppb=True,
+    drop_duplicates=False,
+    mech="cb6r3_ae6_aq",
+    var_list=["O3"],
+    fname_vert=None,
+    fname_surf=None,
+    concatenate_forecasts=False,
+    **kwargs
 ):
     """Method to open CMAQ IOAPI netcdf files.
 
@@ -105,31 +35,75 @@ def open_mfdataset(
     earth_radius : float
         The earth radius used for the map projection
     convert_to_ppb : boolean
-        If true the units of the gas species will be converted to ppbV
+        If true the units of the gas species will be converted to ppbv
+    mech: str
+        Mechanism to be used for calculating sums. Only one mechanism is
+        included now. But plan to adapt this like the rrfs_cmaq.py code to have
+        default mechanisms.
+    var_list: list
+        List of variables to include in output. MELODIES-MONET only reads in
+        variables need to plot in order to save on memory and simulation cost
+        especially for vertical data
+    fname_vert: string
+        Path to the metcro3d file in CMAQ. This file is needed to calculate
+        vertical metrics of grid.
+    fname_surf: string
+        Path to the metcro2d file in CMAQ. This file is needed to calculate
+        vertical metrics of grid.
+    concatenate_forecasts: boolean
+        Whether you need to concatenate_forecasts (True) or not (False). Time
+        in the default CMAQ model data are not in a format to facilitate
+        concatenation by xarray.
 
     Returns
     -------
     xarray.DataSet
+        CMAQ model dataset in standard format for use in MELODIES-MONET
 
 
     """
-
-    # open the dataset using xarray
-    dset = xr.open_mfdataset(fname, combine="nested", concat_dim="TSTEP", **kwargs)
+    # For CMAQ, times are not in file to concatenate on for different forecast periods,
+    # so need to read in one file at a time, calc times, and then merge together.
+    if concatenate_forecasts:
+        dset_list = []
+        for file_n in fname:
+            # open the dataset using xarray
+            dset = xr.open_mfdataset(file_n, **kwargs)
+            # get the times
+            dset = _get_times(dset, drop_duplicates=drop_duplicates)
+            dset_list.append(dset)
+        dset = xr.concat(dset_list, "time")
+    else:
+        # open the dataset using xarray
+        dset = xr.open_mfdataset(fname, **kwargs)
+        # get the times
+        dset = _get_times(dset, drop_duplicates=drop_duplicates)
 
     # add lazy diagnostic variables
-    dset = add_lazy_pm25(dset)
-    dset = add_lazy_pm10(dset)
-    dset = add_lazy_pm_course(dset)
-    dset = add_lazy_clf(dset)
-    dset = add_lazy_naf(dset)
-    dset = add_lazy_caf(dset)
-    dset = add_lazy_noy(dset)
-    dset = add_lazy_nox(dset)
-    dset = add_lazy_no3f(dset)
-    dset = add_lazy_nh4f(dset)
-    dset = add_lazy_so4f(dset)
-    dset = add_lazy_rh(dset)
+    if "PM25" in var_list:
+        dset = add_lazy_pm25(dset)
+    if "PM10" in var_list:
+        dset = add_lazy_pm10(dset)
+    if "PM_COURSE" in var_list:
+        dset = add_lazy_pm_course(dset)
+    if "CLf" in var_list:
+        dset = add_lazy_clf(dset)
+    if "NAf" in var_list:
+        dset = add_lazy_naf(dset)
+    if "CAf" in var_list:
+        dset = add_lazy_caf(dset)
+    if "NOy" in var_list:
+        dset = add_lazy_noy(dset)
+    if "NOx" in var_list:
+        dset = add_lazy_nox(dset)
+    if "NO3f" in var_list:
+        dset = add_lazy_no3f(dset)
+    if "NH4f" in var_list:
+        dset = add_lazy_nh4f(dset)
+    if "SO4f" in var_list:
+        dset = add_lazy_so4f(dset)
+    if "RH" in var_list:
+        dset = add_lazy_rh(dset)
 
     # get the grid information
     grid = grid_from_dataset(dset, earth_radius=earth_radius)
@@ -140,17 +114,39 @@ def open_mfdataset(
         dset[i] = dset[i].assign_attrs({"proj4_srs": grid})
         for j in dset[i].attrs:
             dset[i].attrs[j] = dset[i].attrs[j].strip()
-        # dset[i] = dset[i].assign_attrs({'area': area_def})
+        # dset[i] = dset[i].assign_attrs({"area": area_def})
     # dset = dset.assign_attrs(area=area_def)
-
-    # get the times
-    dset = _get_times(dset, drop_duplicates=drop_duplicates)
 
     # get the lat lon
     dset = _get_latlon(dset, area_def)
 
+    # Remove TFLAG so can merge and make sure dimensions consistent with other models.
+    dset = dset.drop(labels="TFLAG")
+
+    if fname_vert is not None:
+        dset_vert = xr.open_mfdataset(fname_vert, **kwargs)
+        dset_vert = _get_times(dset_vert, drop_duplicates=drop_duplicates)
+        dset_vert = dset_vert.drop(labels="TFLAG")
+        dset = dset.merge(dset_vert)
+        # Rename variables
+        dset = dset.rename(
+            {
+                "TA": "temperature_k",
+                "PRES": "pres_pa_mid",
+                "PRES-F_lvl": "pres_pa_full",
+                "ZH": "alt_agl_m_mid",
+                "ZF": "alt_agl_m_full",
+            }
+        )
+    if fname_surf is not None:
+        dset_surf = xr.open_mfdataset(fname_surf, **kwargs)
+        dset_surf = _get_times(dset_surf, drop_duplicates=drop_duplicates)
+        dset_surf = dset_surf.drop(labels="TFLAG").squeeze()
+        dset = dset.merge(dset_surf)
+        dset = dset.rename({"PRSFC": "surfpres_pa"})
+
     # get Predefined mapping tables for observations
-    # d set = _predefined_mapping_tables(dset)
+    # dset = _predefined_mapping_tables(dset)
     # rename dimensions
     dset = dset.rename({"COL": "x", "ROW": "y", "LAY": "z"})
 
@@ -160,9 +156,9 @@ def open_mfdataset(
             if "units" in dset[i].attrs:
                 if "ppmV" in dset[i].attrs["units"]:
                     dset[i] *= 1000.0
-                    dset[i].attrs["units"] = "ppbV"
+                    dset[i].attrs["units"] = "ppbv"
 
-    # convert 'micrograms to \mu g'
+    # convert "micrograms to \mu g"
     for i in dset.variables:
         if "units" in dset[i].attrs:
             if "micrograms" in dset[i].attrs["units"]:
@@ -172,6 +168,21 @@ def open_mfdataset(
 
 
 def _get_times(d, drop_duplicates):
+    """Convert time from the default CMAQ model results to standard format
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+    drop_duplicates: boolean
+        Whether to drop duplicates (True) or not (False)
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data with time in standard format.
+
+    """
     idims = len(d.TFLAG.dims)
     if idims == 2:
         tflag1 = Series(d["TFLAG"][:, 0]).astype(str).str.zfill(7)
@@ -190,17 +201,18 @@ def _get_times(d, drop_duplicates):
 
 
 def _get_latlon(dset, area):
-    """gets the lat and lons from the pyreample.geometry.AreaDefinition
+    """Calculates the lat and lons from the pyreample.geometry.AreaDefinition
 
     Parameters
     ----------
     dset : xarray.Dataset
-        Description of parameter `dset`.
+        CMAQ model data
 
     Returns
     -------
     xarray.Dataset
-        Description of returned object.
+        CMAQ model data including the latitude and longitude in standard
+        format.
 
     """
     lon, lat = area.get_lonlats()
@@ -211,22 +223,35 @@ def _get_latlon(dset, area):
 
 
 def _get_keys(d):
+    """Calculates keys
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    list
+        list of keys
+
+    """
     keys = Series([i for i in d.data_vars.keys()])
     return keys
 
 
 def add_lazy_pm25(d):
-    """Short summary.
+    """Calculates PM2.5 sum. 20% of coarse mode is included in PM2.5 sum.
 
     Parameters
     ----------
-    d : type
-        Description of parameter `d`.
+    d : xarray.Dataset
+        CMAQ model data
 
     Returns
     -------
-    type
-        Description of returned object.
+    xarray.Dataset
+        CMAQ model data including new PM2.5 calculation
 
     """
     keys = _get_keys(d)
@@ -312,6 +337,19 @@ def add_lazy_pm25(d):
 
 
 def add_lazy_pm10(d):
+    """Calculates PM10 sum.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new PM10 calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(concatenate([aitken, accumulation, coarse]))
     if "PMC_TOT" in keys.to_list():
@@ -332,6 +370,19 @@ def add_lazy_pm10(d):
 
 
 def add_lazy_pm_course(d):
+    """Calculates sum of particulate coarse mode.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new PM_COURSE calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(coarse)
     index = allvars.isin(keys)
@@ -349,6 +400,19 @@ def add_lazy_pm_course(d):
 
 
 def add_lazy_clf(d):
+    """Calculates sum of particulate Cl.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new CLf calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["ACLI", "ACLJ", "ACLK"])
     weights = Series([1, 1, 0.2])
@@ -364,6 +428,19 @@ def add_lazy_clf(d):
 
 
 def add_lazy_caf(d):
+    """Calculates sum of particulate Ca.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new CAf calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["ACAI", "ACAJ", "ASEACAT", "ASOIL", "ACORS"])
     weights = Series([1, 1, 0.2 * 32.0 / 1000.0, 0.2 * 83.8 / 1000.0, 0.2 * 56.2 / 1000.0])
@@ -379,6 +456,19 @@ def add_lazy_caf(d):
 
 
 def add_lazy_naf(d):
+    """Calculates sum of particulate Na.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new NAf calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["ANAI", "ANAJ", "ASEACAT", "ASOIL", "ACORS"])
     weights = Series([1, 1, 0.2 * 837.3 / 1000.0, 0.2 * 62.6 / 1000.0, 0.2 * 2.3 / 1000.0])
@@ -394,6 +484,19 @@ def add_lazy_naf(d):
 
 
 def add_lazy_so4f(d):
+    """Calculates sum of particulate SO4.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new SO4f calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["ASO4I", "ASO4J", "ASO4K"])
     weights = Series([1.0, 1.0, 0.2])
@@ -409,6 +512,19 @@ def add_lazy_so4f(d):
 
 
 def add_lazy_nh4f(d):
+    """Calculates sum of particulate NH4.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new NH4f calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["ANH4I", "ANH4J", "ANH4K"])
     weights = Series([1.0, 1.0, 0.2])
@@ -424,6 +540,19 @@ def add_lazy_nh4f(d):
 
 
 def add_lazy_no3f(d):
+    """Calculates sum of particulate NO3.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new NO3f calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["ANO3I", "ANO3J", "ANO3K"])
     weights = Series([1.0, 1.0, 0.2])
@@ -439,6 +568,19 @@ def add_lazy_no3f(d):
 
 
 def add_lazy_noy(d):
+    """Calculates sum of NOy.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new NOy calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(noy_gas)
     index = allvars.isin(keys)
@@ -451,21 +593,34 @@ def add_lazy_noy(d):
 
 def add_lazy_rh(d):
     # keys = Series([i for i in d.variables])
-    # allvars = Series(['TEMP', 'Q', 'PRES'])
+    # allvars = Series(["TEMP", "Q", "PRES"])
     # index = allvars.isin(keys)
     # if can_do(index):
     #     import atmos
     #     data = {
-    #         'T': dset['TEMP'][:].compute().values,
-    #         'rv': dset['Q'][:].compute().values,
-    #         'p': dset['PRES'][:].compute().values
+    #         "T": dset["TEMP"][:].compute().values,
+    #         "rv": dset["Q"][:].compute().values,
+    #         "p": dset["PRES"][:].compute().values
     #     }
-    #     d['NOx'] = add_multiple_lazy(d, newkeys)
-    #     d['NOx'] = d['NOx'].assign_attrs({'name': 'NOx', 'long_name': 'NOx'})
+    #     d["NOx"] = add_multiple_lazy(d, newkeys)
+    #     d["NOx"] = d["NOx"].assign_attrs({"name": "NOx", "long_name": "NOx"})
     return d
 
 
 def add_lazy_nox(d):
+    """Calculates sum of NOx.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+
+    Returns
+    -------
+    xarray.Dataset
+        CMAQ model data including new NOx calculation
+
+    """
     keys = _get_keys(d)
     allvars = Series(["NO", "NOX"])
     index = allvars.isin(keys)
@@ -477,6 +632,23 @@ def add_lazy_nox(d):
 
 
 def add_multiple_lazy(dset, variables, weights=None):
+    """Sums variables
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+        CMAQ model data
+    variables : series
+        series of variables
+    variables : series
+        series of weights to apply to each variable during the sum
+
+    Returns
+    -------
+    xarray.Dataarray
+        Weighted sum of all specified variables
+
+    """
     from numpy import ones
 
     if weights is None:
@@ -497,7 +669,7 @@ def _predefined_mapping_tables(dset):
     Returns
     -------
     dictionary
-        A dictionary of to map to.
+        dictionary defining default mapping tables
 
     """
     to_improve = {}

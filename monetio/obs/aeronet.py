@@ -24,7 +24,14 @@ def add_local(
     detect_dust=False,
     interp_to_aod_values=None,
 ):
-    """Read a local file downloaded from the AERONET Web Service."""
+    """Read a local file downloaded from the AERONET Web Service.
+
+    Parameters
+    ----------
+    fname
+        Suitable input for :func:`pandas.read_csv`, e.g. a relative path as a string
+        or a :term:`path-like <path-like object>`.
+    """
     a = AERONET()
 
     # Detect whether inv should be left as None or not
@@ -34,7 +41,7 @@ def add_local(
     # TODO: actually detect the specific inv type
 
     a.new_aod_values = interp_to_aod_values
-    if a.new_aod_values and not a.prod.startswith("AOD"):
+    if a.new_aod_values is not None and not a.prod.startswith("AOD"):
         print("`interp_to_aod_values` will be ignored")
 
     a.url = fname
@@ -45,7 +52,7 @@ def add_local(
 
     # TODO: DRY wrt. class?
     if freq is not None:
-        a.df = a.df.groupby("siteid").resample(freq).mean().reset_index()
+        a.df = a.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
 
     if detect_dust:
         a.dust_detect()
@@ -64,6 +71,7 @@ def add_data(
     latlonbox=None,
     siteid=None,
     daily=False,
+    lunar=False,
     #
     # post-proc
     freq=None,
@@ -89,12 +97,22 @@ def add_data(
         where ``lat1, lon1`` is the lower-left corner
         and ``lat2, lon2`` is the upper-right corner.
     siteid : str
-        <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>
+        Site identifier string.
 
-        Note that `siteid` takes precendence over `latlonbox`
-        if both are specified.
+        See https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt for all valid site IDs.
+
+        .. warning::
+           Whether you will obtain data depends on the sites active
+           during the `dates` time period.
+
+        .. note::
+           `siteid` takes precendence over `latlonbox`
+           if both are specified.
     daily : bool
         Load daily averaged data.
+    lunar : bool
+        Load provisional lunar "Direct Moon" data instead of the default "Direct Sun".
+        Only for non-inversion products.
     freq : str
         Frequency used to resample the DataFrame.
     detect_dust : bool
@@ -122,6 +140,7 @@ def add_data(
         latlonbox=latlonbox,
         siteid=siteid,
         daily=daily,
+        lunar=lunar,
         detect_dust=detect_dust,
         interp_to_aod_values=interp_to_aod_values,
     )
@@ -158,8 +177,8 @@ def add_data(
 
 @lru_cache(1)
 def get_valid_sites():
-    """Load the AERONET site list as a DataFrame,
-    reading from <https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt>.
+    """Load the AERONET site list as a :class:`~pandas.DataFrame`,
+    reading from https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt.
     """
     from urllib.error import URLError
 
@@ -189,6 +208,7 @@ def _parallel_aeronet_call(
     product="AOD15",
     latlonbox=None,
     daily=False,
+    lunar=False,
     interp_to_aod_values=None,
     inv_type=None,
     freq=None,
@@ -201,6 +221,7 @@ def _parallel_aeronet_call(
         product=product,
         latlonbox=latlonbox,
         daily=daily,
+        lunar=lunar,
         interp_to_aod_values=interp_to_aod_values,
         inv_type=inv_type,
         siteid=siteid,
@@ -260,6 +281,7 @@ class AERONET:
         self.prod = None
         self.inv_type = None
         self.daily = None
+        self.lunar = None
         self.latlonbox = None
         self.siteid = None
 
@@ -317,6 +339,14 @@ class AERONET:
         assert self.daily in {10, 20}, "required parameter"
         avg_ = f"&AVG={self.daily}"
 
+        if self.lunar is not None:
+            if self.lunar in {0, 1}:
+                lunar_ = f"&lunar_merge={self.lunar}"
+            else:
+                raise ValueError(f"invalid lunar setting {self.lunar!r}")
+        else:
+            lunar_ = ""
+
         if self.siteid is not None:
             # Validate here, since the Web Service doesn't do any validation and just returns all
             # sites if the site isn't valid.
@@ -335,18 +365,49 @@ class AERONET:
             lon2 = str(float(self.latlonbox[3]))
             loc_ = f"&lat1={lat1}&lat2={lat2}&lon1={lon1}&lon2={lon2}"
 
-        self.url = f"{base_url}{dates_}{product_}{avg_}{inv_type_}{loc_}&if_no_html=1"
+        self.url = f"{base_url}{dates_}{product_}{avg_}{lunar_}{inv_type_}{loc_}&if_no_html=1"
+
+    def _lines_from_url(self, *, n=10):
+        """Read the first `n` lines from the URL using `requests`,
+        returning the result as a string.
+        """
+        from itertools import islice
+
+        if isinstance(self.url, str) and self.url.startswith("http"):
+            import requests
+
+            r = requests.get(self.url, stream=True)
+            r.raise_for_status()
+            s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+        else:
+            with open(self.url) as f:
+                s = "\n".join(islice(f, n))
+
+        return s
 
     def read_aeronet(self):
         """Load a DataFrame from :attr:`url`, setting :attr:`df`."""
         print("Reading Aeronet Data...")
         inv = self.inv_type is not None
+        skiprows = 5 if not inv else 6
+
+        # Get info lines (before the header line with column names)
+        info = self._lines_from_url(n=skiprows)
+        if len(info.splitlines()) == 1:
+            raise Exception("valid query but no data found")
+        elif info.startswith("<html>"):
+            # Web Service showing an error message on the page (or `&if_no_html=1` manually removed)
+            # With the `build_url` validation, we shouldn't get here
+            raise Exception("invalid query, open the URL to check the error")
+
         df = pd.read_csv(
             self.url,
             engine="python",
             header="infer",
-            skiprows=5 if not inv else 6,
+            skiprows=skiprows,
             parse_dates={"time": [1, 2]},
+            usecols=None,
+            # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
             date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
@@ -370,6 +431,8 @@ class AERONET:
             df.set_index("time", inplace=True)
         df.dropna(subset=["latitude", "longitude"], inplace=True)
         df.dropna(axis=1, how="all", inplace=True)  # empty columns
+        if hasattr(df, "attrs"):
+            df.attrs["info"] = info
         self.df = df
 
     def add_data(
@@ -381,6 +444,7 @@ class AERONET:
         siteid=None,
         latlonbox=None,
         daily=False,
+        lunar=False,
         #
         # post-proc
         freq=None,
@@ -397,14 +461,21 @@ class AERONET:
             self.dates = pd.date_range(start=now.date(), end=now, freq="H")
         else:
             self.dates = dates
-        self.prod = product.upper()
+        if product is not None:
+            self.prod = product.upper()
+        else:
+            self.prod = product
         self.inv_type = inv_type
         if daily:
             self.daily = 20  # daily data
         else:
             self.daily = 10  # all points
+        if lunar:
+            self.lunar = 1  # provisional lunar data
+        else:
+            self.lunar = 0  # no lunar
         self.new_aod_values = interp_to_aod_values
-        if self.new_aod_values and not self.prod.startswith("AOD"):
+        if self.new_aod_values is not None and not self.prod.startswith("AOD"):
             print("`interp_to_aod_values` will be ignored")
 
         self.build_url()
@@ -417,7 +488,9 @@ class AERONET:
             ) from e
 
         if freq is not None:
-            self.df = self.df.groupby("siteid").resample(freq).mean().reset_index()
+            self.df = (
+                self.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+            )
 
         if detect_dust:
             self.dust_detect()
@@ -443,9 +516,11 @@ class AERONET:
 
             try:
                 import pytspack
-            except ImportError:
-                print("You must install pytspack before using this function")
-                raise
+            except ImportError as e:
+                raise RuntimeError(
+                    "You must install pytspack before using this function.\n"
+                    "See https://github.com/noaa-oar-arl/pytspack/"
+                ) from e
 
             new_wv = np.asarray(new_wv)
 
