@@ -98,7 +98,6 @@ def _ensure_mfdataset_filenames(fname):
     """
     from glob import glob
 
-    import six
     from numpy import sort
 
     if isinstance(fname, str):

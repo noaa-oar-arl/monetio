@@ -27,9 +27,9 @@ def read_dataset(fname, variable_dict):
 
     f = hdf_open(fname)
     hdf_list(f)
-    latitude = hdf_read(f, "Latitude")
-    longitude = hdf_read(f, "Longitude")
-    start_time = hdf_read(f, "Scan_Start_Time")
+    latitude = hdf_read(f, "Latitude")  # noqa: F841
+    longitude = hdf_read(f, "Longitude")  # noqa: F841
+    start_time = hdf_read(f, "Scan_Start_Time")  # noqa: F841
     for varname in variable_dict:
         print(varname)
         values = hdf_read(f, varname)
