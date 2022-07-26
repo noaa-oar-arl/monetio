@@ -2,8 +2,9 @@ import logging
 import sys
 import unittest
 
-import hdfio
 import numpy as np
+
+from monetio import hdfio
 
 
 class test_hdf(unittest.TestCase):
