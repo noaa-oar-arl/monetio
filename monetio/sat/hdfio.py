@@ -1,7 +1,9 @@
 import logging
 import sys
 
-import pyhdf.SD as hdf
+from ..util import _import_required
+
+hdf = _import_required("pyhdf.SD")
 
 hdftypes = {
     "int16": hdf.SDC.INT16,
@@ -18,6 +20,7 @@ def hdf_open(filename):
     filename - file name
     return - file id
     """
+
     try:
         fileid = hdf.SD(filename, hdf.SDC.READ)
         logging.debug("hdfio.hdf_open:" + filename)

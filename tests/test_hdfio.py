@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from monetio import hdfio
+from monetio.sat import hdfio
 
 
 class test_hdf(unittest.TestCase):
