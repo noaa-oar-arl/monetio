@@ -7,7 +7,6 @@ from glob import glob
 import numpy as np
 import xarray as xr
 
-from monetio.sat.hdfio import hdf_close, hdf_list, hdf_open, hdf_read
 
 
 def read_dataset(fname, variable_dict):
@@ -21,6 +20,7 @@ def read_dataset(fname, variable_dict):
     _______
     xarray.Dataset
     """
+    from monetio.sat.hdfio import hdf_close, hdf_list, hdf_open, hdf_read
     print("reading " + fname)
 
     ds = xr.Dataset()
