@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import unittest
 
@@ -8,6 +9,7 @@ from monetio import hdfio
 
 
 class test_hdf(unittest.TestCase):
+
     def setUp(self):
         self.filename = "test.hdf"
         self.nx = 2
@@ -59,3 +61,5 @@ if __name__ == "__main__":
 
     test_suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(test_hdf)])
     unittest.TextTestRunner(verbosity=2).run(test_suite)
+    os.remove('test.hdf')
+

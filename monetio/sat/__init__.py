@@ -1,12 +1,12 @@
 from . import (
     goes,
-    modis_l2,
     modis_ornl,
     nesdis_edr_viirs,
     nesdis_eps_viirs,
     nesdis_frp,
-    omps_limb,
-    omps_nadir,
+    _modis_l2_mm,
+    _omps_limb_mm,
+    _omps_nadir_mm,
 )
 
 __all__ = [
@@ -15,9 +15,9 @@ __all__ = [
     "nesdis_frp",
     "modis_ornl",
     "goes",
-    "modis_l2",
-    "omps_nadir",
-    "omps_limb",
+    "_modis_l2_mm",
+    "_omps_nadir_mm",
+    "_omps_limb_mm",
 ]
 
 __name__ = "sat"

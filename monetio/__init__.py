@@ -3,7 +3,7 @@ from .hdf import hdfio
 from .models import camx, cmaq, fv3chem, hysplit, hytraj, ncep_grib, pardump, prepchem, raqms
 from .obs import aeronet, airnow, aqs, cems, crn, improve, ish, ish_lite, nadp, openaq, pams
 from .profile import geoms, icartt, tolnet
-from .sat import goes, modis_l2, omps_limb, omps_nadir
+from .sat import goes
 
 __version__ = "0.2.2"
 
@@ -40,9 +40,6 @@ __all__ = [
     #
     # satellite obs
     "goes",
-    "modis_l2",
-    "omps_limb",
-    "omps_nadir",
     #
     # models
     "camx",
