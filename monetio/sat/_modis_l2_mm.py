@@ -20,6 +20,7 @@ def read_dataset(fname, variable_dict):
     xarray.Dataset
     """
     from monetio.sat.hdfio import hdf_close, hdf_list, hdf_open, hdf_read
+
     print("reading " + fname)
 
     ds = xr.Dataset()
