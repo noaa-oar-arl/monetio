@@ -1,10 +1,7 @@
-import logging
-import os
-import sys
-
 import numpy as np
-import monetio.sat.hdfio as hdfio
+import pytest
 
+import monetio.sat.hdfio as hdfio
 
 filename = "test.hdf"
 nx = 2
@@ -21,8 +18,11 @@ u[:, :, :] = 1
 v[:, :, :] = xfield[:, :, :] * yfield[:, :, :] * zfield[:, :, :]
 w[:, :, :] = xfield[:, :, :] ** 2 + yfield[:, :, :] ** 2
 
-def test_hdf_create():
-    fileid = hdfio.hdf_create(filename)
+
+@pytest.fixture
+def sample_file(tmp_path):
+    fp = str(tmp_path / filename)
+    fileid = hdfio.hdf_create(fp)
     hdfio.hdf_write_coord(fileid, "x", x)
     hdfio.hdf_write_coord(fileid, "y", y)
     hdfio.hdf_write_coord(fileid, "z", z)
@@ -30,14 +30,19 @@ def test_hdf_create():
     hdfio.hdf_write_field(fileid, "v", ("x", "y", "z"), v)
     hdfio.hdf_write_field(fileid, "w", ("x", "y", "z"), w)
     hdfio.hdf_close(fileid)
+    return fp
 
-def test_hdf_list():
-    fileid = hdfio.hdf_open(filename)
-    hdfio.hdf_list(fileid)
+
+def test_hdf_list(sample_file):
+    fileid = hdfio.hdf_open(sample_file)
+    datasets, indices = hdfio.hdf_list(fileid)
+    assert sorted(indices) == list(range(6))
+    assert set(datasets) == {"x", "y", "z", "u", "v", "w"}
     hdfio.hdf_close(fileid)
 
-def test_hdf_read():
-    fileid = hdfio.hdf_open(filename)
+
+def test_hdf_read(sample_file):
+    fileid = hdfio.hdf_open(sample_file)
     u = hdfio.hdf_read(fileid, "u")
     v = hdfio.hdf_read(fileid, "v")
     w = hdfio.hdf_read(fileid, "w")
@@ -45,7 +50,3 @@ def test_hdf_read():
     np.testing.assert_equal(v, v)
     np.testing.assert_equal(w, w)
     hdfio.hdf_close(fileid)
-
-def test_cleanup():
-    os.remove('test.hdf')
-
