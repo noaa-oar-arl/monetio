@@ -77,13 +77,13 @@ def _fix_grid(ds):
 
 
 def _fix_time(ds):
-    """Set 'time' coordinate variable based on IDATE."""
+    """Set 'time' coordinate variable based on the date/time strings."""
     import pandas as pd
 
-    dtstr = ds.IDATE.values
+    dtstr = ds.Times.values.astype(str)
 
-    date = pd.to_datetime(dtstr, format=r"%Y%m%d%H")
-    ds["time"] = (("time",), date)
+    time = pd.to_datetime(dtstr, format=r"%Y_%m_%d_%H:%M:%S")
+    ds["time"] = (("time",), time)
 
     # These time variables are no longer needed
     ds = ds.drop_vars(["IDATE", "Times"], errors="ignore")
