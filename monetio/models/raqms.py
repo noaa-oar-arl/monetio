@@ -73,6 +73,10 @@ def _fix_grid(ds):
     ds = ds.set_coords(["latitude", "longitude"])
     del lon, lat
 
+    # Invert in z so that index 0 is closest to surface
+    # https://github.com/pydata/xarray/discussions/6695
+    ds = ds.isel(z=slice(None, None, -1))
+
     return ds
 
 

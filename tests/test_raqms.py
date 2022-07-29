@@ -23,6 +23,7 @@ def _test_ds(ds):
     assert "longitude" in ds.coords
     assert np.all(ds.latitude.values[0, :] == ds.latitude.values[0, 0])
     assert np.all(ds.longitude.values[:, 0] == ds.longitude.values[0, 0])
+    assert np.all(ds.geop.mean(["time", "x", "y"]) > 0)
 
 
 def test_open_dataset():
