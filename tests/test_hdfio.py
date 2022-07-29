@@ -64,7 +64,7 @@ def pyhdf_missing(monkeypatch):
 
     blocked_imports = {"pyhdf", "pyhdf.SD"}
 
-    def wrapped_import(name, *args, **kwargs):
+    def wrapped_dunder_import(name, *args, **kwargs):
         if name in blocked_imports:
             raise ImportError(f"Mocked import error for {name!r}")
         return real_dunder_import(name, *args, **kwargs)
@@ -77,7 +77,7 @@ def pyhdf_missing(monkeypatch):
     for mod in blocked_imports:
         monkeypatch.delitem(sys.modules, mod, raising=False)
     monkeypatch.delitem(sys.modules, "monetio.sat.hdfio", raising=False)  # important!
-    monkeypatch.setattr(builtins, "__import__", wrapped_import)
+    monkeypatch.setattr(builtins, "__import__", wrapped_dunder_import)
     monkeypatch.setattr(importlib, "import_module", wrapped_importlib_import)
 
 
