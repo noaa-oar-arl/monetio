@@ -50,3 +50,37 @@ def test_hdf_read(sample_file):
     np.testing.assert_equal(v, v)
     np.testing.assert_equal(w, w)
     hdfio.hdf_close(fileid)
+
+
+@pytest.fixture
+def pyhdf_missing(monkeypatch):
+    # http://materials-scientist.com/blog/2021/02/11/mocking-failing-module-import-python/
+    import builtins
+    import importlib
+    import sys
+
+    real_dunder_import = builtins.__import__
+    real_importlib_import = importlib.import_module
+
+    blocked_imports = {"pyhdf", "pyhdf.SD"}
+
+    def wrapped_dunder_import(name, *args, **kwargs):
+        if name in blocked_imports:
+            raise ImportError(f"Mocked import error for {name!r}")
+        return real_dunder_import(name, *args, **kwargs)
+
+    def wrapped_importlib_import(name, *args, **kwargs):
+        if name in blocked_imports:
+            raise ImportError(f"Mocked import error for {name!r}")
+        return real_importlib_import(name, *args, **kwargs)
+
+    for mod in blocked_imports:
+        monkeypatch.delitem(sys.modules, mod, raising=False)
+    monkeypatch.delitem(sys.modules, "monetio.sat.hdfio", raising=False)  # important!
+    monkeypatch.setattr(builtins, "__import__", wrapped_dunder_import)
+    monkeypatch.setattr(importlib, "import_module", wrapped_importlib_import)
+
+
+def test_pyhdf_missing_error(pyhdf_missing):
+    with pytest.raises(RuntimeError, match="importing required module 'pyhdf.SD'"):
+        import monetio.sat.hdfio  # noqa: F401
