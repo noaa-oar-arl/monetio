@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 from collections import OrderedDict
 from glob import glob
@@ -84,19 +83,10 @@ def read_mfdataset(fnames, variable_dict, debug=False):
         logging_level = logging.INFO
     logging.basicConfig(stream=sys.stdout, level=logging_level)
 
-    for subpath in fnames.split("/"):
-        if "$" in subpath:
-            envvar = subpath.replace("$", "")
-            envval = os.getenv(envvar)
-            if envval is None:
-                print("environment variable not defined: " + subpath)
-                exit(1)
-            else:
-                fnames = fnames.replace(subpath, envval)
-
-    print(fnames)
     files = sorted(glob(fnames))
+
     granules = OrderedDict()
+
     for file in files:
         granule = read_dataset(file, variable_dict)
         apply_quality_flag(granule)
