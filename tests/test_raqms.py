@@ -23,6 +23,8 @@ def _test_ds(ds):
     assert "longitude" in ds.coords
     assert np.all(ds.latitude.values[0, :] == ds.latitude.values[0, 0])
     assert np.all(ds.longitude.values[:, 0] == ds.longitude.values[0, 0])
+    assert float(ds.longitude.min()) == -180.0  # 1-degree grid
+    assert float(ds.longitude.max()) == 179.0
     assert np.all(ds.geop.mean(["time", "x", "y"]) > 0)
 
 
