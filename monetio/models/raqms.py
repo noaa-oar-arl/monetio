@@ -63,7 +63,7 @@ def open_mfdataset(fname):
 def _fix_grid(ds):
     from numpy import meshgrid
 
-    # Create 2-D lat/lon grid with dims ('y', 'x') and lon [-180, 180)
+    # Create 2-D lat/lon grid with dims ('y', 'x') and lon in [-180, 180)
     lat = ds.lat.values
     lon = ds.lon.values
     lon[(lon >= 180)] -= 360
@@ -90,7 +90,8 @@ def _fix_grid(ds):
     ds = ds.reset_coords().set_coords(["latitude", "longitude"])
     del lon, lat
 
-    # Add attrs for 'lev' (now 'z')
+    # Add attrs for 'lev'
+    # The 'lev' values are nominal and should be the same among files
     ds["lev"].attrs.update(
         long_name="Nominal potential temperature of model level",
         units="K",
