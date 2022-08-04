@@ -73,6 +73,16 @@ def _fix_grid(ds):
     ds = ds.set_coords(["latitude", "longitude"])
     del lon, lat
 
+    # Add attrs for 'lev' (now 'z')
+    ds.z.attrs.update(
+        long_name="Nominal potential temperature of model level",
+        units="K",
+        description=(
+            "In the stratosphere (beginning at lev=492), the model levels are on potential temperature surfaces. "
+            "Below lev=492, the model levels are a blend of potential temperature and sigma (terrain-following) coordinates."
+        ),
+    )
+
     # Invert in z so that index 0 is closest to surface
     # https://github.com/pydata/xarray/discussions/6695
     ds = ds.isel(z=slice(None, None, -1))
