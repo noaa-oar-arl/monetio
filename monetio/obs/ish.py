@@ -1,13 +1,8 @@
 """Python module for reading NOAA ISH files"""
-
-
 import dask
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-from dask.diagnostics import ProgressBar
-
-ProgressBar().register()
 
 
 def add_data(self, dates, box=None, country=None, state=None, site=None, resample=True, window="H"):

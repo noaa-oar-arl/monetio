@@ -1,11 +1,6 @@
 """Python module for reading NOAA ISH files"""
-
-
 import numpy as np
 import pandas as pd
-from dask.diagnostics import ProgressBar
-
-ProgressBar().register()
 
 
 def add_data(
