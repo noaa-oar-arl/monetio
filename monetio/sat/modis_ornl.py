@@ -20,7 +20,6 @@ import sys
 from copy import copy
 
 import numpy as np
-from dask.diagnostics import ProgressBar
 
 try:
     from suds.client import Client
@@ -32,9 +31,6 @@ except ImportError:
 DEBUG_PRINTING = False
 
 defaultURL = "https://modis.ornl.gov/cgi-bin/MODIS/soapservice/MODIS_soapservice.wsdl"
-
-pbar = ProgressBar()
-pbar.register()
 
 
 class modisData:

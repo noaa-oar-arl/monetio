@@ -3,15 +3,10 @@ import os
 import warnings
 
 import pandas as pd
-from dask.diagnostics import ProgressBar
 
 from .epa_util import read_monitor_file
 
 # this is a class to deal with aqs data
-
-
-pbar = ProgressBar()
-pbar.register()
 
 
 def add_data(
