@@ -1,5 +1,5 @@
 from . import grids
-from .models import camx, cmaq, fv3chem, hysplit, hytraj, ncep_grib, pardump, prepchem
+from .models import camx, cmaq, fv3chem, hysplit, hytraj, ncep_grib, pardump, prepchem, raqms
 from .obs import aeronet, airnow, aqs, cems, crn, improve, ish, ish_lite, nadp, openaq, pams
 from .profile import geoms, icartt, tolnet
 from .sat import goes
@@ -48,6 +48,7 @@ __all__ = [
     "ncep_grib",
     "pardump",
     "prepchem",
+    "raqms",
 ]
 
 
