@@ -37,7 +37,7 @@ jobs:
 
       - name: Test with pytspack installed
         run: |
-          pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip --no-deps
+          pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
           pytest -n auto -v -k with_pytspack
 
   docs:
