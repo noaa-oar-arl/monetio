@@ -186,8 +186,10 @@ def open_mfdataset(
     dset["pres_pa_mid"] = _calc_pressure(dset)
 
     # Adjust pressure levels for all models such that the surface is first.
-    dset = dset.sortby("z", ascending=False)
-    dset = dset.sortby("z_i", ascending=False)
+    if np.all(np.diff(dset.z.values) > 0):  # increasing pressure
+        dset = dset.isel(z=slice(None, None, -1))  # -> decreasing
+    if np.all(np.diff(dset.z_i.values) > 0):  # increasing pressure
+        dset = dset.isel(z_i=slice(None, None, -1))  # -> decreasing
 
     # Note this altitude calcs needs to always go after resorting.
     # Altitude calculations are all optional, but for each model add values that are easy to calculate.
