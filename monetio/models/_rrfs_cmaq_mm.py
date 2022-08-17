@@ -193,8 +193,9 @@ def open_mfdataset(
 
     # Note this altitude calcs needs to always go after resorting.
     # Altitude calculations are all optional, but for each model add values that are easy to calculate.
-    dset["alt_msl_m_full"] = _calc_hgt(dset)
-    dset["dz_m"] = dset["dz_m"] * -1.0  # Change to positive values.
+    if not surf_only:
+        dset["alt_msl_m_full"] = _calc_hgt(dset)
+        dset["dz_m"] = dset["dz_m"] * -1.0  # Change to positive values.
 
     # Set coordinates
     dset = dset.reset_index(
