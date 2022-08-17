@@ -190,12 +190,12 @@ def open_mfdataset(
         dset = dset.isel(z=slice(None, None, -1))  # -> decreasing
     if np.all(np.diff(dset.z_i.values) > 0):  # increasing pressure
         dset = dset.isel(z_i=slice(None, None, -1))  # -> decreasing
+    dset["dz_m"] = dset["dz_m"] * -1.0  # Change to positive values.
 
     # Note this altitude calcs needs to always go after resorting.
     # Altitude calculations are all optional, but for each model add values that are easy to calculate.
     if not surf_only:
         dset["alt_msl_m_full"] = _calc_hgt(dset)
-        dset["dz_m"] = dset["dz_m"] * -1.0  # Change to positive values.
 
     # Set coordinates
     dset = dset.reset_index(
