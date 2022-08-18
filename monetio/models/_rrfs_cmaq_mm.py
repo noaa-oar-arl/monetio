@@ -21,7 +21,7 @@ def open_mfdataset(
     var_list=None,
     fname_pm25=None,
     surf_only=False,
-    **kwargs
+    **kwargs,
 ):
     # Like WRF-chem add var list that just determines whether to calculate sums or not to speed this up.
     """Method to open RFFS-CMAQ dyn* netcdf files.
