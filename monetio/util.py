@@ -381,6 +381,7 @@ def _import_required(mod_name: str):
 def _try_merge_exact(left, right, *, right_name=None):
     """For two ``xr.Dataset``s, try ``left.merge(right, compat="equals", join="exact")``.
     If it fails, print informative debugging messages and re-raise.
+    Otherwise, return the result.
     """
     import warnings
 
