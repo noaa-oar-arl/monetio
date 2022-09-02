@@ -396,8 +396,17 @@ def _try_merge_exact(left, right, *, right_name=None):
         # Try to print more debug info
         import re
 
-        regex = r"not equal along these coordinates \(dimensions\): '(?P<name>[a-zA-Z0-9_]*)'"
-        m = re.search(regex, str(e))
+        name = r"(?P<name>[a-zA-Z0-9_]*)"
+
+        m = None
+        for regex in [
+            rf"not equal along these coordinates \(dimensions\): '{name}'",
+            # Older message, used up to at least 0.21.1:
+            rf"indexes along dimension '{name}' are not equal",
+        ]:
+            m = re.search(regex, str(e))
+            if m is not None:
+                break
         if m is None:
             warnings.warn(
                 f"Unexpected Exception message (expected to match {regex!r}): {e}", stacklevel=2

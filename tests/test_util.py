@@ -68,6 +68,3 @@ def test_issue78():
 
     with pytest.raises(ValueError, match="Unable to merge blah due to issue matching coordinates."):
         _ = _try_merge_exact(left, right, right_name="blah")
-
-    # Note: message is "indexes along dimension 'y' are not equal" in xarray 0.21.1
-    # so the match would fail
