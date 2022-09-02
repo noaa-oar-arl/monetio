@@ -1,6 +1,4 @@
 """ RRFS-CMAQ File Reader """
-import warnings
-
 import numpy as np
 import xarray as xr
 from numpy import concatenate
@@ -155,6 +153,8 @@ def open_mfdataset(
         ]
 
     if fname_pm25 is not None:
+        from ..util import _try_merge_exact
+
         # Add the processed pm2.5 species.
         dset_pm25 = xr.open_mfdataset(fname_pm25, concat_dim="time", combine="nested", **kwargs)
         dset_pm25 = dset_pm25.drop(
@@ -164,27 +164,7 @@ def open_mfdataset(
         # same pressure levels from the model dynf* files.
         # Attributes are formatted differently in pm25 file so remove attributes and use those from dynf* files.
         dset_pm25.attrs = {}
-        try:
-            dset = dset.merge(dset_pm25, compat="equals", join="exact")
-        except ValueError as e:
-            # Try to print more debug info
-            import re
-
-            regex = r"not equal along these coordinates \(dimensions\): '(?P<name>[a-zA-Z0-9_]*)'"
-            m = re.search(regex, str(e))
-            if m is None:
-                warnings.warn(f"Unexpected Exception message (expected to match {regex!r}): {e}")
-                raise
-            else:
-                vn = m.groupdict()["name"]
-                print(f"self {vn!r}: dtype={dset[vn].dtype}")
-                print(dset[vn])
-                print(f"other {vn!r}: dtype={dset_pm25[vn].dtype}")
-                print(dset_pm25[vn])
-                raise ValueError(
-                    "Unable to merge PM2.5 due to issue matching coordinates. "
-                    "See debug messages above the traceback."
-                ) from e
+        dset = _try_merge_exact(dset, dset_pm25, right_name="PM2.5")
 
     # Standardize some variable names
     dset = dset.rename(
