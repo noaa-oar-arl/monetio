@@ -58,6 +58,8 @@ def open_mfdataset(
         var_list.append("lat")
     if "lon" not in var_list:
         var_list.append("lon")
+    if "lev" not in var_list:
+        var_list.append("lev")
 
     # ===========================
     # Process the loaded data
