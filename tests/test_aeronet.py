@@ -113,7 +113,7 @@ def test_add_data_all_noninv(product):
 
 def test_add_data_valid_empty_query():
     dates = pd.date_range("2021/08/01", "2021/08/02")
-    site = "Tucson"
+    site = "Banana_River"
 
     with pytest.raises(Exception, match="loading from URL .+ failed") as ei:
         aeronet.add_data(dates, product="AOD20", siteid=site)

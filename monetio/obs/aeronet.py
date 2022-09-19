@@ -394,6 +394,7 @@ class AERONET:
         # Get info lines (before the header line with column names)
         info = self._lines_from_url(n=skiprows)
         if len(info.splitlines()) == 1:
+            # e.g. "AERONET Data Download (Version 3 Direct Sun)"
             raise Exception("valid query but no data found")
         elif info.startswith("<html>"):
             # Web Service showing an error message on the page (or `&if_no_html=1` manually removed)
