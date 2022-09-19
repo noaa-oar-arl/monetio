@@ -27,6 +27,8 @@ def _test_ds(ds):
     assert float(ds.longitude.max()) == 179.0
     assert np.all(ds.geop.mean(["time", "x", "y"]) > 0)
 
+    # TODO: Test pressure unit conversion/renames
+
 
 def test_open_dataset():
     ds = raqms.open_dataset(TEST_FP)
