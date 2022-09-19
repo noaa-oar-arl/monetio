@@ -1,6 +1,7 @@
 """
 AERONET
 """
+import warnings
 from datetime import datetime
 from functools import lru_cache
 
@@ -551,6 +552,21 @@ class AERONET:
         )
         names = "aod_" + pd.Series(self.new_aod_values.astype(int).astype(str)) + "nm"
         out.columns = names.values
+        dup_names = list(set(self.df) & set(out))
+        if dup_names:
+            # Rename old cols, assuming preference for the specified new wavelengths
+            suff = "_orig"
+            warnings.warn(
+                f"Renaming duplicate AOD columns {dup_names} by adding suffix '{suff}'.",
+                stacklevel=2,
+            )
+            for name in dup_names:
+                self.df = self.df.rename(columns={name: f"{name}{suff}"})
+                if self.daily == 10:  # all data
+                    wl = name[4:-2]
+                    ename = f"exact_wavelengths_of_aod(um)_{wl}nm"
+                    ename_new = f"exact_wavelengths_of_aod(um)_{wl}nm{suff}"
+                    self.df = self.df.rename(columns={ename: ename_new})
         self.df = pd.concat([self.df, out], axis=1)
 
     # @staticmethod
