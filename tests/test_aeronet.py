@@ -206,7 +206,6 @@ def test_interp_with_pytspack():
 def test_interp_daily_with_pytspack():
     dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
-    with pytest.raises(ValueError):
-        _ = aeronet.add_data(
-            dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths
-        )
+    df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
+
+    assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)

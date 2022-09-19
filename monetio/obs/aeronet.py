@@ -526,12 +526,13 @@ class AERONET:
             new_wv = np.asarray(new_wv)
 
             # df_aod_nu = self._aeronet_aod_and_nu(row)
-            aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
+            aod_columns = [aod_column for aod_column in row.index if aod_column.startswith("aod_")]
             aods = row[aod_columns]
             wv = [
                 float(aod_column.replace("aod_", "").replace("nm", ""))
                 for aod_column in aod_columns
             ]
+            # TODO: the non-daily product has `exact_wavelengths_of_aod(um)_<wavelength>nm` that could be used
             a = pd.DataFrame({"aod": aods}).reset_index()
             a["wv"] = wv
             df_aod_nu = a.dropna()
