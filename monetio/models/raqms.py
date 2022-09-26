@@ -136,6 +136,7 @@ def _fix_pres(ds):
 
     ds = ds.rename_vars(rename)
     for vn in rename.values():
+        assert ds[vn].attrs.get("units", "mb") in {"mb", "hPa"}
         with xr.set_options(keep_attrs=True):
             ds[vn] *= 100
         ds[vn].attrs.update(units="Pa")
