@@ -1,6 +1,7 @@
 """
 AERONET
 """
+import warnings
 from datetime import datetime
 from functools import lru_cache
 
@@ -394,6 +395,7 @@ class AERONET:
         # Get info lines (before the header line with column names)
         info = self._lines_from_url(n=skiprows)
         if len(info.splitlines()) == 1:
+            # e.g. "AERONET Data Download (Version 3 Direct Sun)"
             raise Exception("valid query but no data found")
         elif info.startswith("<html>"):
             # Web Service showing an error message on the page (or `&if_no_html=1` manually removed)
@@ -525,12 +527,13 @@ class AERONET:
             new_wv = np.asarray(new_wv)
 
             # df_aod_nu = self._aeronet_aod_and_nu(row)
-            aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
+            aod_columns = [aod_column for aod_column in row.index if aod_column.startswith("aod_")]
             aods = row[aod_columns]
             wv = [
                 float(aod_column.replace("aod_", "").replace("nm", ""))
                 for aod_column in aod_columns
             ]
+            # TODO: the non-daily product has `exact_wavelengths_of_aod(um)_<wavelength>nm` that could be used
             a = pd.DataFrame({"aod": aods}).reset_index()
             a["wv"] = wv
             df_aod_nu = a.dropna()
@@ -549,6 +552,21 @@ class AERONET:
         )
         names = "aod_" + pd.Series(self.new_aod_values.astype(int).astype(str)) + "nm"
         out.columns = names.values
+        dup_names = list(set(self.df) & set(out))
+        if dup_names:
+            # Rename old cols, assuming preference for the specified new wavelengths
+            suff = "_orig"
+            warnings.warn(
+                f"Renaming duplicate AOD columns {dup_names} by adding suffix '{suff}'.",
+                stacklevel=2,
+            )
+            for name in dup_names:
+                self.df = self.df.rename(columns={name: f"{name}{suff}"})
+                if self.daily == 10:  # all data
+                    wl = name[4:-2]
+                    ename = f"exact_wavelengths_of_aod(um)_{wl}nm"
+                    ename_new = f"exact_wavelengths_of_aod(um)_{wl}nm{suff}"
+                    self.df = self.df.rename(columns={ename: ename_new})
         self.df = pd.concat([self.df, out], axis=1)
 
     # @staticmethod

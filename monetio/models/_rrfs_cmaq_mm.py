@@ -19,7 +19,7 @@ def open_mfdataset(
     var_list=None,
     fname_pm25=None,
     surf_only=False,
-    **kwargs
+    **kwargs,
 ):
     # Like WRF-chem add var list that just determines whether to calculate sums or not to speed this up.
     """Method to open RFFS-CMAQ dyn* netcdf files.
@@ -153,6 +153,8 @@ def open_mfdataset(
         ]
 
     if fname_pm25 is not None:
+        from ..util import _try_merge_exact
+
         # Add the processed pm2.5 species.
         dset_pm25 = xr.open_mfdataset(fname_pm25, concat_dim="time", combine="nested", **kwargs)
         dset_pm25 = dset_pm25.drop(
@@ -162,7 +164,7 @@ def open_mfdataset(
         # same pressure levels from the model dynf* files.
         # Attributes are formatted differently in pm25 file so remove attributes and use those from dynf* files.
         dset_pm25.attrs = {}
-        dset = dset.merge(dset_pm25)
+        dset = _try_merge_exact(dset, dset_pm25, right_name="PM2.5")
 
     # Standardize some variable names
     dset = dset.rename(
