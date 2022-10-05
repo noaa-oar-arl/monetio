@@ -113,7 +113,7 @@ def test_add_data_all_noninv(product):
 
 def test_add_data_valid_empty_query():
     dates = pd.date_range("2021/08/01", "2021/08/02")
-    site = "Tucson"
+    site = "Banana_River"
 
     with pytest.raises(Exception, match="loading from URL .+ failed") as ei:
         aeronet.add_data(dates, product="AOD20", siteid=site)
@@ -186,7 +186,8 @@ def test_interp_with_pytspack():
     # For MM data proc example
     dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
-    df = aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
+    with pytest.warns(UserWarning, match="Renaming duplicate AOD columns"):
+        df = aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
     # Note: default wls for this period:
     #
     # wls = sorted(df.columns[df.columns.str.startswith("aod")].str.slice(4, -2).astype(int).tolist())
@@ -198,5 +199,24 @@ def test_interp_with_pytspack():
     #  870, 1020, 1640]
     #
     # Note: Some of the ones we want already are in there (340 and 440 nm)
-    # TODO: add `_old` to the old ones or `_new` to the new ones? Or remove the old ones?
+
+    # Check for the new columns
+    assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
+
+    # Check for renamed duplicate columns
+    assert {c for c in df if c.startswith("aod_") and c.endswith("nm_orig")} == {
+        "aod_340nm_orig",
+        "aod_440nm_orig",
+    }
+    assert {
+        c for c in df if c.startswith("exact_wavelengths_of_aod") and c.endswith("nm_orig")
+    } == {"exact_wavelengths_of_aod(um)_340nm_orig", "exact_wavelengths_of_aod(um)_440nm_orig"}
+
+
+@pytest.mark.skipif(not has_pytspack, reason="no pytspack")
+def test_interp_daily_with_pytspack():
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    standard_wavelengths = np.array([0.55]) * 1000
+    df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
+
     assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
