@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 
 
-def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
+def read_gridded_eos(fname, var_dict, *, save_as_netcdf=False):
     """
     Parameters
     __________
@@ -12,8 +12,8 @@ def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
         Input file path.
     var_dict : dict
         Dictionary of variables to read, along with variable metadata.
-        {varname: {"fillvalue": float, "scale": float, "units": str}, ...}
-    save_as_netcdf: bool, default=False
+        ``{varname: {"fillvalue": float, "scale": float, "units": str}, ...}``
+    save_as_netcdf : bool, default=False
         Save variables in var_dict in netcdf format.
 
 
@@ -22,7 +22,7 @@ def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
     xarray.Dataset
     """
 
-    from monetio.sat.hdfio import hdf_close, hdf_list, hdf_open, hdf_read
+    from .hdfio import hdf_close, hdf_list, hdf_open, hdf_read
 
     logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
 
     lon = hdf_read(f, "XDim")
     lat = np.flip(hdf_read(f, "YDim"))
-    lon_da = xr.DataArray(lon, attrs={"longname": "longitude", "units": "deg East"})
-    lat_da = xr.DataArray(lat, attrs={"longname": "latitude", "units": "deg North"})
+    lon_da = xr.DataArray(lon, attrs={"long_name": "longitude", "units": "deg east"})
+    lat_da = xr.DataArray(lat, attrs={"long_name": "latitude", "units": "deg north"})
 
     for var in var_dict:
         logger.info("read_gridded_eos:" + var)
