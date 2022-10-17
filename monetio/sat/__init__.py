@@ -1,4 +1,5 @@
 from . import (
+    _gridded_eos_mm,
     _modis_l2_mm,
     _omps_nadir_mm,
     goes,
@@ -9,6 +10,7 @@ from . import (
 )
 
 __all__ = [
+    "_gridded_eos_mm",
     "_modis_l2_mm",
     "_omps_nadir_mm",
     "nesdis_edr_viirs",

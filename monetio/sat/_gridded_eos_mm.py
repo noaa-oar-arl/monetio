@@ -24,9 +24,11 @@ def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
 
     from monetio.sat.hdfio import hdf_close, hdf_list, hdf_open, hdf_read
 
+    logger = logging.getLogger(__name__)
+
     ds_dict = dict()
 
-    logging.info("read_gridded_eos:" + fname)
+    logger.info("read_gridded_eos:" + fname)
     f = hdf_open(fname)
     datasets, indices = hdf_list(f)
 
@@ -36,7 +38,7 @@ def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
     lat_da = xr.DataArray(lat, attrs={"longname": "latitude", "units": "deg North"})
 
     for var in var_dict:
-        logging.info("read_gridded_eos:" + var)
+        logger.info("read_gridded_eos:" + var)
         data = np.array(hdf_read(f, var), dtype=float)
         data = np.flip(data, axis=0)
         data[data == var_dict[var]["fillvalue"]] = np.nan
@@ -55,7 +57,7 @@ def read_gridded_eos(fname, var_dict, save_as_netcdf=False):
 
     if save_as_netcdf:
         fname_nc = fname.replace(".hdf", ".nc")
-        logging.info("writing " + fname_nc)
+        logger.info("writing " + fname_nc)
         ds.to_netcdf(fname_nc)
 
     return ds
