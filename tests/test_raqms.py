@@ -27,6 +27,15 @@ def _test_ds(ds):
     assert float(ds.longitude.max()) == 179.0
     assert np.all(ds.geop.mean(["time", "x", "y"]) > 0)
 
+    # Test _fix_pres worked
+    p_vns = {"surfpres_pa", "dp_pa", "pres_pa_mid"}
+    assert p_vns.issubset(ds.variables)
+    for vn in p_vns:
+        assert ds[vn].units == "Pa"
+    assert (ds["pres_pa_mid"].mean(dim=("time", "y", "x")) > 90000).all()
+    assert (ds["dp_pa"].mean(dim=("time", "y", "x")) > 1000).all()
+    assert 100000 > ds["surfpres_pa"].mean() > 95000
+
 
 def test_open_dataset():
     ds = raqms.open_dataset(TEST_FP)

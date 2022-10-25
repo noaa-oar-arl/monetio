@@ -29,6 +29,7 @@ def open_dataset(fname):
     ds = xr.open_dataset(names[0], drop_variables=["theta"])
     ds = _fix_grid(ds)
     ds = _fix_time(ds)
+    ds = _fix_pres(ds)
 
     return ds
 
@@ -56,6 +57,7 @@ def open_mfdataset(fname):
     ds = xr.open_mfdataset(names, concat_dim="time", drop_variables=["theta"], combine="nested")
     ds = _fix_grid(ds)
     ds = _fix_time(ds)
+    ds = _fix_pres(ds)
 
     return ds
 
@@ -119,6 +121,25 @@ def _fix_time(ds):
 
     # These time variables are no longer needed
     ds = ds.drop_vars(["IDATE", "Times"], errors="ignore")
+
+    return ds
+
+
+def _fix_pres(ds):
+    """Rename pressure variables and convert from mb to Pa."""
+    rename0 = {
+        "psfc": "surfpres_pa",
+        "delp": "dp_pa",
+        "pdash": "pres_pa_mid",
+    }
+    rename = {k: v for k, v in rename0.items() if k in ds.variables}
+
+    ds = ds.rename_vars(rename)
+    for vn in rename.values():
+        assert ds[vn].attrs.get("units", "mb") in {"mb", "hPa"}
+        with xr.set_options(keep_attrs=True):
+            ds[vn] *= 100
+        ds[vn].attrs.update(units="Pa")
 
     return ds
 
