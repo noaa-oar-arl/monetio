@@ -21,8 +21,8 @@ dependencies:
   #
   # test
   - pytest
-  - pytest-xdist
   #
   - pip>=21.1
   - pip:
       - "-e ."
+      - pytest-xdist
