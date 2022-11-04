@@ -8,7 +8,7 @@ More information: http://raqms-ops.ssec.wisc.edu/
 import xarray as xr
 
 
-def open_dataset(fname):
+def open_dataset(fname, *, surf_only=False):
     """Open a single dataset from RAQMS output. Currently expects netCDF file format.
 
     Parameters
@@ -27,14 +27,12 @@ def open_dataset(fname):
         )
 
     ds = xr.open_dataset(names[0], drop_variables=["theta"])
-    ds = _fix_grid(ds)
-    ds = _fix_time(ds)
-    ds = _fix_pres(ds)
+    ds = _fix(ds, surf_only=surf_only)
 
     return ds
 
 
-def open_mfdataset(fname):
+def open_mfdataset(fname, *, surf_only=False):
     """Open a multiple file dataset from RAQMS output.
 
     Parameters
@@ -55,9 +53,20 @@ def open_mfdataset(fname):
         )
 
     ds = xr.open_mfdataset(names, concat_dim="time", drop_variables=["theta"], combine="nested")
+    ds = _fix(ds, surf_only=surf_only)
+
+    return ds
+
+
+def _fix(ds, *, surf_only):
     ds = _fix_grid(ds)
     ds = _fix_time(ds)
     ds = _fix_pres(ds)
+
+    if surf_only:
+        ds = ds.isel(z=0).expand_dims("z")
+
+    ds = ds.transpose("time", "z", "y", "x")
 
     return ds
 
