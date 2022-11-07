@@ -33,12 +33,17 @@ jobs:
             python=${{ matrix.python-version }}
 
       - name: Test with pytest
-        run: pytest -n auto -v
+        run: pytest -n auto -v -k 'not aqs'
 
       - name: Test with pytspack installed
         run: |
           pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
           pytest -n auto -v -k with_pytspack
+
+      - name: Downgrade OpenSSL and test AQS
+        run: |
+          micromamba install 'openssl <3'
+          pytest -n auto -v -k aqs
 
   docs:
     name: Check docs build
@@ -56,6 +61,9 @@ jobs:
         with:
           environment-file: docs/environment-docs.yml
           cache-env: true
+
+      - name: Downgrade OpenSSL (for AQS URL linkcheck)
+        run: micromamba install 'openssl <3'
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck
