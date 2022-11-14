@@ -592,7 +592,7 @@ class ModelBin:
                         #    print("Adding ", "Pollutant", pollutant, "Level", lev)
                         # if this is the first time through. create dataframe
                         # for first level and pollutant.
-                        if not self.dset:
+                        if not self.dset.any():
                             self.dset = dset
                         else:  # create dataframe for level and pollutant and
                             # then merge with main dataframe.
@@ -616,7 +616,7 @@ class ModelBin:
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
-        if not self.dset:
+        if not self.dset.any():
             return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
@@ -813,7 +813,7 @@ def reset_latlon_coords(hxr):
 
 def fix_grid_continuity(dset):
     # if dset is empty don't do anything
-    if not dset:
+    if not dset.any():
        return dset
 
     # if grid already continuos don't do anything.
