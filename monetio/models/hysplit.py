@@ -26,7 +26,8 @@ ModelBin
 Change log
 
 2021 13 May  AMC  get_latlongrid needed to be updated to match makegrid method.
-
+2022 14 Nov  AMC  initialized self.dset in __init__() in ModelBin class
+2022 14 Nov  AMC  modified fix_grid_continuity to not fail if passed empty Dataset. 
 
 """
 import datetime
@@ -183,6 +184,7 @@ class ModelBin:
         self.dlat = None
         self.dlon = None
         self.levels = None
+        self.dset = xr.Dataset()
 
         if readwrite == "r":
             if verbose:
@@ -488,7 +490,7 @@ class ModelBin:
         """
         # 8/16/2016 moved species=[]  to before while loop. Added print
         # statements when verbose.
-        self.dset = None
+        #self.dset = xr.Dataset()
         # dictionaries which will be turned into the dset attributes.
         ahash = {}
         fid = open(filename, "rb")
@@ -590,7 +592,7 @@ class ModelBin:
                         #    print("Adding ", "Pollutant", pollutant, "Level", lev)
                         # if this is the first time through. create dataframe
                         # for first level and pollutant.
-                        if self.dset is None:
+                        if not self.dset:
                             self.dset = dset
                         else:  # create dataframe for level and pollutant and
                             # then merge with main dataframe.
@@ -614,8 +616,7 @@ class ModelBin:
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
-        if self.dset is None:
-            print("DSET is NONE")
+        if not self.dset:
             return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
@@ -811,6 +812,10 @@ def reset_latlon_coords(hxr):
 
 
 def fix_grid_continuity(dset):
+    # if dset is empty don't do anything
+    if not dset:
+       return dset
+
     # if grid already continuos don't do anything.
     if check_grid_continuity(dset):
         return dset
