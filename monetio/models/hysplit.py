@@ -27,7 +27,7 @@ Change log
 
 2021 13 May  AMC  get_latlongrid needed to be updated to match makegrid method.
 2022 14 Nov  AMC  initialized self.dset in __init__() in ModelBin class
-2022 14 Nov  AMC  modified fix_grid_continuity to not fail if passed empty Dataset. 
+2022 14 Nov  AMC  modified fix_grid_continuity to not fail if passed empty Dataset.
 
 """
 import datetime
@@ -490,7 +490,7 @@ class ModelBin:
         """
         # 8/16/2016 moved species=[]  to before while loop. Added print
         # statements when verbose.
-        #self.dset = xr.Dataset()
+        # self.dset = xr.Dataset()
         # dictionaries which will be turned into the dset attributes.
         ahash = {}
         fid = open(filename, "rb")
@@ -814,7 +814,7 @@ def reset_latlon_coords(hxr):
 def fix_grid_continuity(dset):
     # if dset is empty don't do anything
     if not dset.any():
-       return dset
+        return dset
 
     # if grid already continuos don't do anything.
     if check_grid_continuity(dset):
@@ -942,8 +942,8 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     # Then choose which levels to use for total mass loading.
     if zvals:
         aml_alts = aml_alts.isel(z=zvals)
-        if 'z' not in aml_alts.dims:
-           aml_alts = aml_alts.expand_dims('z')
+        if "z" not in aml_alts.dims:
+            aml_alts = aml_alts.expand_dims("z")
     #
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
@@ -1076,16 +1076,16 @@ def get_thickness(cdump):
     thash : dictionary
     key is the name of the z coordinate and value is the thickness of that layer in meters.
     """
-    cstr = 'Level top heights (m)'
+    cstr = "Level top heights (m)"
     if cstr not in cdump.attrs.keys():
-        print('warning: {} attribute needed to calculate level thicknesses'.format(cstr))
-    levs  = cdump.attrs[cstr]
+        print(f"warning: {cstr} attribute needed to calculate level thicknesses")
+    levs = cdump.attrs[cstr]
     thash = {}
     aaa = 0
     for level in levs:
-        thash[level] = level-aaa
+        thash[level] = level - aaa
         aaa = level
-    return thash 
+    return thash
 
 
 def _delta_multiply(pars):
@@ -1103,13 +1103,13 @@ def _delta_multiply(pars):
     thash = get_thickness(pars)
     for iii, zzz in enumerate(pars.z.values):
         delta = thash[zzz]
-        mml = pars.isel(z=iii)*delta
+        mml = pars.isel(z=iii) * delta
         if iii == 0:
             newpar = mml
         else:
             newpar = xr.concat([newpar, mml], "z")
-        if 'z' not in newpar.dims:
-           newpar = newpar.expand_dims('z')
+        if "z" not in newpar.dims:
+            newpar = newpar.expand_dims("z")
     return newpar
 
 
@@ -1145,8 +1145,8 @@ def _delta_multiply_old(pars):
             newpar = mml
         else:
             newpar = xr.concat([newpar, mml], "z")
-        if 'z' not in newpar.dims:
-           newpar = newpar.expand_dims('z')
+        if "z" not in newpar.dims:
+            newpar = newpar.expand_dims("z")
         yyy += 1  # End of loop calculating heights
     return newpar
 
@@ -1167,6 +1167,6 @@ def _alt_multiply(pars):
         else:
             newpar = xr.concat([newpar, mml], "z")
         yyy += 1  # End of loop calculating heights
-        if 'z' not in newpar.dims:
-           newpar = newpar.expand_dims('z')
+        if "z" not in newpar.dims:
+            newpar = newpar.expand_dims("z")
     return newpar
