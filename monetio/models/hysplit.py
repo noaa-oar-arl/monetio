@@ -941,7 +941,10 @@ def hysp_massload(dset, threshold=0, mult=1, zvals=None):
     aml_alts = calc_aml(dset)
     # Then choose which levels to use for total mass loading.
     if zvals:
-        aml_alts = aml_alts.sel(z=zvals)
+        aml_alts = aml_alts.isel(z=zvals)
+        if 'z' not in aml_alts.dims:
+           aml_alts = aml_alts.expand_dims('z')
+    #
     total_aml = aml_alts.sum(dim="z")
     # Calculate conversion factors
     # unitmass, mass63 = calc_MER(dset)
@@ -1059,12 +1062,63 @@ def add_species(dset, species=None):
     while ppp < len(tmp):
         total_par = total_par + tmp[ppp]
         ppp += 1  # End of loop adding all species
-    total_par = total_par.assign_attrs({"Species ID": sflist})
+    atthash = dset.attrs
+    atthash["Species ID"] = sflist
+    total_par = total_par.assign_attrs(atthash)
     return total_par
+
+
+def get_thickness(cdump):
+    """
+    Input:
+    cdump : xarray DataArray with 'Level top heights (m)' as an attribute.
+    Returns:
+    thash : dictionary
+    key is the name of the z coordinate and value is the thickness of that layer in meters.
+    """
+    cstr = 'Level top heights (m)'
+    if cstr not in cdump.attrs.keys():
+        print('warning: {} attribute needed to calculate level thicknesses'.format(cstr))
+    levs  = cdump.attrs[cstr]
+    thash = {}
+    aaa = 0
+    for level in levs:
+        thash[level] = level-aaa
+        aaa = level
+    return thash 
 
 
 def _delta_multiply(pars):
     """
+    # Calculate the delta altitude for each layer and
+    # multiplies concentration by layer thickness to return mass load.
+    # requires that the 'Level top heights (m)' is an attribute of pars.
+
+    # pars: xarray data array
+            concentration with z coordinate.
+    # OUTPUT
+    # newpar : xarray data array
+            mass loading.
+    """
+    thash = get_thickness(pars)
+    for iii, zzz in enumerate(pars.z.values):
+        delta = thash[zzz]
+        mml = pars.isel(z=iii)*delta
+        if iii == 0:
+            newpar = mml
+        else:
+            newpar = xr.concat([newpar, mml], "z")
+        if 'z' not in newpar.dims:
+           newpar = newpar.expand_dims('z')
+    return newpar
+
+
+def _delta_multiply_old(pars):
+    """
+    # This method was faulty because layers with no concentrations were
+    # omitted. e.g. if layers were at 0,1000,2000,3000,4000,5000 but there were
+    # no mass below 20000 then would only see layers 3000,4000,5000 and thickness
+    # of 3000 layer would be calculated as 3000 instead of 1000.
     # Calculate the delta altitude for each layer and
     # multiplies concentration by layer thickness to return mass load.
 
@@ -1091,6 +1145,8 @@ def _delta_multiply(pars):
             newpar = mml
         else:
             newpar = xr.concat([newpar, mml], "z")
+        if 'z' not in newpar.dims:
+           newpar = newpar.expand_dims('z')
         yyy += 1  # End of loop calculating heights
     return newpar
 
@@ -1111,4 +1167,6 @@ def _alt_multiply(pars):
         else:
             newpar = xr.concat([newpar, mml], "z")
         yyy += 1  # End of loop calculating heights
+        if 'z' not in newpar.dims:
+           newpar = newpar.expand_dims('z')
     return newpar
