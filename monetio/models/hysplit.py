@@ -1067,6 +1067,16 @@ def add_species(dset, species=None):
     total_par = total_par.assign_attrs(atthash)
     return total_par
 
+def calculate_thickness(cdump):
+    alts = cdump.z.values
+    thash = {}
+    aaa = 0
+    for avalue in alts:
+        thash[avalue] = avalue-aaa
+        aaa = avalue 
+    print('WARNING: thickness calculated from z values please verify {}'.format(thash))
+    return thash
+
 
 def get_thickness(cdump):
     """
@@ -1079,12 +1089,15 @@ def get_thickness(cdump):
     cstr = 'Level top heights (m)'
     if cstr not in cdump.attrs.keys():
         print('warning: {} attribute needed to calculate level thicknesses'.format(cstr))
-    levs  = cdump.attrs[cstr]
-    thash = {}
-    aaa = 0
-    for level in levs:
-        thash[level] = level-aaa
-        aaa = level
+        print('warning: alternative calcuation from z dimension values')
+        thash = calculate_thickness(cdump) 
+    else:  
+        levs  = cdump.attrs[cstr]
+        thash = {}
+        aaa = 0
+        for level in levs:
+            thash[level] = level-aaa
+            aaa = level
     return thash 
 
 
