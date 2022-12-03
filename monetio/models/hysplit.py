@@ -11,6 +11,7 @@ Functions:
 open_dataset :
 combine_dataset :
 get_latlongrid :
+getlatlon :
 hysp_heights: determines ash top height from HYSPLIT
 hysp_massload: determines total mass loading from HYSPLIT
 calc_aml: determines ash mass loading for each altitude layer  from HYSPLIT
@@ -28,6 +29,10 @@ Change log
 2021 13 May  AMC  get_latlongrid needed to be updated to match makegrid method.
 2022 14 Nov  AMC  initialized self.dset in __init__() in ModelBin class
 2022 14 Nov  AMC  modified fix_grid_continuity to not fail if passed empty Dataset.
+2022 02 Dec  AMC  modified get_latlongrid inputs. do not need to input dataset, just dictionary.
+2022 02 Dec  AMC  replaced makegrid method with get_latlongrid function to reduce duplicate code.
+2022 02 Dec  AMC  get_latlongrid function utilizes getlatlon to reduce duplicate code.
+2022 02 Dec  AMC  replaced np.arange with np.linspace in getlatlon. np.arange is unstable when step is not an integer. 
 
 """
 import datetime
@@ -177,12 +182,13 @@ class ModelBin:
         self.atthash["Starting Heights"] = []
         self.atthash["Source Date"] = []
         self.sample_time_stamp = sample_time_stamp
-        self.llcrnr_lon = None
-        self.llcrnr_lat = None
-        self.nlat = None
-        self.nlon = None
-        self.dlat = None
-        self.dlon = None
+        self.gridhash = {}
+        #self.llcrnr_lon = None
+        #self.llcrnr_lat = None
+        #self.nlat = None
+        #self.nlon = None
+        #self.dlat = None
+        #self.dlon = None
         self.levels = None
         self.dset = xr.Dataset()
 
@@ -372,21 +378,21 @@ class ModelBin:
 
         return century
 
-    def parse_hdata3(self, hdata3, ahash):
+    def parse_hdata3(self, hdata3):
         # Description of concentration grid
+        ahash = {}
         ahash["Number Lat Points"] = hdata3["nlat"][0]
         ahash["Number Lon Points"] = hdata3["nlon"][0]
         ahash["Latitude Spacing"] = hdata3["dlat"][0]
         ahash["Longitude Spacing"] = hdata3["dlon"][0]
         ahash["llcrnr longitude"] = hdata3["llcrnr_lon"][0]
         ahash["llcrnr latitude"] = hdata3["llcrnr_lat"][0]
-
-        self.llcrnr_lon = hdata3["llcrnr_lon"][0]
-        self.llcrnr_lat = hdata3["llcrnr_lat"][0]
-        self.nlat = hdata3["nlat"][0]
-        self.nlon = hdata3["nlon"][0]
-        self.dlat = hdata3["dlat"][0]
-        self.dlon = hdata3["dlon"][0]
+        #self.llcrnr_lon = hdata3["llcrnr_lon"][0]
+        #self.llcrnr_lat = hdata3["llcrnr_lat"][0]
+        #self.nlat = hdata3["nlat"][0]
+        #self.nlon = hdata3["nlon"][0]
+        #self.dlat = hdata3["dlat"][0]
+        #self.dlon = hdata3["dlon"][0]
         return ahash
 
     def parse_hdata4(self, hdata4a, hdata4b):
@@ -454,25 +460,34 @@ class ModelBin:
         # mgrid = np.meshgrid(lat, lon)
         return concframe
 
-    def makegrid(self, xindx, yindx):
-        """
-        xindx : list
-        yindx : list
-        """
+    #def makegrid(self, xindx, yindx):
+    #    """
+    #    xindx : list
+    #    yindx : list
+    #    """
+    #    attrs = {}
+    #    attrs['llcrnr latitude'] = self.llcrnr_lat
+    #    attrs['llcrnr longitude'] = self.llcrnr_lon
+    #    attrs['Number Lat Points'] = self.nlat
+    #    attrs['Number Lon Points'] = self.nlon
+    #    attrs['Latitude Spacing'] = self.dlat
+    #    attrs['Longitude Spacing'] = self.dlon
+    #    mgrid = get_latlongrid(attrs,xindx,yindx)
+    #    return mgrid
         # checked HYSPLIT code. the grid points
         # do represent center of the sampling area.
-        slat = self.llcrnr_lat
-        slon = self.llcrnr_lon
-        lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
-        lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
+        # slat = self.llcrnr_lat
+        # slon = self.llcrnr_lon
+        # lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
+        # lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
         # hysplit always uses grid from -180 to 180
-        lon = np.array([x-360 if x>180 else x for x in lon])
+        # lon = np.array([x-360 if x>180 else x for x in lon])
         # fortran array indice start at 1. so xindx >=1.
         # python array indice start at 0.
-        lonlist = [lon[x - 1] for x in xindx]
-        latlist = [lat[x - 1] for x in yindx]
-        mgrid = np.meshgrid(lonlist, latlist)
-        return mgrid
+        # lonlist = [lon[x - 1] for x in xindx]
+        # latlist = [lat[x - 1] for x in yindx]
+        # mgrid = np.meshgrid(lonlist, latlist)
+        # return mgrid
 
     def readfile(self, filename, drange, verbose, century):
         """Data from the file is stored in an xarray, self.dset
@@ -494,7 +509,6 @@ class ModelBin:
         # statements when verbose.
         # self.dset = xr.Dataset()
         # dictionaries which will be turned into the dset attributes.
-        ahash = {}
         fid = open(filename, "rb")
 
         # each record in the fortran binary begins and ends with 4 bytes which
@@ -518,8 +532,8 @@ class ModelBin:
         century = self.parse_hdata2(hdata2, nstartloc, century)
 
         hdata3 = np.fromfile(fid, dtype=rec3, count=1)
-        ahash = self.parse_hdata3(hdata3, ahash)
-
+        self.gridhash = self.parse_hdata3(hdata3)
+        print(self.gridhash)
         # read record 4 which gives information about vertical levels.
         hdata4a = np.fromfile(fid, dtype=rec4a, count=1)
         hdata4b = np.fromfile(
@@ -614,7 +628,7 @@ class ModelBin:
             if inc_iii:
                 iii += 1
 
-        self.atthash.update(ahash)
+        self.atthash.update(self.gridhash)
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
         # END OF Loop to go through each sampling time
@@ -622,7 +636,8 @@ class ModelBin:
             return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
-            mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
+            #mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
+            mgrid = get_latlongrid(self.gridhash, self.dset.coords["x"], self.dset.coords["y"])
             self.dset = self.dset.assign_coords(longitude=(("y", "x"), mgrid[0]))
             self.dset = self.dset.assign_coords(latitude=(("y", "x"), mgrid[1]))
 
@@ -689,7 +704,7 @@ def combine_dataset(
     xlist = []
     sourcelist = []
     enslist = []
-    for iii, key in enmeraute(blist):
+    for iii, key in enumerate(blist):
         # fname = val[0]
         xsublist = []
         for fname in blist[key]:
@@ -712,7 +727,7 @@ def combine_dataset(
                     check_grid=False,
                 )
             try:
-                mlat, mlon = getlatlon(hxr)
+                mlat, mlon = getlatlon(hxr.attrs)
             except Exception:
                 print("WARNING Cannot open ")
                 print(fname[0])
@@ -805,7 +820,7 @@ def reset_latlon_coords(hxr):
     """
     hxr : xarray DataSet as output from open_dataset or combine_dataset
     """
-    mgrid = get_latlongrid(hxr, hxr.x.values, hxr.y.values)
+    mgrid = get_latlongrid(hxr.attrs, hxr.x.values, hxr.y.values)
     hxr = hxr.drop("longitude")
     hxr = hxr.drop("latitude")
     hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
@@ -831,7 +846,7 @@ def fix_grid_continuity(dset):
     xindx = np.arange(xlim[0], xlim[1] + 1)
     yindx = np.arange(ylim[0], ylim[1] + 1)
 
-    mgrid = get_latlongrid(dset, xindx, yindx)
+    mgrid = get_latlongrid(dset.attrs, xindx, yindx)
     # mgrid = get_even_latlongrid(dset, xlim, ylim)
     conc = np.zeros_like(mgrid[0])
     dummy = xr.DataArray(conc, dims=["y", "x"])
@@ -865,12 +880,12 @@ def check_grid_continuity(dset):
     return True
 
 
-def get_latlongrid(dset, xindx, yindx):
+def get_latlongrid(attrs, xindx, yindx):
     """
     INPUTS
-    dset : xarray data set from ModelBin class
-    xindx : list of integers
-    yindx : list of integers
+    attrs : dictionary with grid specifications
+    xindx : list of integers > 0
+    yindx : list of integers > 0
     RETURNS
     mgrid : output of numpy meshgrid function.
             Two 2d arrays of latitude, longitude.
@@ -881,17 +896,15 @@ def get_latlongrid(dset, xindx, yindx):
     This may return a grid that is not evenly spaced.
     For instance if yindx is something like [1,2,3,4,5,7] then
     the grid will not have even spacing in latitude and will 'skip' a latitude point.
-    """
-    llcrnr_lat = dset.attrs["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["llcrnr longitude"]
-    nlat = dset.attrs["Number Lat Points"]
-    nlon = dset.attrs["Number Lon Points"]
-    dlat = dset.attrs["Latitude Spacing"]
-    dlon = dset.attrs["Longitude Spacing"]
 
-    lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
-    lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
-    lon = np.array([x-360 if x>180 else x for x in lon])
+    HYSPLIT grid indexing starts at 1.
+
+    """
+    xindx = np.array(xindx)
+    yindx = np.array(yindx)
+    if np.any(xindx<=0): raise Exception("HYSPLIT grid error xindex <=0")
+    if np.any(yindx<=0): raise Exception("HYSPLIT grid error yindex <=0")
+    lat, lon = getlatlon(attrs)
     try: 
         lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
@@ -911,24 +924,26 @@ def get_latlongrid(dset, xindx, yindx):
 #    dlon = dset.attrs["Longitude Spacing"]
 
 
-def getlatlon(dset):
+def getlatlon(attrs):
     """
     Returns 1d array of lats and lons based on Concentration Grid
     Defined in the dset attribute.
-    dset : xarray returned by hysplit.open_dataset function
+    attrs : dictionary with grid specifications
     RETURNS
     lat : 1D array of latitudes
     lon : 1D array of longitudes
     """
-    llcrnr_lat = dset.attrs["llcrnr latitude"]
-    llcrnr_lon = dset.attrs["llcrnr longitude"]
-    nlat = dset.attrs["Number Lat Points"]
-    nlon = dset.attrs["Number Lon Points"]
-    dlat = dset.attrs["Latitude Spacing"]
-    dlon = dset.attrs["Longitude Spacing"]
-    lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
-    lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
-    lon = np.array([x-360 if x>180 else x for x in lon])
+    llcrnr_lat = attrs["llcrnr latitude"]
+    llcrnr_lon = attrs["llcrnr longitude"]
+    nlat = attrs["Number Lat Points"]
+    nlon = attrs["Number Lon Points"]
+    dlat = attrs["Latitude Spacing"]
+    dlon = attrs["Longitude Spacing"]
+    print(llcrnr_lat + (nlat-1)*dlat)
+    print(llcrnr_lon + (nlon-1)*dlon)
+    lat = np.linspace(llcrnr_lat, llcrnr_lat + (nlat-1)*dlat, num=int(nlat))
+    lon = np.linspace(llcrnr_lon, llcrnr_lon + (nlat-1)*dlon, num=int(nlon))
+    lon = np.array([x-360 if x>=180 else x for x in lon])
     return lat, lon
 
 
