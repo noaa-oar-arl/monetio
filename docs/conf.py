@@ -56,6 +56,10 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**/_*.rst"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
 
+linkcheck_ignore = [
+    "https://doi.org/10.1080/10473289.2005.10464718",
+]
+
 # -- Extension configuration -------------------------------------------------
 
 extlinks = {
