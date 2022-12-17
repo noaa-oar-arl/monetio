@@ -842,7 +842,7 @@ Now this is good but lets resample to see if we can see a trend.
 
 Simply resampling is fine but lets try to get a signal out using a
 kolmogorov-zerbenko filter. See
-https://www.tandfonline.com/doi/pdf/10.1080/10473289.2005.10464718 for
+https://doi.org/10.1080/10473289.2005.10464718 for
 more information
 
 .. code-block:: python
