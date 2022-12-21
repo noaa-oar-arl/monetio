@@ -200,7 +200,7 @@ def open_mfdataset(
         dset["alt_msl_m_full"] = _calc_hgt(dset)
 
     # Set coordinates
-    dset = dset.reset_coords(
+    dset = dset.reset_index(
         ["x", "y", "z", "z_i"], drop=True
     )  # For now drop z_i no variables use it.
     dset["latitude"] = dset["latitude"].isel(time=0)
