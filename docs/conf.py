@@ -58,6 +58,7 @@ pygments_style = "sphinx"
 
 linkcheck_ignore = [
     "https://doi.org/10.1080/10473289.2005.10464718",
+    "https://www.camx.com",
 ]
 
 # -- Extension configuration -------------------------------------------------
