@@ -33,6 +33,7 @@ Change log
 2022 02 Dec  AMC  replaced makegrid method with get_latlongrid function to reduce duplicate code.
 2022 02 Dec  AMC  get_latlongrid function utilizes getlatlon to reduce duplicate code.
 2022 02 Dec  AMC  replaced np.arange with np.linspace in getlatlon. np.arange is unstable when step is not an integer. 
+2023 12 Jan  AMC  modified reset_latlon_coords so will work with data-arrays that have no latitude longitude coordinate.
 
 """
 import datetime
@@ -533,7 +534,7 @@ class ModelBin:
 
         hdata3 = np.fromfile(fid, dtype=rec3, count=1)
         self.gridhash = self.parse_hdata3(hdata3)
-        print(self.gridhash)
+        if self.verbose: print('Grid specs', self.gridhash)
         # read record 4 which gives information about vertical levels.
         hdata4a = np.fromfile(fid, dtype=rec4a, count=1)
         hdata4b = np.fromfile(
@@ -821,8 +822,10 @@ def reset_latlon_coords(hxr):
     hxr : xarray DataSet as output from open_dataset or combine_dataset
     """
     mgrid = get_latlongrid(hxr.attrs, hxr.x.values, hxr.y.values)
-    hxr = hxr.drop("longitude")
-    hxr = hxr.drop("latitude")
+    if 'latitude' in hxr.coords:
+        hxr = hxr.drop("longitude")
+    if 'longitude' in hxr.coords:
+        hxr = hxr.drop("latitude")
     hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
     hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
     return hxr
@@ -836,7 +839,6 @@ def fix_grid_continuity(dset):
     # if grid already continuos don't do anything.
     if check_grid_continuity(dset):
         return dset
-
     xvv = dset.x.values
     yvv = dset.y.values
 
@@ -939,10 +941,12 @@ def getlatlon(attrs):
     nlon = attrs["Number Lon Points"]
     dlat = attrs["Latitude Spacing"]
     dlon = attrs["Longitude Spacing"]
-    print(llcrnr_lat + (nlat-1)*dlat)
-    print(llcrnr_lon + (nlon-1)*dlon)
-    lat = np.linspace(llcrnr_lat, llcrnr_lat + (nlat-1)*dlat, num=int(nlat))
-    lon = np.linspace(llcrnr_lon, llcrnr_lon + (nlat-1)*dlon, num=int(nlon))
+
+    lastlon = llcrnr_lon + (nlon-1)*dlon
+    lastlat = llcrnr_lat + (nlat-1)*dlat
+    # = int((lastlon - llcrnr_lon) / dlon)
+    lat = np.linspace(llcrnr_lat, lastlat, num=int(nlat))
+    lon = np.linspace(llcrnr_lon, lastlon, num=int(nlon))
     lon = np.array([x-360 if x>=180 else x for x in lon])
     return lat, lon
 
@@ -1206,3 +1210,27 @@ def _alt_multiply(pars):
         if "z" not in newpar.dims:
             newpar = newpar.expand_dims("z")
     return newpar
+
+
+
+
+def check_attributes(atthash):
+    # when writing to netcdf file, attributes which are numpy arrays do not write properly.
+    # need to change them to lists.
+    for key in atthash.keys():
+        val = atthash[key]
+        if isinstance(val, np.ndarray):
+            newval = list(val)
+            atthash[key] = newval
+    return atthash
+
+def write_with_compression(cxra, fname):
+    atthash = check_attributes(cxra.attrs)
+    cxra = cxra.assign_attrs(atthash)
+    cxra2 = cxra.to_dataset(name='POL')
+    ehash = {"zlib": True, "complevel": 9}
+    vlist = [x for x in cxra2.data_vars]
+    vhash = {}
+    for vvv in vlist:
+        vhash[vvv] = ehash
+    cxra2.to_netcdf(fname, encoding=vhash)
