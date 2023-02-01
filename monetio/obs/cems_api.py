@@ -661,6 +661,7 @@ class EmissionsCall(EpaApiObject):
 
         # time is local standard time (never daylight savings)
         """
+
         # Using the %I for the hour field and %p for AM/Pm converts time
         # correctly.
         def newdate(xxx):

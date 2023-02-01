@@ -340,7 +340,6 @@ class ModelBin:
         return nstartloc
 
     def parse_hdata2(self, hdata2, nstartloc, century):
-
         # Loop through starting locations
         for nnn in range(0, nstartloc):
             # create list of starting latitudes, longitudes and heights.
