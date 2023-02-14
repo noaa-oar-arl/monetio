@@ -52,8 +52,8 @@ class Pardump:
         self.fname = fname
         # self.dtfmt = "%Y%m%d%H%M"
 
-        tp1 = ">f"  # big endian float.
-        tp2 = ">i"  # big endian integer.
+        tp1 = ">f4"  # big endian float.
+        tp2 = ">i4"  # big endian integer.
         tp3 = ">i8"  # big endian long integer.
 
         # header record in fortran file.
@@ -144,7 +144,7 @@ class Pardump:
             hdr["minute"] = sdate.minute
             print(hdr)
 
-            endrec = np.array([20], dtype=">i")
+            endrec = np.array([20], dtype=">i4")
 
             fpoint.write(hdr)
             fpoint.write(a)
@@ -202,7 +202,7 @@ class Pardump:
                 data = np.fromfile(fpoint, dtype=self.pardt, count=parnum[0])
                 # n = parnum - 1
                 # padding at end of each record
-                np.fromfile(fpoint, dtype=">i", count=1)
+                np.fromfile(fpoint, dtype=">i4", count=1)
                 if verbose:
                     print("Date ", pdate, " **** ", drange)
 
