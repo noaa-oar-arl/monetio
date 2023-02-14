@@ -54,6 +54,7 @@ class Pardump:
 
         tp1 = ">f"  # big endian float.
         tp2 = ">i"  # big endian integer.
+        tp3 = ">i8"  # big endian long integer.
 
         # header record in fortran file.
         self.hdr_dt = np.dtype(
@@ -75,14 +76,14 @@ class Pardump:
                 ("p1", tp2),
                 ("p2", tp2),
                 ("pmass", tp1),
-                ("p3", ">l"),
+                ("p3", tp3),
                 ("lat", tp1),
                 ("lon", tp1),
                 ("ht", tp1),
                 ("su", tp1),
                 ("sv", tp1),
                 ("sx", tp1),
-                ("p4", ">l"),
+                ("p4", tp3),
                 ("age", tp2),
                 ("dist", tp2),
                 ("poll", tp2),
