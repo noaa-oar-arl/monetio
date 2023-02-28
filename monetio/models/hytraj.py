@@ -1,10 +1,50 @@
-# Reads a tdump file, outputs a Pandas DataFrame
+"""reads tdump files int pandas DataFrame
+
+combine_dataset : reads multiple tdump files
+open_dataset    : reads one tdump file
+
+open_tdump      
+get_metinfo
+get_traj
+get_startlocs
+time_str_fixer
+"""
 
 import re
 
 import numpy as np
 import pandas as pd
 
+
+def combine_dataset(flist,taglist=None,renumber=False):
+
+    """Opens multiple tdump files. returns Pandas DataFrame
+   
+    flist    : list : filenames
+    taglist  : list : differentiate trajectories by adding extra pid column with this value.
+                      must be same length as flist
+    renumber : renumber the trajectories so all trajectories have unique number. 
+    """
+    usepid = False
+    if not renumber: 
+       if not isinstance(taglist, (tuple,list,np.ndarray)):
+           taglist = np.arange(1,len(flist)+2,1)
+    if isinstance(taglist, (tuple,list,np.ndarray)):
+        if len(taglist) == len(flist):
+           usepid = True
+    maxtrajnum = 0 
+    for iii, fname in enumerate(flist):
+        traj = open_dataset(fname)
+        if usepid:
+            traj['pid'] = taglist[iii]
+        if  renumber:
+            traj['traj_num'] += maxtrajnum
+        if iii==0:
+           rval = traj
+        else:
+           rval = pd.concat([rval,traj])
+        maxtrajnum = np.max(rval.traj_num.unique())
+    return rval 
 
 def open_dataset(filename):
     """Opens a tdump file, returns trajectory array
