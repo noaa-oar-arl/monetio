@@ -1,5 +1,5 @@
 """
-HYPSLIT MODEL READER
+HYPSLIT MODEL READER for binary concentration (cdump) output files
 
 This code developed at the NOAA Air Resources Laboratory.
 Alice Crawford
@@ -34,6 +34,10 @@ Change log
 2022 02 Dec  AMC  get_latlongrid function utilizes getlatlon to reduce duplicate code.
 2022 02 Dec  AMC  replaced np.arange with np.linspace in getlatlon. np.arange is unstable when step is not an integer. 
 2023 12 Jan  AMC  modified reset_latlon_coords so will work with data-arrays that have no latitude longitude coordinate.
+2023 12 Jan  AMC  get_thickness modified to calculate if the attribute specifying the vertical levels is bad
+2023 03 Mar  AMC  get_latlon modified. replace x>=180 with x>=180+lon_tolerance
+2023 03 Mar  AMC  get_latlongrid improved exception statements
+
 
 """
 import datetime
@@ -907,12 +911,27 @@ def get_latlongrid(attrs, xindx, yindx):
     if np.any(xindx<=0): raise Exception("HYSPLIT grid error xindex <=0")
     if np.any(yindx<=0): raise Exception("HYSPLIT grid error yindex <=0")
     lat, lon = getlatlon(attrs)
+    success=True
     try: 
         lonlist = [lon[x - 1] for x in xindx]
+        #latlist = [lat[x - 1] for x in yindx]
+    except Exception as eee:
+        print('Exception {}'.format(eee))
+        print('try increasing Number Number Lon Points')
+        print(attrs)
+        print(xindx)
+        success=False
+    try: 
+        #lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
     except Exception as eee:
         print('Exception {}'.format(eee))
-        print('try increasing Number Lat Points or Number Lon Points')
+        print('try increasing Number Number Lat Points')
+        print(attrs)
+        print(yindx)
+        success=False
+
+    if not success: return None
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
 
@@ -935,6 +954,7 @@ def getlatlon(attrs):
     lat : 1D array of latitudes
     lon : 1D array of longitudes
     """
+    lon_tolerance = 0.001
     llcrnr_lat = attrs["llcrnr latitude"]
     llcrnr_lon = attrs["llcrnr longitude"]
     nlat = attrs["Number Lat Points"]
@@ -947,7 +967,8 @@ def getlatlon(attrs):
     # = int((lastlon - llcrnr_lon) / dlon)
     lat = np.linspace(llcrnr_lat, lastlat, num=int(nlat))
     lon = np.linspace(llcrnr_lon, lastlon, num=int(nlon))
-    lon = np.array([x-360 if x>=180 else x for x in lon])
+    # 
+    lon = np.array([x-360 if x>=180+lon_tolerance else x for x in lon])
     return lat, lon
 
 
@@ -1114,7 +1135,24 @@ def get_thickness(cdump):
     key is the name of the z coordinate and value is the thickness of that layer in meters.
     """
     cstr = "Level top heights (m)"
+
+    calculate = False
     if cstr not in cdump.attrs.keys():
+       calculate = True
+    # check that the values in the attribute correspond to values in levels.
+    # python reads in this attribute as a numpy array
+    # but when writing the numpy array to netcdf file, it doesn't write correctly.
+    # sometimes cdump file is written with incorrect values in this attribute.
+    elif cstr in cdump.attrs.keys():
+       alts = cdump.z.values
+       zvals = cdump.attrs[cstr]
+       cra = []
+       for aaa in alts:
+           # if a level is not found in the attribute array then use the calculate method.
+           if aaa not in zvals:
+              calculate=True
+
+    if calculate:
         print('warning: {} attribute needed to calculate level thicknesses'.format(cstr))
         print('warning: alternative calcuation from z dimension values')
         thash = calculate_thickness(cdump) 
