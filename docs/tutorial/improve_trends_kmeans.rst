@@ -67,7 +67,7 @@ Now we will load the data (in this case the file is
       self._setitem_with_indexer(indexer, value)
 
 
-Lets look at the dataframe
+Let's look at the dataframe.
 
 .. code-block:: python
 
@@ -438,8 +438,8 @@ Lets look at the dataframe
 
 
 
-Now this is in the long pandas format. Lets use the
-monet.util.tools.long_to_wide utility to reformat the dataframe into a
+Now this is in the long pandas format. Let's use the
+``monet.util.tools.long_to_wide`` utility to reformat the dataframe into a
 wide format.
 
 .. code-block:: python
@@ -622,7 +622,7 @@ wide format.
 
 
 
-Lets now plot some of the different measurements with time from a site.
+Let's now plot some of the different measurements with time from a site.
 In this case we will look at the PHOE1 site in Phoenix, Arizona.
 
 .. code-block:: python
@@ -828,7 +828,7 @@ Let’s look at SIf as an example from ACAD1.
 .. image:: improve_trends_kmeans_files/improve_trends_kmeans_11_1.png
 
 
-Now this is good but lets resample to see if we can see a trend.
+Now this is good, but let's resample to see if we can see a trend.
 
 .. code-block:: python
 
@@ -840,10 +840,10 @@ Now this is good but lets resample to see if we can see a trend.
 .. image:: improve_trends_kmeans_files/improve_trends_kmeans_13_0.png
 
 
-Simply resampling is fine but lets try to get a signal out using a
-kolmogorov-zerbenko filter. See
-https://www.tandfonline.com/doi/pdf/10.1080/10473289.2005.10464718 for
-more information
+Simply resampling is fine, but let's try to get a signal out using a
+Kolmogorov--Zurbenko filter. See
+https://doi.org/10.1080/10473289.2005.10464718 for
+more information.
 
 .. code-block:: python
 
@@ -878,7 +878,7 @@ some tools from sklearn to use in our analysis.
 
 .. code-block:: python
 
-    from sklearn.preprocessing import RobustScaler #to scale our data
+    from sklearn.preprocessing import RobustScaler # to scale our data
     from sklearn.cluster import KMeans # clustering algorithm
 
 First we want to separate out different variables that may be useful
@@ -968,7 +968,7 @@ NaN values so let us go ahead and do that.
 
 
 Usually, with sklearn it is better to scale the data first before
-putting it through the algorithm. We will use th RobustScaler to do
+putting it through the algorithm. We will use the RobustScaler to do
 this.
 
 .. code-block:: python
@@ -983,14 +983,14 @@ analysis.
 
     km = KMeans(n_clusters=2).fit(X_scaled)
 
-The clusters can be found under km.labels\_ . These are integers
+The clusters can be found under ``km.labels_``. These are integers
 representing the different clusters.
 
 .. code-block:: python
 
     clusters = km.labels_
 
-Lets plot this so that we can see where there is dust.
+Let's plot this so that we can see where there is dust.
 
 .. code-block:: python
 

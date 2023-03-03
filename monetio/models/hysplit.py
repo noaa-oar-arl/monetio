@@ -340,7 +340,6 @@ class ModelBin:
         return nstartloc
 
     def parse_hdata2(self, hdata2, nstartloc, century):
-
         # Loop through starting locations
         for nnn in range(0, nstartloc):
             # create list of starting latitudes, longitudes and heights.
@@ -466,7 +465,7 @@ class ModelBin:
         lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
         lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
         # hysplit always uses grid from -180 to 180
-        lon = np.array([x-360 if x>180 else x for x in lon])
+        lon = np.array([x - 360 if x > 180 else x for x in lon])
         # fortran array indice start at 1. so xindx >=1.
         # python array indice start at 0.
         lonlist = [lon[x - 1] for x in xindx]
@@ -666,7 +665,7 @@ def combine_dataset(
 
     Files need to have the same concentration grid defined.
     """
-    #iii = 0
+    # iii = 0
     mlat_p = mlon_p = None
     ylist = []
     dtlist = []
@@ -689,7 +688,7 @@ def combine_dataset(
     xlist = []
     sourcelist = []
     enslist = []
-    for iii, key in enmeraute(blist):
+    for iii, key in enumerate(blist):
         # fname = val[0]
         xsublist = []
         for fname in blist[key]:
@@ -739,15 +738,15 @@ def combine_dataset(
             else:
                 aaa, xnew = xr.align(xrash, xnew, join="outer")
                 xnew = xnew.fillna(0)
-            #iii += 1
+            # iii += 1
         sourcelist.append(key)
         xlist.append(xsublist)
     # if verbose:
     #    print("aligned --------------------------------------")
     # xnew is now encompasses the area of all the data-arrays
     # now go through and expand each one to the size of xnew.
-    #iii = 0
-    #jjj = 0
+    # iii = 0
+    # jjj = 0
     ylist = []
     slist = []
     for jjj, sublist in enumerate(xlist):
@@ -759,13 +758,13 @@ def combine_dataset(
             bbb = bbb.fillna(0)
             aaa.expand_dims("ens")
             aaa["ens"] = enslist[iii]
-            #iii += 1
+            # iii += 1
             hlist.append(aaa)
         # concat along the 'ens' axis
         new = xr.concat(hlist, "ens")
         ylist.append(new)
         slist.append(sourcelist[jjj])
-        #jjj += 1
+        # jjj += 1
     if dtlist:
         dtlist = list(set(dtlist))
         dt = dtlist[0]
@@ -891,13 +890,13 @@ def get_latlongrid(dset, xindx, yindx):
 
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
-    lon = np.array([x-360 if x>180 else x for x in lon])
-    try: 
+    lon = np.array([x - 360 if x > 180 else x for x in lon])
+    try:
         lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
     except Exception as eee:
-        print('Exception {}'.format(eee))
-        print('try increasing Number Lat Points or Number Lon Points')
+        print(f"Exception {eee}")
+        print("try increasing Number Lat Points or Number Lon Points")
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
 
@@ -928,7 +927,7 @@ def getlatlon(dset):
     dlon = dset.attrs["Longitude Spacing"]
     lat = np.arange(llcrnr_lat, llcrnr_lat + nlat * dlat, dlat)
     lon = np.arange(llcrnr_lon, llcrnr_lon + nlon * dlon, dlon)
-    lon = np.array([x-360 if x>180 else x for x in lon])
+    lon = np.array([x - 360 if x > 180 else x for x in lon])
     return lat, lon
 
 
@@ -1075,14 +1074,15 @@ def add_species(dset, species=None):
     total_par = total_par.assign_attrs(atthash)
     return total_par
 
+
 def calculate_thickness(cdump):
     alts = cdump.z.values
     thash = {}
     aaa = 0
     for avalue in alts:
-        thash[avalue] = avalue-aaa
-        aaa = avalue 
-    print('WARNING: thickness calculated from z values please verify {}'.format(thash))
+        thash[avalue] = avalue - aaa
+        aaa = avalue
+    print(f"WARNING: thickness calculated from z values please verify {thash}")
     return thash
 
 
@@ -1096,17 +1096,17 @@ def get_thickness(cdump):
     """
     cstr = "Level top heights (m)"
     if cstr not in cdump.attrs.keys():
-        print('warning: {} attribute needed to calculate level thicknesses'.format(cstr))
-        print('warning: alternative calcuation from z dimension values')
-        thash = calculate_thickness(cdump) 
-    else:  
-        levs  = cdump.attrs[cstr]
+        print(f"warning: {cstr} attribute needed to calculate level thicknesses")
+        print("warning: alternative calcuation from z dimension values")
+        thash = calculate_thickness(cdump)
+    else:
+        levs = cdump.attrs[cstr]
         thash = {}
         aaa = 0
         for level in levs:
-            thash[level] = level-aaa
+            thash[level] = level - aaa
             aaa = level
-    return thash 
+    return thash
 
 
 def _delta_multiply(pars):
