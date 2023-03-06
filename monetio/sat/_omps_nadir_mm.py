@@ -16,7 +16,6 @@ def read_OMPS_nm(files):
     print(files)
     # Check if files are url
     if "https" in files[0]:
-
         filelist = sorted(files)
         for filename in filelist:
             data = extract_OMPS_nm_opendap(filename)

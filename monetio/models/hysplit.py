@@ -351,7 +351,6 @@ class ModelBin:
         return nstartloc
 
     def parse_hdata2(self, hdata2, nstartloc, century):
-
         # Loop through starting locations
         for nnn in range(0, nstartloc):
             # create list of starting latitudes, longitudes and heights.
@@ -686,7 +685,7 @@ def combine_dataset(
 
     Files need to have the same concentration grid defined.
     """
-    #iii = 0
+    # iii = 0
     mlat_p = mlon_p = None
     ylist = []
     dtlist = []
@@ -759,15 +758,15 @@ def combine_dataset(
             else:
                 aaa, xnew = xr.align(xrash, xnew, join="outer")
                 xnew = xnew.fillna(0)
-            #iii += 1
+            # iii += 1
         sourcelist.append(key)
         xlist.append(xsublist)
     # if verbose:
     #    print("aligned --------------------------------------")
     # xnew is now encompasses the area of all the data-arrays
     # now go through and expand each one to the size of xnew.
-    #iii = 0
-    #jjj = 0
+    # iii = 0
+    # jjj = 0
     ylist = []
     slist = []
     for jjj, sublist in enumerate(xlist):
@@ -779,13 +778,13 @@ def combine_dataset(
             bbb = bbb.fillna(0)
             aaa.expand_dims("ens")
             aaa["ens"] = enslist[iii]
-            #iii += 1
+            # iii += 1
             hlist.append(aaa)
         # concat along the 'ens' axis
         new = xr.concat(hlist, "ens")
         ylist.append(new)
         slist.append(sourcelist[jjj])
-        #jjj += 1
+        # jjj += 1
     if dtlist:
         dtlist = list(set(dtlist))
         dt = dtlist[0]
@@ -1115,14 +1114,15 @@ def add_species(dset, species=None):
     total_par = total_par.assign_attrs(atthash)
     return total_par
 
+
 def calculate_thickness(cdump):
     alts = cdump.z.values
     thash = {}
     aaa = 0
     for avalue in alts:
-        thash[avalue] = avalue-aaa
-        aaa = avalue 
-    print('WARNING: thickness calculated from z values please verify {}'.format(thash))
+        thash[avalue] = avalue - aaa
+        aaa = avalue
+    print(f"WARNING: thickness calculated from z values please verify {thash}")
     return thash
 
 
@@ -1161,9 +1161,9 @@ def get_thickness(cdump):
         thash = {}
         aaa = 0
         for level in levs:
-            thash[level] = level-aaa
+            thash[level] = level - aaa
             aaa = level
-    return thash 
+    return thash
 
 
 def _delta_multiply(pars):

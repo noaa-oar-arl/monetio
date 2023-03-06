@@ -35,7 +35,6 @@ defaultURL = "https://modis.ornl.gov/cgi-bin/MODIS/soapservice/MODIS_soapservice
 
 class modisData:
     def __init__(self):
-
         self.server = None
         self.product = None
         self.latitude = None
@@ -64,7 +63,6 @@ class modisData:
         self.isScaled = False
 
     def getFilename(self):
-
         d = "."
 
         fn = self.product
@@ -79,7 +77,6 @@ class modisData:
         return fn
 
     def pickle(self):
-
         fn = self.getFilename() + "." + "pkl"
 
         f = open(fn, "w")
@@ -87,13 +84,11 @@ class modisData:
         f.close()
 
     def applyScale(self):
-
         if self.isScaled is False:
             self.data = self.data * self.scale
             self.isScaled = True
 
     def filterQA(self, QAOK, fill=np.nan):
-
         if np.size(self.data) != np.size(self.QA):
             # TODO: should do this using an exception
             print("data and QA are different sizes", file=sys.stderr)
@@ -147,18 +142,15 @@ def mkIntDate(s):
 
 
 def setClient(wsdlurl=defaultURL):
-
     return Client(wsdlurl)
 
 
 def printList(lst):
-
     for i in range(lst.__len__()):
         print(lst[i])
 
 
 def printModisData(m):
-
     print("server:", m.server)
     print("product:", m.product)
     print("latitude:", m.latitude)
@@ -183,14 +175,12 @@ def printModisData(m):
 
 
 def __debugPrint(o):
-
     if DEBUG_PRINTING:
         print("DB> ", o, file=sys.stderr)
         sys.stderr.flush
 
 
 def modisGetQA(m, QAname, client=None, chunkSize=8, kmAboveBelow=0, kmLeftRight=0):
-
     startDate = m.dateInt[0]
     endDate = m.dateInt[-1]
 
@@ -317,7 +307,6 @@ def modisClient(
         # now fill up the data structure with the returned data...
 
         if n == 0:
-
             m.nrows = int(data.nrows)
             m.ncols = int(data.ncols)
             m.cellsize = data.cellsize
