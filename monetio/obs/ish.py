@@ -211,21 +211,33 @@ class ISH:
 
         return df.loc[index, :].reset_index()
 
-    def read_ish_history(self, dates):
-        """read ISH history file
+    def read_ish_history(self, dates=None):
+        """Read ISH history file (:attr:`history_file`) and subset based on
+        `dates` (or :attr:`dates` if unset),
+        setting the :attr:`history` attribute.
+        If both are unset, you get the entire history file.
 
-        Returns
-        -------
-        type
-            Description of returned object.
+        https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
 
+        The constructed 'station_id' column is a combination of the USAF and WBAN columns.
+        This is done since USAF and WBAN alone are not unique in the history file.
+        For example, USAF 725244 and 722158 appear twice, as do
+        WBAN 24267, 41420, 23176, 13752, and 41231.
+        Additionally, there are many cases of unset (999999 for USAF or 99999 for WBAN),
+        though more so for WBAN than USAF.
+        However, combining USAF and WBAN does give a unique station ID.
         """
+        if dates is None:
+            dates = self.dates
+
         fname = self.history_file
         self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
         self.history.columns = [i.lower() for i in self.history.columns]
 
-        index1 = (self.history.end >= self.dates.min()) & (self.history.begin <= self.dates.max())
-        self.history = self.history.loc[index1, :].dropna(subset=["lat", "lon"])
+        if dates is not None:
+            index1 = (self.history.end >= dates.min()) & (self.history.begin <= dates.max())
+            self.history = self.history.loc[index1, :]
+        self.history = self.history.dropna(subset=["lat", "lon"])
 
         self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
         self.history.loc[:, "wban"] = self.history.wban.astype("str").str.zfill(5)
@@ -287,7 +299,7 @@ class ISH:
         if verbose:
             print("Reading ISH history file...")
         if self.history is None:
-            self.read_ish_history(dates)
+            self.read_ish_history()
         dfloc = self.history.copy()
         if box is not None:  # type(box) is not type(None):
             if verbose:
@@ -307,7 +319,7 @@ class ISH:
             dfloc = dfloc.loc[dfloc.station_id == site, :]
 
         # this is the overall urls built from the total ISH history file
-        urls = self.build_urls(dates, dfloc)
+        urls = self.build_urls(sites=dfloc)
         # return urls, dfloc
         if download:
             objs = self.get_url_file_objs(urls.name)
@@ -391,13 +403,21 @@ class ISH:
                 break
         return objs
 
-    def build_urls(self, dates, dfloc):
-        """Short summary.
+    def build_urls(self, dates=None, sites=None):
+        """Build URLs.
+
+        Parameters
+        ----------
+        dates
+            Dates of interest.
+            If unset, uses :attr:`dates`.
+        sites
+            Metadata frame for the stations of interest.
+            If unset, uses :attr:`history` (all sites by default).
 
         Returns
         -------
-        helper function to build urls
-
+        DataFrame
         """
         unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         furls = []
@@ -427,12 +447,12 @@ class ISH:
             all_urls = f"{url}/{year}/" + all_urls
 
         # get the dfloc meta data
-        dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
+        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
         for date in unique_years.strftime("%Y"):
-            dfloc["fname"] = (
-                dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date[0:4] + ".gz"
+            sites["fname"] = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
             )
-            for fname in dfloc.fname.values:
+            for fname in sites.fname.values:
                 furls.append(f"{url}/{date[0:4]}/{fname}")
 
         # files needed for comparison

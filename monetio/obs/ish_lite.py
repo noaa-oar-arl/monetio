@@ -1,4 +1,4 @@
-"""Python module for reading NOAA ISH files"""
+"""Python module for reading NOAA ISH-lite files"""
 import numpy as np
 import pandas as pd
 
@@ -72,6 +72,7 @@ class ISH:
         though more so for WBAN than USAF.
         However, combining USAF and WBAN does give a unique station ID.
         """
+        # TODO: one function for both ISH-lite and ISH
         if dates is None:
             dates = self.dates
 
@@ -253,7 +254,7 @@ class ISH:
         -------
         DataFrame
         """
-        self.dates = dates
+        self.dates = pd.to_datetime(dates)
         self.verbose = verbose
         if verbose:
             print("Reading ISH history file...")
@@ -292,7 +293,7 @@ class ISH:
         df = df.replace(-999.9, np.NaN)
 
         if resample:
-            print("  Resampling to every " + window)
+            print("Resampling to every " + window)
             df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
 
         # Add site metadata
