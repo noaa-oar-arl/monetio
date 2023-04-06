@@ -332,7 +332,9 @@ class ISH:
             self.read_ish_history()
         dfloc = self.history.copy()
 
-        # TODO: error if try to use more than one of these options
+        if sum([box is not None, country is not None, state is not None, site is not None]) > 1:
+            raise ValueError("Only one of `box`, `country`, `state`, or `site` can be used")
+
         if box is not None:  # type(box) is not type(None):
             if verbose:
                 print("Retrieving Sites in: " + " ".join(map(str, box)))

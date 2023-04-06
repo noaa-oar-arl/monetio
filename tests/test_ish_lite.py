@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from monetio import ish_lite
 
@@ -34,3 +35,9 @@ def test_ish_lite_one_site():
 
 
 # TODO: invalid site
+
+
+def test_ish_lite_error_on_multiple_subset_options():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    with pytest.raises(ValueError, match="^Only one of "):
+        ish_lite.add_data(dates, site="72224400358", state="MD")
