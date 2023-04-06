@@ -313,9 +313,6 @@ class ISH:
         from numpy import NaN
 
         self.dates = pd.to_datetime(dates)
-        idate = dates[0]
-        year = idate.strftime("%Y")
-        url = "https://www1.ncdc.noaa.gov/pub/data/noaa/" + year + "/"
         self.verbose = verbose
         if verbose:
             print("Reading ISH history file...")
