@@ -349,7 +349,7 @@ class ISH:
         if sum([box is not None, country is not None, state is not None, site is not None]) > 1:
             raise ValueError("Only one of `box`, `country`, `state`, or `site` can be used")
 
-        if box is not None:  # type(box) is not type(None):
+        if box is not None:
             if verbose:
                 print("Retrieving Sites in: " + " ".join(map(str, box)))
             dfloc = self.subset_sites(latmin=box[0], lonmin=box[1], latmax=box[2], lonmax=box[3])
