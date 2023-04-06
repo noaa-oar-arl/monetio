@@ -239,8 +239,7 @@ class ISH:
 
         Parameters
         ----------
-        dates
-            Array of datetimes.
+        dates : sequence of datetime-like
         box : list of float, optional
              ``[latmin, lonmin, latmax, lonmax]``.
         country, state, site : str, optional

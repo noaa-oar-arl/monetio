@@ -264,29 +264,24 @@ class ISH:
         n_procs=1,
         verbose=False,
     ):
-        """Short summary.
+        """Retrieve and return ISH data.
 
         Parameters
         ----------
-        dates : list of datetime objects
-        box : list of floats
-             [latmin, lonmin, latmax, lonmax]
-        country : type
-            Description of parameter `country`.
-        state : type
-            Description of parameter `state`.
-        site : type
-            Description of parameter `site`.
-        resample : type
-            Description of parameter `resample`.
-        window : type
-            Description of parameter `window`.
+        dates : sequence of datetime-like
+        box : list of float, optional
+             ``[latmin, lonmin, latmax, lonmax]``.
+        country, state, site : str, optional
+            Select sites in a country or state or one specific site.
+            Can use one at most of `box` and these.
+        resample : bool
+            If false, return data at original resolution, which can be sub-hourly.
+        window
+            Resampling window, e.g. ``'3H'``.
 
         Returns
         -------
-        type
-            Description of returned object.
-
+        DataFrame
         """
         from numpy import NaN
 
