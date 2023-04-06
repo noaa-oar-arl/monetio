@@ -4,8 +4,7 @@ import pandas as pd
 
 
 def add_data(
-    dates, box=None, country=None, state=None, site=None, resample=True, window="H", n_procs=1
-):
+    dates, box=None, country=None, state=None, site=None, resample=True, window="H", n_procs=1, verbose=False):
     ish = ISH()
     return ish.add_data(
         dates,
@@ -16,6 +15,7 @@ def add_data(
         resample=resample,
         window=window,
         n_procs=n_procs,
+        verbose=verbose,
     )
 
 
@@ -108,6 +108,8 @@ class ISH:
         self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
         self.daily = False
+        self.dates = None
+        self.verbose=False
 
     def read_data_frame(self, file_object):
         """Create a data frame from an ISH file.
@@ -127,17 +129,11 @@ class ISH:
         frame = pd.DataFrame.from_records(frame_as_array)
         df = self._clean(frame)
         df.drop(["latitude", "longitude"], axis=1, inplace=True)
-        # df.latitude = self.history.groupby('station_id').get_group(
-        #     df.station_id[0]).LAT.values[0]
-        # df.longitude = self.history.groupby('station_id').get_group(
-        #     df.station_id[0]).lon.values[0]
-        # df['STATION_NAME'] = self.history.groupby('station_id').get_group(
-        #     df.station_id[0])['STATION NAME'].str.strip().values[0]
         index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
 
         return df.loc[index, :].reset_index()
 
-    def read_ish_history(self):
+    def read_ish_history(self, dates):
         """read ISH history file
 
         Returns
@@ -176,27 +172,48 @@ class ISH:
         helper function to build urls
 
         """
-
+        unique_years = pd.to_datetime(dates.year.unique(),format='%Y')
         furls = []
         # fnames = []
-        print("Building AIRNOW URLs...")
+        if self.verbose:
+            print("Building ISH-Lite URLs...")
         url = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-lite"
+        # get each yearly urls available from the isd-lite site
+        available_urls = []
+        if len(unique_years) > 1:
+            all_urls = []
+            if self.verbose:
+                print('multiple years needed... Getting all available years') 
+            for date in unique_years.strftime('%Y'):
+                 if self.verbose:
+                     print('Year:', date)
+                 year_url = pd.read_html('{}/{}}/'.format(url, date))[0]['Name'].iloc[2:-1].to_frame(name='name')
+                 all_urls.append('{}/{}}/'.format(url, date) + year_url) # add the full url path to the file name only 
+
+            all_urls = pd.concat(all_urls, ignore_index=True)
+        else:
+            year = unique_years.strftime('%Y')[0]
+            all_urls = pd.read_html('{}/{}/'.format(url, year))[0]['Name'].iloc[2:-1].to_frame(name='name')
+            all_urls = '{}/{}/'.format(url, year) + all_urls
+            
+
+        # get the dfloc meta data
         dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
-        for date in self.dates.unique().astype(str):
+        for date in unique_years.strftime('%Y'):
             dfloc["fname"] = (
-                dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date + ".gz"
+                dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date[0:4] + ".gz"
             )
             for fname in dfloc.fname.values:
-                furls.append(f"{url}/{date}/{fname}")
-            # f = url + i.strftime('%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat')
-            # fname = i.strftime('HourlyData_%Y%m%d%H.dat')
-            # furls.append(f)
-            # fnames.append(fname)
-        # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
+                furls.append(f"{url}/{date[0:4]}/{fname}")
 
         # files needed for comparison
         url = pd.Series(furls, index=None)
-        return url
+
+        # ensure that all urls built are available 
+        final_urls = pd.merge(url.to_frame(name='name'), all_urls, how='inner')
+        
+
+        return final_urls
 
     def read_csv(self, fname):
         from numpy import NaN
@@ -223,12 +240,17 @@ class ISH:
             parse_dates={"time": [0, 1, 2, 3]},
             infer_datetime_format=True,
         )
+        # print(fname)
+        filename = fname.split('/')[-1].split('-')
+        # print(filename)
+        siteid = filename[0]+filename[1]
         df["temp"] /= 10.0
         df["dew_pt_temp"] /= 10.0
         df["press"] /= 10.0
         df["ws"] /= 10.0
         df["precip_1hr"] /= 10.0
         df["precip_6hr"] /= 10.0
+        df['siteid'] = siteid
         df = df.replace(-9999, NaN)
         return df
 
@@ -236,9 +258,19 @@ class ISH:
         import dask
         import dask.dataframe as dd
 
-        dfs = [dask.delayed(self.read_csv)(f) for f in urls]
+        # =======================
+        # for manual testing 
+        # =======================
+        # import pandas as pd
+        # dfs=[]
+        # for u in urls.name: 
+        #     print(u)
+        #     dfs.append(self.read_csv(u))
+
+        dfs = [dask.delayed(self.read_csv)(f) for f in urls.name]
         dff = dd.from_delayed(dfs)
         df = dff.compute(num_workers=n_procs)
+
         return df
 
     def add_data(
@@ -250,6 +282,7 @@ class ISH:
         site=None,
         resample=True,
         window="H",
+        verbose=False,
         n_procs=1,
     ):
         """Short summary.
@@ -276,24 +309,44 @@ class ISH:
             Description of returned object.
 
         """
+        self.dates = dates
+        self.verbose = verbose
+        if verbose:
+            print('Reading ISH history file...')
         if self.history is None:
-            self.read_ish_history()
+            self.read_ish_history(dates)
         dfloc = self.history.copy()
+        
         if box is not None:  # type(box) is not type(None):
-            print("Retrieving Sites in: " + " ".join(map(str, box)))
+            if verbose:
+                print("Retrieving Sites in: " + " ".join(map(str, box)))
             dfloc = self.subset_sites(latmin=box[0], lonmin=box[1], latmax=box[2], lonmax=box[3])
         elif country is not None:
-            print("Retrieving Country: " + country)
-            dfloc = self.history.loc[self.history.ctry == country, :]
+            if verbose:
+                print("Retrieving Country: " + country)
+            dfloc = dfloc.loc[dfloc.ctry == country, :]
         elif state is not None:
-            print("Retrieving State: " + state)
-            dfloc = self.history.loc[self.history.STATE == state, :]
+            if verbose:
+                print("Retrieving State: " + state)
+            dfloc = dfloc.loc[dfloc.state == state, :]
         elif site is not None:
-            print("Retrieving Site: " + site)
-            dfloc = self.history.loc[self.history.station_id == site, :]
-        urls = self.build_urls(dates, dfloc)
-        return self.aggregrate_files(urls, n_procs=n_procs)
+            if verbose:
+                print("Retrieving Site: " + site)
+            dfloc = dfloc.loc[dfloc.station_id == site, :]
+        urls = self.build_urls(dates, dfloc) # this is the overall urls built from the total ISH history file
+        # return urls
+        # print(urls.iloc[0])
+        if verbose:
+            print('Aggregating {} URLs...'.format(len(urls.name)))
+        df = self.aggregrate_files(urls, n_procs=n_procs)
 
+        # narrow in time 
+        df = df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
+        df = df.replace(-999.9, np.NaN)
+
+        # merge in dfloc to df
+        df = pd.merge(df,dfloc,how='left', left_on='siteid',right_on='station_id')
+        return df.drop(['station_id','fname'],axis=1)
     def get_url_file_objs(self, fname):
         """Short summary.
 
