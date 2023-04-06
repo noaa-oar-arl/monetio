@@ -173,13 +173,9 @@ class ISH:
         frame = self._clean_column_by_name(frame, "ws", multiplier=10)  # m/s
         frame = self._clean_column_by_name(frame, "ceiling", missing=99999)
         frame = self._clean_column_by_name(frame, "vsb", missing=999999)
-        frame = self._clean_column_by_name(
-            frame, "t", multiplier=10, missing=9999
-        )  # degrees Celcius
-        frame = self._clean_column_by_name(
-            frame, "dpt", multiplier=10, missing=9999
-        )  # degrees Celcius
-        frame = self._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # Hectopascals
+        frame = self._clean_column_by_name(frame, "t", multiplier=10, missing=9999)  # degC
+        frame = self._clean_column_by_name(frame, "dpt", multiplier=10, missing=9999)  # degC
+        frame = self._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # hPa
         frame = self._clean_column_by_name(frame, "vsb", missing=99999)  # m
         return frame
 
@@ -345,10 +341,22 @@ class ISH:
         except RuntimeError:
             pass
         self.df = self.df.merge(
-            dfloc[["station_id", "latitude", "longitude", "station name"]],
+            dfloc[
+                [
+                    "station_id",
+                    "latitude",
+                    "longitude",
+                    "station name",
+                    "ctry",
+                    "state",
+                    "usaf",
+                    "wban",
+                ]
+            ],
             on=["station_id"],
             how="left",
         )
+        self.df = self.df.rename(columns={"station_id": "siteid"})
 
         return self.df
 
@@ -418,6 +426,11 @@ class ISH:
         -------
         DataFrame
         """
+        if dates is None:
+            dates = self.dates
+        if sites is None:
+            sites = self.history
+
         unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         furls = []
         # fnames = []
