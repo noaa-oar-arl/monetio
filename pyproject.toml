@@ -16,4 +16,5 @@ filterwarnings = [
     "ignore:The error_bad_lines argument has been deprecated:FutureWarning::",
     "ignore:The warn_bad_lines argument has been deprecated:FutureWarning::",
     "ignore:The NPY_CHAR type_num is deprecated. Please port your code to use NPY_STRING instead.:DeprecationWarning::",
+    "ignore:'cgi' is deprecated and slated for removal in Python 3.13:DeprecationWarning::",
 ]
