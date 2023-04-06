@@ -27,9 +27,9 @@ def test_ish_read_history():
 
 def test_ish_lite_one_site():
     dates = pd.date_range("2020-09-01", "2020-09-02")
-    site = "72224400358"
+    site = "72224400358"  # "College Park AP"
 
-    df = ish_lite.add_data(dates, site=site)  # "College Park AP"
+    df = ish_lite.add_data(dates, site=site)
 
     assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
     assert (df.usaf + df.wban).iloc[0] == site, "correct site"
