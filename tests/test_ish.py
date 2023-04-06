@@ -90,3 +90,17 @@ def test_ish_error_on_multiple_subset_options():
     dates = pd.date_range("2020-09-01", "2020-09-02")
     with pytest.raises(ValueError, match="^Only one of "):
         ish.add_data(dates, site="72224400358", state="MD")
+
+
+def test_ish_read_url_direct():
+    url = "https://www1.ncdc.noaa.gov/pub/data/noaa/2020/717490-99999-2020.gz"
+    ish_ = ish.ISH()
+
+    df = ish_.read_data_frame(url)
+
+    assert len(df) > 0
+    assert (df.time.dt.year == 2020).all()
+
+    orig_names, _ = zip(*ish.ISH.DTYPES)
+    assert set(df.columns) - set(orig_names) == {"time"}
+    assert set(orig_names) - set(df.columns) == {"date", "htime", "latitude", "longitude"}
