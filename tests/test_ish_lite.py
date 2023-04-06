@@ -8,12 +8,20 @@ def test_ish_read_history():
     ish = ish_lite.ISH()
     ish.dates = dates
     ish.read_ish_history()
+
     df = ish.history
+
     assert len(df) > 0
     assert {"latitude", "longitude", "begin", "end"} < set(df.columns)
     for col in ["begin", "end"]:
         assert df[col].dtype == "datetime64[ns]"
         assert (df[col].dt.hour == 0).all()
+
+    assert df.station_id.nunique() == len(df), "unique ID for station"
+    assert (df.usaf.value_counts() == 2).sum() == 2
+    assert (df.wban.value_counts() == 2).sum() == 5
+    assert (df.usaf == "999999").sum() > 100
+    assert (df.wban == "99999").sum() > 10_000
 
 
 def test_ish_lite_one_site():

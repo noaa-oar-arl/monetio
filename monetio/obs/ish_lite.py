@@ -146,9 +146,15 @@ class ISH:
         """Read ISH history file and subset based on :attr:`dates`,
         setting the :attr:`history` attribute.
 
-        The constructed 'station_id' column is a combination of the USAF and WBAN columns.
-
         https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
+
+        The constructed 'station_id' column is a combination of the USAF and WBAN columns.
+        This is done since USAF and WBAN alone are not unique in the history file.
+        For example, USAF 725244 and 722158 appear twice, as do
+        WBAN 24267, 41420, 23176, 13752, and 41231.
+        Additionally, there are many cases of unset (999999 for USAF or 99999 for WBAN),
+        though more so for WBAN than USAF.
+        However, combining USAF and WBAN does give a unique station ID.
         """
         fname = self.history_file
         self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
