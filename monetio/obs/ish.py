@@ -376,7 +376,6 @@ class ISH:
         mmm = 0
         jjj = 0
         for iii in fname:
-            #            print i
             try:
                 r2 = requests.get(iii, stream=True)
                 temp = iii.split("/")
