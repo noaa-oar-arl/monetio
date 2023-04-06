@@ -50,7 +50,7 @@ def add_data(
         state=state,
         site=site,
         resample=resample,
-        window="H",
+        window=window,
         download=download,
         n_procs=n_procs,
         verbose=verbose,
