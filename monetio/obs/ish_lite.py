@@ -355,20 +355,18 @@ class ISH:
             if verbose:
                 print("Retrieving Site: " + site)
             dfloc = dfloc.loc[dfloc.station_id == site, :]
-        urls = self.build_urls(
-            dates, dfloc
-        )  # this is the overall urls built from the total ISH history file
-        # return urls
-        # print(urls.iloc[0])
+        urls = self.build_urls(dates, dfloc)
+        if urls.empty:
+            raise ValueError("No data URLs found for the given dates and site selection")
         if verbose:
             print(f"Aggregating {len(urls.name)} URLs...")
         df = self.aggregrate_files(urls, n_procs=n_procs)
 
-        # narrow in time
+        # Narrow in time (each file contains a year)
         df = df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
         df = df.replace(-999.9, np.NaN)
 
-        # merge in dfloc to df
+        # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id")
         return df.drop(["station_id", "fname"], axis=1)
 

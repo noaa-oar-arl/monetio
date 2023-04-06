@@ -34,7 +34,11 @@ def test_ish_lite_one_site():
     ), "useful site metadata"
 
 
-# TODO: invalid site
+@pytest.mark.parametrize("meta", ["country", "state", "site"])
+def test_ish_lite_invalid_subset(meta):
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    with pytest.raises(ValueError, match="^No data URLs found"):
+        _ = ish_lite.add_data(dates, **{meta: "asdf"})
 
 
 def test_ish_lite_error_on_multiple_subset_options():
