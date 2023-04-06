@@ -185,21 +185,33 @@ class ISH:
         print(dfloc.longitude.unique())
         return dfloc
 
-    def build_urls(self, dates, dfloc):
-        """Short summary.
+    def build_urls(self, dates=None, sites=None):
+        """Build URLs.
+
+        Parameters
+        ----------
+        dates
+            Dates of interest.
+            If unset, uses :attr:`dates`.
+        sites
+            Metadata frame for the stations of interest.
+            If unset, uses :attr:`history` (all sites by default).
 
         Returns
         -------
-        helper function to build urls
-
+        DataFrame
         """
+        if dates is None:
+            dates = self.dates
+        if sites is None:
+            sites = self.history
+
         unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         furls = []
-        # fnames = []
         if self.verbose:
             print("Building ISH-Lite URLs...")
         url = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-lite"
-        # get each yearly urls available from the isd-lite site
+        # Get each yearly urls available from the isd-lite site
         if len(unique_years) > 1:
             all_urls = []
             if self.verbose:
@@ -220,19 +232,19 @@ class ISH:
             all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
             all_urls = f"{url}/{year}/" + all_urls
 
-        # get the dfloc meta data
-        dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
+        # Get the meta data
+        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
         for date in unique_years.strftime("%Y"):
-            dfloc["fname"] = (
-                dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date[0:4] + ".gz"
+            sites["fname"] = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
             )
-            for fname in dfloc.fname.values:
+            for fname in sites.fname.values:
                 furls.append(f"{url}/{date[0:4]}/{fname}")
 
-        # files needed for comparison
+        # Files needed for comparison
         url = pd.Series(furls, index=None)
 
-        # ensure that all urls built are available
+        # Only available URLs
         final_urls = pd.merge(url.to_frame(name="name"), all_urls, how="inner")
 
         return final_urls
@@ -353,7 +365,7 @@ class ISH:
             if verbose:
                 print("Retrieving Site: " + site)
             dfloc = dfloc.loc[dfloc.station_id == site, :]
-        urls = self.build_urls(dates, dfloc)
+        urls = self.build_urls(sites=dfloc)
         if urls.empty:
             raise ValueError("No data URLs found for the given dates and site selection")
         if verbose:
@@ -361,7 +373,7 @@ class ISH:
         df = self.aggregrate_files(urls, n_procs=n_procs)
 
         # Narrow in time (each file contains a year)
-        df = df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
+        df = df.loc[(df.time >= self.dates.min()) & (df.time <= self.dates.max())]
         df = df.replace(-999.9, np.NaN)
 
         # Add site metadata
