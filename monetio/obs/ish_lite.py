@@ -142,8 +142,9 @@ class ISH:
 
         return df.loc[index, :].reset_index()
 
-    def read_ish_history(self):
-        """Read ISH history file and subset based on :attr:`dates`,
+    def read_ish_history(self, dates=None):
+        """Read ISH history file (:attr:`history_file`) and subset based on
+        `dates` (or :attr:`dates` if unset),
         setting the :attr:`history` attribute.
 
         https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
@@ -156,11 +157,14 @@ class ISH:
         though more so for WBAN than USAF.
         However, combining USAF and WBAN does give a unique station ID.
         """
+        if dates is None:
+            dates = self.dates
+
         fname = self.history_file
         self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
         self.history.columns = [i.lower() for i in self.history.columns]
 
-        index1 = (self.history.end >= self.dates.min()) & (self.history.begin <= self.dates.max())
+        index1 = (self.history.end >= dates.min()) & (self.history.begin <= dates.max())
         self.history = self.history.loc[index1, :].dropna(subset=["lat", "lon"])
 
         self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
