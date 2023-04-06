@@ -316,8 +316,8 @@ class ISH:
         site=None,
         resample=True,
         window="H",
-        verbose=False,
         n_procs=1,
+        verbose=False,
     ):
         """Retrieve and return ISH-lite data.
 
