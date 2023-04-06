@@ -88,6 +88,9 @@ class ISH:
     def __init__(self):
         self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
+        self.df = None
+        self.dates = None
+        self.verbose = False
 
     def delimit(self, file_object, delimiter=","):
         """Iterate over the lines in a file yielding comma delimited versions.
@@ -172,9 +175,12 @@ class ISH:
         #     df.station_id[0]).lon.values[0]
         # df['STATION_NAME'] = self.history.groupby('station_id').get_group(
         #     df.station_id[0])['STATION NAME'].str.strip().values[0]
-        index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
 
-        return df.loc[index, :].reset_index()
+        if self.dates is not None:
+            index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
+            df = df.loc[index, :]
+
+        return df.reset_index()
 
     def read_ish_history(self, dates=None):
         """Read ISH history file (:attr:`history_file`) and subset based on
