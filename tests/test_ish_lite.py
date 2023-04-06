@@ -27,11 +27,33 @@ def test_ish_read_history():
 
 def test_ish_lite_one_site():
     dates = pd.date_range("2020-09-01", "2020-09-02")
-    df = ish_lite.add_data(dates, site="72224400358")  # "College Park AP"
+    site = "72224400358"
+
+    df = ish_lite.add_data(dates, site=site)  # "College Park AP"
+
+    assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
+    assert (df.usaf + df.wban).iloc[0] == site, "correct site"
     assert len(df) == 25, "includes hour 0 on second day"
-    assert {"usaf", "wban", "latitude", "longitude", "state"} < set(
-        df.columns
-    ), "useful site metadata"
+
+    assert {
+        "usaf",
+        "wban",
+        "latitude",
+        "longitude",
+        "state",
+    } < set(df.columns), "useful site metadata"
+    assert {
+        "time",
+        "temp",
+        "dew_pt_temp",
+        "press",
+        "wdir",
+        "ws",
+        "sky_condition",
+        "precip_1hr",
+        "precip_6hr",
+    } < set(df.columns), "data columns"
+    assert (df.temp < 100).all(), "temp in degC"
 
 
 @pytest.mark.parametrize("meta", ["country", "state", "site"])
