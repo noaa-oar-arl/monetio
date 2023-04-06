@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-def add_data(self, dates, box=None, country=None, state=None, site=None, resample=True, window="H"):
+def add_data(dates, box=None, country=None, state=None, site=None, resample=True, window="H", download=False, n_procs=1, verbose=False):
     """Add data from integrated surface database.
 
     Parameters
@@ -33,8 +33,7 @@ def add_data(self, dates, box=None, country=None, state=None, site=None, resampl
     """
     ish = ISH()
     df = ish.add_data(
-        dates, box=None, country=None, state=None, site=None, resample=True, window="H"
-    )
+        dates, box=box, country=country, state=state, site=site, resample=resample, window="H", download=download, n_procs=n_procs, verbose=verbose)
     return df
 
 
@@ -180,13 +179,14 @@ class ISH:
         # these fields were combined into 'time'
         frame.drop(["date", "htime"], axis=1, inplace=True)
         frame.set_index("time", drop=True, inplace=True)
-        frame = self._clean_column_by_name(frame, "wdir", missing=999)
-        frame = self._clean_column_by_name(frame, "ws", multiplier=10)
+        frame = self._clean_column_by_name(frame, "wdir", missing=999)  # angular degrees
+        frame = self._clean_column_by_name(frame, "ws", multiplier=10)  # m/s
         frame = self._clean_column_by_name(frame, "ceiling", missing=99999)
         frame = self._clean_column_by_name(frame, "vsb", missing=999999)
-        frame = self._clean_column_by_name(frame, "t", multiplier=10)
-        frame = self._clean_column_by_name(frame, "dpt", multiplier=10)
-        frame = self._clean_column_by_name(frame, "p", multiplier=10, missing=99999)
+        frame = self._clean_column_by_name(frame, "t", multiplier=10, missing=9999)  # degrees Celcius 
+        frame = self._clean_column_by_name(frame, "dpt", multiplier=10, missing=9999)  # degrees Celcius 
+        frame = self._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # Hectopascals
+        frame = self._clean_column_by_name(frame, "vsb", missing=99999)  # m 
         return frame
 
     def read_data_frame(self, file_object):
@@ -217,7 +217,7 @@ class ISH:
 
         return df.loc[index, :].reset_index()
 
-    def read_ish_history(self):
+    def read_ish_history(self, dates):
         """read ISH history file
 
         Returns
@@ -248,9 +248,7 @@ class ISH:
         print(dfloc.longitude.unique())
         return dfloc
 
-    def add_data(
-        self, dates, box=None, country=None, state=None, site=None, resample=True, window="H"
-    ):
+    def add_data(self, dates, box=None, country=None, state=None, site=None, resample=True, window="H", download=False,n_procs=1, verbose=False):
         """Short summary.
 
         Parameters
@@ -281,44 +279,49 @@ class ISH:
         idate = dates[0]
         year = idate.strftime("%Y")
         url = "https://www1.ncdc.noaa.gov/pub/data/noaa/" + year + "/"
+        self.verbose = verbose
+        if verbose:
+            print('Reading ISH history file...')
         if self.history is None:
-            self.read_ish_history()
-        self.history["fname"] = (
-            url + self.history.usaf + "-" + self.history.wban + "-" + year + ".gz"
-        )
+            self.read_ish_history(dates)
         dfloc = self.history.copy()
-        # if isinstance(box, None):  # type(box) is not type(None):
         if box is not None:  # type(box) is not type(None):
-            print("Retrieving Sites in: " + " ".join(map(str, box)))
+            if verbose:
+                print("Retrieving Sites in: " + " ".join(map(str, box)))
             dfloc = self.subset_sites(latmin=box[0], lonmin=box[1], latmax=box[2], lonmax=box[3])
         elif country is not None:
-            print("Retrieving Country: " + country)
-            dfloc = self.history.loc[self.history.ctry == country, :]
+            if verbose:
+                print("Retrieving Country: " + country)
+            dfloc = dfloc.loc[dfloc.ctry == country, :]
         elif state is not None:
-            print("Retrieving State: " + state)
-            dfloc = self.history.loc[self.history.STATE == state, :]
+            if verbose:
+                print("Retrieving State: " + state)
+            dfloc = dfloc.loc[dfloc.state == state, :]
         elif site is not None:
-            print("Retrieving Site: " + site)
-            dfloc = self.history.loc[self.history.station_id == site, :]
-        print(dfloc.fname.unique())
-        objs = self.get_url_file_objs(dfloc.fname.unique())
-        # return objs,size,self.history.fname
-        # dfs = []
-        # for f in objs:
-        #     try:
-        #         dfs.append(self.read_data_frame(f))
-        #     except:
-        #         pass
+            if verbose:
+                print("Retrieving Site: " + site)
+            dfloc = dfloc.loc[dfloc.station_id == site, :]
 
-        print("  Reading ISH into pandas DataFrame...")
-        dfs = [dask.delayed(self.read_data_frame)(f) for f in objs]
-        dff = dd.from_delayed(dfs)
-        self.df = dff.compute()
-        self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
+        # this is the overall urls built from the total ISH history file
+        urls = self.build_urls(dates, dfloc) 
+        # return urls, dfloc
+        if download:
+            objs = self.get_url_file_objs(urls.name)
+            print("  Reading ISH into pandas DataFrame...")
+            dfs = [dask.delayed(self.read_data_frame)(f) for f in objs]
+            dff = dd.from_delayed(dfs)
+            self.df = dff.compute(num_workers=n_procs)
+            self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
+        else:
+            if verbose:
+                print('Aggregating {} URLs...'.format(len(urls.name)))
+            self.df = self.aggregrate_files(urls, n_procs=n_procs)
+            # self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
         if resample:
-            print("  Resampling to every " + window)
+            if verbose:
+                print("Resampling to every " + window)
             self.df.index = self.df.time
-            self.df = self.df.groupby("station_id").resample("H").mean().reset_index()
+            self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
         # this was encoded as byte literal but in dfloc it is a string so could
         # not merge on station_id correctly.
         try:
@@ -331,7 +334,7 @@ class ISH:
             how="left",
         )
 
-        return self.df.copy()
+        return self.df
 
     def get_url_file_objs(self, fname):
         """Short summary.
@@ -383,3 +386,70 @@ class ISH:
                 print("Over " + str(jjj) + " failed. break loop")
                 break
         return objs
+
+    def build_urls(self, dates, dfloc):
+        """Short summary.
+
+        Returns
+        -------
+        helper function to build urls
+
+        """
+        unique_years = pd.to_datetime(dates.year.unique(),format='%Y')
+        furls = []
+        # fnames = []
+        if self.verbose:
+            print("Building ISH URLs...")
+        url = "https://www1.ncdc.noaa.gov/pub/data/noaa/"
+        # get each yearly urls available from the isd-lite site
+        if len(unique_years) > 1:
+            all_urls = []
+            if self.verbose:
+                print('multiple years needed... Getting all available years') 
+            for date in unique_years.strftime('%Y'):
+                if self.verbose:
+                    print('Year:', date)
+                year_url = pd.read_html('{}/{}/'.format(url, date))[0]['Name'].iloc[2:-1].to_frame(name='name')
+                all_urls.append('{}/{}/'.format(url, date) + year_url) # add the full url path to the file name only 
+
+            all_urls = pd.concat(all_urls, ignore_index=True)
+        else:
+            year = unique_years.strftime('%Y')[0]
+            all_urls = pd.read_html('{}/{}/'.format(url, year))[0]['Name'].iloc[2:-1].to_frame(name='name')
+            all_urls = '{}/{}/'.format(url, year) + all_urls
+
+        # get the dfloc meta data
+        dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
+        for date in unique_years.strftime('%Y'):
+            dfloc["fname"] = (
+                dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date[0:4] + ".gz"
+            )
+            for fname in dfloc.fname.values:
+                furls.append(f"{url}/{date[0:4]}/{fname}")
+
+        # files needed for comparison
+        url = pd.Series(furls, index=None)
+
+        # ensure that all urls built are available 
+        final_urls = pd.merge(url.to_frame(name='name'), all_urls, how='inner')
+
+        return final_urls
+    
+    def aggregrate_files(self, urls, n_procs=1):
+        import dask
+        import dask.dataframe as dd
+
+        # =======================
+        # for manual testing
+        # =======================
+        # import pandas as pd
+        # dfs=[]
+        # for u in urls.name:
+        #     print(u)
+        #     dfs.append(self.read_csv(u))
+
+        dfs = [dask.delayed(self.read_data_frame)(f) for f in urls.name]
+        dff = dd.from_delayed(dfs)
+        df = dff.compute(num_workers=n_procs)
+
+        return df
