@@ -304,29 +304,24 @@ class ISH:
         verbose=False,
         n_procs=1,
     ):
-        """Short summary.
+        """Retrieve and return ISH-lite data.
 
         Parameters
         ----------
-        dates : list of datetime objects
-        box : list of floats
-             [latmin, lonmin, latmax, lonmax]
-        country : type
-            Description of parameter `country`.
-        state : type
-            Description of parameter `state`.
-        site : type
-            Description of parameter `site`.
-        resample : type
-            Description of parameter `resample`.
-        window : type
-            Description of parameter `window`.
+        dates
+            Array of datetimes.
+        box : list of float, optional
+             ``[latmin, lonmin, latmax, lonmax]``.
+        country, state, site : str, optional
+            Select sites in a country or state or one specific site.
+            Can use one at most of `box` and these.
+        resample : bool
+        window
+            Resampling window.
 
         Returns
         -------
-        type
-            Description of returned object.
-
+        DataFrame
         """
         self.dates = dates
         self.verbose = verbose
