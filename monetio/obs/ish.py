@@ -304,17 +304,19 @@ class ISH:
                 print(f"Aggregating {len(urls.name)} URLs...")
             self.df = self.aggregrate_files(urls, n_procs=n_procs)
             # self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
+
+        # Decode
+        bytes_cols = [col for col in self.df.columns if type(self.df[col][0]) == bytes]
+        self.df[bytes_cols] = self.df[bytes_cols].apply(
+            lambda x: x.str.decode("utf-8"), axis="columns"
+        )
+
         if resample:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
             self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
-        # this was encoded as byte literal but in dfloc it is a string so could
-        # not merge on station_id correctly.
-        try:
-            self.df["station_id"] = self.df["station_id"].str.decode("utf-8")
-        except RuntimeError:
-            pass
+
         self.df = self.df.merge(
             dfloc[
                 [

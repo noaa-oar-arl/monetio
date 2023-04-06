@@ -66,6 +66,7 @@ def test_ish_no_resample():
 
     assert (df.time.diff().dropna() < pd.Timedelta("1H")).all()
     assert len(df) > 24
+    assert sum(col.endswith("_quality") for col in df.columns) == 8
 
 
 def test_ish_resample():
