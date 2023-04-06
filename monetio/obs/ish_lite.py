@@ -3,7 +3,17 @@ import numpy as np
 import pandas as pd
 
 
-def add_data(dates, box=None, country=None, state=None, site=None, resample=True, window="H", n_procs=1, verbose=False):
+def add_data(
+    dates,
+    box=None,
+    country=None,
+    state=None,
+    site=None,
+    resample=True,
+    window="H",
+    n_procs=1,
+    verbose=False,
+):
     ish = ISH()
     return ish.add_data(
         dates,
@@ -171,7 +181,7 @@ class ISH:
         helper function to build urls
 
         """
-        unique_years = pd.to_datetime(dates.year.unique(),format='%Y')
+        unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         furls = []
         # fnames = []
         if self.verbose:
@@ -181,22 +191,26 @@ class ISH:
         if len(unique_years) > 1:
             all_urls = []
             if self.verbose:
-                print('multiple years needed... Getting all available years') 
-            for date in unique_years.strftime('%Y'):
+                print("multiple years needed... Getting all available years")
+            for date in unique_years.strftime("%Y"):
                 if self.verbose:
-                    print('Year:', date)
-                year_url = pd.read_html('{}/{}/'.format(url, date))[0]['Name'].iloc[2:-1].to_frame(name='name')
-                all_urls.append('{}/{}/'.format(url, date) + year_url) # add the full url path to the file name only 
+                    print("Year:", date)
+                year_url = (
+                    pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+                )
+                all_urls.append(
+                    f"{url}/{date}/" + year_url
+                )  # add the full url path to the file name only
 
             all_urls = pd.concat(all_urls, ignore_index=True)
         else:
-            year = unique_years.strftime('%Y')[0]
-            all_urls = pd.read_html('{}/{}/'.format(url, year))[0]['Name'].iloc[2:-1].to_frame(name='name')
-            all_urls = '{}/{}/'.format(url, year) + all_urls
+            year = unique_years.strftime("%Y")[0]
+            all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+            all_urls = f"{url}/{year}/" + all_urls
 
         # get the dfloc meta data
         dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
-        for date in unique_years.strftime('%Y'):
+        for date in unique_years.strftime("%Y"):
             dfloc["fname"] = (
                 dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date[0:4] + ".gz"
             )
@@ -206,8 +220,8 @@ class ISH:
         # files needed for comparison
         url = pd.Series(furls, index=None)
 
-        # ensure that all urls built are available 
-        final_urls = pd.merge(url.to_frame(name='name'), all_urls, how='inner')
+        # ensure that all urls built are available
+        final_urls = pd.merge(url.to_frame(name="name"), all_urls, how="inner")
 
         return final_urls
 
@@ -237,16 +251,16 @@ class ISH:
             infer_datetime_format=True,
         )
         # print(fname)
-        filename = fname.split('/')[-1].split('-')
+        filename = fname.split("/")[-1].split("-")
         # print(filename)
-        siteid = filename[0]+filename[1]
+        siteid = filename[0] + filename[1]
         df["temp"] /= 10.0
         df["dew_pt_temp"] /= 10.0
         df["press"] /= 10.0
         df["ws"] /= 10.0
         df["precip_1hr"] /= 10.0
         df["precip_6hr"] /= 10.0
-        df['siteid'] = siteid
+        df["siteid"] = siteid
         df = df.replace(-9999, NaN)
         return df
 
@@ -255,11 +269,11 @@ class ISH:
         import dask.dataframe as dd
 
         # =======================
-        # for manual testing 
+        # for manual testing
         # =======================
         # import pandas as pd
         # dfs=[]
-        # for u in urls.name: 
+        # for u in urls.name:
         #     print(u)
         #     dfs.append(self.read_csv(u))
 
@@ -308,11 +322,11 @@ class ISH:
         self.dates = dates
         self.verbose = verbose
         if verbose:
-            print('Reading ISH history file...')
+            print("Reading ISH history file...")
         if self.history is None:
             self.read_ish_history(dates)
         dfloc = self.history.copy()
-    
+
         if box is not None:  # type(box) is not type(None):
             if verbose:
                 print("Retrieving Sites in: " + " ".join(map(str, box)))
@@ -329,20 +343,22 @@ class ISH:
             if verbose:
                 print("Retrieving Site: " + site)
             dfloc = dfloc.loc[dfloc.station_id == site, :]
-        urls = self.build_urls(dates, dfloc) # this is the overall urls built from the total ISH history file
+        urls = self.build_urls(
+            dates, dfloc
+        )  # this is the overall urls built from the total ISH history file
         # return urls
         # print(urls.iloc[0])
         if verbose:
-            print('Aggregating {} URLs...'.format(len(urls.name)))
+            print(f"Aggregating {len(urls.name)} URLs...")
         df = self.aggregrate_files(urls, n_procs=n_procs)
 
-        # narrow in time 
+        # narrow in time
         df = df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
         df = df.replace(-999.9, np.NaN)
 
         # merge in dfloc to df
-        df = pd.merge(df, dfloc, how='left', left_on='siteid', right_on='station_id')
-        return df.drop(['station_id', 'fname'], axis=1)
+        df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id")
+        return df.drop(["station_id", "fname"], axis=1)
 
     def get_url_file_objs(self, fname):
         """Short summary.
