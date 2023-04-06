@@ -120,28 +120,6 @@ class ISH:
         self.dates = None
         self.verbose = False
 
-    def read_data_frame(self, file_object):
-        """Create a data frame from an ISH file.
-
-        Parameters
-        ----------
-        file_object : type
-            Description of parameter `file_object`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        frame_as_array = np.genfromtxt(file_object, delimiter=self.WIDTHS, dtype=self.DTYPES)
-        frame = pd.DataFrame.from_records(frame_as_array)
-        df = self._clean(frame)
-        df.drop(["latitude", "longitude"], axis=1, inplace=True)
-        index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
-
-        return df.loc[index, :].reset_index()
-
     def read_ish_history(self, dates=None):
         """Read ISH history file (:attr:`history_file`) and subset based on
         `dates` (or :attr:`dates` if unset),
