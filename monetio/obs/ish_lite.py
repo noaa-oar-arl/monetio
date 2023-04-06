@@ -332,7 +332,7 @@ class ISH:
             Can use one at most of `box` and these.
         resample : bool
         window
-            Resampling window.
+            Resampling window, e.g. ``'3H'``.
 
         Returns
         -------
@@ -375,6 +375,10 @@ class ISH:
         # Narrow in time (each file contains a year)
         df = df.loc[(df.time >= self.dates.min()) & (df.time <= self.dates.max())]
         df = df.replace(-999.9, np.NaN)
+
+        if resample:
+            print("  Resampling to every " + window)
+            df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
 
         # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id")

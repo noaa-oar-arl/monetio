@@ -56,6 +56,15 @@ def test_ish_lite_one_site():
     assert (df.temp < 100).all(), "temp in degC"
 
 
+def test_ish_lite_resample():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
+
+    df = ish_lite.add_data(dates, site=site, resample=True, window="3H")
+
+    assert len(df) == 8 + 1
+
+
 @pytest.mark.parametrize("meta", ["country", "state", "site"])
 def test_ish_lite_invalid_subset(meta):
     dates = pd.date_range("2020-09-01", "2020-09-02")
