@@ -5,7 +5,18 @@ import numpy as np
 import pandas as pd
 
 
-def add_data(dates, box=None, country=None, state=None, site=None, resample=True, window="H", download=False, n_procs=1, verbose=False):
+def add_data(
+    dates,
+    box=None,
+    country=None,
+    state=None,
+    site=None,
+    resample=True,
+    window="H",
+    download=False,
+    n_procs=1,
+    verbose=False,
+):
     """Add data from integrated surface database.
 
     Parameters
@@ -33,7 +44,17 @@ def add_data(dates, box=None, country=None, state=None, site=None, resample=True
     """
     ish = ISH()
     df = ish.add_data(
-        dates, box=box, country=country, state=state, site=site, resample=resample, window="H", download=download, n_procs=n_procs, verbose=verbose)
+        dates,
+        box=box,
+        country=country,
+        state=state,
+        site=site,
+        resample=resample,
+        window="H",
+        download=download,
+        n_procs=n_procs,
+        verbose=verbose,
+    )
     return df
 
 
@@ -183,10 +204,14 @@ class ISH:
         frame = self._clean_column_by_name(frame, "ws", multiplier=10)  # m/s
         frame = self._clean_column_by_name(frame, "ceiling", missing=99999)
         frame = self._clean_column_by_name(frame, "vsb", missing=999999)
-        frame = self._clean_column_by_name(frame, "t", multiplier=10, missing=9999)  # degrees Celcius 
-        frame = self._clean_column_by_name(frame, "dpt", multiplier=10, missing=9999)  # degrees Celcius 
+        frame = self._clean_column_by_name(
+            frame, "t", multiplier=10, missing=9999
+        )  # degrees Celcius
+        frame = self._clean_column_by_name(
+            frame, "dpt", multiplier=10, missing=9999
+        )  # degrees Celcius
         frame = self._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # Hectopascals
-        frame = self._clean_column_by_name(frame, "vsb", missing=99999)  # m 
+        frame = self._clean_column_by_name(frame, "vsb", missing=99999)  # m
         return frame
 
     def read_data_frame(self, file_object):
@@ -248,7 +273,19 @@ class ISH:
         print(dfloc.longitude.unique())
         return dfloc
 
-    def add_data(self, dates, box=None, country=None, state=None, site=None, resample=True, window="H", download=False,n_procs=1, verbose=False):
+    def add_data(
+        self,
+        dates,
+        box=None,
+        country=None,
+        state=None,
+        site=None,
+        resample=True,
+        window="H",
+        download=False,
+        n_procs=1,
+        verbose=False,
+    ):
         """Short summary.
 
         Parameters
@@ -281,7 +318,7 @@ class ISH:
         url = "https://www1.ncdc.noaa.gov/pub/data/noaa/" + year + "/"
         self.verbose = verbose
         if verbose:
-            print('Reading ISH history file...')
+            print("Reading ISH history file...")
         if self.history is None:
             self.read_ish_history(dates)
         dfloc = self.history.copy()
@@ -303,7 +340,7 @@ class ISH:
             dfloc = dfloc.loc[dfloc.station_id == site, :]
 
         # this is the overall urls built from the total ISH history file
-        urls = self.build_urls(dates, dfloc) 
+        urls = self.build_urls(dates, dfloc)
         # return urls, dfloc
         if download:
             objs = self.get_url_file_objs(urls.name)
@@ -314,7 +351,7 @@ class ISH:
             self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
         else:
             if verbose:
-                print('Aggregating {} URLs...'.format(len(urls.name)))
+                print(f"Aggregating {len(urls.name)} URLs...")
             self.df = self.aggregrate_files(urls, n_procs=n_procs)
             # self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
         if resample:
@@ -395,7 +432,7 @@ class ISH:
         helper function to build urls
 
         """
-        unique_years = pd.to_datetime(dates.year.unique(),format='%Y')
+        unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         furls = []
         # fnames = []
         if self.verbose:
@@ -405,22 +442,26 @@ class ISH:
         if len(unique_years) > 1:
             all_urls = []
             if self.verbose:
-                print('multiple years needed... Getting all available years') 
-            for date in unique_years.strftime('%Y'):
+                print("multiple years needed... Getting all available years")
+            for date in unique_years.strftime("%Y"):
                 if self.verbose:
-                    print('Year:', date)
-                year_url = pd.read_html('{}/{}/'.format(url, date))[0]['Name'].iloc[2:-1].to_frame(name='name')
-                all_urls.append('{}/{}/'.format(url, date) + year_url) # add the full url path to the file name only 
+                    print("Year:", date)
+                year_url = (
+                    pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+                )
+                all_urls.append(
+                    f"{url}/{date}/" + year_url
+                )  # add the full url path to the file name only
 
             all_urls = pd.concat(all_urls, ignore_index=True)
         else:
-            year = unique_years.strftime('%Y')[0]
-            all_urls = pd.read_html('{}/{}/'.format(url, year))[0]['Name'].iloc[2:-1].to_frame(name='name')
-            all_urls = '{}/{}/'.format(url, year) + all_urls
+            year = unique_years.strftime("%Y")[0]
+            all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+            all_urls = f"{url}/{year}/" + all_urls
 
         # get the dfloc meta data
         dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
-        for date in unique_years.strftime('%Y'):
+        for date in unique_years.strftime("%Y"):
             dfloc["fname"] = (
                 dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date[0:4] + ".gz"
             )
@@ -430,11 +471,11 @@ class ISH:
         # files needed for comparison
         url = pd.Series(furls, index=None)
 
-        # ensure that all urls built are available 
-        final_urls = pd.merge(url.to_frame(name='name'), all_urls, how='inner')
+        # ensure that all urls built are available
+        final_urls = pd.merge(url.to_frame(name="name"), all_urls, how="inner")
 
         return final_urls
-    
+
     def aggregrate_files(self, urls, n_procs=1):
         import dask
         import dask.dataframe as dd
