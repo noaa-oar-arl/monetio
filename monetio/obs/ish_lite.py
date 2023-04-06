@@ -5,6 +5,7 @@ import pandas as pd
 
 def add_data(
     dates,
+    *,
     box=None,
     country=None,
     state=None,
@@ -14,6 +15,7 @@ def add_data(
     n_procs=1,
     verbose=False,
 ):
+    """Add ISH-lite data (Integrated Surface Data lite version)."""
     ish = ISH()
     return ish.add_data(
         dates,
@@ -222,6 +224,7 @@ class ISH:
     def add_data(
         self,
         dates,
+        *,
         box=None,
         country=None,
         state=None,

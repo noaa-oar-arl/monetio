@@ -7,6 +7,7 @@ import pandas as pd
 
 def add_data(
     dates,
+    *,
     box=None,
     country=None,
     state=None,
@@ -17,31 +18,7 @@ def add_data(
     n_procs=1,
     verbose=False,
 ):
-    """Add data from integrated surface database.
-
-    Parameters
-    ----------
-    dates : type
-        Description of parameter `dates`.
-    box : type
-        Description of parameter `box`.
-    country : type
-        Description of parameter `country`.
-    state : type
-        Description of parameter `state`.
-    site : type
-        Description of parameter `site`.
-    resample : type
-        Description of parameter `resample`.
-    window : type
-        Description of parameter `window`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
+    """Add ISH data (Integrated Surface Data, hourly)."""
     ish = ISH()
     df = ish.add_data(
         dates,
@@ -59,27 +36,20 @@ def add_data(
 
 
 class ISH:
-    """Integrated Surface Hourly (also known as ISD, Integrated Surface Data)
+    """Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data).
+
+    https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
 
     Attributes
     ----------
-    WIDTHS : type
-        Description of attribute `WIDTHS`.
-    DTYPES : type
-        Description of attribute `DTYPES`.
-    NAMES : type
-        Description of attribute `NAMES`.
-    history_file : type
-        Description of attribute `history_file`.
-    history : type
-        Description of attribute `history`.
-    daily : type
-        Description of attribute `daily`.
-
+    history_file : str
+        URL for the ISD history file.
+    history : DataFrame, optional
+        ISD history file frame, read by :meth:`read_ish_history`, ``None`` until read.
     """
 
     def __init__(self):
-        self.WIDTHS = [
+        self.WIDTHS = [  # TODO: consolidate with dtypes one
             4,
             11,
             8,
@@ -146,7 +116,6 @@ class ISH:
         self.NAMES, _ = list(zip(*self.DTYPES))
         self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
-        self.daily = False
 
     def delimit(self, file_object, delimiter=","):
         """Iterate over the lines in a file yielding comma delimited versions.
@@ -276,6 +245,7 @@ class ISH:
     def add_data(
         self,
         dates,
+        *,
         box=None,
         country=None,
         state=None,
