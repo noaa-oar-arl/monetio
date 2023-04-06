@@ -142,14 +142,13 @@ class ISH:
 
         return df.loc[index, :].reset_index()
 
-    def read_ish_history(self, dates):
-        """read ISH history file
+    def read_ish_history(self):
+        """Read ISH history file and subset based on :attr:`dates`,
+        setting the :attr:`history` attribute.
 
-        Returns
-        -------
-        type
-            Description of returned object.
+        The constructed 'station_id' column is a combination of the USAF and WBAN columns.
 
+        https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
         """
         fname = self.history_file
         self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
@@ -324,9 +323,10 @@ class ISH:
         if verbose:
             print("Reading ISH history file...")
         if self.history is None:
-            self.read_ish_history(dates)
+            self.read_ish_history()
         dfloc = self.history.copy()
 
+        # TODO: error if try to use more than one of these options
         if box is not None:  # type(box) is not type(None):
             if verbose:
                 print("Retrieving Sites in: " + " ".join(map(str, box)))
