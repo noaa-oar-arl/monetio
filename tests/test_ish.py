@@ -41,6 +41,7 @@ def test_ish_one_site():
         "wban",
         "latitude",
         "longitude",
+        "country",
         "state",
     } < set(df.columns), "useful site metadata"
     assert {

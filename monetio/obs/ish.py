@@ -356,7 +356,7 @@ class ISH:
             on=["station_id"],
             how="left",
         )
-        self.df = self.df.rename(columns={"station_id": "siteid"})
+        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
 
         return self.df
 
@@ -436,7 +436,7 @@ class ISH:
         # fnames = []
         if self.verbose:
             print("Building ISH URLs...")
-        url = "https://www1.ncdc.noaa.gov/pub/data/noaa/"
+        url = "https://www1.ncdc.noaa.gov/pub/data/noaa"
         # get each yearly urls available from the isd-lite site
         if len(unique_years) > 1:
             all_urls = []

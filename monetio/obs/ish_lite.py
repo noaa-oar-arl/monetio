@@ -296,7 +296,9 @@ class ISH:
             df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
 
         # Add site metadata
-        df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id")
+        df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
+            columns={"ctry": "country"}
+        )
         return df.drop(["station_id", "fname"], axis=1)
 
     def get_url_file_objs(self, fname):
