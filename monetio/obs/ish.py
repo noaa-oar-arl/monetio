@@ -179,21 +179,18 @@ class ISH:
         frame = self._clean_column_by_name(frame, "vsb", missing=99999)  # m
         return frame
 
-    def read_data_frame(self, file_object):
-        """Create a data frame from an ISH file.
+    def read_data_frame(self, url):
+        """Create a data frame from an ISH file."""
+        import gzip
+        import io
 
-        Parameters
-        ----------
-        file_object : type
-            Description of parameter `file_object`.
+        import requests
 
-        Returns
-        -------
-        type
-            Description of returned object.
+        r = requests.get(url, timeout=10, stream=True)
+        r.raise_for_status()
+        with gzip.open(io.BytesIO(r.content), "rb") as f:
+            frame_as_array = np.genfromtxt(f, delimiter=self.WIDTHS, dtype=self.DTYPES)
 
-        """
-        frame_as_array = np.genfromtxt(file_object, delimiter=self.WIDTHS, dtype=self.DTYPES)
         frame = pd.DataFrame.from_records(frame_as_array)
         df = self._clean(frame)
         df.drop(["latitude", "longitude"], axis=1, inplace=True)
