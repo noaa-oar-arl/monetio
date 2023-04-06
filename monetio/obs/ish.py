@@ -292,6 +292,10 @@ class ISH:
         if self.history is None:
             self.read_ish_history()
         dfloc = self.history.copy()
+
+        if sum([box is not None, country is not None, state is not None, site is not None]) > 1:
+            raise ValueError("Only one of `box`, `country`, `state`, or `site` can be used")
+
         if box is not None:  # type(box) is not type(None):
             if verbose:
                 print("Retrieving Sites in: " + " ".join(map(str, box)))
@@ -311,7 +315,8 @@ class ISH:
 
         # this is the overall urls built from the total ISH history file
         urls = self.build_urls(sites=dfloc)
-        # return urls, dfloc
+        if urls.empty:
+            raise ValueError("No data URLs found for the given dates and site selection")
         if download:
             objs = self.get_url_file_objs(urls.name)
             print("  Reading ISH into pandas DataFrame...")

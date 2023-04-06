@@ -1,8 +1,7 @@
 import pandas as pd
+import pytest
 
 from monetio import ish
-
-# import pytest
 
 
 def test_ish_read_history():
@@ -56,28 +55,37 @@ def test_ish_one_site():
     } < set(df.columns), "data columns"
     assert (df.t < 100).all(), "temp in degC"
     assert (df.dpt < 100).all(), "temp in degC"
-    assert False
 
 
-# def test_ish_resample():
-#     dates = pd.date_range("2020-09-01", "2020-09-02")
-#     site = "72224400358"  # "College Park AP"
-#     freq = "3H"
+def test_ish_no_resample():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
 
-#     df = ish.add_data(dates, site=site, resample=True, window=freq)
+    df = ish.add_data(dates, site=site, resample=False)
 
-#     assert (df.time.diff().dropna() == pd.Timedelta(freq)).all()
-#     assert len(df) == 8 + 1
-
-
-# @pytest.mark.parametrize("meta", ["country", "state", "site"])
-# def test_ish_invalid_subset(meta):
-#     dates = pd.date_range("2020-09-01", "2020-09-02")
-#     with pytest.raises(ValueError, match="^No data URLs found"):
-#         _ = ish.add_data(dates, **{meta: "asdf"})
+    assert (df.time.diff().dropna() < pd.Timedelta("1H")).all()
+    assert len(df) > 24
 
 
-# def test_ish_error_on_multiple_subset_options():
-#     dates = pd.date_range("2020-09-01", "2020-09-02")
-#     with pytest.raises(ValueError, match="^Only one of "):
-#         ish.add_data(dates, site="72224400358", state="MD")
+def test_ish_resample():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
+    freq = "3H"
+
+    df = ish.add_data(dates, site=site, resample=True, window=freq)
+
+    assert (df.time.diff().dropna() == pd.Timedelta(freq)).all()
+    assert len(df) == 8
+
+
+@pytest.mark.parametrize("meta", ["country", "state", "site"])
+def test_ish_invalid_subset(meta):
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    with pytest.raises(ValueError, match="^No data URLs found"):
+        _ = ish.add_data(dates, **{meta: "asdf"})
+
+
+def test_ish_error_on_multiple_subset_options():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    with pytest.raises(ValueError, match="^Only one of "):
+        ish.add_data(dates, site="72224400358", state="MD")
