@@ -33,6 +33,7 @@ def test_ish_lite_one_site():
 
     assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
     assert (df.usaf + df.wban).iloc[0] == site, "correct site"
+    assert (df.time.diff().dropna() == pd.Timedelta("1H")).all(), "hourly data"
     assert len(df) == 25, "includes hour 0 on second day"
 
     assert {
@@ -59,9 +60,11 @@ def test_ish_lite_one_site():
 def test_ish_lite_resample():
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "72224400358"  # "College Park AP"
+    freq = "3H"
 
-    df = ish_lite.add_data(dates, site=site, resample=True, window="3H")
+    df = ish_lite.add_data(dates, site=site, resample=True, window=freq)
 
+    assert (df.time.diff().dropna() == pd.Timedelta(freq)).all()
     assert len(df) == 8 + 1
 
 
