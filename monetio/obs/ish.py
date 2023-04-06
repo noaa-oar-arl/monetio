@@ -124,16 +124,19 @@ class ISH:
                 index = index + w
             yield ",".join(items)
 
-    def _clean_column(self, series, missing=9999, multiplier=1):
+    @staticmethod
+    def _clean_column(series, missing=9999, multiplier=1):
         series = series.apply(float)
         series[series == missing] = np.nan
         return series // multiplier
 
-    def _clean_column_by_name(self, frame, name, *args, **kwargs):
-        frame[name] = self._clean_column(frame[name], *args, **kwargs)
+    @staticmethod
+    def _clean_column_by_name(frame, name, *args, **kwargs):
+        frame[name] = ISH._clean_column(frame[name], *args, **kwargs)
         return frame
 
-    def _clean(self, frame):
+    @staticmethod
+    def _clean(frame):
         """Clean up the data frame"""
 
         # index by time
@@ -144,17 +147,23 @@ class ISH:
         # these fields were combined into 'time'
         frame.drop(["date", "htime"], axis=1, inplace=True)
         frame.set_index("time", drop=True, inplace=True)
-        frame = self._clean_column_by_name(frame, "wdir", missing=999)  # angular degrees
-        frame = self._clean_column_by_name(frame, "ws", multiplier=10)  # m/s
-        frame = self._clean_column_by_name(frame, "ceiling", missing=99999)
-        frame = self._clean_column_by_name(frame, "vsb", missing=999999)
-        frame = self._clean_column_by_name(frame, "t", multiplier=10, missing=9999)  # degC
-        frame = self._clean_column_by_name(frame, "dpt", multiplier=10, missing=9999)  # degC
-        frame = self._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # hPa
-        frame = self._clean_column_by_name(frame, "vsb", missing=99999)  # m
+        frame = ISH._clean_column_by_name(frame, "wdir", missing=999)  # angular degrees
+        frame = ISH._clean_column_by_name(frame, "ws", multiplier=10)  # m/s
+        frame = ISH._clean_column_by_name(frame, "ceiling", missing=99999)
+        frame = ISH._clean_column_by_name(frame, "vsb", missing=999999)
+        frame = ISH._clean_column_by_name(frame, "t", multiplier=10, missing=9999)  # degC
+        frame = ISH._clean_column_by_name(frame, "dpt", multiplier=10, missing=9999)  # degC
+        frame = ISH._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # hPa
+        frame = ISH._clean_column_by_name(frame, "vsb", missing=99999)  # m
         return frame
 
-    def read_data_frame(self, url):
+    @staticmethod
+    def _decode_bytes(df):
+        bytes_cols = [col for col in df.columns if type(df[col][0]) == bytes]
+        df[bytes_cols] = df[bytes_cols].apply(lambda x: x.str.decode("utf-8"), axis="columns")
+        return df
+
+    def read_data_frame(self, url, *, decode_bytes=False):
         """Create a data frame from an ISH file."""
         import gzip
         import io
@@ -179,6 +188,9 @@ class ISH:
         if self.dates is not None:
             index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
             df = df.loc[index, :]
+
+        if decode_bytes:
+            df = ISH._decode_bytes(df)
 
         return df.reset_index()
 
@@ -306,10 +318,7 @@ class ISH:
             # self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
 
         # Decode
-        bytes_cols = [col for col in self.df.columns if type(self.df[col][0]) == bytes]
-        self.df[bytes_cols] = self.df[bytes_cols].apply(
-            lambda x: x.str.decode("utf-8"), axis="columns"
-        )
+        self.df = ISH._decode_bytes(self.df)
 
         if resample:
             if verbose:
