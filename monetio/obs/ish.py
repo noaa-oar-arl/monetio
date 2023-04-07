@@ -174,10 +174,10 @@ class ISH:
         frame = ISH._clean_column_by_name(frame, "ws", multiplier=10)  # m/s
         frame = ISH._clean_column_by_name(frame, "ceiling", missing=99999)
         frame = ISH._clean_column_by_name(frame, "vsb", missing=999999)
+        frame = ISH._clean_column_by_name(frame, "vsb", missing=99999)  # m
         frame = ISH._clean_column_by_name(frame, "t", multiplier=10, missing=9999)  # degC
         frame = ISH._clean_column_by_name(frame, "dpt", multiplier=10, missing=9999)  # degC
         frame = ISH._clean_column_by_name(frame, "p", multiplier=10, missing=99999)  # hPa
-        frame = ISH._clean_column_by_name(frame, "vsb", missing=99999)  # m
         return frame
 
     @staticmethod
@@ -307,8 +307,6 @@ class ISH:
         -------
         DataFrame
         """
-        from numpy import NaN
-
         self.dates = pd.to_datetime(dates)
         self.verbose = verbose
         if verbose:
@@ -347,12 +345,10 @@ class ISH:
             dfs = [dask.delayed(self.read_data_frame)(f) for f in objs]
             dff = dd.from_delayed(dfs)
             self.df = dff.compute(num_workers=n_procs)
-            self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
         else:
             if verbose:
                 print(f"Aggregating {len(urls.name)} URLs...")
             self.df = self.aggregrate_files(urls, n_procs=n_procs)
-            # self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
 
         if resample:
             if verbose:

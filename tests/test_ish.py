@@ -65,6 +65,7 @@ def test_ish_one_site(download):
     } < set(df.columns), "data columns"
     assert (df.t < 100).all(), "temp in degC"
     assert (df.dpt < 100).all(), "temp in degC"
+    assert (df.vsb == 99999).sum() == 0
 
 
 def test_ish_no_resample():
