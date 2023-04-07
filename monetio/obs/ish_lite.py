@@ -1,10 +1,20 @@
-"""Python module for reading NOAA ISH files"""
+"""NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
+
+https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
+
+ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
+It is a subset of the full ISD containing eight common surface parameters
+in a fixed-width format free of duplicate values, sub-hourly data, and complicated flags.
+
+--- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+"""
 import numpy as np
 import pandas as pd
 
 
 def add_data(
     dates,
+    *,
     box=None,
     country=None,
     state=None,
@@ -14,6 +24,28 @@ def add_data(
     n_procs=1,
     verbose=False,
 ):
+    """Retrieve and load ISH-lite data as a DataFrame.
+
+    Parameters
+    ----------
+    dates : sequence of datetime-like
+    box : list of float, optional
+            ``[latmin, lonmin, latmax, lonmax]``.
+    country, state, site : str, optional
+        Select sites in a country or state or one specific site.
+        Can use one at most of `box` and these.
+    resample : bool
+    window
+        Resampling window, e.g. ``'3H'``.
+    n_procs : int
+        For Dask.
+    verbose : bool
+        Print debugging messages.
+
+    Returns
+    -------
+    DataFrame
+    """
     ish = ISH()
     return ish.add_data(
         dates,
@@ -29,94 +61,18 @@ def add_data(
 
 
 class ISH:
-    """Integrated Surface Hourly (also known as ISD, Integrated Surface Data)
-
+    """
     Attributes
     ----------
-    WIDTHS : type
-        Description of attribute `WIDTHS`.
-    DTYPES : type
-        Description of attribute `DTYPES`.
-    NAMES : type
-        Description of attribute `NAMES`.
-    history_file : type
-        Description of attribute `history_file`.
-    history : type
-        Description of attribute `history`.
-    daily : type
-        Description of attribute `daily`.
-
+    history_file : str
+        URL for the ISD history file.
+    history : DataFrame, optional
+        ISD history file frame, read by :meth:`read_ish_history`, ``None`` until read.
     """
 
     def __init__(self):
-        self.WIDTHS = [
-            4,
-            2,
-            8,
-            4,
-            1,
-            6,
-            7,
-            5,
-            5,
-            5,
-            4,
-            3,
-            1,
-            1,
-            4,
-            1,
-            5,
-            1,
-            1,
-            1,
-            6,
-            1,
-            1,
-            1,
-            5,
-            1,
-            5,
-            1,
-            5,
-            1,
-        ]
-        self.DTYPES = [
-            ("varlength", "i2"),
-            ("station_id", "S11"),
-            ("date", "i4"),
-            ("htime", "i2"),
-            ("source_flag", "S1"),
-            ("latitude", "float"),
-            ("longitude", "float"),
-            ("code", "S5"),
-            ("elev", "i2"),
-            ("call_letters", "S5"),
-            ("qc_process", "S4"),
-            ("wdir", "i2"),
-            ("wdir_quality", "S1"),
-            ("wdir_type", "S1"),
-            ("ws", "i2"),
-            ("ws_quality", "S1"),
-            ("ceiling", "i4"),
-            ("ceiling_quality", "S1"),
-            ("ceiling_code", "S1"),
-            ("ceiling_cavok", "S1"),
-            ("vsb", "i4"),
-            ("vsb_quality", "S1"),
-            ("vsb_variability", "S1"),
-            ("vsb_variability_quality", "S1"),
-            ("t", "i2"),
-            ("t_quality", "S1"),
-            ("dpt", "i2"),
-            ("dpt_quality", "S1"),
-            ("p", "i4"),
-            ("p_quality", "S1"),
-        ]
-        self.NAMES, _ = list(zip(*self.DTYPES))
         self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
-        self.daily = False
         self.dates = None
         self.verbose = False
 
@@ -136,6 +92,7 @@ class ISH:
         though more so for WBAN than USAF.
         However, combining USAF and WBAN does give a unique station ID.
         """
+        # TODO: one function for both ISH-lite and ISH
         if dates is None:
             dates = self.dates
 
@@ -288,6 +245,7 @@ class ISH:
     def add_data(
         self,
         dates,
+        *,
         box=None,
         country=None,
         state=None,
@@ -297,12 +255,11 @@ class ISH:
         n_procs=1,
         verbose=False,
     ):
-        """Retrieve and return ISH-lite data.
+        """Retrieve and load ISH-lite data as a DataFrame.
 
         Parameters
         ----------
-        dates
-            Array of datetimes.
+        dates : sequence of datetime-like
         box : list of float, optional
              ``[latmin, lonmin, latmax, lonmax]``.
         country, state, site : str, optional
@@ -311,12 +268,16 @@ class ISH:
         resample : bool
         window
             Resampling window, e.g. ``'3H'``.
+        n_procs : int
+            For Dask.
+        verbose : bool
+            Print debugging messages.
 
         Returns
         -------
         DataFrame
         """
-        self.dates = dates
+        self.dates = pd.to_datetime(dates)
         self.verbose = verbose
         if verbose:
             print("Reading ISH history file...")
@@ -355,11 +316,13 @@ class ISH:
         df = df.replace(-999.9, np.NaN)
 
         if resample:
-            print("  Resampling to every " + window)
+            print("Resampling to every " + window)
             df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
 
         # Add site metadata
-        df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id")
+        df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
+            columns={"ctry": "country"}
+        )
         return df.drop(["station_id", "fname"], axis=1)
 
     def get_url_file_objs(self, fname):
@@ -386,7 +349,6 @@ class ISH:
         mmm = 0
         jjj = 0
         for iii in fname:
-            #            print i
             try:
                 r2 = requests.get(iii, stream=True)
                 temp = iii.split("/")
