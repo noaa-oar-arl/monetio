@@ -33,6 +33,7 @@ def add_data(
         Can use one at most of `box` and these.
     resample : bool
         If false, return data at original resolution, which may be sub-hourly.
+        Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
     window
         Resampling window, e.g. ``'3H'``.
     n_procs : int
@@ -294,6 +295,7 @@ class ISH:
             Can use one at most of `box` and these.
         resample : bool
             If false, return data at original resolution, which may be sub-hourly.
+            Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
         window
             Resampling window, e.g. ``'3H'``.
         n_procs : int
