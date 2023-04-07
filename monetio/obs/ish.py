@@ -163,7 +163,7 @@ class ISH:
         df[bytes_cols] = df[bytes_cols].apply(lambda x: x.str.decode("utf-8"), axis="columns")
         return df
 
-    def read_data_frame(self, url, *, decode_bytes=False):
+    def read_data_frame(self, url):
         """Create a data frame from an ISH file."""
         import gzip
         import io
@@ -189,8 +189,7 @@ class ISH:
             index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
             df = df.loc[index, :]
 
-        if decode_bytes:
-            df = ISH._decode_bytes(df)
+        df = ISH._decode_bytes(df)
 
         return df.reset_index()
 
@@ -316,9 +315,6 @@ class ISH:
                 print(f"Aggregating {len(urls.name)} URLs...")
             self.df = self.aggregrate_files(urls, n_procs=n_procs)
             # self.df.loc[self.df.vsb == 99999, "vsb"] = NaN
-
-        # Decode
-        self.df = ISH._decode_bytes(self.df)
 
         if resample:
             if verbose:

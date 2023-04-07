@@ -105,3 +105,5 @@ def test_ish_read_url_direct():
     orig_names, _ = zip(*ish.ISH.DTYPES)
     assert set(df.columns) - set(orig_names) == {"time"}
     assert set(orig_names) - set(df.columns) == {"date", "htime", "latitude", "longitude"}
+
+    assert type(df.t_quality[0]) == str
