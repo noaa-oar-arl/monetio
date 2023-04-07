@@ -4,7 +4,7 @@ from .obs import aeronet, airnow, aqs, cems, crn, improve, ish, ish_lite, nadp, 
 from .profile import geoms, icartt, tolnet
 from .sat import goes
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 __all__ = [
     "__version__",
