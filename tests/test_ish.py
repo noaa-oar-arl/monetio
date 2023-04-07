@@ -25,11 +25,15 @@ def test_ish_read_history():
     assert (df.wban == "99999").sum() > 10_000
 
 
-def test_ish_one_site():
+@pytest.mark.parametrize("download", [True, False])
+def test_ish_one_site(download):
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "72224400358"  # "College Park AP"
 
-    df = ish.add_data(dates, site=site)
+    if download:
+        pytest.xfail("download option not working")
+
+    df = ish.add_data(dates, site=site, download=download)
 
     assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
     assert (df.usaf + df.wban).iloc[0] == site, "correct site"
