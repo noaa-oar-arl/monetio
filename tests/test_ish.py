@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -25,15 +28,17 @@ def test_ish_read_history():
     assert (df.wban == "99999").sum() > 10_000
 
 
-@pytest.mark.parametrize("download", [True, False])
+@pytest.mark.parametrize("download", [False, True])
 def test_ish_one_site(download):
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "72224400358"  # "College Park AP"
 
-    if download:
-        pytest.xfail("download option not working")
-
     df = ish.add_data(dates, site=site, download=download)
+
+    if download:
+        p = Path("isd.722244-00358-2020")
+        assert p.is_file()
+        os.remove(p)
 
     assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
     assert (df.usaf + df.wban).iloc[0] == site, "correct site"

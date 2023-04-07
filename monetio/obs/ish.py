@@ -167,17 +167,23 @@ class ISH:
             )
         return df
 
-    def read_data_frame(self, url):
-        """Create a data frame from an ISH file."""
-        import gzip
-        import io
+    def read_data_frame(self, url_or_file):
+        """Create a data frame from an ISH file.
 
-        import requests
+        URL is assumed if `url_or_file` is a string that starts with ``http``.
+        """
+        if isinstance(url_or_file, str) and url_or_file.startswith("http"):
+            import gzip
+            import io
 
-        r = requests.get(url, timeout=10, stream=True)
-        r.raise_for_status()
-        with gzip.open(io.BytesIO(r.content), "rb") as f:
-            frame_as_array = np.genfromtxt(f, delimiter=self.WIDTHS, dtype=self.DTYPES)
+            import requests
+
+            r = requests.get(url_or_file, timeout=10, stream=True)
+            r.raise_for_status()
+            with gzip.open(io.BytesIO(r.content), "rb") as f:
+                frame_as_array = np.genfromtxt(f, delimiter=self.WIDTHS, dtype=self.DTYPES)
+        else:
+            frame_as_array = np.genfromtxt(url_or_file, delimiter=self.WIDTHS, dtype=self.DTYPES)
 
         frame = pd.DataFrame.from_records(frame_as_array)
         df = self._clean(frame)
