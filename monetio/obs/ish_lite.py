@@ -1,4 +1,13 @@
-"""Python module for reading NOAA ISH-lite files"""
+"""NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
+
+https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
+
+ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
+It is a subset of the full ISD containing eight common surface parameters
+in a fixed-width format free of duplicate values, sub-hourly data, and complicated flags.
+
+--- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+"""
 import numpy as np
 import pandas as pd
 
@@ -15,7 +24,28 @@ def add_data(
     n_procs=1,
     verbose=False,
 ):
-    """Add ISH-lite data (Integrated Surface Data lite version)."""
+    """Retrieve and load ISH-lite data as a DataFrame.
+
+    Parameters
+    ----------
+    dates : sequence of datetime-like
+    box : list of float, optional
+            ``[latmin, lonmin, latmax, lonmax]``.
+    country, state, site : str, optional
+        Select sites in a country or state or one specific site.
+        Can use one at most of `box` and these.
+    resample : bool
+    window
+        Resampling window, e.g. ``'3H'``.
+    n_procs : int
+        For Dask.
+    verbose : bool
+        Print debugging messages.
+
+    Returns
+    -------
+    DataFrame
+    """
     ish = ISH()
     return ish.add_data(
         dates,
@@ -31,17 +61,7 @@ def add_data(
 
 
 class ISH:
-    """Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
-
-    https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
-
-    ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
-    It is a subset of the full ISD containing eight common surface parameters
-    in a fixed-width format free of duplicate values, sub-hourly data, and complicated flags.
-
-    --- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
-
-
+    """
     Attributes
     ----------
     history_file : str
@@ -235,7 +255,7 @@ class ISH:
         n_procs=1,
         verbose=False,
     ):
-        """Retrieve and return ISH-lite data.
+        """Retrieve and load ISH-lite data as a DataFrame.
 
         Parameters
         ----------
@@ -248,6 +268,10 @@ class ISH:
         resample : bool
         window
             Resampling window, e.g. ``'3H'``.
+        n_procs : int
+            For Dask.
+        verbose : bool
+            Print debugging messages.
 
         Returns
         -------

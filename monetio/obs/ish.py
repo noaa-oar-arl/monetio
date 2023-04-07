@@ -1,4 +1,7 @@
-"""Python module for reading NOAA ISH files"""
+"""NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data).
+
+https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+"""
 import dask
 import dask.dataframe as dd
 import numpy as np
@@ -18,7 +21,29 @@ def add_data(
     n_procs=1,
     verbose=False,
 ):
-    """Add ISH data (Integrated Surface Data, hourly)."""
+    """Retrieve and load ISH data as a DataFrame.
+
+    Parameters
+    ----------
+    dates : sequence of datetime-like
+    box : list of float, optional
+            ``[latmin, lonmin, latmax, lonmax]``.
+    country, state, site : str, optional
+        Select sites in a country or state or one specific site.
+        Can use one at most of `box` and these.
+    resample : bool
+        If false, return data at original resolution, which may be sub-hourly.
+    window
+        Resampling window, e.g. ``'3H'``.
+    n_procs : int
+        For Dask.
+    verbose : bool
+        Print debugging messages.
+
+    Returns
+    -------
+    DataFrame
+    """
     ish = ISH()
     df = ish.add_data(
         dates,
@@ -36,10 +61,7 @@ def add_data(
 
 
 class ISH:
-    """Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data).
-
-    https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
-
+    """
     Attributes
     ----------
     history_file : str
@@ -260,7 +282,7 @@ class ISH:
         n_procs=1,
         verbose=False,
     ):
-        """Retrieve and return ISH data.
+        """Retrieve and load ISH data as a DataFrame.
 
         Parameters
         ----------
@@ -271,9 +293,13 @@ class ISH:
             Select sites in a country or state or one specific site.
             Can use one at most of `box` and these.
         resample : bool
-            If false, return data at original resolution, which can be sub-hourly.
+            If false, return data at original resolution, which may be sub-hourly.
         window
             Resampling window, e.g. ``'3H'``.
+        n_procs : int
+            For Dask.
+        verbose : bool
+            Print debugging messages.
 
         Returns
         -------
