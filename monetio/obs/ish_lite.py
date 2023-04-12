@@ -1,11 +1,51 @@
-"""Python module for reading NOAA ISH files"""
+"""NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
+
+https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
+
+ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
+It is a subset of the full ISD containing eight common surface parameters
+in a fixed-width format free of duplicate values, sub-hourly data, and complicated flags.
+
+--- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+"""
 import numpy as np
 import pandas as pd
 
 
 def add_data(
-    dates, box=None, country=None, state=None, site=None, resample=True, window="H", n_procs=1
+    dates,
+    *,
+    box=None,
+    country=None,
+    state=None,
+    site=None,
+    resample=False,
+    window="H",
+    n_procs=1,
+    verbose=False,
 ):
+    """Retrieve and load ISH-lite data as a DataFrame.
+
+    Parameters
+    ----------
+    dates : sequence of datetime-like
+    box : list of float, optional
+            ``[latmin, lonmin, latmax, lonmax]``.
+    country, state, site : str, optional
+        Select sites in a country or state or one specific site.
+        Can use one at most of `box` and these.
+    resample : bool
+    window
+        Resampling window, e.g. ``'3H'``.
+    n_procs : int
+        For Dask.
+    verbose : bool
+        Print debugging messages.
+
+    Returns
+    -------
+    DataFrame
+    """
     ish = ISH()
     return ish.add_data(
         dates,
@@ -16,142 +56,54 @@ def add_data(
         resample=resample,
         window=window,
         n_procs=n_procs,
+        verbose=verbose,
     )
 
 
 class ISH:
-    """Integrated Surface Hourly (also known as ISD, Integrated Surface Data)
-
+    """
     Attributes
     ----------
-    WIDTHS : type
-        Description of attribute `WIDTHS`.
-    DTYPES : type
-        Description of attribute `DTYPES`.
-    NAMES : type
-        Description of attribute `NAMES`.
-    history_file : type
-        Description of attribute `history_file`.
-    history : type
-        Description of attribute `history`.
-    daily : type
-        Description of attribute `daily`.
-
+    history_file : str
+        URL for the ISD history file.
+    history : DataFrame, optional
+        ISD history file frame, read by :meth:`read_ish_history`, ``None`` until read.
     """
 
     def __init__(self):
-        self.WIDTHS = [
-            4,
-            2,
-            8,
-            4,
-            1,
-            6,
-            7,
-            5,
-            5,
-            5,
-            4,
-            3,
-            1,
-            1,
-            4,
-            1,
-            5,
-            1,
-            1,
-            1,
-            6,
-            1,
-            1,
-            1,
-            5,
-            1,
-            5,
-            1,
-            5,
-            1,
-        ]
-        self.DTYPES = [
-            ("varlength", "i2"),
-            ("station_id", "S11"),
-            ("date", "i4"),
-            ("htime", "i2"),
-            ("source_flag", "S1"),
-            ("latitude", "float"),
-            ("longitude", "float"),
-            ("code", "S5"),
-            ("elev", "i2"),
-            ("call_letters", "S5"),
-            ("qc_process", "S4"),
-            ("wdir", "i2"),
-            ("wdir_quality", "S1"),
-            ("wdir_type", "S1"),
-            ("ws", "i2"),
-            ("ws_quality", "S1"),
-            ("ceiling", "i4"),
-            ("ceiling_quality", "S1"),
-            ("ceiling_code", "S1"),
-            ("ceiling_cavok", "S1"),
-            ("vsb", "i4"),
-            ("vsb_quality", "S1"),
-            ("vsb_variability", "S1"),
-            ("vsb_variability_quality", "S1"),
-            ("t", "i2"),
-            ("t_quality", "S1"),
-            ("dpt", "i2"),
-            ("dpt_quality", "S1"),
-            ("p", "i4"),
-            ("p_quality", "S1"),
-        ]
-        self.NAMES, _ = list(zip(*self.DTYPES))
         self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
-        self.daily = False
+        self.dates = None
+        self.verbose = False
 
-    def read_data_frame(self, file_object):
-        """Create a data frame from an ISH file.
+    def read_ish_history(self, dates=None):
+        """Read ISH history file (:attr:`history_file`) and subset based on
+        `dates` (or :attr:`dates` if unset),
+        setting the :attr:`history` attribute.
+        If both are unset, you get the entire history file.
 
-        Parameters
-        ----------
-        file_object : type
-            Description of parameter `file_object`.
+        https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
 
-        Returns
-        -------
-        type
-            Description of returned object.
-
+        The constructed 'station_id' column is a combination of the USAF and WBAN columns.
+        This is done since USAF and WBAN alone are not unique in the history file.
+        For example, USAF 725244 and 722158 appear twice, as do
+        WBAN 24267, 41420, 23176, 13752, and 41231.
+        Additionally, there are many cases of unset (999999 for USAF or 99999 for WBAN),
+        though more so for WBAN than USAF.
+        However, combining USAF and WBAN does give a unique station ID.
         """
-        frame_as_array = np.genfromtxt(file_object, delimiter=self.WIDTHS, dtype=self.DTYPES)
-        frame = pd.DataFrame.from_records(frame_as_array)
-        df = self._clean(frame)
-        df.drop(["latitude", "longitude"], axis=1, inplace=True)
-        # df.latitude = self.history.groupby('station_id').get_group(
-        #     df.station_id[0]).LAT.values[0]
-        # df.longitude = self.history.groupby('station_id').get_group(
-        #     df.station_id[0]).lon.values[0]
-        # df['STATION_NAME'] = self.history.groupby('station_id').get_group(
-        #     df.station_id[0])['STATION NAME'].str.strip().values[0]
-        index = (df.index >= self.dates.min()) & (df.index <= self.dates.max())
+        # TODO: one function for both ISH-lite and ISH
+        if dates is None:
+            dates = self.dates
 
-        return df.loc[index, :].reset_index()
-
-    def read_ish_history(self):
-        """read ISH history file
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
         fname = self.history_file
         self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
         self.history.columns = [i.lower() for i in self.history.columns]
 
-        index1 = (self.history.end >= self.dates.min()) & (self.history.begin <= self.dates.max())
-        self.history = self.history.loc[index1, :].dropna(subset=["lat", "lon"])
+        if dates is not None:
+            index1 = (self.history.end >= dates.min()) & (self.history.begin <= dates.max())
+            self.history = self.history.loc[index1, :]
+        self.history = self.history.dropna(subset=["lat", "lon"])
 
         self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
         self.history.loc[:, "wban"] = self.history.wban.astype("str").str.zfill(5)
@@ -168,35 +120,69 @@ class ISH:
         print(dfloc.longitude.unique())
         return dfloc
 
-    def build_urls(self, dates, dfloc):
-        """Short summary.
+    def build_urls(self, dates=None, sites=None):
+        """Build URLs.
+
+        Parameters
+        ----------
+        dates
+            Dates of interest.
+            If unset, uses :attr:`dates`.
+        sites
+            Metadata frame for the stations of interest.
+            If unset, uses :attr:`history` (all sites by default).
 
         Returns
         -------
-        helper function to build urls
-
+        DataFrame
         """
+        if dates is None:
+            dates = self.dates
+        if sites is None:
+            sites = self.history
 
+        unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         furls = []
-        # fnames = []
-        print("Building AIRNOW URLs...")
+        if self.verbose:
+            print("Building ISH-Lite URLs...")
         url = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-lite"
-        dfloc["fname"] = dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-"
-        for date in self.dates.unique().astype(str):
-            dfloc["fname"] = (
-                dfloc.usaf.astype(str) + "-" + dfloc.wban.astype(str) + "-" + date + ".gz"
-            )
-            for fname in dfloc.fname.values:
-                furls.append(f"{url}/{date}/{fname}")
-            # f = url + i.strftime('%Y/%Y%m%d/HourlyData_%Y%m%d%H.dat')
-            # fname = i.strftime('HourlyData_%Y%m%d%H.dat')
-            # furls.append(f)
-            # fnames.append(fname)
-        # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
+        # Get each yearly urls available from the isd-lite site
+        if len(unique_years) > 1:
+            all_urls = []
+            if self.verbose:
+                print("multiple years needed... Getting all available years")
+            for date in unique_years.strftime("%Y"):
+                if self.verbose:
+                    print("Year:", date)
+                year_url = (
+                    pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+                )
+                all_urls.append(
+                    f"{url}/{date}/" + year_url
+                )  # add the full url path to the file name only
 
-        # files needed for comparison
+            all_urls = pd.concat(all_urls, ignore_index=True)
+        else:
+            year = unique_years.strftime("%Y")[0]
+            all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+            all_urls = f"{url}/{year}/" + all_urls
+
+        # Get the meta data
+        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
+        for date in unique_years.strftime("%Y"):
+            sites["fname"] = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
+            )
+            for fname in sites.fname.values:
+                furls.append(f"{url}/{date[0:4]}/{fname}")
+
+        # Files needed for comparison
         url = pd.Series(furls, index=None)
-        return url
+
+        # Only available URLs
+        final_urls = pd.merge(url.to_frame(name="name"), all_urls, how="inner")
+
+        return final_urls
 
     def read_csv(self, fname):
         from numpy import NaN
@@ -223,12 +209,17 @@ class ISH:
             parse_dates={"time": [0, 1, 2, 3]},
             infer_datetime_format=True,
         )
+        # print(fname)
+        filename = fname.split("/")[-1].split("-")
+        # print(filename)
+        siteid = filename[0] + filename[1]
         df["temp"] /= 10.0
         df["dew_pt_temp"] /= 10.0
         df["press"] /= 10.0
         df["ws"] /= 10.0
         df["precip_1hr"] /= 10.0
         df["precip_6hr"] /= 10.0
+        df["siteid"] = siteid
         df = df.replace(-9999, NaN)
         return df
 
@@ -236,63 +227,103 @@ class ISH:
         import dask
         import dask.dataframe as dd
 
-        dfs = [dask.delayed(self.read_csv)(f) for f in urls]
+        # =======================
+        # for manual testing
+        # =======================
+        # import pandas as pd
+        # dfs=[]
+        # for u in urls.name:
+        #     print(u)
+        #     dfs.append(self.read_csv(u))
+
+        dfs = [dask.delayed(self.read_csv)(f) for f in urls.name]
         dff = dd.from_delayed(dfs)
         df = dff.compute(num_workers=n_procs)
+
         return df
 
     def add_data(
         self,
         dates,
+        *,
         box=None,
         country=None,
         state=None,
         site=None,
-        resample=True,
+        resample=False,
         window="H",
         n_procs=1,
+        verbose=False,
     ):
-        """Short summary.
+        """Retrieve and load ISH-lite data as a DataFrame.
 
         Parameters
         ----------
-        dates : list of datetime objects
-        box : list of floats
-             [latmin, lonmin, latmax, lonmax]
-        country : type
-            Description of parameter `country`.
-        state : type
-            Description of parameter `state`.
-        site : type
-            Description of parameter `site`.
-        resample : type
-            Description of parameter `resample`.
-        window : type
-            Description of parameter `window`.
+        dates : sequence of datetime-like
+        box : list of float, optional
+             ``[latmin, lonmin, latmax, lonmax]``.
+        country, state, site : str, optional
+            Select sites in a country or state or one specific site.
+            Can use one at most of `box` and these.
+        resample : bool
+        window
+            Resampling window, e.g. ``'3H'``.
+        n_procs : int
+            For Dask.
+        verbose : bool
+            Print debugging messages.
 
         Returns
         -------
-        type
-            Description of returned object.
-
+        DataFrame
         """
+        self.dates = pd.to_datetime(dates)
+        self.verbose = verbose
+        if verbose:
+            print("Reading ISH history file...")
         if self.history is None:
             self.read_ish_history()
         dfloc = self.history.copy()
-        if box is not None:  # type(box) is not type(None):
-            print("Retrieving Sites in: " + " ".join(map(str, box)))
+
+        if sum([box is not None, country is not None, state is not None, site is not None]) > 1:
+            raise ValueError("Only one of `box`, `country`, `state`, or `site` can be used")
+
+        if box is not None:
+            if verbose:
+                print("Retrieving Sites in: " + " ".join(map(str, box)))
             dfloc = self.subset_sites(latmin=box[0], lonmin=box[1], latmax=box[2], lonmax=box[3])
         elif country is not None:
-            print("Retrieving Country: " + country)
-            dfloc = self.history.loc[self.history.ctry == country, :]
+            if verbose:
+                print("Retrieving Country: " + country)
+            dfloc = dfloc.loc[dfloc.ctry == country, :]
         elif state is not None:
-            print("Retrieving State: " + state)
-            dfloc = self.history.loc[self.history.STATE == state, :]
+            if verbose:
+                print("Retrieving State: " + state)
+            dfloc = dfloc.loc[dfloc.state == state, :]
         elif site is not None:
-            print("Retrieving Site: " + site)
-            dfloc = self.history.loc[self.history.station_id == site, :]
-        urls = self.build_urls(dates, dfloc)
-        return self.aggregrate_files(urls, n_procs=n_procs)
+            if verbose:
+                print("Retrieving Site: " + site)
+            dfloc = dfloc.loc[dfloc.station_id == site, :]
+        urls = self.build_urls(sites=dfloc)
+        if urls.empty:
+            raise ValueError("No data URLs found for the given dates and site selection")
+        if verbose:
+            print(f"Aggregating {len(urls.name)} URLs...")
+        df = self.aggregrate_files(urls, n_procs=n_procs)
+
+        # Narrow in time (each file contains a year)
+        df = df.loc[(df.time >= self.dates.min()) & (df.time <= self.dates.max())]
+        df = df.replace(-999.9, np.NaN)
+
+        if resample:
+            print("Resampling to every " + window)
+            df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
+
+        # Add site metadata
+        df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
+            columns={"ctry": "country"}
+        )
+        return df.drop(["station_id", "fname"], axis=1)
 
     def get_url_file_objs(self, fname):
         """Short summary.
@@ -318,7 +349,6 @@ class ISH:
         mmm = 0
         jjj = 0
         for iii in fname:
-            #            print i
             try:
                 r2 = requests.get(iii, stream=True)
                 temp = iii.split("/")
