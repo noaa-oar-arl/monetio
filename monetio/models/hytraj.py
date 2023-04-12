@@ -1,9 +1,66 @@
-# Reads a tdump file, outputs a Pandas DataFrame
+"""reads tdump files int pandas DataFrame
+
+combine_dataset : reads multiple tdump files
+open_dataset    : reads one tdump file
+
+open_tdump      
+get_metinfo
+get_traj
+get_startlocs
+time_str_fixer
+"""
 
 import re
 
 import numpy as np
 import pandas as pd
+
+
+def combine_dataset(flist, taglist=None, renumber=False, verbose=False):
+
+    """Opens multiple tdump files. returns Pandas DataFrame
+
+    flist    : list : filenames
+    taglist  : list : differentiate trajectories by adding extra pid column with this value.
+                      must be same length as flist
+    renumber : renumber the trajectories so all trajectories have unique number.
+               if renumber is true and taglist is None or an incorrect length, then pid column will not be generated.
+
+    If renumber is False and taglist is not specified then the function will create the pid column with
+    the tag being an integer starting from 1. Otherwise trajectories from different files but with
+    the same number cannot be told apart.
+    """
+    usepid = False
+
+    # check that taglist has same length as flist
+    if isinstance(taglist, (tuple, list, np.ndarray)):
+        if len(taglist) == len(flist):
+            usepid = True
+        # if it doesn't set to None
+        else:
+            if verbose:
+                print("WARNING, taglist different length than flist. cannot use")
+            taglist = None
+
+    # if not renumbering then need to use a tag to differentiate trajectories in different files.
+    if not renumber:
+        if not isinstance(taglist, (tuple, list, np.ndarray)):
+            taglist = np.arange(1, len(flist) + 2, 1)
+            usepid = True
+
+    maxtrajnum = 0
+    for iii, fname in enumerate(flist):
+        traj = open_dataset(fname)
+        if usepid:
+            traj["pid"] = taglist[iii]
+        if renumber:
+            traj["traj_num"] += maxtrajnum
+        if iii == 0:
+            rval = traj
+        else:
+            rval = pd.concat([rval, traj])
+        maxtrajnum = np.max(rval.traj_num.unique())
+    return rval
 
 
 def open_dataset(filename):
