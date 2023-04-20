@@ -3,7 +3,7 @@
 combine_dataset : reads multiple tdump files
 open_dataset    : reads one tdump file
 
-open_tdump      
+open_tdump
 get_metinfo
 get_traj
 get_startlocs
@@ -17,7 +17,6 @@ import pandas as pd
 
 
 def combine_dataset(flist, taglist=None, renumber=False, verbose=False):
-
     """Opens multiple tdump files. returns Pandas DataFrame
 
     flist    : list : filenames

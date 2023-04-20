@@ -9,7 +9,7 @@ dependencies:
   - dask
   - netcdf4
   - numpy
-  - pandas
+  - pandas<2
   - s3fs
   - scipy
   - xarray
