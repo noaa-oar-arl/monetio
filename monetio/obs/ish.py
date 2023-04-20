@@ -358,23 +358,10 @@ class ISH:
             self.df.index = self.df.time
             self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
 
-        self.df = self.df.merge(
-            dfloc[
-                [
-                    "station_id",
-                    "latitude",
-                    "longitude",
-                    "station name",
-                    "ctry",
-                    "state",
-                    "usaf",
-                    "wban",
-                ]
-            ],
-            on=["station_id"],
-            how="left",
+        self.df = self.df.merge(dfloc, on="station_id", how="left")
+        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"}).drop(
+            columns=["fname"]
         )
-        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
 
         return self.df
 
