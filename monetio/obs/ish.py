@@ -182,6 +182,8 @@ class ISH:
 
     @staticmethod
     def _decode_bytes(df):
+        if df.empty:
+            return df
         bytes_cols = [col for col in df.columns if type(df[col][0]) == bytes]
         with pd.option_context("mode.chained_assignment", None):
             df.loc[:, bytes_cols] = df[bytes_cols].apply(
