@@ -79,6 +79,13 @@ def test_ish_no_resample():
     assert sum(col.endswith("_quality") for col in df.columns) == 8
 
 
+def test_ish_one_site_empty():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "99816999999"
+
+    ish.add_data(dates, site=site)
+
+
 def test_ish_resample():
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "72224400358"  # "College Park AP"
