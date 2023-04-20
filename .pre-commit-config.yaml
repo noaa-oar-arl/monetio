@@ -3,6 +3,7 @@ repos:
     rev: "v4.4.0"
     hooks:
       - id: trailing-whitespace
+        exclude: tdump\.[0-9]*
       - id: end-of-file-fixer
       - id: check-docstring-first
       - id: check-yaml
