@@ -81,9 +81,10 @@ def test_ish_no_resample():
 
 def test_ish_one_state_partially_empty():
     dates = pd.date_range("2020-09-01", "2020-09-02")
+    # TODO: one with fewer sites if possible?
     state = "DE"
 
-    ish.add_data(dates, state=state)
+    ish.add_data(dates, state=state, n_procs=2)
 
 
 def test_ish_one_site_empty():

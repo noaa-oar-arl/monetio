@@ -352,7 +352,7 @@ class ISH:
                 print(f"Aggregating {len(urls.name)} URLs...")
             self.df = self.aggregrate_files(urls, n_procs=n_procs)
 
-        if resample:
+        if resample and not self.df.empty:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
