@@ -1150,7 +1150,7 @@ def get_thickness(cdump):
     elif cstr in cdump.attrs.keys():
         alts = cdump.z.values
         zvals = cdump.attrs[cstr]
-        cra = []
+        # cra = []
         for aaa in alts:
             # if a level is not found in the attribute array then use the calculate method.
             if aaa not in zvals:
