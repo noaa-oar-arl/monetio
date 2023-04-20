@@ -1,14 +1,18 @@
+from pathlib import Path
+
 import numpy as np
 
 from monetio import hytraj
+
+HERE = Path(__file__).parent
 
 
 def test_001():
     """
     test for combine_dataset function
     """
-    tdump1 = "./data/tdump.1"
-    tdump2 = "./data/tdump.2"
+    tdump1 = HERE / "data/tdump.1"
+    tdump2 = HERE / "data/tdump.2"
     flist = [tdump1, tdump2]
     taglist = ["t1", "t2"]
 
