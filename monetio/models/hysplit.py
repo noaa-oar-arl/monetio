@@ -32,7 +32,7 @@ Change log
 2022 02 Dec  AMC  modified get_latlongrid inputs. do not need to input dataset, just dictionary.
 2022 02 Dec  AMC  replaced makegrid method with get_latlongrid function to reduce duplicate code.
 2022 02 Dec  AMC  get_latlongrid function utilizes getlatlon to reduce duplicate code.
-2022 02 Dec  AMC  replaced np.arange with np.linspace in getlatlon. np.arange is unstable when step is not an integer. 
+2022 02 Dec  AMC  replaced np.arange with np.linspace in getlatlon. np.arange is unstable when step is not an integer.
 2023 12 Jan  AMC  modified reset_latlon_coords so will work with data-arrays that have no latitude longitude coordinate.
 2023 12 Jan  AMC  get_thickness modified to calculate if the attribute specifying the vertical levels is bad
 2023 03 Mar  AMC  get_latlon modified. replace x>=180 with x>=180+lon_tolerance
@@ -188,12 +188,12 @@ class ModelBin:
         self.atthash["Source Date"] = []
         self.sample_time_stamp = sample_time_stamp
         self.gridhash = {}
-        #self.llcrnr_lon = None
-        #self.llcrnr_lat = None
-        #self.nlat = None
-        #self.nlon = None
-        #self.dlat = None
-        #self.dlon = None
+        # self.llcrnr_lon = None
+        # self.llcrnr_lat = None
+        # self.nlat = None
+        # self.nlon = None
+        # self.dlat = None
+        # self.dlon = None
         self.levels = None
         self.dset = xr.Dataset()
 
@@ -391,12 +391,12 @@ class ModelBin:
         ahash["Longitude Spacing"] = hdata3["dlon"][0]
         ahash["llcrnr longitude"] = hdata3["llcrnr_lon"][0]
         ahash["llcrnr latitude"] = hdata3["llcrnr_lat"][0]
-        #self.llcrnr_lon = hdata3["llcrnr_lon"][0]
-        #self.llcrnr_lat = hdata3["llcrnr_lat"][0]
-        #self.nlat = hdata3["nlat"][0]
-        #self.nlon = hdata3["nlon"][0]
-        #self.dlat = hdata3["dlat"][0]
-        #self.dlon = hdata3["dlon"][0]
+        # self.llcrnr_lon = hdata3["llcrnr_lon"][0]
+        # self.llcrnr_lat = hdata3["llcrnr_lat"][0]
+        # self.nlat = hdata3["nlat"][0]
+        # self.nlon = hdata3["nlon"][0]
+        # self.dlat = hdata3["dlat"][0]
+        # self.dlon = hdata3["dlon"][0]
         return ahash
 
     def parse_hdata4(self, hdata4a, hdata4b):
@@ -464,7 +464,7 @@ class ModelBin:
         # mgrid = np.meshgrid(lat, lon)
         return concframe
 
-    #def makegrid(self, xindx, yindx):
+    # def makegrid(self, xindx, yindx):
     #    """
     #    xindx : list
     #    yindx : list
@@ -478,20 +478,20 @@ class ModelBin:
     #    attrs['Longitude Spacing'] = self.dlon
     #    mgrid = get_latlongrid(attrs,xindx,yindx)
     #    return mgrid
-        # checked HYSPLIT code. the grid points
-        # do represent center of the sampling area.
-        # slat = self.llcrnr_lat
-        # slon = self.llcrnr_lon
-        # lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
-        # lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
-        # hysplit always uses grid from -180 to 180
-        # lon = np.array([x-360 if x>180 else x for x in lon])
-        # fortran array indice start at 1. so xindx >=1.
-        # python array indice start at 0.
-        # lonlist = [lon[x - 1] for x in xindx]
-        # latlist = [lat[x - 1] for x in yindx]
-        # mgrid = np.meshgrid(lonlist, latlist)
-        # return mgrid
+    # checked HYSPLIT code. the grid points
+    # do represent center of the sampling area.
+    # slat = self.llcrnr_lat
+    # slon = self.llcrnr_lon
+    # lat = np.arange(slat, slat + self.nlat * self.dlat, self.dlat)
+    # lon = np.arange(slon, slon + self.nlon * self.dlon, self.dlon)
+    # hysplit always uses grid from -180 to 180
+    # lon = np.array([x-360 if x>180 else x for x in lon])
+    # fortran array indice start at 1. so xindx >=1.
+    # python array indice start at 0.
+    # lonlist = [lon[x - 1] for x in xindx]
+    # latlist = [lat[x - 1] for x in yindx]
+    # mgrid = np.meshgrid(lonlist, latlist)
+    # return mgrid
 
     def readfile(self, filename, drange, verbose, century):
         """Data from the file is stored in an xarray, self.dset
@@ -537,7 +537,8 @@ class ModelBin:
 
         hdata3 = np.fromfile(fid, dtype=rec3, count=1)
         self.gridhash = self.parse_hdata3(hdata3)
-        if self.verbose: print('Grid specs', self.gridhash)
+        if self.verbose:
+            print("Grid specs", self.gridhash)
         # read record 4 which gives information about vertical levels.
         hdata4a = np.fromfile(fid, dtype=rec4a, count=1)
         hdata4b = np.fromfile(
@@ -640,7 +641,7 @@ class ModelBin:
             return False
         if self.dset.variables:
             self.dset.attrs = self.atthash
-            #mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
+            # mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
             mgrid = get_latlongrid(self.gridhash, self.dset.coords["x"], self.dset.coords["y"])
             self.dset = self.dset.assign_coords(longitude=(("y", "x"), mgrid[0]))
             self.dset = self.dset.assign_coords(latitude=(("y", "x"), mgrid[1]))
@@ -825,9 +826,9 @@ def reset_latlon_coords(hxr):
     hxr : xarray DataSet as output from open_dataset or combine_dataset
     """
     mgrid = get_latlongrid(hxr.attrs, hxr.x.values, hxr.y.values)
-    if 'latitude' in hxr.coords:
+    if "latitude" in hxr.coords:
         hxr = hxr.drop("longitude")
-    if 'longitude' in hxr.coords:
+    if "longitude" in hxr.coords:
         hxr = hxr.drop("latitude")
     hxr = hxr.assign_coords(latitude=(("y", "x"), mgrid[1]))
     hxr = hxr.assign_coords(longitude=(("y", "x"), mgrid[0]))
@@ -907,30 +908,33 @@ def get_latlongrid(attrs, xindx, yindx):
     """
     xindx = np.array(xindx)
     yindx = np.array(yindx)
-    if np.any(xindx<=0): raise Exception("HYSPLIT grid error xindex <=0")
-    if np.any(yindx<=0): raise Exception("HYSPLIT grid error yindex <=0")
+    if np.any(xindx <= 0):
+        raise Exception("HYSPLIT grid error xindex <=0")
+    if np.any(yindx <= 0):
+        raise Exception("HYSPLIT grid error yindex <=0")
     lat, lon = getlatlon(attrs)
-    success=True
-    try: 
+    success = True
+    try:
         lonlist = [lon[x - 1] for x in xindx]
-        #latlist = [lat[x - 1] for x in yindx]
+        # latlist = [lat[x - 1] for x in yindx]
     except Exception as eee:
-        print('Exception {}'.format(eee))
-        print('try increasing Number Number Lon Points')
+        print(f"Exception {eee}")
+        print("try increasing Number Number Lon Points")
         print(attrs)
         print(xindx)
-        success=False
-    try: 
-        #lonlist = [lon[x - 1] for x in xindx]
+        success = False
+    try:
+        # lonlist = [lon[x - 1] for x in xindx]
         latlist = [lat[x - 1] for x in yindx]
     except Exception as eee:
-        print('Exception {}'.format(eee))
-        print('try increasing Number Number Lat Points')
+        print(f"Exception {eee}")
+        print("try increasing Number Number Lat Points")
         print(attrs)
         print(yindx)
-        success=False
+        success = False
 
-    if not success: return None
+    if not success:
+        return None
     mgrid = np.meshgrid(lonlist, latlist)
     return mgrid
 
@@ -961,13 +965,13 @@ def getlatlon(attrs):
     dlat = attrs["Latitude Spacing"]
     dlon = attrs["Longitude Spacing"]
 
-    lastlon = llcrnr_lon + (nlon-1)*dlon
-    lastlat = llcrnr_lat + (nlat-1)*dlat
+    lastlon = llcrnr_lon + (nlon - 1) * dlon
+    lastlat = llcrnr_lat + (nlat - 1) * dlat
     # = int((lastlon - llcrnr_lon) / dlon)
     lat = np.linspace(llcrnr_lat, lastlat, num=int(nlat))
     lon = np.linspace(llcrnr_lon, lastlon, num=int(nlon))
-    # 
-    lon = np.array([x-360 if x>=180+lon_tolerance else x for x in lon])
+    #
+    lon = np.array([x - 360 if x >= 180 + lon_tolerance else x for x in lon])
     return lat, lon
 
 
@@ -1138,26 +1142,26 @@ def get_thickness(cdump):
 
     calculate = False
     if cstr not in cdump.attrs.keys():
-       calculate = True
+        calculate = True
     # check that the values in the attribute correspond to values in levels.
     # python reads in this attribute as a numpy array
     # but when writing the numpy array to netcdf file, it doesn't write correctly.
     # sometimes cdump file is written with incorrect values in this attribute.
     elif cstr in cdump.attrs.keys():
-       alts = cdump.z.values
-       zvals = cdump.attrs[cstr]
-       cra = []
-       for aaa in alts:
-           # if a level is not found in the attribute array then use the calculate method.
-           if aaa not in zvals:
-              calculate=True
+        alts = cdump.z.values
+        zvals = cdump.attrs[cstr]
+        cra = []
+        for aaa in alts:
+            # if a level is not found in the attribute array then use the calculate method.
+            if aaa not in zvals:
+                calculate = True
 
     if calculate:
-        print('warning: {} attribute needed to calculate level thicknesses'.format(cstr))
-        print('warning: alternative calcuation from z dimension values')
-        thash = calculate_thickness(cdump) 
-    else:  
-        levs  = cdump.attrs[cstr]
+        print(f"warning: {cstr} attribute needed to calculate level thicknesses")
+        print("warning: alternative calcuation from z dimension values")
+        thash = calculate_thickness(cdump)
+    else:
+        levs = cdump.attrs[cstr]
         thash = {}
         aaa = 0
         for level in levs:
@@ -1250,8 +1254,6 @@ def _alt_multiply(pars):
     return newpar
 
 
-
-
 def check_attributes(atthash):
     # when writing to netcdf file, attributes which are numpy arrays do not write properly.
     # need to change them to lists.
@@ -1262,10 +1264,11 @@ def check_attributes(atthash):
             atthash[key] = newval
     return atthash
 
+
 def write_with_compression(cxra, fname):
     atthash = check_attributes(cxra.attrs)
     cxra = cxra.assign_attrs(atthash)
-    cxra2 = cxra.to_dataset(name='POL')
+    cxra2 = cxra.to_dataset(name="POL")
     ehash = {"zlib": True, "complevel": 9}
     vlist = [x for x in cxra2.data_vars]
     vhash = {}
