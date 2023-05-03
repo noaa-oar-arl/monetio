@@ -210,7 +210,7 @@ class ISH:
         else:
             frame_as_array = np.genfromtxt(url_or_file, delimiter=self.WIDTHS, dtype=self.DTYPES)
 
-        frame = pd.DataFrame.from_records(frame_as_array)
+        frame = pd.DataFrame.from_records(np.atleast_1d(frame_as_array))
         df = self._clean(frame)
         df.drop(["latitude", "longitude"], axis=1, inplace=True)
         # df.latitude = self.history.groupby('station_id').get_group(
