@@ -238,8 +238,8 @@ class ISH:
 
         The constructed 'station_id' column is a combination of the USAF and WBAN columns.
         This is done since USAF and WBAN alone are not unique in the history file.
-        For example, USAF 725244 and 722158 appear twice, as do
-        WBAN 24267, 41420, 23176, 13752, and 41231.
+        For example, USAF 720481, 722158, and 725244 appear twice, as do
+        WBAN 13752, 23176, 24267, 41231, and 41420.
         Additionally, there are many cases of unset (999999 for USAF or 99999 for WBAN),
         though more so for WBAN than USAF.
         However, combining USAF and WBAN does give a unique station ID.

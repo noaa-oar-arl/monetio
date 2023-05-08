@@ -22,8 +22,14 @@ def test_ish_read_history():
         assert (df[col].dt.hour == 0).all()
 
     assert df.station_id.nunique() == len(df), "unique ID for station"
-    assert (df.usaf.value_counts() == 2).sum() == 2
-    assert (df.wban.value_counts() == 2).sum() == 5
+
+    # Ensure docstring info matches this
+    x = df.usaf.value_counts()
+    assert sorted(x[x == 2].index) == ["720481", "722158", "725244"]
+    assert x[x.index != "999999"].max() == 2
+    x = df.wban.value_counts()
+    assert sorted(x[x == 2].index) == ["13752", "23176", "24267", "41231", "41420"]
+    assert x[x.index != "99999"].max() == 2
     assert (df.usaf == "999999").sum() > 100
     assert (df.wban == "99999").sum() > 10_000
 
