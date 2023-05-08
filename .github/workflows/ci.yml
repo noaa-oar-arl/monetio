@@ -32,6 +32,10 @@ jobs:
           extra-specs: |
             python=${{ matrix.python-version }}
 
+      - name: Adjust conda env for Python 3.6
+        if: matrix.python-version == '3.6'
+        run: micromamba install attrs=22.2.0
+
       - name: Test with pytest
         run: pytest -n auto -v -k 'not aqs'
 
