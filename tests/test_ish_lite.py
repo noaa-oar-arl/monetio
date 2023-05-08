@@ -64,6 +64,14 @@ def test_ish_lite_one_site():
     assert (df.temp < 100).all(), "temp in degC"
 
 
+def test_ish_lite_one_site_empty():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "99816999999"  # "Delaware Reserve"
+
+    df = ish_lite.add_data(dates, site=site)
+    assert df.empty
+
+
 def test_ish_lite_resample():
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "72224400358"  # "College Park AP"

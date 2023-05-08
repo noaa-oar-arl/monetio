@@ -93,19 +93,19 @@ def test_ish_one_state_partially_empty():
     ish_.dates = dates
     ish_.read_ish_history()
     meta = ish_.history
-    all_sites = sorted(meta.query("state == @state").station_id)  # 8
+    all_sites = sorted(meta.query("state == @state").station_id)  # 8 sites
 
     df = ish.add_data(dates, state=state, n_procs=2)
     assert len(df) >= 1
     sites = sorted(df.siteid.unique())
     assert set(all_sites) - set(sites) == {
-        "99816999999"
+        "99816999999"  # "Delaware Reserve"
     }, "one empty site not included in state results"
 
 
 def test_ish_one_site_empty():
     dates = pd.date_range("2020-09-01", "2020-09-02")
-    site = "99816999999"
+    site = "99816999999"  # "Delaware Reserve"
 
     df = ish.add_data(dates, site=site)
     assert df.empty
