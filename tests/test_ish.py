@@ -87,17 +87,28 @@ def test_ish_no_resample():
 
 def test_ish_one_state_partially_empty():
     dates = pd.date_range("2020-09-01", "2020-09-02")
-    # TODO: one with fewer sites if possible?
     state = "DE"
 
-    ish.add_data(dates, state=state, n_procs=2)
+    ish_ = ish.ISH()
+    ish_.dates = dates
+    ish_.read_ish_history()
+    meta = ish_.history
+    all_sites = sorted(meta.query("state == @state").station_id)  # 8
+
+    df = ish.add_data(dates, state=state, n_procs=2)
+    assert len(df) >= 1
+    sites = sorted(df.siteid.unique())
+    assert set(all_sites) - set(sites) == {
+        "99816999999"
+    }, "one empty site not included in state results"
 
 
 def test_ish_one_site_empty():
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "99816999999"
 
-    ish.add_data(dates, site=site)
+    df = ish.add_data(dates, site=site)
+    assert df.empty
 
 
 def test_ish_resample():
