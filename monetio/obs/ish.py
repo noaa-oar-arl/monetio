@@ -182,6 +182,8 @@ class ISH:
 
     @staticmethod
     def _decode_bytes(df):
+        if df.empty:
+            return df
         bytes_cols = [col for col in df.columns if type(df[col][0]) == bytes]
         with pd.option_context("mode.chained_assignment", None):
             df.loc[:, bytes_cols] = df[bytes_cols].apply(
@@ -208,7 +210,7 @@ class ISH:
         else:
             frame_as_array = np.genfromtxt(url_or_file, delimiter=self.WIDTHS, dtype=self.DTYPES)
 
-        frame = pd.DataFrame.from_records(frame_as_array)
+        frame = pd.DataFrame.from_records(np.atleast_1d(frame_as_array))
         df = self._clean(frame)
         df.drop(["latitude", "longitude"], axis=1, inplace=True)
         # df.latitude = self.history.groupby('station_id').get_group(
@@ -236,8 +238,8 @@ class ISH:
 
         The constructed 'station_id' column is a combination of the USAF and WBAN columns.
         This is done since USAF and WBAN alone are not unique in the history file.
-        For example, USAF 725244 and 722158 appear twice, as do
-        WBAN 24267, 41420, 23176, 13752, and 41231.
+        For example, USAF 720481, 722158, and 725244 appear twice, as do
+        WBAN 13752, 23176, 24267, 41231, and 41420.
         Additionally, there are many cases of unset (999999 for USAF or 99999 for WBAN),
         though more so for WBAN than USAF.
         However, combining USAF and WBAN does give a unique station ID.
@@ -350,29 +352,16 @@ class ISH:
                 print(f"Aggregating {len(urls.name)} URLs...")
             self.df = self.aggregrate_files(urls, n_procs=n_procs)
 
-        if resample:
+        if resample and not self.df.empty:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
             self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
 
-        self.df = self.df.merge(
-            dfloc[
-                [
-                    "station_id",
-                    "latitude",
-                    "longitude",
-                    "station name",
-                    "ctry",
-                    "state",
-                    "usaf",
-                    "wban",
-                ]
-            ],
-            on=["station_id"],
-            how="left",
+        self.df = self.df.merge(dfloc, on="station_id", how="left")
+        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"}).drop(
+            columns=["fname"]
         )
-        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
 
         return self.df
 

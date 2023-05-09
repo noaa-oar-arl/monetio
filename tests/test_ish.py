@@ -22,8 +22,14 @@ def test_ish_read_history():
         assert (df[col].dt.hour == 0).all()
 
     assert df.station_id.nunique() == len(df), "unique ID for station"
-    assert (df.usaf.value_counts() == 2).sum() == 2
-    assert (df.wban.value_counts() == 2).sum() == 5
+
+    # Ensure docstring info matches this
+    x = df.usaf.value_counts()
+    assert sorted(x[x == 2].index) == ["720481", "722158", "725244"]
+    assert x[x.index != "999999"].max() == 2
+    x = df.wban.value_counts()
+    assert sorted(x[x == 2].index) == ["13752", "23176", "24267", "41231", "41420"]
+    assert x[x.index != "99999"].max() == 2
     assert (df.usaf == "999999").sum() > 100
     assert (df.wban == "99999").sum() > 10_000
 
@@ -77,6 +83,33 @@ def test_ish_no_resample():
     assert (df.time.diff().dropna() < pd.Timedelta("1H")).all()
     assert len(df) > 24
     assert sum(col.endswith("_quality") for col in df.columns) == 8
+
+
+def test_ish_one_state_partially_empty():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    state = "DE"
+
+    ish_ = ish.ISH()
+    ish_.dates = dates
+    ish_.read_ish_history()
+    meta = ish_.history
+    all_sites = sorted(meta.query("state == @state").station_id)  # 8 sites
+
+    df = ish.add_data(dates, state=state, n_procs=2)
+    assert len(df) >= 1
+    sites = sorted(df.siteid.unique())
+    assert set(all_sites) - set(sites) == {
+        "99816999999"  # "Delaware Reserve"
+    }, "one empty site not included in state results"
+
+
+@pytest.mark.parametrize("resample", [False, True])
+def test_ish_one_site_empty(resample):
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "99816999999"  # "Delaware Reserve"
+
+    df = ish.add_data(dates, site=site, resample=resample)
+    assert df.empty
 
 
 def test_ish_resample():
