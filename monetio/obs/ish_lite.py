@@ -315,7 +315,7 @@ class ISH:
         df = df.loc[(df.time >= self.dates.min()) & (df.time <= self.dates.max())]
         df = df.replace(-999.9, np.NaN)
 
-        if resample:
+        if resample and not df.empty:
             print("Resampling to every " + window)
             df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
 

@@ -103,11 +103,12 @@ def test_ish_one_state_partially_empty():
     }, "one empty site not included in state results"
 
 
-def test_ish_one_site_empty():
+@pytest.mark.parametrize("resample", [False, True])
+def test_ish_one_site_empty(resample):
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "99816999999"  # "Delaware Reserve"
 
-    df = ish.add_data(dates, site=site)
+    df = ish.add_data(dates, site=site, resample=resample)
     assert df.empty
 
 
