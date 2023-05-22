@@ -101,7 +101,7 @@ class OPENAQ:
         dff.rename({"local": "time_local", "utc": "time"}, axis=1, inplace=True)
 
         dff["time"] = pd.to_datetime(dff.time)
-        dff["time_local"] = pd.to_datetime(dff.time_local)
+        dff["utcoffset"] = pd.to_datetime(dff.time_local).apply(lambda x: x.utcoffset())
         zzz = z.join(dff).drop(columns=["coordinates", "date", "attribution", "averagingPeriod"])
         zp = self._pivot_table(zzz)
         zp["siteid"] = (
@@ -114,8 +114,8 @@ class OPENAQ:
         )
 
         zp["time"] = zp.time.dt.tz_localize(None)
-        tzinfo = zp.time_local.apply(lambda x: x.tzinfo.utcoffset(x))
-        zp["time_local"] = zp["time"] + tzinfo
+        zp["time_local"] = zp["time"] + zp["utcoffset"]
+
         return zp.loc[zp.time >= dates.min()]
 
     def read_json(self, url):
@@ -178,7 +178,7 @@ class OPENAQ:
                 "sourceType",
                 "city",
                 "country",
-                "time_local",
+                "utcoffset",
             ],
             columns="parameter",
         ).reset_index()
