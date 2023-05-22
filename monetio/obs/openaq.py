@@ -93,7 +93,7 @@ class OPENAQ:
         dfs = [dask.delayed(self.read_json)(f) for f in urls]
         dff = dd.from_delayed(dfs)
         z = dff.compute(num_workers=num_workers)
-        z.coordinates.replace(to_replace=[None], value=pd.np.nan, inplace=True)
+        z.coordinates.replace(to_replace=[None], value=NaN, inplace=True)
         z = z.dropna().reset_index(drop=True)
         js = json.loads(z[["coordinates", "date"]].to_json(orient="records"))
         dff = pd.io.json.json_normalize(js)
@@ -103,6 +103,10 @@ class OPENAQ:
         dff["time"] = pd.to_datetime(dff.time)
         dff["utcoffset"] = pd.to_datetime(dff.time_local).apply(lambda x: x.utcoffset())
         zzz = z.join(dff).drop(columns=["coordinates", "date", "attribution", "averagingPeriod"])
+        zzz = self._fix_units(zzz)
+        assert (
+            zzz[~zzz.parameter.isin(["pm25", "pm4", "pm10", "bc"])].unit.dropna() == "ppm"
+        ).all()
         zp = self._pivot_table(zzz)
         zp["siteid"] = (
             zp.country
@@ -161,10 +165,14 @@ class OPENAQ:
 
     def _fix_units(self, df):
         df.loc[df.value <= 0] = NaN
-        df.loc[(df.parameter == "co") & (df.unit != "ppm"), "value"] /= 1145
-        df.loc[(df.parameter == "o3") & (df.unit != "ppm"), "value"] /= 2000
-        df.loc[(df.parameter == "so2") & (df.unit != "ppm"), "value"] /= 2620
-        df.loc[(df.parameter == "no2") & (df.unit != "ppm"), "value"] /= 1880
+        # TODO: all unique params just to be safe? (need conversion factors)
+        # https://docs.openaq.org/docs/parameters
+        df.loc[(df.parameter == "co") & (df.unit == "µg/m³"), "value"] /= 1145
+        df.loc[(df.parameter == "o3") & (df.unit == "µg/m³"), "value"] /= 2000
+        df.loc[(df.parameter == "so2") & (df.unit == "µg/m³"), "value"] /= 2620
+        df.loc[(df.parameter == "no2") & (df.unit == "µg/m³"), "value"] /= 1880
+        for vn in ["co", "o3", "so2", "no2"]:
+            df.loc[(df.parameter == vn) & (df.unit == "µg/m³"), "unit"] = "ppm"
         return df
 
     def _pivot_table(self, df):
