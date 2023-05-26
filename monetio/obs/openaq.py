@@ -165,13 +165,16 @@ class OPENAQ:
 
     def _fix_units(self, df):
         df.loc[df.value <= 0] = NaN
-        # TODO: all unique params just to be safe? (need conversion factors)
+        # For a certain parameter, different site-times may have different units.
         # https://docs.openaq.org/docs/parameters
-        df.loc[(df.parameter == "co") & (df.unit == "µg/m³"), "value"] /= 1145
-        df.loc[(df.parameter == "o3") & (df.unit == "µg/m³"), "value"] /= 2000
-        df.loc[(df.parameter == "so2") & (df.unit == "µg/m³"), "value"] /= 2620
-        df.loc[(df.parameter == "no2") & (df.unit == "µg/m³"), "value"] /= 1880
-        for vn in ["co", "o3", "so2", "no2"]:
+        # These conversion factors are based on
+        # - air average molecular weight: 29 g/mol
+        # - air density: 1.2 kg m -3
+        # rounded to 3 significant figures.
+        fs = {"co": 1160, "o3": 1990, "so2": 2650, "no2": 1900, "ch4": 664, "no": 1240}
+        for vn, f in fs.items():
+            df.loc[(df.parameter == vn) & (df.unit == "µg/m³"), "value"] /= f
+        for vn in fs:
             df.loc[(df.parameter == vn) & (df.unit == "µg/m³"), "unit"] = "ppm"
         return df
 
