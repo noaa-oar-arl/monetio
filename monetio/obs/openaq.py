@@ -173,9 +173,9 @@ class OPENAQ:
         # rounded to 3 significant figures.
         fs = {"co": 1160, "o3": 1990, "so2": 2650, "no2": 1900, "ch4": 664, "no": 1240}
         for vn, f in fs.items():
-            df.loc[(df.parameter == vn) & (df.unit == "µg/m³"), "value"] /= f
-        for vn in fs:
-            df.loc[(df.parameter == vn) & (df.unit == "µg/m³"), "unit"] = "ppm"
+            is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
+            df.loc[is_ug, "value"] /= f
+            df.loc[is_ug, "unit"] = "ppm"
         return df
 
     def _pivot_table(self, df):
