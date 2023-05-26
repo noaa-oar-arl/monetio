@@ -199,10 +199,13 @@ class OPENAQ:
                 o3="o3_ppm",
                 no2="no2_ppm",
                 so2="so2_ppm",
+                ch4="ch4_ppm",
+                no="no_ppm",
                 bc="bc_umg3",
                 pm25="pm25_ugm3",
                 pm10="pm10_ugm3",
             ),
             axis=1,
+            errors="ignore",
         )
         return w
