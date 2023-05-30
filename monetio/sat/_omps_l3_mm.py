@@ -6,7 +6,6 @@ def read_OMPS_l3(files):
 
     returns xarray Dataset.
     """
-
     from glob import glob
 
     import numpy as np
@@ -42,7 +41,6 @@ def extract_OMPS_l3(fname):
     ds: xarray dataset
 
     """
-
     import h5py
     import numpy as np
     import pandas as pd

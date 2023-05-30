@@ -5,7 +5,6 @@
 """
 import glob
 
-import h5py
 import pandas as pd
 import xarray as xr
 
@@ -15,12 +14,14 @@ def getStartTime(filename):
 
     Parameters
     ----------
-    filename : string or list
-        filename is the path to the file
+    filename : str
+        Path to the file.
 
     Returns
     -------
-    startTime"""
+    pandas.Timestamp or None or 0
+    """
+    import h5py
 
     structure = "/HDFEOS/ADDITIONAL/FILE_ATTRIBUTES"
     # print("READING FILE " + inFileName)
@@ -53,14 +54,16 @@ def loadAndExtractGriddedHDF(filename, varname):
 
     Parameters
     ----------
-    filename : string
-        filename is the path to the file
-    varname : string
-        The variable to load from the MOPITT file
+    filename : str
+        Path to the file.
+    varname : str
+        The variable to load from the MOPITT file.
 
     Returns
     -------
-    xarray.DataSet"""
+    xarray.Dataset
+    """
+    import h5py
 
     # initialize into dataset
     ds = xr.Dataset()
@@ -117,14 +120,15 @@ def read_mopittdataset(files, varname):
 
     Parameters
     ----------
-    files : string or list of strings
+    files : str or list of str
         The full path to the file or files. Can take a file template with wildcard (*) symbol.
-    varname : string
-        The variable to load from the MOPITT file
+    varname : str
+        The variable to load from the MOPITT file.
 
     Returns
     -------
-    xarray.DataSet"""
+    xarray.Dataset
+    """
 
     count = 0
     filelist = sorted(glob.glob(files, recursive=False))
