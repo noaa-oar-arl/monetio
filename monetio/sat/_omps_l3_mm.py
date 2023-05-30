@@ -11,7 +11,6 @@ def read_OMPS_l3(files):
 
     import numpy as np
     import xarray as xr
-    from matplotlib import pyplot as plt
 
     start_dataset = True
     times = []
@@ -48,7 +47,6 @@ def extract_OMPS_l3(fname):
     import numpy as np
     import pandas as pd
     import xarray as xr
-    from matplotlib import pyplot as plt
 
     with h5py.File(fname, "r") as f:
         lat = f["Latitude"][:]

@@ -4,10 +4,8 @@
     created 2021-12 rrb
 """
 import glob
-import os
 
 import h5py
-import numpy as np
 import pandas as pd
 import xarray as xr
 
@@ -26,11 +24,11 @@ def getStartTime(filename):
 
     structure = "/HDFEOS/ADDITIONAL/FILE_ATTRIBUTES"
     # print("READING FILE " + inFileName)
-    fName = os.path.basename(filename)
+    # fName = os.path.basename(filename)
 
     try:
         inFile = h5py.File(filename, "r")
-    except:
+    except Exception:
         print("ERROR: CANNOT OPEN " + filename)
         return 0
 
@@ -42,7 +40,7 @@ def getStartTime(filename):
 
     try:
         inFile.close()
-    except:
+    except Exception:
         print("ERROR CANNOT CLOSE " + filename)
         return 0
 
@@ -85,7 +83,7 @@ def loadAndExtractGriddedHDF(filename, varname):
     }
     try:
         data_loaded = he5_load[variable_dict[varname]][:]
-    except:
+    except Exception:
         print("ERROR: Cannot load " + varname + " from " + filename)
         return 0
 
