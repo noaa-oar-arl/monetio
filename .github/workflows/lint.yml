@@ -28,3 +28,13 @@ jobs:
       - uses: citation-file-format/cffconvert-github-action@2.0.0
         with:
           args: "--validate"
+
+  spell:
+    name: codespell
+    runs-on: ubuntu-latest
+    if: github.repository == 'noaa-oar-arl/monetio'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: codespell-project/actions-codespell@v2
+        with:
+          exclude_file: .codespell-exclude
