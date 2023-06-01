@@ -1,0 +1,8 @@
+          <th>CAf</th>
+          <td>CAf</td>
+   "SIZ",	"Size distribution"
+   "ALL",	"All of the above retrievals (SIZ to FLUX) in one file"
+    hda = hysplit.combine_dataset([file1,file2], drange=[d1,d2])
+   print(hda)
+    metdata = ish_mod.ISH()
+    df = metdata.add_data(dates, country=None, box=area, resample=False)

@@ -242,7 +242,7 @@ The source dimension tags which source term the run used.
     Attributes:
         sample time hours:  1.0
 
-To calcluate mass loading
+To calculate mass loading
 
 .. code-block:: python
 
