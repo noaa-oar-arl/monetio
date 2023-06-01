@@ -1094,14 +1094,14 @@ def _calc_pressure(dset):
     xarray.DataArray
         Mid-layer pressure with attributes.
     """
-    pres = dset.dp_pa.copy().load()  # Have to load into memory here so can assign levels.
-    srfpres = dset.surfpres_pa.copy().load()
+    p = dset.dp_pa.copy().load()  # Have to load into memory here so can assign levels.
+    psfc = dset.surfpres_pa.copy().load()
     for k in range(len(dset.z)):
-        pres_2 = dset.ak[k + 1] + srfpres * dset.bk[k + 1]
-        pres_1 = dset.ak[k] + srfpres * dset.bk[k]
-        pres[:, k, :, :] = (pres_2 - pres_1) / np.log(pres_2 / pres_1)
+        pres_2 = dset.ak[k + 1] + psfc * dset.bk[k + 1]
+        pres_1 = dset.ak[k] + psfc * dset.bk[k]
+        p[:, k, :, :] = (pres_2 - pres_1) / np.log(pres_2 / pres_1)
 
-    pres.name = "pres_pa_mid"
-    pres.attrs["units"] = "pa"
-    pres.attrs["long_name"] = "Pressure Mid Layer in Pa"
-    return pres
+    p.name = "pres_pa_mid"
+    p.attrs["units"] = "pa"
+    p.attrs["long_name"] = "Pressure Mid Layer in Pa"
+    return p

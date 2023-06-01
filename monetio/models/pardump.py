@@ -47,7 +47,7 @@ class Pardump:
     def __init__(self, fname="PARINIT"):
         """
         ##initializes structures which correspond to the binary records.
-        ##'p' variables coorespond to padding that fortran adds.
+        ##'p' variables correspond to padding that fortran adds.
         """
         self.fname = fname
         # self.dtfmt = "%Y%m%d%H%M"

@@ -243,7 +243,7 @@ class CEMS:
 
         Parameters
         ----------
-        varname : string or iteratable of strings
+        varname : string or iterable of strings
             varname may be string or list of strings.
         loc : type
             Description of parameter `loc`.
@@ -313,7 +313,7 @@ class CEMS:
 
     def create_location_dictionary(self, verbose=False):
         """
-        returns dictionary withe key orispl_code and value  (latitude,
+        returns dictionary with key orispl_code and value  (latitude,
         longitude) tuple
         """
         if "latitude" in list(self.df.columns.values):
@@ -329,7 +329,7 @@ class CEMS:
 
     def create_name_dictionary(self, verbose=False):
         """
-        returns dictionary withe key orispl_code and value facility name
+        returns dictionary with key orispl_code and value facility name
         """
         if "latitude" in list(self.df.columns.values):
             dftemp = self.df.copy()
@@ -434,7 +434,7 @@ class CEMS:
         method = 1
         # TO DO: Having trouble with pytest throwing an error when using the
         # apply on the dataframe.
-        # runs ok, but pytest fails. Tried several differnt methods.
+        # runs ok, but pytest fails. Tried several different methods.
         if os.path.isfile(iname):
             sinfo = pd.read_csv(iname, sep=",", header=0)
             try:
