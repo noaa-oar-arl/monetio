@@ -38,4 +38,4 @@ jobs:
       - uses: codespell-project/actions-codespell@v2
         with:
           exclude_file: .codespell-exclude
-          skip: "monetio/data/*.csv,monetio/data/*.tsv"
+          skip: "./monetio/data/aqs_qualifiers.csv,./monetio/data/cemsinfo.csv,./monetio/data/stations.tsv"
