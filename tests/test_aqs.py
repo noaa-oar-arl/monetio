@@ -10,7 +10,7 @@ ssl_version = ssl.OPENSSL_VERSION_INFO
 
 
 @pytest.mark.xfail(
-    ssl_version > (1,), strict=True, reason="Doesn't work with newer OpenSSL", raises=SSLError
+    not ssl_version < (2,), strict=True, reason="Doesn't work with newer OpenSSL", raises=SSLError
 )
 def test_aqs():
     # For MM data proc example
