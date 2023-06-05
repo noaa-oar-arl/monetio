@@ -12,7 +12,7 @@ def get_test_path():
     fn = "MOP03JM-201701-L3V95.9.3.he5"
     p = HERE / "data" / fn
     if not p.is_file():
-        warnings.warn("Downloading test file {fn} for MOPITT L3 test")
+        warnings.warn(f"Downloading test file {fn} for MOPITT L3 test")
         import requests
 
         r = requests.get(
