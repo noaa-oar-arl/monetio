@@ -1,11 +1,16 @@
 import ssl
+import warnings
 
 import pandas as pd
 import pytest
 
 from monetio import aqs
 
-ssl_version = tuple(int(x) for x in ssl.OPENSSL_VERSION.split()[1].split("."))
+try:
+    ssl_version = tuple(int(x) for x in ssl.OPENSSL_VERSION.split()[1].split("."))
+except Exception:
+    warnings.warn("Could not determine OpenSSL version, assuming recent", UserWarning)
+    ssl_version = (100,)
 
 
 @pytest.mark.xfail(ssl_version > (1,), strict=True, reason="Doesn't work with newer OpenSSL")
