@@ -48,6 +48,7 @@ jobs:
         run: |
           micromamba install 'openssl <3'
           pytest -n auto -v -k aqs
+          micromamba update openssl
 
   docs:
     name: Check docs build
