@@ -1,9 +1,17 @@
+import ssl
+
 import pandas as pd
 import pytest
+from requests.exceptions import SSLError
 
 from monetio import aqs
 
+ssl_version = ssl.OPENSSL_VERSION_INFO
 
+
+@pytest.mark.xfail(
+    not ssl_version < (2,), strict=True, reason="Doesn't work with newer OpenSSL", raises=SSLError
+)
 def test_aqs():
     # For MM data proc example
     dates = pd.date_range(start="2019-08-01", end="2019-08-31", freq="H")
