@@ -1,8 +1,12 @@
+import sys
+
 import pandas as pd
+import pytest
 
 from monetio import openaq
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7+")
 def test_openaq():
     # First date in the archive, just one file
     # Browse the archive at https://openaq-fetches.s3.amazonaws.com/index.html
