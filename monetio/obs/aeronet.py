@@ -107,7 +107,7 @@ def add_data(
            during the `dates` time period.
 
         .. note::
-           `siteid` takes precendence over `latlonbox`
+           `siteid` takes precedence over `latlonbox`
            if both are specified.
     daily : bool
         Load daily averaged data.
@@ -291,7 +291,7 @@ class AERONET:
     def build_url(self):
         """Use attributes to build a URL and set :attr:`url`.
 
-        Targetting either of
+        Targeting either of
         - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_new.html
         - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
         """

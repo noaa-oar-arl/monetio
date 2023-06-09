@@ -95,7 +95,7 @@ def get_files_to_download(year, doy, tiles, output_path, ext, sat="MOLA", produc
     # num_days = (enddd - startdd).days
     # list files available from website
     # d = datetime.date((year - 1), 12, 31) + datetime.timedelta(days=doy)
-    d = pd.Timesamp(year, doy)
+    d = pd.Timestamp(year, doy)
     # doy = (dd - datetime.date(dd.year - 1, 12, 31)).days
     # year = dd.year
     baseurl = "https://e4ftl01.cr.usgs.gov"

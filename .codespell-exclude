@@ -1,0 +1,37 @@
+          <th>CAf</th>
+          <td>CAf</td>
+   "SIZ",	"Size distribution"
+   "ALL",	"All of the above retrievals (SIZ to FLUX) in one file"
+    hda = hysplit.combine_dataset([file1,file2], drange=[d1,d2])
+   print(hda)
+    metdata = ish_mod.ISH()
+    df = metdata.add_data(dates, country=None, box=area, resample=False)
+        "CNA",
+        d["CAf"] = add_multiple_lazy(d, newkeys, weights=neww)
+        d["CAf"] = d["CAf"].assign_attrs(
+            {"units": r"$\mu g m^{-3}$", "name": "CAf", "long_name": "Fine Mode particulate CA"}
+        "CAf": ["CAf"],
+    #  value is tuple (filename, metdata)
+        Scrip file path for unstructured grid output
+    if "CAf" in var_list:
+                "PRES": "pres_pa_mid",
+        CMAQ model data including new CAf calculation
+    # allvars = Series(["TEMP", "Q", "PRES"])
+    #         "p": dset["PRES"][:].compute().values
+        var_list.append("pres")
+        if var == "pres":  # Insert special versions.
+        "SIZ",
+                df.loc[con, "variable"] = "Caf"
+                df.loc[con, "variable"] = "Laf"
+            ["AZ", "CO", "ID", "KS", "MT", "NE", "NV", "NM", "ND", "SD", "UT", "WY"], dtype="|S12"
+    r = array(["AZ", "CO", "ID", "KS", "MT", "NE", "NV", "NM", "ND", "SD", "UT", "WY"])
+    ser = array(["Southeast" for i in se])
+    region = concatenate([ser, ner, ncr, scr, rr, pr])
+        "North Dakota": "ND",
+        fo = self.fs.open(f)
+        out = xr.open_dataset(fo, engine="h5netcdf")
+    """Read SNPP OMPS Nadir Mapper Total Column Ozone L2 data from NASA GES DISC
+    a.prod = "SIZ"
+    df = aeronet.add_data(dates, inv_type="ALM15", product="SIZ")
+    df = aeronet.add_data(dates, inv_type="HYB15", product="SIZ")
+    # https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_inv_v3?site=Cart_Site&year=2002&month=6&day=1&year2=2003&month2=6&day2=14&product=SIZ&AVG=20&ALM15=1&if_no_html=1

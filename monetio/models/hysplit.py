@@ -840,7 +840,7 @@ def fix_grid_continuity(dset):
     if not dset.any():
         return dset
 
-    # if grid already continuos don't do anything.
+    # if grid already continuous don't do anything.
     if check_grid_continuity(dset):
         return dset
     xvv = dset.x.values
@@ -1063,7 +1063,7 @@ def hysp_thresh(dset, threshold, mult=1):
     Inputs: xarray, ash mass loading threshold (threshold = xx)
     Outputs: ash mass loading threshold mask array
     Returns 0 where values are below or equal to threshold.
-    Returns 1 where values are greather than threshold
+    Returns 1 where values are greater than threshold
 
     """
     # Calculate ash mass loading for xarray
@@ -1158,7 +1158,7 @@ def get_thickness(cdump):
 
     if calculate:
         print(f"warning: {cstr} attribute needed to calculate level thicknesses")
-        print("warning: alternative calcuation from z dimension values")
+        print("warning: alternative calculation from z dimension values")
         thash = calculate_thickness(cdump)
     else:
         levs = cdump.attrs[cstr]
