@@ -1,4 +1,7 @@
+import warnings
+
 import pandas as pd
+import pytest
 
 from monetio import airnow
 
@@ -52,3 +55,30 @@ def test_add_data_daily():
     _check_df(df)
     assert all(col in df.columns for col in ["variable", "units", "obs"])
     assert df.time.unique().size == 3
+
+
+@pytest.mark.parametrize(
+    "date",
+    [
+        pd.Timestamp("2021/07/01"),
+        pd.Timestamp.now().floor("D"),
+    ],
+    ids=[
+        "2021/07/01 (historical)",
+        "current date",
+    ],
+)
+def test_check_zero_utc_offsets(date):
+    dates = [date]
+
+    df = airnow.add_data(dates, daily=False, wide_fmt=True)
+    # NOTE: No utcoffset in the data if daily
+
+    bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
+    bad_sites = bad_rows.groupby("siteid")[["siteid", "site", "longitude"]].first()
+    msg = (
+        f"For {date.strftime(r'%Y-%m-%d')}, found "
+        f"{len(bad_sites)} sites with zero UTC offset and abs(lon) > 20:\n"
+    )
+    msg += bad_sites.to_string(index=False)
+    warnings.warn(msg)

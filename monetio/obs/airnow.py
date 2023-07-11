@@ -54,7 +54,7 @@ def build_urls(dates, *, daily=False):
     urls = []
     fnames = []
     print("Building AIRNOW URLs...")
-    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: other S3 servers?
+    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: use S3 URL scheme instead?
     for dt in dates:
         if daily:
             fname = "daily_data.dat"
