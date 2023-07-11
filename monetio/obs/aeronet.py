@@ -151,11 +151,10 @@ def add_data(
         # Split up by day
         min_date = dates.min()
         max_date = dates.max()
-        days = pd.date_range(start=min_date, end=max_date, freq="D")  # TODO: subtract 1?
-        days1 = days + pd.Timedelta(days=1)
+        days = pd.date_range(start=min_date, end=max_date, freq="D")
         dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
             delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **kwargs, freq=None)
-            for d1, d2 in zip(days, days1)
+            for d1, d2 in zip(days[:-1], days[1:])
         )
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
