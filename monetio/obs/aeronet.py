@@ -147,14 +147,20 @@ def add_data(
     )
 
     requested_parallel = n_procs > 1 or n_procs == -1
-    if has_joblib and requested_parallel:
-        # Split up by day
+
+    # Split up by day
+    dates = pd.to_datetime(dates)
+    if dates is not None:
         min_date = dates.min()
         max_date = dates.max()
-        days = pd.date_range(start=min_date, end=max_date, freq="D")
+        time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")
+        if max_date not in time_bounds:
+            time_bounds = time_bounds.append(pd.DatetimeIndex([max_date]))
+
+    if has_joblib and requested_parallel and dates is not None and len(time_bounds) > 2:
         dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
-            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **kwargs, freq=None)
-            for d1, d2 in zip(days[:-1], days[1:])
+            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
+            for t1, t2 in zip(time_bounds[:-1], time_bounds[1:])
         )
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
@@ -461,7 +467,7 @@ class AERONET:
             now = datetime.utcnow()
             self.dates = pd.date_range(start=now.date(), end=now, freq="H")
         else:
-            self.dates = dates
+            self.dates = pd.DatetimeIndex(dates)
         if product is not None:
             self.prod = product.upper()
         else:

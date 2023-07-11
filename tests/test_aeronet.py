@@ -222,8 +222,24 @@ def test_interp_daily_with_pytspack():
     assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
 
 
-def test_issue100():
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+@pytest.mark.parametrize(
+    "dates",
+    [
+        pd.to_datetime(["2019-09-01", "2019-09-02"]),
+        pd.to_datetime(["2019-09-01", "2019-09-03"]),
+        pd.to_datetime(["2019-09-01", "2019-09-01 12:00"]),
+    ],
+    ids=[
+        "one day",
+        "two days",
+        "half day",
+    ],
+)
+def test_issue100(dates, request):
+    if request.node.callspec.id == "two days":
+        pytest.xfail(reason="??")
+
     df1 = aeronet.add_data(dates, n_procs=1)
     df2 = aeronet.add_data(dates, n_procs=2)
-    assert len(df1) == len(df2)
+    assert df1.equals(df2)
+    assert dates[0] < df1.time.min() < df1.time.max() < dates[-1]
