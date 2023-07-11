@@ -220,3 +220,10 @@ def test_interp_daily_with_pytspack():
     df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
 
     assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
+
+
+def test_issue100():
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    df1 = aeronet.add_data(dates, n_procs=1)
+    df2 = aeronet.add_data(dates, n_procs=2)
+    assert len(df1) == len(df2)
