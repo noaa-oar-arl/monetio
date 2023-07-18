@@ -290,13 +290,56 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     elif bad_utcoffset == "drop":
         df.drop(bad_rows.index, inplace=True)
     elif bad_utcoffset == "fix":
-        raise NotImplementedError("will use timezonefinder")
+        df.loc[bad_rows.index, "utcoffset"] = bad_rows.apply(
+            lambda row: get_utcoffset(row.latitude, row.longitude),
+            axis="columns",
+        )
     elif bad_utcoffset == "leave":
         pass
     else:
         raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
 
     return df  # TODO: dropna here (since it is called `filter_bad_values`)?
+
+
+def get_utcoffset(lat, lon):
+    """Get UTC offset for standard time.
+
+    Will use timezonefinder and pytz if installed.
+    Otherwise will guess based on the lon (and warn).
+
+    Parameters
+    ----------
+    lat, lon : float
+        Latitude and longitude of the location.
+
+    Returns
+    -------
+    float
+    """
+    import warnings
+
+    try:
+        import pytz
+        import timezonefinder
+    except ImportError:
+        warnings.warn(
+            "timezonefinder and/or pytz not installed, guessing UTC offset based on longitude"
+        )
+        do_guess = True
+    else:
+        do_guess = False
+
+    if do_guess:
+        lon_ = (lon + 180) % 360 - 180  # Ensure lon in [-180, 180)
+        return round(lon_ / 15, 0)
+
+    else:
+        finder = timezonefinder.TimezoneFinder()
+        tz_str = finder.certain_timezone_at(lng=lon, lat=lat)
+        tz = pytz.timezone(tz_str)
+        uo = tz.utcoffset(datetime(2020, 1, 1), is_dst=False).total_seconds() / 3600
+        return uo
 
 
 def daterange(**kwargs):

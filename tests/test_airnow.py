@@ -72,9 +72,6 @@ def test_add_data_daily():
 def test_check_zero_utc_offsets(date, bad_utcoffset):
     dates = [date]
 
-    if bad_utcoffset == "fix":
-        pytest.xfail("fixing UTC offsets not implemented")
-
     df = airnow.add_data(dates, daily=False, wide_fmt=True, bad_utcoffset=bad_utcoffset)
     # NOTE: No utcoffset in the data if daily
 
@@ -97,3 +94,4 @@ def test_check_zero_utc_offsets(date, bad_utcoffset):
     elif bad_utcoffset == "fix":
         assert not df.utcoffset.isnull().any()
         assert bad_sites.empty
+        assert ((df.utcoffset >= -12) & (df.utcoffset <= 14)).all()
