@@ -286,20 +286,21 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     df.loc[(df.obs > max) | (df.obs < 0), "obs"] = NaN
 
     # Bad UTC offsets (GH #86)
-    bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
-    if bad_utcoffset == "null":
-        df.loc[bad_rows.index, "utcoffset"] = NaN
-    elif bad_utcoffset == "drop":
-        df.drop(bad_rows.index, inplace=True)
-    elif bad_utcoffset == "fix":
-        df.loc[bad_rows.index, "utcoffset"] = bad_rows.apply(
-            lambda row: get_utcoffset(row.latitude, row.longitude),
-            axis="columns",
-        )
-    elif bad_utcoffset == "leave":
-        pass
-    else:
-        raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
+    if "utcoffset" in df.columns:
+        bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
+        if bad_utcoffset == "null":
+            df.loc[bad_rows.index, "utcoffset"] = NaN
+        elif bad_utcoffset == "drop":
+            df.drop(bad_rows.index, inplace=True)
+        elif bad_utcoffset == "fix":
+            df.loc[bad_rows.index, "utcoffset"] = bad_rows.apply(
+                lambda row: get_utcoffset(row.latitude, row.longitude),
+                axis="columns",
+            )
+        elif bad_utcoffset == "leave":
+            pass
+        else:
+            raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
 
     return df  # TODO: dropna here (since it is called `filter_bad_values`)?
 
