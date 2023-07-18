@@ -163,7 +163,7 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
+def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
     """Short summary.
 
     Parameters
@@ -214,12 +214,12 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
         df = df[savecols]
     df.drop_duplicates(inplace=True)
 
-    df = filter_bad_values(df)
+    df = filter_bad_values(df, bad_utcoffset=bad_utcoffset)
 
     return df.reset_index(drop=True)
 
 
-def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
+def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, bad_utcoffset="drop"):
     """Retrieve and load AirNow data as a DataFrame.
 
     Note: to obtain full hourly data you must pass all desired hours
@@ -249,7 +249,13 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
     """
     from ..util import long_to_wide
 
-    df = aggregate_files(dates=dates, download=download, n_procs=n_procs, daily=daily)
+    df = aggregate_files(
+        dates=dates,
+        download=download,
+        n_procs=n_procs,
+        daily=daily,
+        bad_utcoffset=bad_utcoffset,
+    )
     if wide_fmt:
         df = (
             long_to_wide(df)
@@ -261,12 +267,13 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
     return df
 
 
-def filter_bad_values(df, *, max=3000):
+def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     """Mark ``obs`` values less than 0 or greater than `max` as NaN.
 
     Parameters
     ----------
     max : int
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}
 
     Returns
     -------
@@ -275,6 +282,20 @@ def filter_bad_values(df, *, max=3000):
     from numpy import NaN
 
     df.loc[(df.obs > max) | (df.obs < 0), "obs"] = NaN
+
+    # Bad UTC offsets (GH #86)
+    bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
+    if bad_utcoffset == "null":
+        df.loc[bad_rows.index, "utcoffset"] = NaN
+    elif bad_utcoffset == "drop":
+        df.drop(bad_rows.index, inplace=True)
+    elif bad_utcoffset == "fix":
+        raise NotImplementedError("will use timezonefinder")
+    elif bad_utcoffset == "leave":
+        pass
+    else:
+        raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
+
     return df  # TODO: dropna here (since it is called `filter_bad_values`)?
 
 

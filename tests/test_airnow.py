@@ -57,6 +57,7 @@ def test_add_data_daily():
     assert df.time.unique().size == 3
 
 
+@pytest.mark.parametrize("bad_utcoffset", ["null", "drop", "fix", "leave"])
 @pytest.mark.parametrize(
     "date",
     [
@@ -68,17 +69,31 @@ def test_add_data_daily():
         "current date",
     ],
 )
-def test_check_zero_utc_offsets(date):
+def test_check_zero_utc_offsets(date, bad_utcoffset):
     dates = [date]
 
-    df = airnow.add_data(dates, daily=False, wide_fmt=True)
+    if bad_utcoffset == "fix":
+        pytest.xfail("fixing UTC offsets not implemented")
+
+    df = airnow.add_data(dates, daily=False, wide_fmt=True, bad_utcoffset=bad_utcoffset)
     # NOTE: No utcoffset in the data if daily
 
     bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
     bad_sites = bad_rows.groupby("siteid")[["siteid", "site", "longitude"]].first()
-    msg = (
-        f"For {date.strftime(r'%Y-%m-%d')}, found "
-        f"{len(bad_sites)} sites with zero UTC offset and abs(lon) > 20:\n"
-    )
-    msg += bad_sites.to_string(index=False)
-    warnings.warn(msg)
+    if bad_utcoffset == "leave":
+        assert not bad_sites.empty
+        msg = (
+            f"For {date.strftime(r'%Y-%m-%d')}, found "
+            f"{len(bad_sites)} sites with zero UTC offset and abs(lon) > 20:\n"
+        )
+        msg += bad_sites.to_string(index=False)
+        warnings.warn(msg)
+    elif bad_utcoffset == "null":
+        assert df.utcoffset.isnull().sum() > 0
+        assert bad_sites.empty
+    elif bad_utcoffset == "drop":
+        assert not df.utcoffset.isnull().any()
+        assert bad_sites.empty
+    elif bad_utcoffset == "fix":
+        assert not df.utcoffset.isnull().any()
+        assert bad_sites.empty
