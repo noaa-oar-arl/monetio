@@ -37,6 +37,8 @@ savecols = [
     "epa_region",
 ]
 
+_TFinder = None
+
 
 def build_urls(dates, *, daily=False):
     """Construct AirNow file URLs for `dates`.
@@ -335,8 +337,13 @@ def get_utcoffset(lat, lon):
         return round(lon_ / 15, 0)
 
     else:
-        finder = timezonefinder.TimezoneFinder()
-        tz_str = finder.certain_timezone_at(lng=lon, lat=lat)
+        global _TFinder
+
+        if _TFinder is None:
+            _TFinder = timezonefinder.TimezoneFinder(in_memory=True)
+
+        finder = _TFinder
+        tz_str = finder.timezone_at(lng=lon, lat=lat)
         tz = pytz.timezone(tz_str)
         uo = tz.utcoffset(datetime(2020, 1, 1), is_dst=False).total_seconds() / 3600
         return uo
