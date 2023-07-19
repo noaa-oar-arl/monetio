@@ -158,7 +158,7 @@ def test_add_data_lunar():
     assert df.index.size > 0
 
     dates = pd.date_range("2022/01/20", "2022/01/21")
-    df = aeronet.add_data(dates, lunar=True, siteid="Tucson")
+    df = aeronet.add_data(dates, lunar=True, siteid="Chilbolton")
     assert df.index.size > 0
 
 
