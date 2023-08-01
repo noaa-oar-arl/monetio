@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python (micromamba) [${{ matrix.python-version }}, no AQS]
+      - name: Set up Python (micromamba) [>3.6, no AQS]
         if: matrix.python-version != '3.6' && matrix.aqs == false
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -39,7 +39,7 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
 
-      - name: Set up Python (micromamba) [${{ matrix.python-version }}, AQS]
+      - name: Set up Python (micromamba) [>3.6, AQS]
         if: matrix.python-version != '3.6' && matrix.aqs == true
         uses: mamba-org/setup-micromamba@v1
         with:
