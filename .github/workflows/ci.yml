@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Set up Python (micromamba) [>3.6, no AQS]
-        if: matrix.python-version != '3.6' && matrix.aqs == false
+        if: matrix.python-version != '3.6' && !matrix.aqs
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: environment-dev.yml
@@ -40,7 +40,7 @@ jobs:
             python=${{ matrix.python-version }}
 
       - name: Set up Python (micromamba) [>3.6, AQS]
-        if: matrix.python-version != '3.6' && matrix.aqs == true
+        if: matrix.python-version != '3.6' && matrix.aqs
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: environment-dev.yml
@@ -69,7 +69,7 @@ jobs:
           pytest -n auto -v -k with_pytspack
 
       - name: Test AQS
-        if: matrix.aqs == true
+        if: matrix.aqs
         run: |
           pytest -n auto -v -k aqs
 
