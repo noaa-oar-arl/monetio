@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.aqs && 'AQS' || 'no AQS' }})
+    name: Test (Py ${{ matrix.python-version }}${{ matrix.aqs && ', AQS' || '' }})
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
     strategy:
