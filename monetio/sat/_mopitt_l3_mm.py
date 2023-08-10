@@ -9,7 +9,7 @@ import pandas as pd
 import xarray as xr
 
 
-def getStartTime(filename):
+def get_start_time(filename):
     """Method to read the time in MOPITT level 3 hdf files.
 
     Parameters
