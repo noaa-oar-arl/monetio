@@ -1,4 +1,6 @@
 """ MOPITT gridded data File reader
+    updated 2023-08 rrb
+         * Added units
     updated 2022-10 rrb
          * DataSet instead of DataArray
     created 2021-12 rrb
@@ -93,21 +95,17 @@ def loadAndExtractGriddedHDF(filename, varname):
     # print(data_loaded.shape)
 
     # create xarray DataArray
-    if (
-        varname == "column"
-        or varname == "apriori_col"
-        or varname == "apriori_surf"
-        or varname == "pressure_surf"
-    ):
-        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat"], coords=[lon, lat])
+    if varname == "column":
+        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat"], coords=[lon, lat],
+                                   attrs={"long_name":"Retrieved CO Total Column", "units":"molec/cm^2",})
         # missing value -> nan
         ds[varname] = ds[varname].where(ds[varname] != -9999.0)
     elif varname == "ak_col":
-        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat", "alt"], coords=[lon, lat, alt])
+        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat", "alt"], coords=[lon, lat, alt],
+                                   attrs={"long_name":"Total Column Averaging Kernel", "units":"mol/(cm^2 log(VMR))",})
     elif varname == "apriori_prof":
-        ds[varname] = xr.DataArray(
-            data_loaded, dims=["lon", "lat", "alt"], coords=[lon, lat, alt_short]
-        )
+        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat", "alt"], coords=[lon, lat, alt_short],
+                                   attrs={'long_name':'A Priori CO Mixing Ratio Profile', 'units':'ppbv',})
 
     return ds
 
@@ -133,7 +131,7 @@ def read_mopittdataset(files, varname):
     for filename in filelist:
         print(filename)
         data = loadAndExtractGriddedHDF(filename, varname)
-        time = getStartTime(filename)
+        time = get_start_time(filename)
         data = data.expand_dims(axis=0, time=[time])
         if count == 0:
             full_dataset = data
