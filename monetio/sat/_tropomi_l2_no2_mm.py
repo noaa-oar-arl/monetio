@@ -16,7 +16,7 @@ from netCDF4 import Dataset
 def read_dataset(fname, variable_dict):
     """
     Parameters
-    __________
+    ----------
     fname : str
         Input file path.
 
