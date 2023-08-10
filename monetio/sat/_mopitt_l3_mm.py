@@ -24,8 +24,6 @@ def get_start_time(filename):
     import h5py
 
     structure = "/HDFEOS/ADDITIONAL/FILE_ATTRIBUTES"
-    # print("READING FILE " + inFileName)
-    # fName = os.path.basename(filename)
 
     try:
         inFile = h5py.File(filename, "r")
