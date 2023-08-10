@@ -31,15 +31,15 @@ def read_OMPS_l3(files):
 
 def extract_OMPS_l3(fname):
     """Read locally stored NASA Suomi NPP OMPS Level 3 Nadir Mapper TO3 files
+
     Parameters
     ----------
-    fname: string
-        fname is local path to h5 file
+    fname: str
+        Local path to h5 file.
 
     Returns
     -------
-    ds: xarray dataset
-
+    xarray.Dataset
     """
     import h5py
     import numpy as np
