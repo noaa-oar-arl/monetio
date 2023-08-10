@@ -1,10 +1,13 @@
 def read_OMPS_l3(files):
     """Loop to open OMPS nadir mapper Total Column Ozone L3 files.
-    Parameters:
-    -----------
-    files: string or list of strings
 
-    returns xarray Dataset.
+    Parameters
+    ----------
+    files: str or list of str
+
+    Returns
+    -------
+    xarray.Dataset
     """
     from glob import glob
 
