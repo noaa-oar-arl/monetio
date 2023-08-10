@@ -209,7 +209,7 @@ def get_lookups():
 
     # 21 negative value replaced with 0.
     # 08 90th percentile value in Lookback Period
-    # 09 95th precentile value in Lookback Period
+    # 09 95th percentile value in Lookback Period
     # etc.
 
     # it looks like values between 1-4 ok
@@ -1087,7 +1087,7 @@ class MonitoringPlan(EpaApiObject):
         stackname, unit, stackheight, crossAreaExit,
         crossAreaFlow, locID, isunit
 
-        Example ORIS 1571 unit 2 has no stack heigth.
+        Example ORIS 1571 unit 2 has no stack height.
         """
         ihash = data["data"]
         ft2m = 0.3048
@@ -1264,7 +1264,7 @@ class MonitoringPlan(EpaApiObject):
 # monitoringSystems
 # some systems may be more accurate than others.
 # natural gas plants emissions may have less uncertainty.
-# this is complicated because entires for multiple types of equipment.
+# this is complicated because entries for multiple types of equipment.
 
 # monitoringQualifications
 
@@ -1439,7 +1439,7 @@ class FacilitiesData(EpaApiObject):
     def unpack(self, data):
         """
         iterates through a response which contains nested dictionaries and lists.
-        # facilties 'data' is a list of dictionaries.
+        # facilities 'data' is a list of dictionaries.
         # there is one dictionary for each oris code.
         # Each dictionary has a list under the key monitoringLocations.
         # each monitoryLocation has a name which is what is needed
@@ -1744,7 +1744,7 @@ class CEMS:
             orislist = fac.oris_by_area(llcrnr, urcrnr)
         else:
             orislist = alist
-        # date list is list of dates betwen r1, r2 starting each quarter.
+        # date list is list of dates between r1, r2 starting each quarter.
         datelist = get_datelist(rdate)
         if verbose:
             print("ORIS to retrieve ", orislist)
@@ -1769,7 +1769,7 @@ class CEMS:
                 # although the date is included for the monitoring plan request,
                 # the information returned is the same most of the time
                 # (possibly unless the monitoring plan changes during the time
-                # of interst).
+                # of interest).
                 # to reduce number of requests, the monitoring plan is only
                 # requested for the first date which returns a valid monitoring
                 # plan.
@@ -1859,7 +1859,7 @@ class CEMS:
 
         rowsbefore = emitdf.shape[0]
         if not emitdf.empty:
-            # merge data from the facilties DataFrame into the Emissions DataFrame
+            # merge data from the facilities DataFrame into the Emissions DataFrame
             emitdf = pd.merge(
                 emitdf,
                 facdf,

@@ -103,7 +103,7 @@ distinguish aerosols which these readers do not process well.
 
 fv3grib2nc4.py like nemsio2nc4.py tool is a command line tool created to
 convert the grib2 aerosol data to netcdf files. fv3grib2nc4.py will
-create seperate files for each of the three layer types; '1 hybrid
+create separate files for each of the three layer types; '1 hybrid
 layer', 'entire atmosphere', and 'surface'. These are the three layers
 that currently hold aerosol data. The tool is available at
 https://github.com/bbakernoaa/fv3grib2nc4
@@ -150,7 +150,7 @@ MONETIO and FV3CHEM
 Using MONET with FV3-Chem is much like using MONET with other model
 outputs. It tries to recognize where the files came from (nemsio, grib2,
 etc....) and then processes the data, renaming coordinates (lat lon to
-latitude and longitude) and processing varaibles like geopotential
+latitude and longitude) and processing variables like geopotential
 height and pressure if available. First lets import ``monet`` and
 ``fv3chem`` from MONET
 

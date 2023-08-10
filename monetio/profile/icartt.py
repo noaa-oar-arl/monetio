@@ -37,7 +37,7 @@ def class_to_xarray(o, time_str="Time_Start"):
     ds.attrs["source"] = o.dataSource
     ds.attrs["Date Revised"] = pd.to_datetime(o.dateRevised).strftime("%Y-%m-%d %H:%M:%S")
     ds.attrs["mission"] = o.mission
-    ds.attrs["orginization"] = o.organization
+    ds.attrs["organization"] = o.organization
     ds.attrs["PI"] = o.PI
     if len(o.NCOM) > 1:
         for i in o.NCOM[:-1]:

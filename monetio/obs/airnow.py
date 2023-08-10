@@ -2,7 +2,7 @@
 
 import os
 
-# this is written to retrive airnow data concatenate and add to pandas array
+# this is written to retrieve airnow data concatenate and add to pandas array
 # for usage
 from datetime import datetime
 

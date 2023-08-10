@@ -64,8 +64,8 @@ Supported datasets
 * `HYSPLIT <https://www.ready.noaa.gov/HYSPLIT.php/>`_
 * `CMAQ <https://www.epa.gov/cmaq/>`_
 * `CAMx <https://www.camx.com/about/>`_
-* FV3-CHEM (comming soon)
-* WRF-CHEM (comming soon)
+* FV3-CHEM (coming soon)
+* WRF-CHEM (coming soon)
 
 **Supported Observations**
 
