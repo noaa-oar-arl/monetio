@@ -37,7 +37,6 @@ def get_start_time(filename):
     k = grp.attrs
     startTimeBytes = k.get("StartTime", default=None)
     startTime = pd.to_datetime(startTimeBytes[0], unit="s", origin="1993-01-01 00:00:00")
-    # print("******************", startTime)
 
     try:
         inFile.close()
