@@ -201,7 +201,7 @@ class OPENAQ:
                 so2="so2_ppm",
                 ch4="ch4_ppm",
                 no="no_ppm",
-                bc="bc_umg3",
+                bc="bc_ugm3",
                 pm25="pm25_ugm3",
                 pm10="pm10_ugm3",
             ),
