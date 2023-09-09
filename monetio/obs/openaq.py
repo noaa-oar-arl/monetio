@@ -38,6 +38,10 @@ def read_json(fp_or_url):
     -------
     pandas.DataFrame
     """
+    from time import perf_counter
+
+    tic = perf_counter()
+
     df = pd.read_json(fp_or_url, lines=True)
 
     # "attribution" is complex to deal with, just drop for now
@@ -93,6 +97,8 @@ def read_json(fp_or_url):
         longitude=new["coordinates.longitude"],
         averagingPeriod=averagingPeriod,
     )
+
+    print(f"{perf_counter() - tic:.3f}s")
 
     return df
 

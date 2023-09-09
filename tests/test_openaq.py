@@ -18,5 +18,6 @@ def test_openaq():
 
 
 df = openaq.read_json(
-    "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson"
+    # "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson"  # 1 MB
+    "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"  # 10 MB
 )
