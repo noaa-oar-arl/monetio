@@ -111,113 +111,110 @@ class OPENAQ:
         self.s3bucket = "openaq-fetches/realtime"
 
     def _get_available_days(self, dates):
+        """
+        Parameters
+        ----------
+        dates : datetime-like or list of datetime-like
+            ``pd.to_datetime`` will be applied.
+        """
+        # Get all day folders
         folders = self.fs.ls(self.s3bucket)
         days = [j.split("/")[2] for j in folders]
-        avail_dates = pd.to_datetime(days, format="%Y-%m-%d", errors="coerce")
-        dates = pd.to_datetime(dates).floor(freq="D")
-        d = pd.Series(dates, name="dates").drop_duplicates()
-        ad = pd.Series(avail_dates, name="dates")
-        return pd.merge(d, ad, how="inner")
+        dates_available = pd.Series(
+            pd.to_datetime(days, format=r"%Y-%m-%d", errors="coerce"), name="dates"
+        )
+
+        # Filter by requested dates
+        dates_requested = pd.Series(
+            pd.to_datetime(dates).floor(freq="D"), name="dates"
+        ).drop_duplicates()
+
+        dates_have = pd.merge(dates_available, dates_requested, how="inner")["dates"]
+        if dates_have.empty:
+            raise ValueError(f"No data available for requested dates: {dates_requested}.")
+
+        return dates_have
 
     def _get_files_in_day(self, date):
-        files = self.fs.ls("{}/{}".format(self.s3bucket, date.strftime("%Y-%m-%d")))
+        """
+        Parameters
+        ----------
+        date
+            datetime-like object with ``.strftime`` method.
+        """
+        sdate = date.strftime(r"%Y-%m-%d")
+        files = self.fs.ls(f"{self.s3bucket}/{sdate}")
         return files
 
     def build_urls(self, dates):
-        d = self._get_available_days(dates)
-        urls = pd.Series([], name="url")
-        for i in d.dates:
-            files = self._get_files_in_day(i)
-            furls = pd.Series(
-                [
-                    f.replace("openaq-fetches", "https://openaq-fetches.s3.amazonaws.com")
-                    for f in files
-                ],
-                name="url",
-            )
-            urls = pd.merge(urls, furls, how="outer")
-        return urls.url.values
+        """
+        Parameters
+        ----------
+        dates : datetime-like or list of datetime-like
+            ``pd.to_datetime`` will be applied.
+        """
+        dates_ = self._get_available_days(dates)
+        urls = []
+        for date in dates_:
+            files = self._get_files_in_day(date)
+            urls.extend(f"s3://{f}" for f in files)
+        return urls
 
-    def add_data(self, dates, num_workers=1):
+    def add_data(self, dates, *, num_workers=1):
         import dask
         import dask.dataframe as dd
 
-        urls = self.build_urls(dates).tolist()
-        # z = dd.read_json(urls).compute()
-        dfs = [dask.delayed(self.read_json)(f) for f in urls]
-        dff = dd.from_delayed(dfs)
-        z = dff.compute(num_workers=num_workers)
-        z.coordinates.replace(to_replace=[None], value=NaN, inplace=True)
-        z = z.dropna().reset_index(drop=True)
-        js = json.loads(z[["coordinates", "date"]].to_json(orient="records"))
-        dff = pd.io.json.json_normalize(js)
-        dff.columns = dff.columns.str.split(".").str[1]
-        dff.rename({"local": "time_local", "utc": "time"}, axis=1, inplace=True)
+        dates = pd.to_datetime(dates)
+        if isinstance(dates, pd.Timestamp):
+            dates = pd.DatetimeIndex([dates])
+        dates = dates.sort_values()
 
-        dff["time"] = pd.to_datetime(dff.time)
-        dff["utcoffset"] = pd.to_datetime(dff.time_local).apply(lambda x: x.utcoffset())
-        zzz = z.join(dff).drop(columns=["coordinates", "date", "attribution", "averagingPeriod"])
-        zzz = self._fix_units(zzz)
-        assert (
-            zzz[~zzz.parameter.isin(["pm25", "pm4", "pm10", "bc"])].unit.dropna() == "ppm"
-        ).all()
-        zp = self._pivot_table(zzz)
-        zp["siteid"] = (
-            zp.country
+        # Get URLs
+        urls = self.build_urls(dates)
+        print(f"Will load {len(urls)} files.")
+        if len(urls) > 0:
+            print(urls[0])
+        if len(urls) > 2:
+            print("...")
+        if len(urls) > 1:
+            print(urls[-1])
+
+        dfs = [dask.delayed(read_json)(f) for f in urls]
+        df_lazy = dd.from_delayed(dfs)
+        df = df_lazy.compute(num_workers=num_workers)
+
+        # TODO: not sure if necessary (doesn't seem to be?)
+        # df = df.coordinates.replace(to_replace=[None], value=NaN)
+
+        # Ensure consistent units, e.g. ppm for molecules
+        self._fix_units(df)
+        non_molec = ["pm1", "pm25", "pm4", "pm10", "bc", "nox"]
+        good = (df[~df.parameter.isin(non_molec)].unit.dropna() == "ppm").all()
+        if not good:
+            unique_params = sorted(df.parameter.unique())
+            molec = [p for p in unique_params if p not in non_molec]
+            raise ValueError(f"Expected these species to all be in ppm now: {molec}.")
+        good = (df[df.parameter.isin(non_molec)].unit.dropna() == "µg/m³").all()
+        if not good:
+            raise ValueError(f"Expected these species to all be in µg/m³: {non_molec}.")
+
+        # Pivot to wide format
+        df = self._pivot_table(df)
+
+        # Construct site IDs
+        df["siteid"] = (
+            df.country
             + "_"
-            + zp.latitude.round(3).astype(str)
+            + df.latitude.round(3).astype(str)
             + "N_"
-            + zp.longitude.round(3).astype(str)
+            + df.longitude.round(3).astype(str)
             + "E"
         )
 
-        zp["time"] = zp.time.dt.tz_localize(None)
-        zp["time_local"] = zp["time"] + zp["utcoffset"]
-
-        return zp.loc[zp.time >= dates.min()]
-
-    def read_json(self, url):
-        return pd.read_json(url, lines=True).dropna().sort_index(axis=1)
-
-    # def read_json(self, url):
-    #     df = pd.read_json(url, lines=True).dropna()
-    #     df.coordinates.replace(to_replace=[None],
-    #                            value=pd.np.nan,
-    #                            inplace=True)
-    #     df = df.dropna(subset=['coordinates'])
-    #     # df = self._parse_latlon(df)
-    #     # json_struct = json.loads(df.coordinates.to_json(orient='records'))
-    #     # df_flat = pd.io.json.json_normalize(json_struct)
-    #     # df = self._parse_datetime(df)
-    #     # df = self._fix_units(df)
-    #     # df = self._pivot_table(df)
-    #     return df
-
-    def _parse_latlon(self, df):
-        # lat = vectorize(lambda x: x['latitude'])
-        # lon = vectorize(lambda x: x['longitude'])
-        def lat(x):
-            return x["latitude"]
-
-        def lon(x):
-            return x["longitude"]
-
-        df["latitude"] = df.coordinates.apply(lat)
-        df["longitude"] = df.coordinates.apply(lon)
-        return df.drop(columns="coordinates")
-
-    def _parse_datetime(self, df):
-        def utc(x):
-            return pd.to_datetime(x["utc"])
-
-        def local(x):
-            return pd.to_datetime(x["local"])
-
-        df["time"] = df.date.apply(utc)
-        df["time_local"] = df.date.apply(local)
-        return df.drop(columns="date")
+        return df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
 
     def _fix_units(self, df):
+        """In place, convert units to ppm for molecules."""
         df.loc[df.value <= 0] = NaN
         # For a certain parameter, different site-times may have different units.
         # https://docs.openaq.org/docs/parameters
@@ -230,36 +227,48 @@ class OPENAQ:
             is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
             df.loc[is_ug, "value"] /= f
             df.loc[is_ug, "unit"] = "ppm"
-        return df
 
     def _pivot_table(self, df):
-        w = df.pivot_table(
+        # Pivot
+        wide = df.pivot_table(
             values="value",
             index=[
                 "time",
+                "time_local",
                 "latitude",
                 "longitude",
-                "sourceName",
-                "sourceType",
+                "utcoffset",
+                "location",
                 "city",
                 "country",
-                "utcoffset",
+                "sourceName",
+                "sourceType",
+                "mobile",
+                "averagingPeriod",
             ],
             columns="parameter",
         ).reset_index()
-        w = w.rename(
+
+        # Include units in variable names
+        wide = wide.rename(
             dict(
+                # molec
                 co="co_ppm",
                 o3="o3_ppm",
                 no2="no2_ppm",
                 so2="so2_ppm",
                 ch4="ch4_ppm",
                 no="no_ppm",
-                bc="bc_umg3",
+                # non-molec
+                pm1="pm1_ugm3",
                 pm25="pm25_ugm3",
+                pm4="pm4_ugm3",
                 pm10="pm10_ugm3",
+                bc="bc_ugm3",
+                nox="nox_ugm3",
             ),
-            axis=1,
+            axis="columns",
             errors="ignore",
         )
-        return w
+
+        return wide
