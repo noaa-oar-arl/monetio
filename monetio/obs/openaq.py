@@ -103,6 +103,45 @@ def read_json(fp_or_url):
     return df
 
 
+def read_json2(fp_or_url):  # TODO: go through the JSON with Python
+    """Read a json file from the OpenAQ server, returning dataframe in non-wide format.
+
+    Parameters
+    ----------
+    fp_or_url : str or path-like
+        File path or URL.
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
+    from time import perf_counter
+
+    tic = perf_counter()
+
+    if fp_or_url.startswith("http"):
+        import requests
+
+        r = requests.get(fp_or_url, stream=True, timeout=2)
+        r.raise_for_status()
+    else:
+        raise NotImplementedError
+        with open(fp_or_url) as f:
+            data = json.load(f)
+
+    for line in r.iter_lines():
+        if line:
+            print(line)
+            data = json.loads(line)
+            print(data)
+
+    df = pd.DataFrame()
+
+    print(f"{perf_counter() - tic:.3f}s")
+
+    return df
+
+
 class OPENAQ:
     def __init__(self):
         import s3fs
