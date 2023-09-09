@@ -15,3 +15,8 @@ def test_openaq():
     assert not df.empty
     assert df.siteid.nunique() == 1
     assert (df.country == "CN").all() and ((df.time_local - df.time) == pd.Timedelta(hours=8)).all()
+
+
+df = openaq.read_json(
+    "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson"
+)

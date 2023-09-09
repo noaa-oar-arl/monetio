@@ -1,52 +1,100 @@
-"""Short summary.
-
-    Attributes
-    ----------
-    url : type
-        Description of attribute `url`.
-    dates : type
-        Description of attribute `dates`.
-    df : type
-        Description of attribute `df`.
-    daily : type
-        Description of attribute `daily`.
-    objtype : type
-        Description of attribute `objtype`.
-    filelist : type
-        Description of attribute `filelist`.
-    monitor_file : type
-        Description of attribute `monitor_file`.
-    __class__ : type
-        Description of attribute `__class__`.
-    monitor_df : type
-        Description of attribute `monitor_df`.
-    savecols : type
-        Description of attribute `savecols`.
-    """
+"""OpenAQ"""
 import json
+import warnings
 
 import pandas as pd
 from numpy import NaN
 
 
 def add_data(dates, n_procs=1):
-    """add openaq data from the amazon s3 server.
+    """Add OpenAQ data from the Amazon s3 server.
+
+    https://openaq-fetches.s3.amazonaws.com
 
     Parameters
     ----------
-    dates : pd.DateTimeIndex or list of datatime objects
-        this is a list of dates to download
-    n_procs : type
-        Description of parameter `n_procs`.
+    dates : pandas.DateTimeIndex or list of datetime objects
+        Dates of data to fetch.
+    n_procs : int
+        For Dask.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
     """
     a = OPENAQ()
     return a.add_data(dates, num_workers=n_procs)
+
+
+def read_json(fp_or_url):
+    """Read a json file from the OpenAQ server, returning dataframe in non-wide format.
+
+    Parameters
+    ----------
+    fp_or_url : str or path-like
+        File path or URL.
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
+    df = pd.read_json(fp_or_url, lines=True)
+
+    # "attribution" is complex to deal with, just drop for now
+    # Seems like it can be null or a list of attribution dicts with "name" and "url"
+    df = df.drop(columns="attribution")
+
+    # Expand nested columns
+    # Multiple ways to do this, e.g.
+    # - pd.DataFrame(df.date.tolist())
+    #   Seems to be fastest for one, works if only one level of nesting
+    # - pd.json_normalize(df["date"])
+    # - pd.json_normalize(json.loads(df["date"].to_json(orient="records")))
+    #   With this method, can apply to multiple columns at once
+    to_expand = ["date", "averagingPeriod", "coordinates"]
+    new = pd.json_normalize(json.loads(df[to_expand].to_json(orient="records")))
+
+    # Convert to time
+    # If we just apply `pd.to_datetime`, we get
+    # - utc -> datetime64[ns, UTC]
+    # - local -> obj (datetime.datetime with tzinfo=tzoffset(None, ...))
+    #
+    # But we don't need localization, we just want non-localized UTC time and UTC offset.
+    #
+    # To get the UTC time, e.g.:
+    # - pd.to_datetime(new["date.utc"]).dt.tz_localize(None)
+    #   These are comparable but this seems slightly faster.
+    # - pd.to_datetime(new["date.utc"].str.slice(None, -1))
+    #
+    # To get UTC offset
+    # (we can't subtract the two time arrays since different dtypes), e.g.:
+    # - pd.to_timedelta(new["date.local"].str.slice(-6, None)+":00")
+    #   Seems to be slightly faster
+    # - pd.to_datetime(new["date.local"]).apply(lambda t: t.utcoffset())
+    time = pd.to_datetime(new["date.utc"]).dt.tz_localize(None)
+    utcoffset = pd.to_timedelta(new["date.local"].str.slice(-6, None) + ":00")
+    time_local = time + utcoffset
+
+    # Attempting averaging period by assuming hours
+    # FIXME: probably not always the case...
+    assert (new["averagingPeriod.unit"].dropna() == "hours").all()
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", category=RuntimeWarning, message="invalid value encountered in cast"
+        )
+        averagingPeriod = pd.to_timedelta(new["averagingPeriod.value"], unit="hours")
+
+    # Apply new columns
+    df = df.drop(columns=to_expand).assign(
+        time=time,
+        time_local=time_local,
+        utcoffset=utcoffset,
+        latitude=new["coordinates.latitude"],
+        longitude=new["coordinates.longitude"],
+        averagingPeriod=averagingPeriod,
+    )
+
+    return df
 
 
 class OPENAQ:
