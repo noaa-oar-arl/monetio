@@ -115,6 +115,7 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
     -------
     pandas.DataFrame
     """
+    import datetime
     from time import perf_counter
 
     tic = perf_counter()
@@ -129,13 +130,80 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
         with open(fp_or_url) as f:
             data = json.load(f)
 
+    names = [
+        "time",
+        "utcoffset",
+        "latitude",
+        "longitude",
+        #
+        "parameter",
+        "value",
+        "unit",
+        #
+        "averagingPeriod",
+        #
+        "location",
+        "city",
+        "country",
+        #
+        "sourceName",
+        "sourceType",
+        "mobile",
+    ]
+    rows = []
     for line in r.iter_lines():
         if line:
-            print(line)
             data = json.loads(line)
-            print(data)
+            coords = data.get("coordinates")
+            if coords is None:
+                print("Skipping row since no coords:", data)
+                continue
 
-    df = pd.DataFrame()
+            # Time
+            time = datetime.datetime.fromisoformat(data["date"]["utc"][:-1])
+            time_local_str = data["date"]["local"]
+            h = int(time_local_str[-6:-3])
+            m = int(time_local_str[-2:])
+            utcoffset = datetime.timedelta(hours=h, minutes=m)
+
+            # Averaging period
+            ap = data.get("averagingPeriod")
+            if ap is not None:
+                val = data["averagingPeriod"]["value"]
+                unit = data["averagingPeriod"]["unit"]
+                averagingPeriod = datetime.timedelta(**{unit: val})
+            else:
+                averagingPeriod = None
+
+            # TODO: attribution
+
+            rows.append(
+                (
+                    time,
+                    utcoffset,
+                    data["coordinates"]["latitude"],
+                    data["coordinates"]["longitude"],
+                    #
+                    data["parameter"],
+                    data["value"],
+                    data["unit"],
+                    #
+                    averagingPeriod,
+                    #
+                    data["location"],
+                    data["city"],
+                    data["country"],
+                    #
+                    data["sourceName"],
+                    data["sourceType"],
+                    data["mobile"],
+                )
+            )
+
+    # TODO: specify dtype here
+    df = pd.DataFrame(rows, columns=names)
+
+    df["time_local"] = df["time"] + df["utcoffset"]
 
     print(f"{perf_counter() - tic:.3f}s")
 
