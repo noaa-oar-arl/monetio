@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from monetio.sat._mopitt_l3_mm import get_start_time, load_variable
+from monetio.sat._mopitt_l3_mm import get_start_time, load_variable, open_dataset
 
 HERE = Path(__file__).parent
 
@@ -32,8 +32,16 @@ def test_get_start_time():
     assert t.floor("D") == pd.Timestamp("2017-01-01")
 
 
-def test_read_da():
+def test_load_variable():
     ds = load_variable(get_test_path(), "column")
     assert set(ds.coords) == {"lon", "lat"}
     assert set(ds) == {"column"}
     assert ds.column.mean() > 0
+
+
+def test_open_dataset():
+    ds = open_dataset(get_test_path(), "column")
+    assert set(ds.coords) == {"time", "lat", "lon"}
+    assert set(ds) == {"column"}
+    assert ds.column.mean() > 0
+    assert (ds.time.dt.floor("D") == pd.Timestamp("2017-01-01")).all()

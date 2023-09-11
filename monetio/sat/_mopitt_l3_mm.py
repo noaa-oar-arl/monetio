@@ -9,6 +9,7 @@ History:
 - created 2021-12 rrb
 """
 import glob
+from pathlib import Path
 
 import pandas as pd
 import xarray as xr
@@ -56,7 +57,7 @@ def load_variable(filename, varname):
 
     Parameters
     ----------
-    filename : str
+    filename
         Path to the file.
     varname : str
         The variable to load from the MOPITT file.
@@ -135,9 +136,9 @@ def open_dataset(files, varname):
 
     Parameters
     ----------
-    files : str or list of str
-        The full path to the file or files.
-        Can take a file template with wildcard (``*``) symbol.
+    files : str or Path or list
+        Input file path(s).
+        If :class:`str`, shell-style wildcards (e.g. ``*``) will be expanded.
     varname : str
         The variable to load from the MOPITT file.
 
@@ -147,6 +148,8 @@ def open_dataset(files, varname):
     """
     if isinstance(files, str):
         filelist = sorted(glob.glob(files, recursive=False))
+    elif isinstance(files, Path):
+        filelist = [files]
     else:
         filelist = files  # assume list
 

@@ -1,4 +1,5 @@
 """Read NASA Suomi NPP OMPS Level 3 Nadir Mapper TO3 file."""
+from pathlib import Path
 
 
 def open_dataset(files):
@@ -6,7 +7,9 @@ def open_dataset(files):
 
     Parameters
     ----------
-    files: str or list of str
+    files: str or Path or list
+        Input file path(s).
+        If :class:`str`, shell-style wildcards (e.g. ``*``) will be expanded.
 
     Returns
     -------
@@ -16,8 +19,10 @@ def open_dataset(files):
 
     import xarray as xr
 
-    if isinstance(files, str):
+    if isinstance(files, (str, Path)):
         filelist = sorted(glob(files, recursive=False))
+    elif isinstance(files, Path):
+        filelist = [files]
     else:
         filelist = files  # assume list
 
