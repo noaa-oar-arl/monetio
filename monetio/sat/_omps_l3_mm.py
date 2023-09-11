@@ -1,5 +1,8 @@
-def read_OMPS_l3(files):
-    """Loop to open OMPS nadir mapper Total Column Ozone L3 files.
+"""Read NASA Suomi NPP OMPS Level 3 Nadir Mapper TO3 file."""
+
+
+def open_dataset(files):
+    """Open OMPS nadir mapper Total Column Ozone L3 files.
 
     Parameters
     ----------
@@ -11,29 +14,29 @@ def read_OMPS_l3(files):
     """
     from glob import glob
 
-    import numpy as np
     import xarray as xr
 
-    start_dataset = True
+    if isinstance(files, str):
+        filelist = sorted(glob(files, recursive=False))
+    else:
+        filelist = files  # assume list
+
     times = []
-    filelist = sorted(glob(files, recursive=False))
-
+    datasets = []
     for filename in filelist:
-        data = extract_OMPS_l3(filename)
-        times.append(data.attrs["time"])
-        del data.attrs["time"]
-        if start_dataset:
-            data_array = data
-            start_dataset = False
-        else:
-            data_array = xr.concat([data_array, data], "time")
-    data_array["time"] = (("time"), np.array(times))
-    data_array = data_array.reset_coords().set_coords(["latitude", "longitude", "time"])
-    return data_array
+        data = _open_one_dataset(filename)
+        times.append(data.attrs.pop("time"))
+        datasets.append(data)
+
+    ds = xr.concat(datasets, dim="time")
+    ds["time"] = (("time"), times)
+    ds = ds.reset_coords().set_coords(["latitude", "longitude", "time"])
+
+    return ds
 
 
-def extract_OMPS_l3(fname):
-    """Read locally stored NASA Suomi NPP OMPS Level 3 Nadir Mapper TO3 files
+def _open_one_dataset(fname):
+    """Read locally stored NASA Suomi NPP OMPS Level 3 Nadir Mapper TO3 file.
 
     Parameters
     ----------
@@ -54,9 +57,9 @@ def extract_OMPS_l3(fname):
         lon = f["Longitude"][:]
         column = f["ColumnAmountO3"][:]
         cloud_fraction = f["RadiativeCloudFraction"][:]
-        time = pd.to_datetime(f.attrs.__getitem__("Date").decode("UTF-8"), format="%Y-%m-%d")
+        time = pd.to_datetime(f.attrs.get("Date").decode("UTF-8"), format=r"%Y-%m-%d")
 
-    # remove cloudy scenes and points with no data (eg. polar dark zone)
+    # Remove cloudy scenes and points with no data (eg. polar dark zone)
     column[(column < 0)] = np.nan
     column[(cloud_fraction > 0.3)] = np.nan
     lon_2d, lat_2d = np.meshgrid(lon, lat)

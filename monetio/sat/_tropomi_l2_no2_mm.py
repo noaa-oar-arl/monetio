@@ -1,4 +1,4 @@
-# Reading TROPOMI L2 NO2 data
+"""Read TROPOMI L2 NO2 data."""
 
 import logging
 import os
@@ -10,18 +10,17 @@ import numpy as np
 import xarray as xr
 from netCDF4 import Dataset
 
-# from monetio.hdf.hdfio import hdf_open, hdf_close, hdf_list, hdf_read
 
-
-def read_dataset(fname, variable_dict):
+def _open_one_dataset(fname, variable_dict):
     """
     Parameters
     ----------
     fname : str
         Input file path.
+    variable_dict : dict
 
     Returns
-    _______
+    -------
     xarray.Dataset
     """
     print("reading " + fname)
@@ -75,36 +74,37 @@ def read_dataset(fname, variable_dict):
 
 
 def apply_quality_flag(ds):
-    """
+    """Mask variables in place based on quality flag.
+
     Parameters
-    __________
+    ----------
     ds : xarray.Dataset
     """
     if "quality_flag" in ds.attrs:
         quality_flag = ds[ds.attrs["quality_flag"]]
         quality_thresh_min = ds.attrs["quality_thresh_min"]
 
-        # apply the quality thresh minimum to all variables in ds
-
+        # Apply the quality thresh minimum to all variables in ds
         for varname in ds:
             print(varname)
             if varname != ds.attrs["quality_flag"]:
                 logging.debug(varname)
                 values = ds[varname].values
-
                 values[quality_flag <= quality_thresh_min] = np.nan
-                ds[varname].values = values
 
 
-def read_trpdataset(fnames, variable_dict, debug=False):
+def open_dataset(fnames, variable_dict, debug=False):
     """
     Parameters
-    __________
+    ----------
     fnames : str
-        Regular expression for input file paths.
+        Glob expression for input file paths.
+    variable_dict : dict
+    debug : bool
+        Set logging level to debug.
 
     Returns
-    _______
+    -------
     xarray.Dataset
     """
     if debug:
@@ -127,7 +127,7 @@ def read_trpdataset(fnames, variable_dict, debug=False):
     files = sorted(glob(fnames))
     granules = OrderedDict()
     for file in files:
-        granule = read_dataset(file, variable_dict)
+        granule = _open_one_dataset(file, variable_dict)
         apply_quality_flag(granule)
         granule_str = file.split("/")[-1]
         granule_info = granule_str.split("____")

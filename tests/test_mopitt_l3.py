@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from monetio.sat._mopitt_l3_mm import getStartTime, loadAndExtractGriddedHDF
+from monetio.sat._mopitt_l3_mm import get_start_time, load_variable
 
 HERE = Path(__file__).parent
 
@@ -28,12 +28,12 @@ def get_test_path():
 
 
 def test_get_start_time():
-    t = getStartTime(get_test_path())
+    t = get_start_time(get_test_path())
     assert t.floor("D") == pd.Timestamp("2017-01-01")
 
 
 def test_read_da():
-    ds = loadAndExtractGriddedHDF(get_test_path(), "column")
+    ds = load_variable(get_test_path(), "column")
     assert set(ds.coords) == {"lon", "lat"}
     assert set(ds) == {"column"}
     assert ds.column.mean() > 0

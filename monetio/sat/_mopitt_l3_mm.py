@@ -1,9 +1,12 @@
-""" MOPITT gridded data File reader
-    updated 2023-08 rrb
-         * Added units
-    updated 2022-10 rrb
-         * DataSet instead of DataArray
-    created 2021-12 rrb
+"""MOPITT gridded data file reader.
+
+History:
+
+- updated 2023-08 rrb
+  * Added units
+- updated 2022-10 rrb
+  * Dataset instead of DataArray
+- created 2021-12 rrb
 """
 import glob
 
@@ -12,7 +15,7 @@ import xarray as xr
 
 
 def get_start_time(filename):
-    """Method to read the time in MOPITT level 3 hdf files.
+    """Method to read the time in MOPITT level 3 HDF files.
 
     Parameters
     ----------
@@ -47,9 +50,9 @@ def get_start_time(filename):
     return startTime
 
 
-def loadAndExtractGriddedHDF(filename, varname):
-    """Method to open MOPITT gridded hdf files.
-    Masks data that is missing (turns into np.nan).
+def load_variable(filename, varname):
+    """Method to open MOPITT gridded HDF files.
+    Masks data that is missing (turns into ``np.nan``).
 
     Parameters
     ----------
@@ -64,10 +67,9 @@ def loadAndExtractGriddedHDF(filename, varname):
     """
     import h5py
 
-    # initialize into dataset
     ds = xr.Dataset()
 
-    # load the dimensions
+    # Load the dimensions
     he5_load = h5py.File(filename, mode="r")
     lat = he5_load["/HDFEOS/GRIDS/MOP03/Data Fields/Latitude"][:]
     lon = he5_load["/HDFEOS/GRIDS/MOP03/Data Fields/Longitude"][:]
@@ -91,32 +93,51 @@ def loadAndExtractGriddedHDF(filename, varname):
 
     he5_load.close()
 
-    # DEBEG
-    # print(data_loaded.shape)
-
-    # create xarray DataArray
+    # Create xarray DataArray
     if varname == "column":
-        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat"], coords=[lon, lat],
-                                   attrs={"long_name":"Retrieved CO Total Column", "units":"molec/cm^2",})
+        ds[varname] = xr.DataArray(
+            data_loaded,
+            dims=["lon", "lat"],
+            coords=[lon, lat],
+            attrs={
+                "long_name": "Retrieved CO Total Column",
+                "units": "molec/cm^2",
+            },
+        )
         # missing value -> nan
         ds[varname] = ds[varname].where(ds[varname] != -9999.0)
     elif varname == "ak_col":
-        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat", "alt"], coords=[lon, lat, alt],
-                                   attrs={"long_name":"Total Column Averaging Kernel", "units":"mol/(cm^2 log(VMR))",})
+        ds[varname] = xr.DataArray(
+            data_loaded,
+            dims=["lon", "lat", "alt"],
+            coords=[lon, lat, alt],
+            attrs={
+                "long_name": "Total Column Averaging Kernel",
+                "units": "mol/(cm^2 log(VMR))",
+            },
+        )
     elif varname == "apriori_prof":
-        ds[varname] = xr.DataArray(data_loaded, dims=["lon", "lat", "alt"], coords=[lon, lat, alt_short],
-                                   attrs={'long_name':'A Priori CO Mixing Ratio Profile', 'units':'ppbv',})
+        ds[varname] = xr.DataArray(
+            data_loaded,
+            dims=["lon", "lat", "alt"],
+            coords=[lon, lat, alt_short],
+            attrs={
+                "long_name": "A Priori CO Mixing Ratio Profile",
+                "units": "ppbv",
+            },
+        )
 
     return ds
 
 
-def read_mopittdataset(files, varname):
-    """Loop through files to open the MOPITT level 3 data.
+def open_dataset(files, varname):
+    """Loop through files to open the MOPITT level 3 data for variable `varname`.
 
     Parameters
     ----------
     files : str or list of str
-        The full path to the file or files. Can take a file template with wildcard (*) symbol.
+        The full path to the file or files.
+        Can take a file template with wildcard (``*``) symbol.
     varname : str
         The variable to load from the MOPITT file.
 
@@ -124,19 +145,17 @@ def read_mopittdataset(files, varname):
     -------
     xarray.Dataset
     """
+    if isinstance(files, str):
+        filelist = sorted(glob.glob(files, recursive=False))
+    else:
+        filelist = files  # assume list
 
-    count = 0
-    filelist = sorted(glob.glob(files, recursive=False))
-
+    datasets = []
     for filename in filelist:
         print(filename)
-        data = loadAndExtractGriddedHDF(filename, varname)
+        data = load_variable(filename, varname)
         time = get_start_time(filename)
         data = data.expand_dims(axis=0, time=[time])
-        if count == 0:
-            full_dataset = data
-            count += 1
-        else:
-            full_dataset = xr.concat([full_dataset, data], "time")
+        datasets.append(data)
 
-    return full_dataset
+    return xr.concat(datasets, dim="time")
