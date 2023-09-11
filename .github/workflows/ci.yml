@@ -89,9 +89,8 @@ jobs:
         with:
           environment-file: docs/environment-docs.yml
           cache-environment: true
-
-      - name: Downgrade OpenSSL (for AQS URL linkcheck)
-        run: micromamba install 'openssl <3'
+          create-args: >-
+            openssl=1.1.1w
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck
