@@ -47,7 +47,7 @@ jobs:
           cache-environment: true
           create-args: >-
             python=${{ matrix.python-version }}
-            openssl=1.1.1u
+            openssl=1.1.1w
 
       - name: Set up Python (micromamba) [3.6, AQS]
         if: matrix.python-version == '3.6'
@@ -58,7 +58,7 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
             attrs=22.2.0
-            openssl=1.1.1u
+            openssl=1.1.1w
 
       - name: Test with pytest
         run: pytest -n auto -v
