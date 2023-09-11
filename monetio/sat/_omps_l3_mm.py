@@ -19,7 +19,7 @@ def open_dataset(files):
 
     import xarray as xr
 
-    if isinstance(files, (str, Path)):
+    if isinstance(files, str):
         filelist = sorted(glob(files, recursive=False))
     elif isinstance(files, Path):
         filelist = [files]

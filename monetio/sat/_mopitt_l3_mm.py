@@ -25,7 +25,7 @@ def get_start_time(filename):
 
     Returns
     -------
-    pandas.Timestamp or None or 0
+    pandas.Timestamp or pandas.NaT
     """
     import h5py
 
@@ -35,8 +35,15 @@ def get_start_time(filename):
 
     grp = inFile[structure]
     k = grp.attrs
-    startTimeBytes = k.get("StartTime", default=None)
-    startTime = pd.to_datetime(startTimeBytes[0], unit="s", origin="1993-01-01 00:00:00")
+    startTimeBytes = k.get("StartTime", default=None)  # one-element float array
+    if startTimeBytes is None:
+        startTime = pd.NaT
+    else:
+        startTime = pd.to_datetime(
+            startTimeBytes[0],
+            unit="s",
+            origin="1993-01-01 00:00:00",
+        )
 
     inFile.close()
 
