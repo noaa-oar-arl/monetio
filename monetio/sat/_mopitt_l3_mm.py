@@ -31,22 +31,14 @@ def get_start_time(filename):
 
     structure = "/HDFEOS/ADDITIONAL/FILE_ATTRIBUTES"
 
-    try:
-        inFile = h5py.File(filename, "r")
-    except Exception:
-        print("ERROR: CANNOT OPEN " + filename)
-        return 0
+    inFile = h5py.File(filename, "r")
 
     grp = inFile[structure]
     k = grp.attrs
     startTimeBytes = k.get("StartTime", default=None)
     startTime = pd.to_datetime(startTimeBytes[0], unit="s", origin="1993-01-01 00:00:00")
 
-    try:
-        inFile.close()
-    except Exception:
-        print("ERROR CANNOT CLOSE " + filename)
-        return 0
+    inFile.close()
 
     return startTime
 
@@ -86,11 +78,9 @@ def load_variable(filename, varname):
         "ak_col": "/HDFEOS/GRIDS/MOP03/Data Fields/TotalColumnAveragingKernelDay",
         "ak_prof": "/HDFEOS/GRIDS/MOP03/Data Fields/APrioriCOMixingRatioProfileDay",
     }
-    try:
-        data_loaded = he5_load[variable_dict[varname]][:]
-    except Exception:
-        print("ERROR: Cannot load " + varname + " from " + filename)
-        return 0
+    if varname not in variable_dict:
+        raise ValueError(f"Variable {varname!r} not in {sorted(variable_dict)}.")
+    data_loaded = he5_load[variable_dict[varname]][:]
 
     he5_load.close()
 
