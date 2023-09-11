@@ -1,4 +1,3 @@
-import shutil
 import warnings
 from pathlib import Path
 
@@ -11,7 +10,7 @@ from monetio.sat._mopitt_l3_mm import get_start_time, load_variable, open_datase
 HERE = Path(__file__).parent
 
 
-def copy_test_file(p_test):
+def retrieve_test_file():
     fn = "MOP03JM-201701-L3V95.9.3.he5"
 
     # Download to tests/data if not already present
@@ -29,29 +28,20 @@ def copy_test_file(p_test):
         with open(p, "wb") as f:
             f.write(r.content)
 
-    # Copy to test location
-    shutil.copy(p, p_test)
+    return p
 
 
 @pytest.fixture(scope="session")
 def test_file_path(tmp_path_factory, worker_id):
-    # Get the temp directory shared by all workers
-    root_tmp_dir = tmp_path_factory.getbasetemp().parent
-
-    p_test = root_tmp_dir / "mop.he5"
+    p = retrieve_test_file()
 
     if worker_id == "master":
-        # Not executing with multiple workers; just produce the data and let
-        # pytest's fixture caching do its job
-        copy_test_file(p_test)
-        return p_test
+        # Not executing with multiple workers;
+        # let pytest's fixture caching do its job
+        return p
 
-    with FileLock(str(p_test) + ".lock"):
-        if p_test.is_file():
-            return p_test
-        else:
-            copy_test_file(p_test)
-            return p_test
+    with FileLock(p.as_posix() + ".lock"):
+        return p
 
 
 def test_get_start_time(test_file_path):
