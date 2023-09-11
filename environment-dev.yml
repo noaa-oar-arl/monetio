@@ -22,6 +22,7 @@ dependencies:
   - requests
   #
   # test
+  - filelock
   - pytest
   - pytest-xdist
   #
