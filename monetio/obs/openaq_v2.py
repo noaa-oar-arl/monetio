@@ -71,7 +71,7 @@ for page in range(1, n_pages + 1):
             "page": page,
             # Page in query results
             # Must be <= 6000
-            "parameter": ["pm1", "pm25", "pm10", "no2", "o3"],
+            "parameter": ["o3", "pm25", "pm10", "co", "no2"],
             # There are (too) many parameters!
             "country": "US",
             # "city": ["Boulder", "BOULDER", "Denver", "DENVER"],
