@@ -4,14 +4,55 @@ import json
 import pandas as pd
 import requests
 
-t_from = "2023-09-04"
-t_to = "2023-09-04T23:59:59"
+#
+# Get locations
+#
 
-n_pages = 20
+# r = requests.get(
+#     "https://api.openaq.org/v2/locations",
+#     params={
+#         "country": "US",
+#         "page": 1,
+#         "limit": 500,
+#     },
+# )
+# r.raise_for_status()
+# data = r.json()
+
+#
+# Get cities
+#
+
+# r = requests.get(
+#     "https://api.openaq.org/v2/cities",
+#     params={
+#         "country": "US",
+#         "page": 1,
+#         "limit": 500,
+#     },
+# )
+# r.raise_for_status()
+# data = r.json()
+
+#
+# Get data
+#
+
+# t_from = "2023-09-04T"
+# t_to = "2023-09-04T23:59:59"
+
+t_from = "2023-09-03T23:59:59"
+# ^ seems to be necessary to get 0 UTC
+# so I guess (from < time <= to) == (from , to] is used
+# i.e. `from` is exclusive, `to` is inclusive
+t_to = "2023-09-04T23:00:00"
+
+res_limit_per_page = 500  # max number of results per page
+n_pages = 50  # max number of pages
 
 data = []
 for page in range(1, n_pages + 1):
-    print(page)
+    print(f"page {page}")
     r = requests.get(
         "https://api.openaq.org/v2/measurements",
         headers={
@@ -21,24 +62,45 @@ for page in range(1, n_pages + 1):
         params={
             "date_from": t_from,
             "date_to": t_to,
-            "limit": 100,
+            "limit": res_limit_per_page,
             # Number of results in response
             # Default: 100
             # "limit + offset must be <= 100_000"
             # where offset = limit * (page - 1)
             # => limit * page <= 100_000
             "page": page,
+            # Page in query results
             # Must be <= 6000
-            "parameter": ["pm25", "no2", "o3"],
+            "parameter": ["pm1", "pm25", "pm10", "no2", "o3"],
             # There are (too) many parameters!
+            "country": "US",
+            # "city": ["Boulder", "BOULDER", "Denver", "DENVER"],
+            # Seems like PurpleAir sensors (often?) don't have city listed
+            # But can get them with the coords + radius search
+            "coordinates": "39.9920859,-105.2614118",  # CSL-ish
+            # lat/lon, "up to 8 decimal points of precision"
+            "radius": 10_000,  # meters
+            # Search radius has a max of 25_000 (25 km)
+            "include_fields": ["sourceType", "sourceName"],  # not working
         },
         timeout=10,
     )
     r.raise_for_status()
     this_data = r.json()
+    found = this_data["meta"]["found"]
+    print(f"found {found}")
+    n = len(this_data["results"])
+    if n == 0:
+        break
+    if n < res_limit_per_page:
+        print(f"note: results returned ({n}) < limit ({res_limit_per_page})")
     data.extend(this_data["results"])
 
+if isinstance(found, str) and found.startswith(">"):
+    print("warning: some query results not fetched")
+
 df = pd.DataFrame(data)
+assert not df.empty
 
 #  #   Column       Non-Null Count  Dtype
 # ---  ------       --------------  -----
