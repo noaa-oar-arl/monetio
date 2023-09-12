@@ -26,7 +26,7 @@ def add_data(dates, n_procs=1):
     return a.add_data(dates, num_workers=n_procs)
 
 
-def read_json(fp_or_url):
+def read_json(fp_or_url, *, verbose=True):
     """Read a json file from the OpenAQ server, returning dataframe in non-wide format.
 
     Parameters
@@ -98,12 +98,13 @@ def read_json(fp_or_url):
         averagingPeriod=averagingPeriod,
     )
 
-    print(f"{perf_counter() - tic:.3f}s")
+    if verbose:
+        print(f"{perf_counter() - tic:.3f}s")
 
     return df
 
 
-def read_json2(fp_or_url):  # TODO: go through the JSON with Python
+def read_json2(fp_or_url, *, verbose=True):
     """Read a json file from the OpenAQ server, returning dataframe in non-wide format.
 
     Parameters
@@ -162,7 +163,8 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
             data = json.loads(line)
             coords = data.get("coordinates")
             if coords is None:
-                print("Skipping row since no coords:", data)
+                if verbose:
+                    print("Skipping row since no coords:", data)
                 continue
 
             # Time
@@ -218,7 +220,8 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
 
     df["time_local"] = df["time"] + df["utcoffset"]
 
-    print(f"{perf_counter() - tic:.3f}s")
+    if verbose:
+        print(f"{perf_counter() - tic:.3f}s")
 
     return df
 
@@ -281,6 +284,8 @@ class OPENAQ:
         return urls
 
     def add_data(self, dates, *, num_workers=1):
+        from functools import partial
+
         import dask
         import dask.dataframe as dd
 
@@ -299,7 +304,8 @@ class OPENAQ:
         if len(urls) > 1:
             print(urls[-1])
 
-        dfs = [dask.delayed(read_json2)(f) for f in urls]
+        func = partial(read_json2, verbose=False)
+        dfs = [dask.delayed(func)(url) for url in urls]
         df_lazy = dd.from_delayed(dfs)
         df = df_lazy.compute(num_workers=num_workers)
 
@@ -308,7 +314,7 @@ class OPENAQ:
 
         # Ensure consistent units, e.g. ppm for molecules
         self._fix_units(df)
-        non_molec = ["pm1", "pm25", "pm4", "pm10", "bc", "nox"]
+        non_molec = ["pm1", "pm25", "pm4", "pm10", "bc"]
         good = (df[~df.parameter.isin(non_molec)].unit.dropna() == "ppm").all()
         if not good:
             unique_params = sorted(df.parameter.unique())
@@ -343,6 +349,7 @@ class OPENAQ:
         # - air density: 1.2 kg m -3
         # rounded to 3 significant figures.
         fs = {"co": 1160, "o3": 1990, "so2": 2650, "no2": 1900, "ch4": 664, "no": 1240}
+        fs["nox"] = fs["no2"]  # Need to make an assumption about NOx MW
         for vn, f in fs.items():
             is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
             df.loc[is_ug, "value"] /= f
