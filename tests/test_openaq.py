@@ -26,15 +26,15 @@ o = openaq.OPENAQ()
 days_avail = o._get_available_days(pd.date_range("2019-08-01", "2019-08-03"))
 files = o._get_files_in_day(pd.to_datetime("2019-08-01"))
 
-# from dask.diagnostics import ProgressBar
+from dask.diagnostics import ProgressBar
 
-# ProgressBar().register()
+ProgressBar().register()
 
 # df = openaq.add_data(["2016-08-01", "2016-08-01 23:00"], n_procs=1)  # one file
-# df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=4)  # many files
+df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=4)  # many files
 
-df = openaq.read_json2(
-    # "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson"  # 1 MB
-    # "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"  # 10 MB
-    "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"
-)
+# df = openaq.read_json2(
+#     # "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson"  # 1 MB
+#     # "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"  # 10 MB
+#     "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"
+# )

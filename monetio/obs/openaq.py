@@ -120,8 +120,13 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
 
     tic = perf_counter()
 
-    if fp_or_url.startswith("http"):
+    if isinstance(fp_or_url, str) and fp_or_url.startswith(("http", "s3")):
         import requests
+
+        if fp_or_url.startswith("s3"):
+            fp_or_url = fp_or_url.replace(
+                "s3://openaq-fetches/", "https://openaq-fetches.s3.amazonaws.com/"
+            )
 
         r = requests.get(fp_or_url, stream=True, timeout=2)
         r.raise_for_status()
@@ -294,7 +299,7 @@ class OPENAQ:
         if len(urls) > 1:
             print(urls[-1])
 
-        dfs = [dask.delayed(read_json)(f) for f in urls]
+        dfs = [dask.delayed(read_json2)(f) for f in urls]
         df_lazy = dd.from_delayed(dfs)
         df = df_lazy.compute(num_workers=num_workers)
 
@@ -356,6 +361,7 @@ class OPENAQ:
                 "location",
                 "city",
                 "country",
+                "attribution",  # currently only in Python reader
                 "sourceName",
                 "sourceType",
                 "mobile",
