@@ -146,6 +146,7 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
         "city",
         "country",
         #
+        "attribution",
         "sourceName",
         "sourceType",
         "mobile",
@@ -175,7 +176,13 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
             else:
                 averagingPeriod = None
 
-            # TODO: attribution
+            # Attribution
+            attrs = data.get("attribution")
+            if attrs is not None:
+                attr_names = [a["name"] for a in attrs]
+                # if len(attr_names) > 1:
+                #     print(f"Taking first of {len(attr_names)}:", attr_names)
+                attr_name = attr_names[0]  # Just the (hopefully) primary one
 
             rows.append(
                 (
@@ -194,6 +201,7 @@ def read_json2(fp_or_url):  # TODO: go through the JSON with Python
                     data["city"],
                     data["country"],
                     #
+                    attr_name,
                     data["sourceName"],
                     data["sourceType"],
                     data["mobile"],
