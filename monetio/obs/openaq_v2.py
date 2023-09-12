@@ -14,7 +14,10 @@ for page in range(1, n_pages + 1):
     print(page)
     r = requests.get(
         "https://api.openaq.org/v2/measurements",
-        headers={"Accept": "application/json"},
+        headers={
+            "Accept": "application/json",
+            # "X-API-Key": "",  # TODO
+        },
         params={
             "date_from": t_from,
             "date_to": t_to,
@@ -27,7 +30,7 @@ for page in range(1, n_pages + 1):
             "page": page,
             # Must be <= 6000
             "parameter": ["pm25", "no2", "o3"],
-            # There are many parameters!
+            # There are (too) many parameters!
         },
         timeout=10,
     )
