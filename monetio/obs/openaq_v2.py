@@ -1,8 +1,16 @@
 """Get AQ data from the OpenAQ v2 REST API."""
 import json
+import os
 
 import pandas as pd
 import requests
+
+API_KEY = os.environ.get("OPENAQ_API_KEY", None)
+if API_KEY is None:
+    print(
+        "warning: non-cached requests will be slow without API key. "
+        "Obtain one and set your OPENAQ_API_KEY environment variable."
+    )
 
 #
 # Get locations
@@ -57,7 +65,7 @@ for page in range(1, n_pages + 1):
         "https://api.openaq.org/v2/measurements",
         headers={
             "Accept": "application/json",
-            # "X-API-Key": "",  # TODO
+            "X-API-Key": API_KEY,
         },
         params={
             "date_from": t_from,
