@@ -236,10 +236,14 @@ def test_interp_daily_with_pytspack():
     ],
 )
 def test_issue100(dates, request):
-    if request.node.callspec.id == "two days":
-        pytest.xfail(reason="??")
-
     df1 = aeronet.add_data(dates, n_procs=1)
     df2 = aeronet.add_data(dates, n_procs=2)
-    assert df1.equals(df2)
+    assert len(df1) == len(df2)
+    if request.node.callspec.id == "two days":
+        # Sort first (can use `df1.compare(df2)` for debugging)
+        df1_ = df1.sort_values(["time", "siteid"]).reset_index(drop=True)
+        df2_ = df2.sort_values(["time", "siteid"]).reset_index(drop=True)
+        assert df1_.equals(df2_)
+    else:
+        assert df1.equals(df2)
     assert dates[0] < df1.time.min() < df1.time.max() < dates[-1]
