@@ -241,6 +241,8 @@ def test_issue100(dates, request):
     assert len(df1) == len(df2)
     if request.node.callspec.id == "two days":
         # Sort first (can use `df1.compare(df2)` for debugging)
+        # Seems the sorting is site then time, not time then site
+        # which is why this is necessary
         df1_ = df1.sort_values(["time", "siteid"]).reset_index(drop=True)
         df2_ = df2.sort_values(["time", "siteid"]).reset_index(drop=True)
         assert df1_.equals(df2_)
