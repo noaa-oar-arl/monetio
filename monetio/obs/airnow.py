@@ -177,6 +177,10 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_
         before loading.
     n_procs : int
         For Dask.
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
+        How to handle bad UTC offsets
+        (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
+        ``'fix'`` will use ``timezonefinder`` if it is installed.
 
     Returns
     -------
@@ -244,6 +248,10 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
 
         Note: ``daily_data_v2.dat`` (includes AQI) is not available for all times,
         so we use ``daily_data.dat``.
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
+        How to handle bad UTC offsets
+        (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
+        ``'fix'`` will use ``timezonefinder`` if it is installed.
 
     Returns
     -------
@@ -275,7 +283,10 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     Parameters
     ----------
     max : int
-    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
+        How to handle bad UTC offsets
+        (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
+        ``'fix'`` will use ``timezonefinder`` if it is installed.
 
     Returns
     -------
