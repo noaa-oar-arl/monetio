@@ -75,6 +75,7 @@ def test_check_zero_utc_offsets(date, bad_utcoffset):
     df = airnow.add_data(dates, daily=False, wide_fmt=True, bad_utcoffset=bad_utcoffset)
     # NOTE: No utcoffset in the data if daily
 
+    assert -180 <= df.longitude.min() < 0 < df.longitude.max() < 180
     bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
     bad_sites = bad_rows.groupby("siteid")[["siteid", "site", "longitude"]].first()
     if bad_utcoffset == "leave":
