@@ -146,7 +146,7 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
-    requested_parallel = n_procs > 1 or n_procs <= -1
+    requested_parallel = n_procs != 1
 
     # Split up by day
     dates = pd.to_datetime(dates)
