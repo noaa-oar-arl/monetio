@@ -317,7 +317,7 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
 
 
 def get_utcoffset(lat, lon):
-    """Get UTC offset for standard time.
+    """Get UTC offset for standard time (hours).
 
     Will use timezonefinder and pytz if installed.
     Otherwise will guess based on the lon (and warn).
