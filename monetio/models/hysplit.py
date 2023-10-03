@@ -500,7 +500,7 @@ class ModelBin:
         filename - name of cdump file to open
         drange - [date1, date2] - range of dates to load data for. if []
                  then loads all data.
-                 date1 and date2  should be datetime ojbects.
+                 date1 and date2  should be datetime objects.
         verbose - turns on print statements
         century - if None will try to guess the century by looking
                  at the last two digits of the year.
