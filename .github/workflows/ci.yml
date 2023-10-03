@@ -11,18 +11,12 @@ on:
 
 jobs:
   test:
-    name: Test (Py ${{ matrix.python-version }}${{ matrix.aqs && ', AQS' || '' }})
+    name: Test (Py ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
-        aqs: [false]
-        include:
-          - python-version: "3.6"
-            aqs: true
-          - python-version: "3.10"
-            aqs: true
+        python-version: ["3.6", "3.8", "3.10"]
     defaults:
       run:
         shell: bash -l {0}
@@ -30,8 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python (micromamba) [>3.6, no AQS]
-        if: matrix.python-version != '3.6' && !matrix.aqs
+      - name: Set up Python (micromamba) [>3.6]
+        if: matrix.python-version != '3.6'
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: environment-dev.yml
@@ -39,17 +33,7 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
 
-      - name: Set up Python (micromamba) [>3.6, AQS]
-        if: matrix.python-version != '3.6' && matrix.aqs
-        uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-file: environment-dev.yml
-          cache-environment: true
-          create-args: >-
-            python=${{ matrix.python-version }}
-            openssl=1.1.1w
-
-      - name: Set up Python (micromamba) [3.6, AQS]
+      - name: Set up Python (micromamba) [3.6]
         if: matrix.python-version == '3.6'
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -58,7 +42,6 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
             attrs=22.2.0
-            openssl=1.1.1w
 
       - name: Test with pytest
         run: pytest -n auto -v
@@ -67,11 +50,6 @@ jobs:
         run: |
           pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
           pytest -n auto -v -k with_pytspack
-
-      - name: Test AQS
-        if: matrix.aqs
-        run: |
-          pytest -n auto -v -k aqs
 
   docs:
     name: Check docs build
@@ -89,8 +67,6 @@ jobs:
         with:
           environment-file: docs/environment-docs.yml
           cache-environment: true
-          create-args: >-
-            openssl=1.1.1w
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck
