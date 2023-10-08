@@ -214,6 +214,8 @@ def get_traj(tdump):
           Date and Time are a Datetime Object
 
     """
+    # 2023 Oct 8. the method of parsing dates was generating a warning.
+    #             rewrote so no warning is generated.
     # Going back to first line of file
     tdump.seek(0)
     # Gets the starting locations
@@ -224,6 +226,28 @@ def get_traj(tdump):
     variables = varibs[1:]
     # Read the traj arrays into pandas dataframe
     heads = [
+        "traj_num",
+        "met_grid",
+        "forecast_hour",
+        "traj_age",
+        "latitude",
+        "longitude",
+        "altitude",
+    ] + variables + ['time']
+    def dateparse(row):
+        slist = [row[2],row[3],row[4],row[5],row[6]]
+        tstr = ' '.join(slist)
+        tstr = time_str_fixer(tstr)
+        tdate = pd.to_datetime(tstr,format="%y %m %d %H %M")
+        return tdate 
+    dhash = {0:int,1:int,2:str,3:str,4:str,5:str,6:str,7:float,8:float,9:float,10:float,11:float}
+    traj = pd.read_csv(tdump, header=None, sep=r"\s+",dtype=dhash)
+    traj['time'] = traj.apply(lambda row: dateparse(row),axis=1)
+    traj = traj.drop([2,3,4,5,6],axis=1)
+    # Adds headers to dataframe
+    traj.columns = heads
+    # Makes all headers lowercase
+    neworder = [
         "time",
         "traj_num",
         "met_grid",
@@ -232,13 +256,7 @@ def get_traj(tdump):
         "latitude",
         "longitude",
         "altitude",
-    ] + variables
-    traj = pd.read_csv(tdump, header=None, sep=r"\s+", parse_dates={"time": [2, 3, 4, 5, 6]})
-    # Adds headers to dataframe
-    traj.columns = heads
-    # Makes all headers lowercase
+    ] + variables 
+    traj = traj[neworder]
     traj.columns = map(str.lower, traj.columns)
-    # Puts time datetime object
-    traj["time"] = traj.apply(lambda row: time_str_fixer(row["time"]), axis=1)
-    traj["time"] = pd.to_datetime(traj["time"], format="%y %m %d %H %M")
     return traj
