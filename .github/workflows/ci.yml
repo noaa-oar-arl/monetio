@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    name: Test
+    name: Test (Py ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
     strategy:
@@ -22,28 +22,34 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python (micromamba)
-        uses: mamba-org/provision-with-micromamba@v15
+      - name: Set up Python (micromamba) [>3.6]
+        if: matrix.python-version != '3.6'
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: environment-dev.yml
-          cache-env: true
-          extra-specs: |
+          cache-environment: true
+          create-args: >-
             python=${{ matrix.python-version }}
 
+      - name: Set up Python (micromamba) [3.6]
+        if: matrix.python-version == '3.6'
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment-dev.yml
+          cache-environment: true
+          create-args: >-
+            python=${{ matrix.python-version }}
+            attrs=22.2.0
+
       - name: Test with pytest
-        run: pytest -n auto -v -k 'not aqs'
+        run: pytest -n auto -v
 
       - name: Test with pytspack installed
         run: |
           pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
           pytest -n auto -v -k with_pytspack
-
-      - name: Downgrade OpenSSL and test AQS
-        run: |
-          micromamba install 'openssl <3'
-          pytest -n auto -v -k aqs
 
   docs:
     name: Check docs build
@@ -54,16 +60,13 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python (micromamba)
-        uses: mamba-org/provision-with-micromamba@v15
+        uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: docs/environment-docs.yml
-          cache-env: true
-
-      - name: Downgrade OpenSSL (for AQS URL linkcheck)
-        run: micromamba install 'openssl <3'
+          cache-environment: true
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck

@@ -67,7 +67,7 @@ class IMPROVE:
                 skip = True
                 skiprows = i + 1
                 break
-        # if meta data is inlcuded
+        # if meta data is included
         if skip:
             df = pd.read_csv(
                 fname,

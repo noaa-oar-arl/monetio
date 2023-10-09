@@ -61,7 +61,7 @@
 "Y","Elapsed Sample Time out of Spec.","Quality Assurance Qualifier","QA","YES",
 "1C","A 1-Point QC check exceeds acceptance criteria but there is compelling evidence that the analyzer data is valid.","Null Data Qualifier","NULL","YES",
 "AA","Sample Pressure out of Limits","Null Data Qualifier","NULL","YES","9967"
-"AB","Technician Unavaliable","Null Data Qualifier","NULL","YES","9968"
+"AB","Technician Unavailable","Null Data Qualifier","NULL","YES","9968"
 "AC","Construction/Repairs in Area","Null Data Qualifier","NULL","YES","9969"
 "AD","Shelter Storm Damage","Null Data Qualifier","NULL","YES","9970"
 "AE","Shelter Temperature Outside Limits","Null Data Qualifier","NULL","YES","9971"

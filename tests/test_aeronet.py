@@ -158,7 +158,7 @@ def test_add_data_lunar():
     assert df.index.size > 0
 
     dates = pd.date_range("2022/01/20", "2022/01/21")
-    df = aeronet.add_data(dates, lunar=True, siteid="Tucson")
+    df = aeronet.add_data(dates, lunar=True, siteid="Chilbolton")
     assert df.index.size > 0
 
 
@@ -220,3 +220,32 @@ def test_interp_daily_with_pytspack():
     df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
 
     assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        pd.to_datetime(["2019-09-01", "2019-09-02"]),
+        pd.to_datetime(["2019-09-01", "2019-09-03"]),
+        pd.to_datetime(["2019-09-01", "2019-09-01 12:00"]),
+    ],
+    ids=[
+        "one day",
+        "two days",
+        "half day",
+    ],
+)
+def test_issue100(dates, request):
+    df1 = aeronet.add_data(dates, n_procs=1)
+    df2 = aeronet.add_data(dates, n_procs=2)
+    assert len(df1) == len(df2)
+    if request.node.callspec.id == "two days":
+        # Sort first (can use `df1.compare(df2)` for debugging)
+        # Seems the sorting is site then time, not time then site
+        # which is why this is necessary
+        df1_ = df1.sort_values(["time", "siteid"]).reset_index(drop=True)
+        df2_ = df2.sort_values(["time", "siteid"]).reset_index(drop=True)
+        assert df1_.equals(df2_)
+    else:
+        assert df1.equals(df2)
+    assert dates[0] < df1.time.min() < df1.time.max() < dates[-1]

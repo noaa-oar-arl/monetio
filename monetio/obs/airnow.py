@@ -2,7 +2,7 @@
 
 import os
 
-# this is written to retrive airnow data concatenate and add to pandas array
+# this is written to retrieve airnow data concatenate and add to pandas array
 # for usage
 from datetime import datetime
 
@@ -37,6 +37,8 @@ savecols = [
     "epa_region",
 ]
 
+_TFinder = None
+
 
 def build_urls(dates, *, daily=False):
     """Construct AirNow file URLs for `dates`.
@@ -54,7 +56,7 @@ def build_urls(dates, *, daily=False):
     urls = []
     fnames = []
     print("Building AIRNOW URLs...")
-    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: other S3 servers?
+    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: use S3 URL scheme instead?
     for dt in dates:
         if daily:
             fname = "daily_data.dat"
@@ -163,7 +165,7 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
+def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
     """Short summary.
 
     Parameters
@@ -175,6 +177,10 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
         before loading.
     n_procs : int
         For Dask.
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
+        How to handle bad UTC offsets
+        (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
+        ``'fix'`` will use ``timezonefinder`` if it is installed.
 
     Returns
     -------
@@ -214,12 +220,12 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False):
         df = df[savecols]
     df.drop_duplicates(inplace=True)
 
-    df = filter_bad_values(df)
+    df = filter_bad_values(df, bad_utcoffset=bad_utcoffset)
 
     return df.reset_index(drop=True)
 
 
-def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
+def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, bad_utcoffset="drop"):
     """Retrieve and load AirNow data as a DataFrame.
 
     Note: to obtain full hourly data you must pass all desired hours
@@ -242,6 +248,10 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
 
         Note: ``daily_data_v2.dat`` (includes AQI) is not available for all times,
         so we use ``daily_data.dat``.
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
+        How to handle bad UTC offsets
+        (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
+        ``'fix'`` will use ``timezonefinder`` if it is installed.
 
     Returns
     -------
@@ -249,7 +259,13 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
     """
     from ..util import long_to_wide
 
-    df = aggregate_files(dates=dates, download=download, n_procs=n_procs, daily=daily)
+    df = aggregate_files(
+        dates=dates,
+        download=download,
+        n_procs=n_procs,
+        daily=daily,
+        bad_utcoffset=bad_utcoffset,
+    )
     if wide_fmt:
         df = (
             long_to_wide(df)
@@ -261,12 +277,16 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False):
     return df
 
 
-def filter_bad_values(df, *, max=3000):
+def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     """Mark ``obs`` values less than 0 or greater than `max` as NaN.
 
     Parameters
     ----------
     max : int
+    bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
+        How to handle bad UTC offsets
+        (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
+        ``'fix'`` will use ``timezonefinder`` if it is installed.
 
     Returns
     -------
@@ -275,7 +295,70 @@ def filter_bad_values(df, *, max=3000):
     from numpy import NaN
 
     df.loc[(df.obs > max) | (df.obs < 0), "obs"] = NaN
+
+    # Bad UTC offsets (GH #86)
+    if "utcoffset" in df.columns:
+        bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
+        if bad_utcoffset == "null":
+            df.loc[bad_rows.index, "utcoffset"] = NaN
+        elif bad_utcoffset == "drop":
+            df.drop(bad_rows.index, inplace=True)
+        elif bad_utcoffset == "fix":
+            df.loc[bad_rows.index, "utcoffset"] = bad_rows.apply(
+                lambda row: get_utcoffset(row.latitude, row.longitude),
+                axis="columns",
+            )
+        elif bad_utcoffset == "leave":
+            pass
+        else:
+            raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
+
     return df  # TODO: dropna here (since it is called `filter_bad_values`)?
+
+
+def get_utcoffset(lat, lon):
+    """Get UTC offset for standard time (hours).
+
+    Will use timezonefinder and pytz if installed.
+    Otherwise will guess based on the lon (and warn).
+
+    Parameters
+    ----------
+    lat, lon : float
+        Latitude and longitude of the location.
+
+    Returns
+    -------
+    float
+    """
+    import warnings
+
+    try:
+        import pytz
+        import timezonefinder
+    except ImportError:
+        warnings.warn(
+            "timezonefinder and/or pytz not installed, guessing UTC offset based on longitude"
+        )
+        do_guess = True
+    else:
+        do_guess = False
+
+    if do_guess:
+        lon_ = (lon + 180) % 360 - 180  # Ensure lon in [-180, 180)
+        return round(lon_ / 15, 0)
+
+    else:
+        global _TFinder
+
+        if _TFinder is None:
+            _TFinder = timezonefinder.TimezoneFinder(in_memory=True)
+
+        finder = _TFinder
+        tz_str = finder.timezone_at(lng=lon, lat=lat)
+        tz = pytz.timezone(tz_str)
+        uo = tz.utcoffset(datetime(2020, 1, 1), is_dst=False).total_seconds() / 3600
+        return uo
 
 
 def daterange(**kwargs):

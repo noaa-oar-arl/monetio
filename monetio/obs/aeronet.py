@@ -107,7 +107,7 @@ def add_data(
            during the `dates` time period.
 
         .. note::
-           `siteid` takes precendence over `latlonbox`
+           `siteid` takes precedence over `latlonbox`
            if both are specified.
     daily : bool
         Load daily averaged data.
@@ -146,16 +146,21 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
-    requested_parallel = n_procs > 1 or n_procs == -1
-    if has_joblib and requested_parallel:
-        # Split up by day
+    requested_parallel = n_procs != 1
+
+    # Split up by day
+    dates = pd.to_datetime(dates)
+    if dates is not None:
         min_date = dates.min()
         max_date = dates.max()
-        days = pd.date_range(start=min_date, end=max_date, freq="D")  # TODO: subtract 1?
-        days1 = days + pd.Timedelta(days=1)
+        time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")
+        if max_date not in time_bounds:
+            time_bounds = time_bounds.append(pd.DatetimeIndex([max_date]))
+
+    if has_joblib and requested_parallel and dates is not None and len(time_bounds) > 2:
         dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
-            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **kwargs, freq=None)
-            for d1, d2 in zip(days, days1)
+            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
+            for t1, t2 in zip(time_bounds[:-1], time_bounds[1:])
         )
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
@@ -291,7 +296,7 @@ class AERONET:
     def build_url(self):
         """Use attributes to build a URL and set :attr:`url`.
 
-        Targetting either of
+        Targeting either of
         - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_new.html
         - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
         """
@@ -462,7 +467,7 @@ class AERONET:
             now = datetime.utcnow()
             self.dates = pd.date_range(start=now.date(), end=now, freq="H")
         else:
-            self.dates = dates
+            self.dates = pd.DatetimeIndex(dates)
         if product is not None:
             self.prod = product.upper()
         else:

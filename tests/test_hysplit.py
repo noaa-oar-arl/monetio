@@ -1,8 +1,5 @@
-import datetime
-import os
-
 import numpy as np
-import pytest
+
 from monetio import hysplit
 
 
@@ -33,9 +30,9 @@ def test_003():
     xanswers = [165.0, 167.0, -149.0]
     yyy = [1, 17, 93]
     yanswers = [0.0, 8.0, 46.0]
-    grid = hysplit.get_latlongrid(attrs, xxx, yyy)
+    grid = hysplit.get_latlongrid(attrs, xxx, yyy)  # noqa: F841
     latlist, lonlist = hysplit.getlatlon(attrs)
-    gridanswer = np.meshgrid(xanswers, yanswers)
+    gridanswer = np.meshgrid(xanswers, yanswers)  # noqa: F841
 
     assert len(latlist) == 361
     assert len(lonlist) == 721

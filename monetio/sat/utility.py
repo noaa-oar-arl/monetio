@@ -120,7 +120,7 @@ def latlon_2modis_tile(lat, lon):
 
 
 # def merge_tile_data(files_to_merge, outname):
-#     """merges all swath data for a particular day and time fo day"""
+#     """merges all swath data for a particular day and time of day"""
 #     import rasterio
 
 #     src_files_to_mosaic = []
