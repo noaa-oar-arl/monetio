@@ -3,7 +3,7 @@
 combine_dataset : reads multiple tdump files
 open_dataset    : reads one tdump file
 
-open_tdump      
+open_tdump
 get_metinfo
 get_traj
 get_startlocs
@@ -17,7 +17,6 @@ import pandas as pd
 
 
 def combine_dataset(flist, taglist=None, renumber=False, verbose=False):
-
     """Opens multiple tdump files. returns Pandas DataFrame
 
     flist    : list : filenames
@@ -225,25 +224,44 @@ def get_traj(tdump):
     varibs = varibs.split(",")
     variables = varibs[1:]
     # Read the traj arrays into pandas dataframe
-    heads = [
-        "traj_num",
-        "met_grid",
-        "forecast_hour",
-        "traj_age",
-        "latitude",
-        "longitude",
-        "altitude",
-    ] + variables + ['time']
+    heads = (
+        [
+            "traj_num",
+            "met_grid",
+            "forecast_hour",
+            "traj_age",
+            "latitude",
+            "longitude",
+            "altitude",
+        ]
+        + variables
+        + ["time"]
+    )
+
     def dateparse(row):
-        slist = [row[2],row[3],row[4],row[5],row[6]]
-        tstr = ' '.join(slist)
+        slist = [row[2], row[3], row[4], row[5], row[6]]
+        tstr = " ".join(slist)
         tstr = time_str_fixer(tstr)
-        tdate = pd.to_datetime(tstr,format="%y %m %d %H %M")
-        return tdate 
-    dhash = {0:int,1:int,2:str,3:str,4:str,5:str,6:str,7:float,8:float,9:float,10:float,11:float}
-    traj = pd.read_csv(tdump, header=None, sep=r"\s+",dtype=dhash)
-    traj['time'] = traj.apply(lambda row: dateparse(row),axis=1)
-    traj = traj.drop([2,3,4,5,6],axis=1)
+        tdate = pd.to_datetime(tstr, format="%y %m %d %H %M")
+        return tdate
+
+    dhash = {
+        0: int,
+        1: int,
+        2: str,
+        3: str,
+        4: str,
+        5: str,
+        6: str,
+        7: float,
+        8: float,
+        9: float,
+        10: float,
+        11: float,
+    }
+    traj = pd.read_csv(tdump, header=None, sep=r"\s+", dtype=dhash)
+    traj["time"] = traj.apply(lambda row: dateparse(row), axis=1)
+    traj = traj.drop([2, 3, 4, 5, 6], axis=1)
     # Adds headers to dataframe
     traj.columns = heads
     # Makes all headers lowercase
@@ -256,7 +274,7 @@ def get_traj(tdump):
         "latitude",
         "longitude",
         "altitude",
-    ] + variables 
+    ] + variables
     traj = traj[neworder]
     traj.columns = map(str.lower, traj.columns)
     return traj
