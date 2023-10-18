@@ -393,7 +393,8 @@ class OPENAQ:
                 pm4="pm4_ugm3",
                 pm10="pm10_ugm3",
                 bc="bc_ugm3",
-                nox="nox_ugm3",
+                #
+                nox="nox_ppm",
             ),
             axis="columns",
             errors="ignore",
