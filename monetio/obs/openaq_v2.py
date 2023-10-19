@@ -1,4 +1,7 @@
-"""Get AQ data from the OpenAQ v2 REST API."""
+"""Get AQ data from the OpenAQ v2 REST API.
+
+https://api.openaq.org/docs#/v2
+"""
 import json
 import os
 
