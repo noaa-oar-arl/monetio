@@ -8,12 +8,12 @@ import requests
 API_KEY = os.environ.get("OPENAQ_API_KEY", None)
 if API_KEY is None:
     print(
-        "warning: non-cached requests will be slow without API key. "
+        "warning: non-cached requests to the OpenAQ v2 web API will be slow without an API key. "
         "Obtain one and set your OPENAQ_API_KEY environment variable."
     )
 
 
-def _consume(url, *, params=None, timeout=3, limit=500, npages=None):
+def _consume(url, *, params=None, timeout=10, limit=500, npages=None):
     """Consume a paginated OpenAQ API endpoint."""
     if params is None:
         params = {}
@@ -41,8 +41,8 @@ def _consume(url, *, params=None, timeout=3, limit=500, npages=None):
 
         this_data = r.json()
         found = this_data["meta"]["found"]
-        print(f"found {found}")
         n = len(this_data["results"])
+        print(f"page={page} found={found!r} n={n}")
         if n == 0:
             break
         if n < limit:
@@ -55,9 +55,9 @@ def _consume(url, *, params=None, timeout=3, limit=500, npages=None):
     return data
 
 
-def get_locations():
+def get_locations(**kwargs):
     """Get locations from OpenAQ v2 API."""
-    return _consume("https://api.openaq.org/v2/locations")
+    return _consume("https://api.openaq.org/v2/locations", **kwargs)
 
 
 def add_data():
