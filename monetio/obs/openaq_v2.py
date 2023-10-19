@@ -3,10 +3,13 @@
 https://api.openaq.org/docs#/v2
 """
 import json
+import logging
 import os
 
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
 
 API_KEY = os.environ.get("OPENAQ_API_KEY", None)
 if API_KEY is None:
@@ -45,7 +48,7 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
             r = requests.get(url, params=params, headers=headers, timeout=timeout)
             if r.status_code == 408:
                 tries += 1
-                print(f"warning: request timed out (try {tries}/{retry})")
+                logger.warning(f"request timed out (try {tries}/{retry})")
             else:
                 break
         r.raise_for_status()
@@ -53,11 +56,11 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
         this_data = r.json()
         found = this_data["meta"]["found"]
         n = len(this_data["results"])
-        print(f"page={page} found={found!r} n={n}")
+        logger.info(f"page={page} found={found!r} n={n}")
         if n == 0:
             break
         if n < limit:
-            print(f"note: results returned ({n}) < limit ({limit})")
+            logger.info(f"note: results returned ({n}) < limit ({limit})")
         data.extend(this_data["results"])
 
     if isinstance(found, str) and found.startswith(">"):
@@ -95,7 +98,13 @@ def get_locations(**kwargs):
         lat = d["coordinates"]["latitude"]
         lon = d["coordinates"]["longitude"]
         parameters = [p["parameter"] for p in d["parameters"]]
-        manufacturer = d["manufacturers"][0]["manufacturerName"] if d["manufacturers"] else None
+        mfs = d["manufacturers"]
+        if mfs:
+            manufacturer = mfs[0]["manufacturerName"]
+            if len(mfs) > 1:
+                logger.info(f"site {d['id']} has multiple manufacturers: {mfs}")
+        else:
+            manufacturer = None
         d2 = {k: d[k] for k in some_scalars}
         d2.update(
             latitude=lat,
@@ -230,7 +239,7 @@ def add_data(
                         coordinates=f"{coords[0]:.8f},{coords[1]:.8f}",
                         radius=radius,
                     )
-                    print(
+                    logger.info(
                         f"parameter={parameter!r} t_from='{t_from}' t_to='{t_to}' "
                         f"coords={coords} radius={radius}"
                     )
@@ -241,7 +250,7 @@ def add_data(
                     )
                     data.extend(data_)
             else:
-                print(f"parameter={parameter!r} t_from='{t_from}' t_to='{t_to}'")
+                logger.info(f"parameter={parameter!r} t_from='{t_from}' t_to='{t_to}'")
                 data_ = _consume(
                     "https://api.openaq.org/v2/measurements",
                     params=params,
