@@ -123,6 +123,27 @@ def get_parameters(**kwargs):
     return df
 
 
+def get_latlonbox_sites(latlonbox, **kwargs):
+    """
+    Parameters
+    ----------
+    latlonbox : array-like of float
+        ``[lat1, lon1, lat2, lon2]`` (lower-left corner, upper-right corner)
+    """
+    lat1, lon1, lat2, lon2 = latlonbox
+    sites = get_locations(**kwargs)
+
+    in_box = (
+        (sites.latitude >= lat1)
+        & (sites.latitude <= lat2)
+        & (sites.longitude >= lon1)
+        & (sites.longitude <= lon2)
+    )
+    # TODO: need to account for case of box crossing antimeridian
+
+    return sites[in_box].reset_index(drop=True)
+
+
 def add_data():
     """Get OpenAQ API v2 data, including low-cost sensors."""
 
