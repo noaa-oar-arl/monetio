@@ -108,7 +108,7 @@ def get_locations(**kwargs):
     df = pd.DataFrame(data2)
 
     # Compute datetimes (the timestamps are already in UTC, but with tz specified)
-    assert (df.firstUpdated.str.slice(-6, None) == "+00:00").all()
+    assert df.firstUpdated.str.slice(-6, None).eq("+00:00").all()
     df["firstUpdated"] = pd.to_datetime(df.firstUpdated.str.slice(0, -6))
     assert df.lastUpdated.str.slice(-6, None).eq("+00:00").all()
     df["lastUpdated"] = pd.to_datetime(df.lastUpdated.str.slice(0, -6))
