@@ -16,7 +16,7 @@ if API_KEY is None:
     )
 
 
-def _consume(url, *, params=None, timeout=10, limit=500, npages=None):
+def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
     """Consume a paginated OpenAQ API endpoint."""
     if params is None:
         params = {}
@@ -39,7 +39,15 @@ def _consume(url, *, params=None, timeout=10, limit=500, npages=None):
     data = []
     for page in range(1, npages + 1):
         params["page"] = page
-        r = requests.get(url, params=params, headers=headers, timeout=timeout)
+
+        tries = 0
+        while tries < retry:
+            r = requests.get(url, params=params, headers=headers, timeout=timeout)
+            if r.status_code == 408:
+                tries += 1
+                print(f"warning: request timed out (try {tries}/{retry})")
+            else:
+                break
         r.raise_for_status()
 
         this_data = r.json()
@@ -74,10 +82,10 @@ def get_locations(**kwargs):
         "name",
         "city",
         "country",
-        # "entity",  # all null
+        # "entity",  # all null (from /measurements we do get values)
         "isMobile",
         # "isAnalysis",  # all null
-        # "sensorType",  # all null
+        # "sensorType",  # all null (from /measurements we do get values)
         "firstUpdated",
         "lastUpdated",
     ]
@@ -144,72 +152,115 @@ def get_latlonbox_sites(latlonbox, **kwargs):
     return sites[in_box].reset_index(drop=True)
 
 
-def add_data():
+def add_data(
+    dates,
+    *,
+    parameters=None,
+    query_time_split="1H",
+    **kwargs,
+):
     """Get OpenAQ API v2 data, including low-cost sensors."""
 
-    # t_from = "2023-09-04T"
-    # t_to = "2023-09-04T23:59:59"
+    dates = pd.DatetimeIndex(dates)
+    if parameters is None:
+        parameters = ["pm25", "o3"]
+    elif isinstance(parameters, str):
+        parameters = [parameters]
+    query_dt = pd.to_timedelta(query_time_split)
+    date_min, date_max = dates.min(), dates.max()
+    if date_min == date_max:
+        raise ValueError("must provide at least two unique datetimes")
 
-    t_from = "2023-09-03T23:59:59"
-    # ^ seems to be necessary to get 0 UTC
-    # so I guess (from < time <= to) == (from , to] is used
-    # i.e. `from` is exclusive, `to` is inclusive
-    t_to = "2023-09-04T23:00:00"
-
-    res_limit_per_page = 500  # max number of results per page
-    n_pages = 50  # max number of pages
+    def iter_time_slices():
+        # seems that (from < time <= to) == (from , to] is used
+        # i.e. `from` is exclusive, `to` is inclusive
+        one_sec = pd.Timedelta(seconds=1)
+        t = date_min
+        while t < date_max:
+            t_next = t + query_dt
+            yield t - one_sec, t_next
+            t = t_next
 
     data = []
-    for page in range(1, n_pages + 1):
-        print(f"page {page}")
-        r = requests.get(
-            "https://api.openaq.org/v2/measurements",
-            headers={
-                "Accept": "application/json",
-                "X-API-Key": API_KEY,
-            },
-            params={
-                "date_from": t_from,
-                "date_to": t_to,
-                "limit": res_limit_per_page,
-                # Number of results in response
-                # Default: 100
-                # "limit + offset must be <= 100_000"
-                # where offset = limit * (page - 1)
-                # => limit * page <= 100_000
-                "page": page,
-                # Page in query results
-                # Must be <= 6000
-                "parameter": ["o3", "pm25", "pm10", "co", "no2"],
-                # There are (too) many parameters!
-                "country": "US",
-                # "city": ["Boulder", "BOULDER", "Denver", "DENVER"],
-                # Seems like PurpleAir sensors (often?) don't have city listed
-                # But can get them with the coords + radius search
-                "coordinates": "39.9920859,-105.2614118",  # CSL-ish
-                # lat/lon, "up to 8 decimal points of precision"
-                "radius": 10_000,  # meters
-                # Search radius has a max of 25_000 (25 km)
-                "include_fields": ["sourceType", "sourceName"],  # not working
-            },
-            timeout=10,
-        )
-        r.raise_for_status()
-        this_data = r.json()
-        found = this_data["meta"]["found"]
-        print(f"found {found}")
-        n = len(this_data["results"])
-        if n == 0:
-            break
-        if n < res_limit_per_page:
-            print(f"note: results returned ({n}) < limit ({res_limit_per_page})")
-        data.extend(this_data["results"])
+    for parameter in parameters:
+        for t_from, t_to in iter_time_slices():
+            print(f"parameter={parameter!r} t_from={t_from} t_to={t_to}")
+            data_ = _consume(
+                "https://api.openaq.org/v2/measurements",
+                params={
+                    "date_from": t_from,
+                    "date_to": t_to,
+                    "parameter": parameter,
+                },
+                **kwargs,
+            )
+            data.extend(data_)
 
-    if isinstance(found, str) and found.startswith(">"):
-        print("warning: some query results not fetched")
+    # # t_from = "2023-09-04T"
+    # # t_to = "2023-09-04T23:59:59"
+
+    # t_from = "2023-09-03T23:59:59"
+    # # ^ seems to be necessary to get 0 UTC
+    # # so I guess (from < time <= to) == (from , to] is used
+    # # i.e. `from` is exclusive, `to` is inclusive
+    # t_to = "2023-09-04T23:00:00"
+
+    # res_limit_per_page = 500  # max number of results per page
+    # n_pages = 50  # max number of pages
+
+    # data = []
+    # for page in range(1, n_pages + 1):
+    #     print(f"page {page}")
+    #     r = requests.get(
+    #         "https://api.openaq.org/v2/measurements",
+    #         headers={
+    #             "Accept": "application/json",
+    #             "X-API-Key": API_KEY,
+    #         },
+    #         params={
+    #             "date_from": t_from,
+    #             "date_to": t_to,
+    #             "limit": res_limit_per_page,
+    #             # Number of results in response
+    #             # Default: 100
+    #             # "limit + offset must be <= 100_000"
+    #             # where offset = limit * (page - 1)
+    #             # => limit * page <= 100_000
+    #             "page": page,
+    #             # Page in query results
+    #             # Must be <= 6000
+    #             "parameter": ["o3", "pm25", "pm10", "co", "no2"],
+    #             # There are (too) many parameters!
+    #             "country": "US",
+    #             # "city": ["Boulder", "BOULDER", "Denver", "DENVER"],
+    #             # Seems like PurpleAir sensors (often?) don't have city listed
+    #             # But can get them with the coords + radius search
+    #             "coordinates": "39.9920859,-105.2614118",  # CSL-ish
+    #             # lat/lon, "up to 8 decimal points of precision"
+    #             "radius": 10_000,  # meters
+    #             # Search radius has a max of 25_000 (25 km)
+    #             "include_fields": ["sourceType", "sourceName"],  # not working
+    #         },
+    #         timeout=10,
+    #     )
+    #     r.raise_for_status()
+    #     this_data = r.json()
+    #     found = this_data["meta"]["found"]
+    #     print(f"found {found}")
+    #     n = len(this_data["results"])
+    #     if n == 0:
+    #         break
+    #     if n < res_limit_per_page:
+    #         print(f"note: results returned ({n}) < limit ({res_limit_per_page})")
+    #     data.extend(this_data["results"])
+
+    # if isinstance(found, str) and found.startswith(">"):
+    #     print("warning: some query results not fetched")
 
     df = pd.DataFrame(data)
-    assert not df.empty
+    if df.empty:
+        print("warning: no data found")
+        return df
 
     #  #   Column       Non-Null Count  Dtype
     # ---  ------       --------------  -----
