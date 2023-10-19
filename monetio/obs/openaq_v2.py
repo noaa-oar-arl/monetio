@@ -61,7 +61,10 @@ def _consume(url, *, params=None, timeout=10, limit=500, npages=None):
 
 
 def get_locations(**kwargs):
-    """Get locations from OpenAQ v2 API."""
+    """Get available site info (including IDs) from OpenAQ v2 API.
+
+    https://api.openaq.org/docs#/v2/locations_get_v2_locations_get
+    """
 
     data = _consume("https://api.openaq.org/v2/locations", **kwargs)
 
@@ -106,6 +109,16 @@ def get_locations(**kwargs):
     df = df.rename(columns={"id": "siteid"})
     df["siteid"] = df.siteid.astype(str)
     df = df.drop_duplicates("siteid", keep="first").reset_index(drop=True)  # seem to be some dupes
+
+    return df
+
+
+def get_parameters(**kwargs):
+    """Get supported parameter info from OpenAQ v2 API."""
+
+    data = _consume("https://api.openaq.org/v2/parameters", **kwargs)
+
+    df = pd.DataFrame(data)
 
     return df
 
