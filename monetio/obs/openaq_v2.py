@@ -156,10 +156,17 @@ def add_data(
     dates,
     *,
     parameters=None,
+    search_radius=None,
     query_time_split="1H",
     **kwargs,
 ):
-    """Get OpenAQ API v2 data, including low-cost sensors."""
+    """Get OpenAQ API v2 data, including low-cost sensors.
+
+    Parameters
+    ----------
+    search_radius : dict
+        Mapping coords (lat, lon) [deg] to search radius [m] (max of 25 km).
+    """
 
     dates = pd.DatetimeIndex(dates)
     if parameters is None:
@@ -181,81 +188,41 @@ def add_data(
             yield t - one_sec, t_next
             t = t_next
 
+    params = {}
     data = []
     for parameter in parameters:
+        params.update(parameter=parameter)
         for t_from, t_to in iter_time_slices():
-            print(f"parameter={parameter!r} t_from={t_from} t_to={t_to}")
-            data_ = _consume(
-                "https://api.openaq.org/v2/measurements",
-                params={
-                    "date_from": t_from,
-                    "date_to": t_to,
-                    "parameter": parameter,
-                },
-                **kwargs,
+            params.update(
+                date_from=t_from,
+                date_to=t_to,
             )
-            data.extend(data_)
-
-    # # t_from = "2023-09-04T"
-    # # t_to = "2023-09-04T23:59:59"
-
-    # t_from = "2023-09-03T23:59:59"
-    # # ^ seems to be necessary to get 0 UTC
-    # # so I guess (from < time <= to) == (from , to] is used
-    # # i.e. `from` is exclusive, `to` is inclusive
-    # t_to = "2023-09-04T23:00:00"
-
-    # res_limit_per_page = 500  # max number of results per page
-    # n_pages = 50  # max number of pages
-
-    # data = []
-    # for page in range(1, n_pages + 1):
-    #     print(f"page {page}")
-    #     r = requests.get(
-    #         "https://api.openaq.org/v2/measurements",
-    #         headers={
-    #             "Accept": "application/json",
-    #             "X-API-Key": API_KEY,
-    #         },
-    #         params={
-    #             "date_from": t_from,
-    #             "date_to": t_to,
-    #             "limit": res_limit_per_page,
-    #             # Number of results in response
-    #             # Default: 100
-    #             # "limit + offset must be <= 100_000"
-    #             # where offset = limit * (page - 1)
-    #             # => limit * page <= 100_000
-    #             "page": page,
-    #             # Page in query results
-    #             # Must be <= 6000
-    #             "parameter": ["o3", "pm25", "pm10", "co", "no2"],
-    #             # There are (too) many parameters!
-    #             "country": "US",
-    #             # "city": ["Boulder", "BOULDER", "Denver", "DENVER"],
-    #             # Seems like PurpleAir sensors (often?) don't have city listed
-    #             # But can get them with the coords + radius search
-    #             "coordinates": "39.9920859,-105.2614118",  # CSL-ish
-    #             # lat/lon, "up to 8 decimal points of precision"
-    #             "radius": 10_000,  # meters
-    #             # Search radius has a max of 25_000 (25 km)
-    #             "include_fields": ["sourceType", "sourceName"],  # not working
-    #         },
-    #         timeout=10,
-    #     )
-    #     r.raise_for_status()
-    #     this_data = r.json()
-    #     found = this_data["meta"]["found"]
-    #     print(f"found {found}")
-    #     n = len(this_data["results"])
-    #     if n == 0:
-    #         break
-    #     if n < res_limit_per_page:
-    #         print(f"note: results returned ({n}) < limit ({res_limit_per_page})")
-    #     data.extend(this_data["results"])
-
-    # if isinstance(found, str) and found.startswith(">"):
-    #     print("warning: some query results not fetched")
+            if search_radius is not None:
+                for coords, radius in search_radius.items():
+                    if not 0 < radius <= 25_000:
+                        raise ValueError(f"invalid radius {radius!r}")
+                    params.update(
+                        coordinates=f"{coords[0]:.8f},{coords[1]:.8f}",
+                        radius=radius,
+                    )
+                    print(
+                        f"parameter={parameter!r} t_from='{t_from}' t_to='{t_to}' "
+                        f"coords={coords} radius={radius}"
+                    )
+                    data_ = _consume(
+                        "https://api.openaq.org/v2/measurements",
+                        params=params,
+                        **kwargs,
+                    )
+                    data.extend(data_)
+            else:
+                print(f"parameter={parameter!r} t_from='{t_from}' t_to='{t_to}'")
+                data_ = _consume(
+                    "https://api.openaq.org/v2/measurements",
+                    params=params,
+                    **kwargs,
+                )
+                data.extend(data_)
 
     df = pd.DataFrame(data)
     if df.empty:
