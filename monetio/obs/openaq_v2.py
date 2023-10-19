@@ -156,6 +156,7 @@ def add_data(
     dates,
     *,
     parameters=None,
+    country=None,
     search_radius=None,
     query_time_split="1H",
     **kwargs,
@@ -166,10 +167,13 @@ def add_data(
     ----------
     parameters : str or list of str, optional
         For example, ``'o3'`` or ``['pm25', 'o3']`` (default).
+    country : str or list of str, optional
+        For example, ``'US'`` or ``['US', 'CA']`` (two-letter country codes).
+        Default: full dataset (no limitation by country).
     search_radius : dict, optional
         Mapping coords (lat, lon) [deg] to search radius [m] (max of 25 km).
     query_time_split
-        Frequency to use when splitting the queries in time,
+        Frequency to use when splitting the web API queries in time,
         in a format that ``pandas.to_timedelta`` will understand.
         This is necessary since there is a 100k limit on the number of results.
         However, if you are using search radii, e.g., you may want to set this
@@ -207,6 +211,9 @@ def add_data(
             yield date_min - one_sec, date_max
 
     params = {}
+    if country is not None:
+        params.update(country=country)
+
     data = []
     for parameter in parameters:
         params.update(parameter=parameter)
