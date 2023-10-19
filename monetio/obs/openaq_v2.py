@@ -48,7 +48,7 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
             r = requests.get(url, params=params, headers=headers, timeout=timeout)
             if r.status_code == 408:
                 tries += 1
-                logger.warning(f"request timed out (try {tries}/{retry})")
+                logger.info(f"request timed out (try {tries}/{retry})")
             else:
                 break
         r.raise_for_status()
@@ -213,7 +213,7 @@ def add_data(
         if query_dt is not None:
             t = date_min
             while t < date_max:
-                t_next = t + query_dt
+                t_next = min(t + query_dt, date_max)
                 yield t - one_sec, t_next
                 t = t_next
         else:
