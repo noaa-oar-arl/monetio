@@ -164,8 +164,18 @@ def add_data(
 
     Parameters
     ----------
-    search_radius : dict
+    parameters : str or list of str, optional
+        For example, ``'o3'`` or ``['pm25', 'o3']`` (default).
+    search_radius : dict, optional
         Mapping coords (lat, lon) [deg] to search radius [m] (max of 25 km).
+    query_time_split
+        Frequency to use when splitting the queries in time,
+        in a format that ``pandas.to_timedelta`` will understand.
+        This is necessary since there is a 100k limit on the number of results.
+        However, if you are using search radii, e.g., you may want to set this
+        to something higher in order to increase the query return speed.
+        Default: 1 hour
+        (OpenAQ data are hourly, so setting to something smaller won't help).
     """
 
     dates = pd.DatetimeIndex(dates)
