@@ -174,6 +174,7 @@ def add_data(
         This is necessary since there is a 100k limit on the number of results.
         However, if you are using search radii, e.g., you may want to set this
         to something higher in order to increase the query return speed.
+        Set to ``None`` for no time splitting.
         Default: 1 hour
         (OpenAQ data are hourly, so setting to something smaller won't help).
     """
@@ -184,19 +185,26 @@ def add_data(
     elif isinstance(parameters, str):
         parameters = [parameters]
     query_dt = pd.to_timedelta(query_time_split)
+    if query_dt is not None and query_dt <= pd.Timedelta(0):
+        raise ValueError(
+            f"query_time_split must be positive, got {query_dt} from {query_time_split!r}"
+        )
     date_min, date_max = dates.min(), dates.max()
-    if date_min == date_max:
+    if date_min == date_max or len(dates) == 0:
         raise ValueError("must provide at least two unique datetimes")
 
     def iter_time_slices():
         # seems that (from < time <= to) == (from , to] is used
         # i.e. `from` is exclusive, `to` is inclusive
         one_sec = pd.Timedelta(seconds=1)
-        t = date_min
-        while t < date_max:
-            t_next = t + query_dt
-            yield t - one_sec, t_next
-            t = t_next
+        if query_dt is not None:
+            t = date_min
+            while t < date_max:
+                t_next = t + query_dt
+                yield t - one_sec, t_next
+                t = t_next
+        else:
+            yield date_min - one_sec, date_max
 
     params = {}
     data = []
