@@ -51,13 +51,60 @@ def _consume(url, *, params=None, timeout=10, limit=500, npages=None):
 
     if isinstance(found, str) and found.startswith(">"):
         print(f"warning: some query results not fetched ('found' is {found!r})")
+    elif isinstance(found, int) and len(data) < found:
+        print(f"warning: some query results not fetched (found={found}, got {len(data)} results)")
 
     return data
 
 
 def get_locations(**kwargs):
     """Get locations from OpenAQ v2 API."""
-    return _consume("https://api.openaq.org/v2/locations", **kwargs)
+
+    data = _consume("https://api.openaq.org/v2/locations", **kwargs)
+
+    # Some fields with scalar values to take
+    some_scalars = [
+        "id",
+        "name",
+        "city",
+        "country",
+        # "entity",  # all null
+        "isMobile",
+        # "isAnalysis",  # all null
+        # "sensorType",  # all null
+        "firstUpdated",
+        "lastUpdated",
+    ]
+
+    data2 = []
+    for d in data:
+        lat = d["coordinates"]["latitude"]
+        lon = d["coordinates"]["longitude"]
+        parameters = [p["parameter"] for p in d["parameters"]]
+        manufacturer = d["manufacturers"][0]["manufacturerName"] if d["manufacturers"] else None
+        d2 = {k: d[k] for k in some_scalars}
+        d2.update(
+            latitude=lat,
+            longitude=lon,
+            parameters=parameters,
+            manufacturer=manufacturer,
+        )
+        data2.append(d2)
+
+    df = pd.DataFrame(data2)
+
+    # Compute datetimes (the timestamps are already in UTC, but with tz specified)
+    assert (df.firstUpdated.str.slice(-6, None) == "+00:00").all()
+    df["firstUpdated"] = pd.to_datetime(df.firstUpdated.str.slice(0, -6))
+    assert df.lastUpdated.str.slice(-6, None).eq("+00:00").all()
+    df["lastUpdated"] = pd.to_datetime(df.lastUpdated.str.slice(0, -6))
+
+    # Site ID
+    df = df.rename(columns={"id": "siteid"})
+    df["siteid"] = df.siteid.astype(str)
+    df = df.drop_duplicates("siteid", keep="first").reset_index(drop=True)  # seem to be some dupes
+
+    return df
 
 
 def add_data():
