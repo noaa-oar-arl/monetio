@@ -72,7 +72,7 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
 
 
 def get_locations(**kwargs):
-    """Get available site info (including IDs) from OpenAQ v2 API.
+    """Get available site info (including site IDs) from OpenAQ v2 API.
 
     https://api.openaq.org/docs#/v2/locations_get_v2_locations_get
     """
@@ -167,6 +167,7 @@ def add_data(
     parameters=None,
     country=None,
     search_radius=None,
+    sites=None,
     query_time_split="1H",
     **kwargs,
 ):
@@ -181,6 +182,10 @@ def add_data(
         Default: full dataset (no limitation by country).
     search_radius : dict, optional
         Mapping coords (lat, lon) [deg] to search radius [m] (max of 25 km).
+    sites : list of str, optional
+        Site ID(s) to include, e.g. a specific known site
+        or group of sites from :func:`get_latlonbox_sites`.
+        Default: full dataset (no limitation by site).
     query_time_split
         Frequency to use when splitting the web API queries in time,
         in a format that ``pandas.to_timedelta`` will understand.
@@ -222,6 +227,8 @@ def add_data(
     params = {}
     if country is not None:
         params.update(country=country)
+    if sites is not None:
+        params.update(location_id=sites)
 
     data = []
     for parameter in parameters:
