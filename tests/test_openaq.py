@@ -14,13 +14,17 @@ def test_openaq():
     # Browse the archive at https://openaq-fetches.s3.amazonaws.com/index.html
     dates = pd.date_range(start="2013-11-26", end="2013-11-27", freq="H")[:-1]
     df = openaq.add_data(dates)
+
     assert not df.empty
     assert df.siteid.nunique() == 1
     assert (df.country == "CN").all() and ((df.time_local - df.time) == pd.Timedelta(hours=8)).all()
+
     assert df.latitude.isnull().sum() == 0
     assert df.longitude.isnull().sum() == 0
+
     assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
     assert df.averagingPeriod.eq(pd.Timedelta("1H")).all()
+
     assert df.pm25_ugm3.gt(0).all()
 
 
@@ -34,6 +38,7 @@ def test_openaq():
 def test_read(url):
     df = openaq.read_json(url)
     df2 = openaq.read_json2(url)
+
     assert len(df) > 0
 
     if "2019-08-01" in url:
@@ -53,10 +58,15 @@ def test_openaq_2023():
     # Disable cap setting to test whole set of files
     # NOTE: possible to get empty df with the random URL selection
     df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)
+
     assert len(df) > 0
+
+    assert (df.time.astype(str) + df.siteid).nunique() == len(df)
+
     assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
     assert not df.averagingPeriod.isnull().all()
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
+
     assert df.pm25_ugm3.dropna().gt(0).all()
     assert df.o3_ppm.dropna().gt(0).all()
 

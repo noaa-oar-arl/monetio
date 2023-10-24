@@ -333,6 +333,8 @@ class OPENAQ:
 
     def add_data(self, dates, *, num_workers=1):
         """Get data for `dates`, using `num_workers` Dask workers."""
+        import hashlib
+
         import dask
         import dask.dataframe as dd
 
@@ -411,23 +413,29 @@ class OPENAQ:
         ]
         if self.engine == "pandas":
             index.remove("attribution")
-        df = df.pivot_table(
-            values="value",
-            index=index,
-            columns="parameter",
-        ).reset_index()
+        df = (
+            df[(df.averagingPeriod == pd.Timedelta("1H")) & (df.city != "N/A")]
+            .pivot_table(
+                values="value",
+                index=index,
+                columns="parameter",
+            )
+            .reset_index()
+        )
         df = df.rename(columns={p: f"{p}_ugm3" for p in self.NON_MOLEC_PARAMS}, errors="ignore")
         df = df.rename(columns={p: f"{p}_ppm" for p in self.PPM_TO_UGM3}, errors="ignore")
 
         # Construct site IDs
-        df["siteid"] = (
-            df.country
-            + "_"
-            + df.latitude.round(3).astype(str)
-            + "N_"
-            + df.longitude.round(3).astype(str)
-            + "E"
-        )
+        # Sometimes, at a given time, there are multiple measurements at the same lat/lon
+        # with different location names.
+        # Occasionally, there are rows that appear to actual duplicates
+        # (e.g. all same except one col is null in one or something)
+        def do_hash(b):
+            return hashlib.sha1(b, usedforsecurity=False).hexdigest()
+
+        # to_hash = df.latitude.astype(str) + " " + df.longitude.astype(str)
+        to_hash = df.location + " " + df.latitude.astype(str) + " " + df.longitude.astype(str)
+        df["siteid"] = df.country + "_" + to_hash.str.encode("utf-8").apply(do_hash).str.slice(0, 7)
 
         return df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
 
