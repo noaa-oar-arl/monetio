@@ -91,6 +91,8 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
 def get_locations(**kwargs):
     """Get available site info (including site IDs) from OpenAQ v2 API.
 
+    kwargs are passed to :func:`_consume`.
+
     https://api.openaq.org/docs#/v2/locations_get_v2_locations_get
     """
 
@@ -148,7 +150,10 @@ def get_locations(**kwargs):
 
 
 def get_parameters(**kwargs):
-    """Get supported parameter info from OpenAQ v2 API."""
+    """Get supported parameter info from OpenAQ v2 API.
+
+    kwargs are passed to :func:`_consume`.
+    """
 
     data = _consume("https://api.openaq.org/v2/parameters", **kwargs)
 
@@ -158,7 +163,10 @@ def get_parameters(**kwargs):
 
 
 def get_latlonbox_sites(latlonbox, **kwargs):
-    """
+    """From all available sites, return those within a lat/lon box.
+
+    kwargs are passed to :func:`_consume`.
+
     Parameters
     ----------
     latlonbox : array-like of float
@@ -189,6 +197,9 @@ def add_data(
     **kwargs,
 ):
     """Get OpenAQ API v2 data, including low-cost sensors.
+
+    kwargs are passed to :func:`_consume`,
+    though currently ``params`` can't be one of them.
 
     Parameters
     ----------
