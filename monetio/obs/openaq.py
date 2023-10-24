@@ -1,4 +1,7 @@
-"""OpenAQ"""
+"""Get v1 (government-only) OpenAQ data from AWS.
+
+https://openaq.org/
+"""
 import json
 import warnings
 
@@ -7,7 +10,7 @@ from numpy import NaN
 
 
 def add_data(dates, n_procs=1):
-    """Add OpenAQ data from the Amazon s3 server.
+    """Add OpenAQ data from the OpenAQ S3 bucket.
 
     https://openaq-fetches.s3.amazonaws.com
 
@@ -27,7 +30,7 @@ def add_data(dates, n_procs=1):
 
 
 def read_json(fp_or_url, *, verbose=True):
-    """Read a json file from the OpenAQ server, returning dataframe in non-wide format.
+    """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in non-wide format.
 
     Parameters
     ----------
@@ -105,7 +108,7 @@ def read_json(fp_or_url, *, verbose=True):
 
 
 def read_json2(fp_or_url, *, verbose=True):
-    """Read a json file from the OpenAQ server, returning dataframe in non-wide format.
+    """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in non-wide format.
 
     Parameters
     ----------
