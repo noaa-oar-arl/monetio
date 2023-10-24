@@ -242,6 +242,7 @@ class OPENAQ:
         "pm10",
         "bc",
     ]
+    """Parameters that are not molecules and should be in µg/m³ units."""
 
     PPM_TO_UGM3 = {
         "o3": 1990,
@@ -252,10 +253,15 @@ class OPENAQ:
         "ch4": 664,
         "co2": 1820,
     }
-    # These conversion factors are based on
-    # - air average molecular weight: 29 g/mol
-    # - air density: 1.2 kg m -3
-    # rounded to 3 significant figures.
+    """Conversion factors from ppmv to µg/m³.
+
+    Based on
+
+    - air average molecular weight: 29 g/mol
+    - air density: 1.2 kg m -3
+
+    and rounded to 3 significant figures.
+    """
 
     def __init__(self, *, engine="pandas"):
         from functools import partial
