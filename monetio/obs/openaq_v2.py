@@ -336,4 +336,8 @@ def add_data(
         longitude=lon,
     )
 
+    # Site ID
+    df = df.rename(columns={"id": "siteid"})
+    df["siteid"] = df.siteid.astype(str)
+
     return df
