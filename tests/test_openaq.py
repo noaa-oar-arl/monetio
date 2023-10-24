@@ -21,6 +21,7 @@ def test_openaq():
     assert df.longitude.isnull().sum() == 0
     assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
     assert df.averagingPeriod.eq(pd.Timedelta("1H")).all()
+    assert df.pm25_ugm3.gt(0).all()
 
 
 @pytest.mark.parametrize(
@@ -50,11 +51,14 @@ def test_openaq_2023():
     # Period from Jordan's NRT example (#130)
     # There are many files in this period (~ 100?)
     # Disable cap setting to test whole set of files
+    # NOTE: possible to get empty df with the random URL selection
     df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)
     assert len(df) > 0
     assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
     assert not df.averagingPeriod.isnull().all()
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
+    assert df.pm25_ugm3.dropna().gt(0).all()
+    assert df.o3_ppm.dropna().gt(0).all()
 
 
 # df = openaq.read_json(

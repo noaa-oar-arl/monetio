@@ -235,6 +235,28 @@ def read_json2(fp_or_url, *, verbose=False):
 
 
 class OPENAQ:
+    NON_MOLEC_PARAMS = [
+        "pm1",
+        "pm25",
+        "pm4",
+        "pm10",
+        "bc",
+    ]
+
+    PPM_TO_UGM3 = {
+        "o3": 1990,
+        "co": 1160,
+        "no2": 1900,
+        "no": 1240,
+        "so2": 2650,
+        "ch4": 664,
+        "co2": 1820,
+    }
+    # These conversion factors are based on
+    # - air average molecular weight: 29 g/mol
+    # - air density: 1.2 kg m -3
+    # rounded to 3 significant figures.
+
     def __init__(self, *, engine="pandas"):
         from functools import partial
 
@@ -328,14 +350,34 @@ class OPENAQ:
 
             urls = random.sample(urls, _URL_CAP)
 
+        # Read JSON files
         func = self.read
         dfs = [dask.delayed(func)(url) for url in urls]
         df_lazy = dd.from_delayed(dfs)
         df = df_lazy.compute(num_workers=num_workers)
 
-        # Ensure consistent units, e.g. ppm for molecules
-        self._fix_units(df)
-        non_molec = ["pm1", "pm25", "pm4", "pm10", "bc"]
+        # Measurements like air comp shouldn't be negative
+        non_neg_units = [
+            "ng/m3",
+            "particles/cm³",
+            "ppb",
+            "ppm",
+            "ugm3",
+            "umol/mol",
+            "µg/m³",
+        ]
+        df.loc[df.unit.isin(non_neg_units) & (df.value <= 0), "value"] = NaN
+        # Assume value 0 implies below detection limit
+
+        # Convert to consistent units for molecules (ppmv)
+        # (For a certain parameter, different site-times may have different units.)
+        for vn, f in self.PPM_TO_UGM3.items():
+            is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
+            df.loc[is_ug, "value"] /= f
+            df.loc[is_ug, "unit"] = "ppm"
+
+        # Ensure consistent units
+        non_molec = self.NON_MOLEC_PARAMS
         good = (df[~df.parameter.isin(non_molec)].unit.dropna() == "ppm").all()
         if not good:
             unique_params = sorted(df.parameter.unique())
@@ -345,40 +387,7 @@ class OPENAQ:
         if not good:
             raise ValueError(f"Expected these species to all be in µg/m³: {non_molec}.")
 
-        # Pivot to wide format
-        df = self._pivot_table(df)
-
-        # Construct site IDs
-        df["siteid"] = (
-            df.country
-            + "_"
-            + df.latitude.round(3).astype(str)
-            + "N_"
-            + df.longitude.round(3).astype(str)
-            + "E"
-        )
-
-        return df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
-
-    def _fix_units(self, df):
-        """In place, convert units to ppm for molecules."""
-        df.loc[df.value <= 0] = NaN
-        # For a certain parameter, different site-times may have different units.
-        # https://docs.openaq.org/docs/parameters
-        # These conversion factors are based on
-        # - air average molecular weight: 29 g/mol
-        # - air density: 1.2 kg m -3
-        # rounded to 3 significant figures.
-        fs = {"co": 1160, "o3": 1990, "so2": 2650, "no2": 1900, "ch4": 664, "no": 1240}
-        fs["nox"] = fs["no2"]  # Need to make an assumption about NOx MW
-        for vn, f in fs.items():
-            is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
-            df.loc[is_ug, "value"] /= f
-            df.loc[is_ug, "unit"] = "ppm"
-
-    def _pivot_table(self, df):
-        """Convert to wide format, with one column per parameter."""
-
+        # Pivot to wide format (each parameter gets its own column)
         index = [
             "time",
             "time_local",
@@ -396,35 +405,26 @@ class OPENAQ:
         ]
         if self.engine == "pandas":
             index.remove("attribution")
-
-        # Pivot
-        wide = df.pivot_table(
+        df = df.pivot_table(
             values="value",
             index=index,
             columns="parameter",
         ).reset_index()
+        df = df.rename(columns={p: f"{p}_ugm3" for p in self.NON_MOLEC_PARAMS}, errors="ignore")
+        df = df.rename(columns={p: f"{p}_ppm" for p in self.PPM_TO_UGM3}, errors="ignore")
 
-        # Include units in variable names
-        wide = wide.rename(
-            dict(
-                # molec
-                co="co_ppm",
-                o3="o3_ppm",
-                no2="no2_ppm",
-                so2="so2_ppm",
-                ch4="ch4_ppm",
-                no="no_ppm",
-                # non-molec
-                pm1="pm1_ugm3",
-                pm25="pm25_ugm3",
-                pm4="pm4_ugm3",
-                pm10="pm10_ugm3",
-                bc="bc_ugm3",
-                #
-                nox="nox_ppm",
-            ),
-            axis="columns",
-            errors="ignore",
+        # Construct site IDs
+        df["siteid"] = (
+            df.country
+            + "_"
+            + df.latitude.round(3).astype(str)
+            + "N_"
+            + df.longitude.round(3).astype(str)
+            + "E"
         )
 
-        return wide
+        return df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
+
+
+# Need to make an assumption about NOx MW
+OPENAQ.PPM_TO_UGM3["nox"] = OPENAQ.PPM_TO_UGM3["no2"]
