@@ -1,6 +1,7 @@
 """Get v1 (government-only) OpenAQ data from AWS.
 
 https://openaq.org/
+https://openaq-fetches.s3.amazonaws.com/index.html
 """
 import json
 import warnings
@@ -188,8 +189,9 @@ def read_json2(fp_or_url, *, verbose=False):
             attrs = data.get("attribution")
             if attrs is not None:
                 attr_names = [a["name"] for a in attrs]
-                # if len(attr_names) > 1:
-                #     print(f"Taking first of {len(attr_names)}:", attr_names)
+                if verbose:
+                    if len(attr_names) > 1:
+                        print(f"Taking first of {len(attr_names)}:", attr_names)
                 attr_name = attr_names[0]  # Just the (hopefully) primary one
 
             rows.append(
@@ -216,7 +218,6 @@ def read_json2(fp_or_url, *, verbose=False):
                 )
             )
 
-    # TODO: specify dtype here
     df = pd.DataFrame(rows, columns=names)
 
     df["time_local"] = df["time"] + df["utcoffset"]
@@ -243,14 +244,16 @@ class OPENAQ:
         """
         # Get all day folders
         folders = self.fs.ls(self.s3bucket)
-        days = [j.split("/")[2] for j in folders]
+        days = [folder.split("/")[2] for folder in folders]
         dates_available = pd.Series(
-            pd.to_datetime(days, format=r"%Y-%m-%d", errors="coerce"), name="dates"
+            pd.to_datetime(days, format=r"%Y-%m-%d", errors="coerce"),
+            name="dates",
         )
 
         # Filter by requested dates
         dates_requested = pd.Series(
-            pd.to_datetime(dates).floor(freq="D"), name="dates"
+            pd.to_datetime(dates).floor(freq="D"),
+            name="dates",
         ).drop_duplicates()
 
         dates_have = pd.merge(dates_available, dates_requested, how="inner")["dates"]
@@ -285,6 +288,7 @@ class OPENAQ:
         return urls
 
     def add_data(self, dates, *, num_workers=1):
+        """Get data for `dates`, using `num_workers` Dask workers."""
         from functools import partial
 
         import dask
@@ -357,6 +361,7 @@ class OPENAQ:
             df.loc[is_ug, "unit"] = "ppm"
 
     def _pivot_table(self, df):
+        """Convert to wide format, with one column per parameter."""
         # Pivot
         wide = df.pivot_table(
             values="value",
