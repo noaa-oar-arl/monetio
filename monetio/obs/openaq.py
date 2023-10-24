@@ -15,6 +15,9 @@ def add_data(dates, n_procs=1):
 
     https://openaq-fetches.s3.amazonaws.com
 
+    Note that the source files are daily, so requesting a single day or single hour within it
+    will take the same amount of time.
+
     Parameters
     ----------
     dates : pandas.DateTimeIndex or list of datetime objects
@@ -229,11 +232,21 @@ def read_json2(fp_or_url, *, verbose=False):
 
 
 class OPENAQ:
-    def __init__(self):
+    def __init__(self, *, engine="pandas"):
+        from functools import partial
+
         import s3fs
 
         self.fs = s3fs.S3FileSystem(anon=True)
         self.s3bucket = "openaq-fetches/realtime"
+
+        if engine == "pandas":
+            self.read = partial(read_json, verbose=False)
+        elif engine == "python":
+            self.read = partial(read_json2, verbose=False)
+        else:
+            raise ValueError("engine must be 'pandas' or 'python'.")
+        self.engine = engine
 
     def _get_available_days(self, dates):
         """
@@ -289,8 +302,6 @@ class OPENAQ:
 
     def add_data(self, dates, *, num_workers=1):
         """Get data for `dates`, using `num_workers` Dask workers."""
-        from functools import partial
-
         import dask
         import dask.dataframe as dd
 
@@ -309,13 +320,13 @@ class OPENAQ:
         if len(urls) > 1:
             print(urls[-1])
 
-        func = partial(read_json2, verbose=False)
+        func = self.read
         dfs = [dask.delayed(func)(url) for url in urls]
         df_lazy = dd.from_delayed(dfs)
         df = df_lazy.compute(num_workers=num_workers)
 
         # TODO: not sure if necessary (doesn't seem to be?)
-        # df = df.coordinates.replace(to_replace=[None], value=NaN)
+        # df["coordinates"] = df.coordinates.replace(to_replace=[None], value=NaN)
 
         # Ensure consistent units, e.g. ppm for molecules
         self._fix_units(df)
@@ -362,24 +373,29 @@ class OPENAQ:
 
     def _pivot_table(self, df):
         """Convert to wide format, with one column per parameter."""
+
+        index = [
+            "time",
+            "time_local",
+            "latitude",
+            "longitude",
+            "utcoffset",
+            "location",
+            "city",
+            "country",
+            "attribution",  # currently only in Python reader
+            "sourceName",
+            "sourceType",
+            "mobile",
+            "averagingPeriod",
+        ]
+        if self.engine == "pandas":
+            index.remove("attribution")
+
         # Pivot
         wide = df.pivot_table(
             values="value",
-            index=[
-                "time",
-                "time_local",
-                "latitude",
-                "longitude",
-                "utcoffset",
-                "location",
-                "city",
-                "country",
-                "attribution",  # currently only in Python reader
-                "sourceName",
-                "sourceType",
-                "mobile",
-                "averagingPeriod",
-            ],
+            index=index,
             columns="parameter",
         ).reset_index()
 
