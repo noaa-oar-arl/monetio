@@ -59,3 +59,27 @@ def test_openaq_2023():
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
     assert df.pm25_ugm3.dropna().gt(0).all()
     assert df.o3_ppm.dropna().gt(0).all()
+
+
+def test_parameter_coverage():
+    # From https://openaq.org/developers/help/ ("What pollutants are available on OpenAQ?")
+    # these are the parameters to account for:
+    params = [
+        "pm1",
+        "pm25",
+        "pm4",
+        "pm10",
+        "bc",
+        "o3",
+        "co",
+        "no2",
+        "no",
+        "nox",
+        "so2",
+        "ch4",
+        "co2",
+    ]
+    assert len(params) == 13
+    assert sorted(openaq.OPENAQ.NON_MOLEC_PARAMS + list(openaq.OPENAQ.PPM_TO_UGM3)) == sorted(
+        params
+    )
