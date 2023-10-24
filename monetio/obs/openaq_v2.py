@@ -20,7 +20,24 @@ if API_KEY is None:
 
 
 def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
-    """Consume a paginated OpenAQ API endpoint."""
+    """Consume a paginated OpenAQ API endpoint.
+
+    Parameters
+    ----------
+    params : dict, optional
+        Parameters for the GET request to the API.
+        Don't pass ``limit``, ``page``, or ``offset`` here, since they are covered
+        by the `limit` and `npages` kwargs.
+    timeout : float or tuple
+        Seconds to wait for the server before giving up. Passed to ``requests.get``.
+    retry : int
+        Number of times to retry the request if it times out.
+    limit : int
+        Max number of results per page.
+    npages : int, optional
+        Number of pages to fetch.
+        By default, try to fetch as many as needed to get all results.
+    """
     if params is None:
         params = {}
 
