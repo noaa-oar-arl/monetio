@@ -1,3 +1,5 @@
+import pandas as pd
+
 import monetio.obs.openaq_v2 as openaq
 
 
@@ -20,3 +22,34 @@ def test_get_locations():
     assert sites.dtypes["longitude"] == "float64"
     assert sites["latitude"].isnull().sum() == 0
     assert sites["longitude"].isnull().sum() == 0
+
+
+def test_get_data_near_ncwcp_sites():
+    sites = [
+        # AirGradient monitor
+        1236068,
+        # PurpleAir sensors
+        1118827,
+        357301,
+        273440,
+        271155,
+    ]
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    df = openaq.add_data(dates, sites=sites)
+    assert len(df) > 0
+    assert "pm25" in df.parameter.values
+    assert df.latitude.round().eq(39).all()
+    assert df.longitude.round().eq(-77).all()
+    assert (sorted(df.time.unique()) == dates).all()
+    assert set(df.siteid) == {str(site) for site in sites}
+
+
+def test_get_data_near_ncwcp_search_radius():
+    latlon = 38.9721, -76.9248
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    df = openaq.add_data(dates, search_radius={latlon: 5_000})
+    assert len(df) > 0
+    assert "pm25" in df.parameter.values
+    assert df.latitude.round().eq(39).all()
+    assert df.longitude.round().eq(-77).all()
+    assert (sorted(df.time.unique()) == dates).all()

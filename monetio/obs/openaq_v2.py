@@ -1,5 +1,6 @@
 """Get AQ data from the OpenAQ v2 REST API.
 
+https://openaq.org/
 https://api.openaq.org/docs#/v2
 """
 import json
@@ -337,7 +338,7 @@ def add_data(
     )
 
     # Site ID
-    df = df.rename(columns={"id": "siteid"})
+    df = df.rename(columns={"locationId": "siteid"})
     df["siteid"] = df.siteid.astype(str)
 
     return df
