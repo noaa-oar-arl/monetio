@@ -4,7 +4,6 @@ https://openaq.org/
 https://openaq-fetches.s3.amazonaws.com/index.html
 """
 import json
-import warnings
 
 import pandas as pd
 from numpy import NaN
@@ -47,6 +46,8 @@ def read_json(fp_or_url, *, verbose=False):
     """
     from time import perf_counter
 
+    import numpy as np
+
     tic = perf_counter()
 
     df = pd.read_json(fp_or_url, lines=True)
@@ -86,14 +87,14 @@ def read_json(fp_or_url, *, verbose=False):
     utcoffset = pd.to_timedelta(new["date.local"].str.slice(-6, None) + ":00")
     time_local = time + utcoffset
 
-    # Attempting averaging period by assuming hours
-    # FIXME: probably not always the case...
-    assert (new["averagingPeriod.unit"].dropna() == "hours").all()
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", category=RuntimeWarning, message="invalid value encountered in cast"
-        )
-        averagingPeriod = pd.to_timedelta(new["averagingPeriod.value"], unit="hours")
+    # Convert averaging period to timedelta
+    value = new["averagingPeriod.value"]
+    units = new["averagingPeriod.unit"]
+    unique_units = units.dropna().unique()
+    averagingPeriod = pd.Series(np.full(len(new), NaN, dtype="timedelta64[ns]"))
+    for unit in unique_units:
+        is_unit = units == unit
+        averagingPeriod.loc[is_unit] = pd.to_timedelta(value[is_unit], unit=unit)
 
     # Apply new columns
     df = df.drop(columns=to_expand).assign(
@@ -324,9 +325,6 @@ class OPENAQ:
         dfs = [dask.delayed(func)(url) for url in urls]
         df_lazy = dd.from_delayed(dfs)
         df = df_lazy.compute(num_workers=num_workers)
-
-        # TODO: not sure if necessary (doesn't seem to be?)
-        # df["coordinates"] = df.coordinates.replace(to_replace=[None], value=NaN)
 
         # Ensure consistent units, e.g. ppm for molecules
         self._fix_units(df)

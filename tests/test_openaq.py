@@ -15,6 +15,42 @@ def test_openaq():
     assert not df.empty
     assert df.siteid.nunique() == 1
     assert (df.country == "CN").all() and ((df.time_local - df.time) == pd.Timedelta(hours=8)).all()
+    assert df.latitude.isnull().sum() == 0
+    assert df.longitude.isnull().sum() == 0
+    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert df.averagingPeriod.eq(pd.Timedelta("1H")).all()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson",  # 1 MB
+        "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson",  # 10 MB"
+    ],
+)
+def test_read(url):
+    df = openaq.read_json(url)
+    df2 = openaq.read_json2(url)
+    assert len(df) > 0
+
+    if "2019-08-01" in url:
+        assert len(df2) < len(df), "some that didn't have coords were skipped"
+        assert df.latitude.isnull().sum() > 0
+    else:
+        assert len(df2) == len(df)
+
+    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert not df.averagingPeriod.isnull().all()
+    assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
+
+
+def test_openaq_2023():
+    # Period from Jordan's NRT example (#130)
+    df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)  # many files
+    assert len(df) > 0
+    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert not df.averagingPeriod.isnull().all()
+    assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
 
 
 # df = openaq.read_json(
@@ -36,5 +72,4 @@ def test_openaq():
 # df = openaq.read_json2(
 #     # "https://openaq-fetches.s3.amazonaws.com/realtime/2019-08-01/1564644065.ndjson"  # 1 MB
 #     # "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"  # 10 MB
-#     "https://openaq-fetches.s3.amazonaws.com/realtime/2023-09-04/1693798742_realtime_1c4e466d-c461-4c8d-b604-1e81cf2df73a.ndjson"
 # )
