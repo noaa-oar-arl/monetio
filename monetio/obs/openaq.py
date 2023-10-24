@@ -8,6 +8,8 @@ import json
 import pandas as pd
 from numpy import NaN
 
+_URL_CAP = None  # set to int to limit number of files loaded for testing
+
 
 def add_data(dates, n_procs=1):
     """Add OpenAQ data from the OpenAQ S3 bucket.
@@ -320,6 +322,11 @@ class OPENAQ:
             print("...")
         if len(urls) > 1:
             print(urls[-1])
+
+        if _URL_CAP is not None and len(urls) > _URL_CAP:
+            import random
+
+            urls = random.sample(urls, _URL_CAP)
 
         func = self.read
         dfs = [dask.delayed(func)(url) for url in urls]

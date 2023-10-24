@@ -5,6 +5,8 @@ import pytest
 
 from monetio import openaq
 
+openaq._URL_CAP = 4
+
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7+")
 def test_openaq():
@@ -46,7 +48,9 @@ def test_read(url):
 
 def test_openaq_2023():
     # Period from Jordan's NRT example (#130)
-    df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)  # many files
+    # There are many files in this period (~ 100?)
+    # Disable cap setting to test whole set of files
+    df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)
     assert len(df) > 0
     assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
     assert not df.averagingPeriod.isnull().all()
