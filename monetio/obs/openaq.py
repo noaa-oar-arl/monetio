@@ -29,7 +29,7 @@ def add_data(dates, n_procs=1):
     return a.add_data(dates, num_workers=n_procs)
 
 
-def read_json(fp_or_url, *, verbose=True):
+def read_json(fp_or_url, *, verbose=False):
     """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in non-wide format.
 
     Parameters
@@ -107,7 +107,7 @@ def read_json(fp_or_url, *, verbose=True):
     return df
 
 
-def read_json2(fp_or_url, *, verbose=True):
+def read_json2(fp_or_url, *, verbose=False):
     """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in non-wide format.
 
     Parameters
@@ -136,8 +136,6 @@ def read_json2(fp_or_url, *, verbose=True):
         r.raise_for_status()
     else:
         raise NotImplementedError
-        with open(fp_or_url) as f:
-            data = json.load(f)
 
     names = [
         "time",
