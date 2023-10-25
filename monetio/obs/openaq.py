@@ -349,6 +349,8 @@ class OPENAQ:
 
         Parameters
         ----------
+        num_workers : int
+            Number of Dask workers to use to read the JSON files.
         wide_fmt : bool
             If True, return data in wide format
             (each parameter gets its own column,
