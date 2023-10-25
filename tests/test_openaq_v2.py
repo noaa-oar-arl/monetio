@@ -1,6 +1,17 @@
 import pandas as pd
+import pytest
 
 import monetio.obs.openaq_v2 as openaq
+
+SITES_NEAR_NCWCP = [
+    # AirGradient monitor
+    1236068,
+    # PurpleAir sensors
+    1118827,
+    357301,
+    273440,
+    271155,
+]
 
 
 def test_get_parameters():
@@ -25,15 +36,7 @@ def test_get_locations():
 
 
 def test_get_data_near_ncwcp_sites():
-    sites = [
-        # AirGradient monitor
-        1236068,
-        # PurpleAir sensors
-        1118827,
-        357301,
-        273440,
-        271155,
-    ]
+    sites = SITES_NEAR_NCWCP
     dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
     df = openaq.add_data(dates, sites=sites)
     assert len(df) > 0
@@ -53,3 +56,8 @@ def test_get_data_near_ncwcp_search_radius():
     assert df.latitude.round().eq(39).all()
     assert df.longitude.round().eq(-77).all()
     assert (sorted(df.time.unique()) == dates).all()
+
+
+def test_get_data_wide_error():
+    with pytest.raises(NotImplementedError, match="wide format not implemented"):
+        openaq.add_data(["2023-08-01", "2023-08-02"], wide_fmt=True)

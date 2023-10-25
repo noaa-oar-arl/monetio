@@ -195,6 +195,7 @@ def add_data(
     search_radius=None,
     sites=None,
     query_time_split="1H",
+    wide_fmt=False,  # FIXME: probably want to default to True
     **kwargs,
 ):
     """Get OpenAQ API v2 data, including low-cost sensors.
@@ -224,6 +225,8 @@ def add_data(
         Set to ``None`` for no time splitting.
         Default: 1 hour
         (OpenAQ data are hourly, so setting to something smaller won't help).
+    wide_fmt : bool
+        Convert dataframe to wide format (one column per parameter).
     """
 
     dates = pd.DatetimeIndex(dates)
@@ -239,6 +242,9 @@ def add_data(
     date_min, date_max = dates.min(), dates.max()
     if date_min == date_max or len(dates) == 0:
         raise ValueError("must provide at least two unique datetimes")
+
+    if wide_fmt is True:
+        raise NotImplementedError("wide format not implemented yet")
 
     def iter_time_slices():
         # seems that (from < time <= to) == (from , to] is used

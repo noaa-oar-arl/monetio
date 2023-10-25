@@ -7,12 +7,14 @@ from monetio import openaq
 
 openaq._URL_CAP = 4
 
+# First date in the archive, just one file
+# Browse the archive at https://openaq-fetches.s3.amazonaws.com/index.html
+FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="H")[:-1]
+
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7+")
-def test_openaq():
-    # First date in the archive, just one file
-    # Browse the archive at https://openaq-fetches.s3.amazonaws.com/index.html
-    dates = pd.date_range(start="2013-11-26", end="2013-11-27", freq="H")[:-1]
+def test_openaq_first_date():
+    dates = FIRST_DAY
     df = openaq.add_data(dates)
 
     assert not df.empty
@@ -26,6 +28,17 @@ def test_openaq():
     assert df.averagingPeriod.eq(pd.Timedelta("1H")).all()
 
     assert df.pm25_ugm3.gt(0).all()
+
+
+def test_openaq_long_fmt():
+    dates = FIRST_DAY
+    df = openaq.add_data(dates, wide_fmt=False)
+
+    assert not df.empty
+
+    assert {"parameter", "value", "unit"} < set(df.columns)
+    assert "pm25_ugm3" not in df.columns
+    assert "pm25" in df.parameter.values
 
 
 @pytest.mark.parametrize(

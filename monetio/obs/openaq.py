@@ -11,7 +11,7 @@ from numpy import NaN
 _URL_CAP = None  # set to int to limit number of files loaded for testing
 
 
-def add_data(dates, n_procs=1):
+def add_data(dates, *, n_procs=1, wide_fmt=True):
     """Add OpenAQ data from the OpenAQ S3 bucket.
 
     https://openaq-fetches.s3.amazonaws.com
@@ -31,11 +31,11 @@ def add_data(dates, n_procs=1):
     pandas.DataFrame
     """
     a = OPENAQ()
-    return a.add_data(dates, num_workers=n_procs)
+    return a.add_data(dates, num_workers=n_procs, wide_fmt=wide_fmt)
 
 
 def read_json(fp_or_url, *, verbose=False):
-    """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in non-wide format.
+    """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in original long format.
 
     Parameters
     ----------
@@ -115,7 +115,9 @@ def read_json(fp_or_url, *, verbose=False):
 
 
 def read_json2(fp_or_url, *, verbose=False):
-    """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in non-wide format.
+    """Read a JSON file from the OpenAQ S3 bucket, returning dataframe in original long format.
+
+    This provides 'attribution', while :func:`read_json` does not.
 
     Parameters
     ----------
@@ -264,6 +266,17 @@ class OPENAQ:
     """
 
     def __init__(self, *, engine="pandas"):
+        """
+        Parameters
+        ----------
+        engine : str, optional
+            _description_, by default "pandas"
+
+        Raises
+        ------
+        ValueError
+            _description_
+        """
         from functools import partial
 
         import s3fs
@@ -331,8 +344,19 @@ class OPENAQ:
             urls.extend(f"s3://{f}" for f in files)
         return urls
 
-    def add_data(self, dates, *, num_workers=1):
-        """Get data for `dates`, using `num_workers` Dask workers."""
+    def add_data(self, dates, *, num_workers=1, wide_fmt=True):
+        """Get data for `dates`, using `num_workers` Dask workers.
+
+        Parameters
+        ----------
+        wide_fmt : bool
+            If True, return data in wide format
+            (each parameter gets its own column,
+            as opposed to long format with 'parameter', 'value', and 'units' columns).
+            Accordingly, convert units to consistent units
+            (ppmv for molecules, µg/m³ for others)
+            and rename columns to reflect units.
+        """
         import hashlib
 
         import dask
@@ -364,6 +388,9 @@ class OPENAQ:
         df_lazy = dd.from_delayed(dfs)
         df = df_lazy.compute(num_workers=num_workers)
 
+        # Ensure data within requested time window
+        df = df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
+
         # Measurements like air comp shouldn't be negative
         non_neg_units = [
             "ng/m3",
@@ -377,53 +404,54 @@ class OPENAQ:
         df.loc[df.unit.isin(non_neg_units) & (df.value <= 0), "value"] = NaN
         # Assume value 0 implies below detection limit
 
-        # Convert to consistent units for molecules (ppmv)
-        # (For a certain parameter, different site-times may have different units.)
-        for vn, f in self.PPM_TO_UGM3.items():
-            is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
-            df.loc[is_ug, "value"] /= f
-            df.loc[is_ug, "unit"] = "ppm"
+        if wide_fmt:
+            # Convert to consistent units for molecules (ppmv)
+            # (For a certain parameter, different site-times may have different units.)
+            for vn, f in self.PPM_TO_UGM3.items():
+                is_ug = (df.parameter == vn) & (df.unit == "µg/m³")
+                df.loc[is_ug, "value"] /= f
+                df.loc[is_ug, "unit"] = "ppm"
 
-        # Ensure consistent units
-        non_molec = self.NON_MOLEC_PARAMS
-        good = (df[~df.parameter.isin(non_molec)].unit.dropna() == "ppm").all()
-        if not good:
-            unique_params = sorted(df.parameter.unique())
-            molec = [p for p in unique_params if p not in non_molec]
-            raise ValueError(f"Expected these species to all be in ppm now: {molec}.")
-        good = (df[df.parameter.isin(non_molec)].unit.dropna() == "µg/m³").all()
-        if not good:
-            raise ValueError(f"Expected these species to all be in µg/m³: {non_molec}.")
+            # Ensure consistent units
+            non_molec = self.NON_MOLEC_PARAMS
+            good = (df[~df.parameter.isin(non_molec)].unit.dropna() == "ppm").all()
+            if not good:
+                unique_params = sorted(df.parameter.unique())
+                molec = [p for p in unique_params if p not in non_molec]
+                raise ValueError(f"Expected these species to all be in ppm now: {molec}.")
+            good = (df[df.parameter.isin(non_molec)].unit.dropna() == "µg/m³").all()
+            if not good:
+                raise ValueError(f"Expected these species to all be in µg/m³: {non_molec}.")
 
-        # Pivot to wide format (each parameter gets its own column)
-        index = [
-            "time",
-            "time_local",
-            "latitude",
-            "longitude",
-            "utcoffset",
-            "location",
-            "city",
-            "country",
-            "attribution",  # currently only in Python reader
-            "sourceName",
-            "sourceType",
-            "mobile",
-            "averagingPeriod",
-        ]
-        if self.engine == "pandas":
-            index.remove("attribution")
-        df = (
-            df[(df.averagingPeriod == pd.Timedelta("1H")) & (df.city != "N/A")]
-            .pivot_table(
-                values="value",
-                index=index,
-                columns="parameter",
+            # Pivot to wide format (each parameter gets its own column)
+            index = [
+                "time",
+                "time_local",
+                "latitude",
+                "longitude",
+                "utcoffset",
+                "location",
+                "city",
+                "country",
+                "attribution",  # currently only in Python reader
+                "sourceName",
+                "sourceType",
+                "mobile",
+                "averagingPeriod",
+            ]
+            if self.engine == "pandas":
+                index.remove("attribution")
+            df = (
+                df[(df.averagingPeriod == pd.Timedelta("1H")) & (df.city != "N/A")]
+                .pivot_table(
+                    values="value",
+                    index=index,
+                    columns="parameter",
+                )
+                .reset_index()
             )
-            .reset_index()
-        )
-        df = df.rename(columns={p: f"{p}_ugm3" for p in self.NON_MOLEC_PARAMS}, errors="ignore")
-        df = df.rename(columns={p: f"{p}_ppm" for p in self.PPM_TO_UGM3}, errors="ignore")
+            df = df.rename(columns={p: f"{p}_ugm3" for p in self.NON_MOLEC_PARAMS}, errors="ignore")
+            df = df.rename(columns={p: f"{p}_ppm" for p in self.PPM_TO_UGM3}, errors="ignore")
 
         # Construct site IDs
         # Sometimes, at a given time, there are multiple measurements at the same lat/lon
@@ -437,7 +465,7 @@ class OPENAQ:
         to_hash = df.location + " " + df.latitude.astype(str) + " " + df.longitude.astype(str)
         df["siteid"] = df.country + "_" + to_hash.str.encode("utf-8").apply(do_hash).str.slice(0, 7)
 
-        return df.loc[(df.time >= dates.min()) & (df.time <= dates.max())]
+        return df
 
 
 # Need to make an assumption about NOx MW
