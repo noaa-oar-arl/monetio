@@ -34,7 +34,7 @@ def var_to_da(o, var_name, time):
     return da
 
 
-def class_to_xarray(o, time_str="Time_Start"):
+def class_to_xarray(o, time_str="Time_Start"):  # TODO: `time_str` unused
     # calculate the time stamps
     time_index = pd.to_datetime(o.times)
     das = {}
