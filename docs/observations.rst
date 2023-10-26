@@ -16,54 +16,6 @@ First we will import several libraries to aid for in the future.
     import cartopy.crs as ccrs  # map projections
     import cartopy.feature as cfeature # politcal and geographic features
 
-
-Integrated Surface Database
----------------------------
-
-.. code::   python
-
-    dates = [pd.Timestamp('2012-01-01'), pd.Timestamp('2012-12-31')]
-
-.. code::   python
-
-    area = [-105.0, -97, 44.5, 49.5]
-
-Now a simple one stop command to return the pandas :py:class:`~pandas.DataFrame`
-of the data on the given dates.  MONET reads the hourly data from the ISD LITE database.
-
-.. code::   python
-
-    from monet.obs import ish
-    df = ish.add_data(dates, country=None, box=area, resample=False)
-
-
-Or you can create your own instance of the ISH class.
-
-.. code:: python
-
-    from monet.obs import ish_mod
-    metdata = ish_mod.ISH()
-    df = metdata.add_data(dates, country=None, box=area, resample=False)
-
-To see what data is in the DataFrame simply output the column header values
-
-.. code:: python
-
-    print(df.columns.values)
-
-Available Measurements
-^^^^^^^^^^^^^^^^^^^^^^
-
-* dew point (dpt)
-* temperature (t)
-* visibility (vsb)
-* wind speed (ws)
-* wind direction (wdir)
-
-The ISD (ISH) database contains latitude, longitude, station name, station id,
-time, dew point (dpt), temperature (t), visibility (vsb),
-wind speed (ws), wind direction (wdir), as well as various quality flags.
-
 ICARTT
 ------
 

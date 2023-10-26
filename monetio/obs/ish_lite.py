@@ -1,10 +1,10 @@
-"""NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
+"""ISH-lite -- NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
 
 https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
 
-ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
-It is a subset of the full ISD containing eight common surface parameters
-in a fixed-width format free of duplicate values, sub-hourly data, and complicated flags.
+    ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
+    It is a subset of the full ISD containing eight common surface parameters
+    in a fixed-width format free of duplicate values, sub-hourly data, and complicated flags.
 
 --- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
 """
@@ -30,7 +30,7 @@ def add_data(
     ----------
     dates : sequence of datetime-like
     box : list of float, optional
-            ``[latmin, lonmin, latmax, lonmax]``.
+        ``[latmin, lonmin, latmax, lonmax]``.
     country, state, site : str, optional
         Select sites in a country or state or one specific site.
         Can use one at most of `box` and these.
@@ -157,9 +157,8 @@ class ISH:
                 year_url = (
                     pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
                 )
-                all_urls.append(
-                    f"{url}/{date}/" + year_url
-                )  # add the full url path to the file name only
+                all_urls.append(f"{url}/{date}/" + year_url)
+                # ^ add the full url path to the file name only
 
             all_urls = pd.concat(all_urls, ignore_index=True)
         else:
@@ -325,20 +324,8 @@ class ISH:
         )
         return df.drop(["station_id", "fname"], axis=1)
 
-    def get_url_file_objs(self, fname):
-        """Short summary.
-
-        Parameters
-        ----------
-        fname : type
-            Description of parameter `fname`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
+    def get_url_file_objs(self, urls):
+        """Download and unzip files, returning list of file names."""
         import gzip
         import shutil
 
@@ -346,31 +333,29 @@ class ISH:
 
         objs = []
         print("  Constructing ISH file objects from urls...")
-        mmm = 0
-        jjj = 0
-        for iii in fname:
+        nbad = 0
+        for url in urls:
             try:
-                r2 = requests.get(iii, stream=True)
-                temp = iii.split("/")
+                r2 = requests.get(url, stream=True)
+                temp = url.split("/")
                 temp = temp[-1]
-                fname = "isd." + temp.replace(".gz", "")
+                fn = "isd." + temp.replace(".gz", "")
                 if r2.status_code != 404:
-                    objs.append(fname)
-                    with open(fname, "wb") as fid:
+                    objs.append(fn)
+                    with open(fn, "wb") as fid:
                         # TODO. currently shutil writes the file to the hard
                         # drive. try to find way around this step, so file does
                         # not need to be written and then read.
                         gzip_file = gzip.GzipFile(fileobj=r2.raw)
                         shutil.copyfileobj(gzip_file, fid)
-                        print("SUCCEEDED REQUEST for " + iii)
+                        print("SUCCEEDED REQUEST for " + url)
                 else:
-                    print("404 message " + iii)
-                mmm += 1
+                    print("404 message " + url)
             except RuntimeError:
-                jjj += 1
-                print("REQUEST FAILED " + iii)
+                nbad += 1
+                print("REQUEST FAILED " + url)
                 pass
-            if jjj > 100:
-                print("Over " + str(jjj) + " failed. break loop")
+            if nbad > 100:
+                print("Over " + str(nbad) + " failed. break loop")
                 break
         return objs
