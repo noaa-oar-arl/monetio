@@ -4,10 +4,13 @@ https://openaq.org/
 https://openaq-fetches.s3.amazonaws.com/index.html
 """
 import json
+import sys
 import warnings
 
 import pandas as pd
 from numpy import NaN
+
+_PY39_PLUS = sys.version_info >= (3, 9)
 
 _URL_CAP_RANDOM_SAMPLE = False  # if false, take from end of list
 _URL_CAP = None  # set to int to limit number of files loaded for testing
@@ -492,8 +495,15 @@ class OPENAQ:
         # with different location names.
         # Occasionally, there are rows that appear to actual duplicates
         # (e.g. all same except one col is null in one or something)
-        def do_hash(b):
-            return hashlib.sha1(b, usedforsecurity=False).hexdigest()
+        if _PY39_PLUS:
+
+            def do_hash(b):
+                return hashlib.sha1(b, usedforsecurity=False).hexdigest()
+
+        else:
+
+            def do_hash(b):
+                return hashlib.sha1(b).hexdigest()
 
         # to_hash = df.latitude.astype(str) + " " + df.longitude.astype(str)
         to_hash = df.location + " " + df.latitude.astype(str) + " " + df.longitude.astype(str)
