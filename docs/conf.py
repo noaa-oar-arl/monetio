@@ -27,6 +27,7 @@ extensions = [
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosectionlabel",
+    "myst_nb",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -108,6 +109,9 @@ napoleon_type_aliases = {
 
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 2
+
+# MyST NB
+nb_execution_mode = "off"
 
 # -- Options for HTML output -------------------------------------------------
 

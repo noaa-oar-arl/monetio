@@ -1,5 +1,10 @@
-# Reads json data files from
-# https://aqs.epa.gov/aqsweb/documents/data_api.html
+"""PAMS -- EPA Photochemical Assessment Monitoring Stations
+
+Read JSON data files from AQS's data API(?)
+
+https://www.epa.gov/amtic/photochemical-assessment-monitoring-stations-pams
+https://aqs.epa.gov/aqsweb/documents/data_api.html
+"""
 
 import json
 
@@ -7,18 +12,16 @@ import pandas as pd
 
 
 def add_data(filename):
-    """Opens a json file, returns data array
+    """Read a JSON file.
 
     Parameters
-    -----------------
-    filename: string
-            Full file path for json file
+    ----------
+    filename : string
+        File path of JSON file to load.
 
     Returns
-    -----------------
-    data: Pandas DataFrame
-            DataFrame with all pertinent information
-            Date and Time are Datetime Objects
+    -------
+    pandas.DataFrame
     """
 
     jsonf = open_json(filename)
@@ -93,16 +96,15 @@ def open_json(filename):
 
 
     Parameters
-    ----------------
-    filename: string
-           Full file path for json file
+    ----------
+    filename
+        Full path of file.
 
     Returns
-    ----------------
-    jsonf: dictionary
-           Json file is opened and ready to be used by other functions in this code
-           Contains two dictionaries: 'Header' and 'Data'
-
+    -------
+    dict
+        JSON file is opened and ready to be used by other functions in this code.
+        Contains two dictionaries: 'Header' and 'Data'
     """
 
     with open(filename) as f:
@@ -111,18 +113,16 @@ def open_json(filename):
 
 
 def get_header(filename):
-    """Finds basic header information in json file
-
+    """Finds basic header information in the JSON file.
 
     Parameters
-    ----------------
-    filename: string
-           Full file path for json file
+    ----------
+    filename
+        Full path of file.
 
-    Results
-    ----------------
-    header: Pandas DataFrame
-
+    Returns
+    -------
+    header : pandas.DataFrame
     """
     jsonf = open_json(filename)
     header = jsonf["Header"]
@@ -131,21 +131,14 @@ def get_header(filename):
 
 
 def write_csv(array, filename):
-    """Writes the data array to a csv file
+    """Write the dataframe `array` to a CSV file.
 
 
     Parameters
-    ----------------
-    array: Pandas DataFrame
-            Can be any Pandas DataFrame
-
-    filename: string
-            Full path and filename of csv file
-
-    Returns
-    ----------------
-    Generates csv file of specified name in specified location
-
+    ----------
+    array : pandas.DataFrame
+    filename
+        Full path with filename of CSV file.
     """
     array.to_csv(filename, encoding="utf-8", index=False)
     return "csv file " + filename + " has been generated"

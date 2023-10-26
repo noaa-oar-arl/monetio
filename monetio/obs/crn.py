@@ -7,7 +7,7 @@ Data available at https://www.ncei.noaa.gov/access/crn/
 
 Except for the monthly datasets, CRN data are stored in yearly files for each site.
 
-Here we use the hourly data.
+Here we use the hourly data. ::
 
     Field#  Name                           Units
     ---------------------------------------------
@@ -50,7 +50,7 @@ Here we use the hourly data.
        37   SOIL_TEMP_50                   Celsius
        38   SOIL_TEMP_100                  Celsius
 
-Daily data
+Daily data ::
 
     Field#  Name                           Units
     ---------------------------------------------
@@ -83,7 +83,7 @@ Daily data
        27   SOIL_TEMP_50_DAILY             Celsius
        28   SOIL_TEMP_100_DAILY            Celsius
 
-Sub-hourly data
+Sub-hourly data ::
 
     Field#  Name                           Units
     ---------------------------------------------
@@ -130,6 +130,28 @@ def add_data(
     download=False,
     latlonbox=None,
 ):
+    """Add data from US CRN.
+
+    Parameters
+    ----------
+    dates
+        Dates to load.
+        Data fetched depends on the unique years included here.
+    daily, sub_hourly : bool
+        Load daily OR sub-hourly data.
+        If both are false, load hourly data.
+    download : bool
+        Download the files to disk.
+    latlonbox : array-like of float, optional
+        ``[lat1, lon1, lat2, lon2]``,
+        where ``lat1, lon1`` is the lower-left corner
+        and ``lat2, lon2`` is the upper-right corner.
+        This can be used to reduce the sites (and thus files) that will be loaded.
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
     a = CRN()
     df = a.add_data(
         dates,
@@ -413,26 +435,27 @@ class CRN:
             print("File Exists: " + fname)
 
     def add_data(self, dates, daily=False, sub_hourly=False, download=False, latlonbox=None):
-        """Short summary.
+        """Add data from US CRN.
 
         Parameters
         ----------
-        dates : type
-            Description of parameter `dates`.
-        daily : type
-            Description of parameter `daily` (the default is False).
-        sub_hourly : type
-            Description of parameter `sub_hourly` (the default is False).
-        download : type
-            Description of parameter `download` (the default is False).
-        latlonbox : type
-            Description of parameter `latlonbox` (the default is None).
+        dates
+            Dates to load.
+            Data fetched depends on the unique years included here.
+        daily, sub_hourly : bool
+            Load daily OR sub-hourly data.
+            If both are false, load hourly data.
+        download : bool
+            Download the files to disk.
+        latlonbox : array-like of float, optional
+            ``[lat1, lon1, lat2, lon2]``,
+            where ``lat1, lon1`` is the lower-left corner
+            and ``lat2, lon2`` is the upper-right corner.
+            This can be used to reduce the sites (and thus files) that will be loaded.
 
         Returns
         -------
-        type
-            Description of returned object.
-
+        pandas.DataFrame
         """
         import dask
         import dask.dataframe as dd
@@ -446,7 +469,7 @@ class CRN:
                 & (mdf.LATITUDE <= latlonbox[2])
                 & (mdf.LONGITUDE >= latlonbox[1])
                 & (mdf.LONGITUDE <= latlonbox[3])
-            )
+            )  # TODO: deal with possible antimeridian crossing
             monitors = mdf.loc[con].copy()
         else:
             monitors = self.monitor_df.copy()

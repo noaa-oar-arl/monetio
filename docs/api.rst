@@ -2,6 +2,9 @@
 API
 ===
 
+.. module:: monetio
+   :synopsis: Data input/output for MONET
+
 .. contents::
    :depth: 3
    :local:
@@ -64,6 +67,107 @@ Functions
 
 .. autofunction:: monetio.aqs.add_data
 
+
+CEMS
+^^^^
+
+.. autoclass:: monetio.obs.cems_mod.CEMS
+
+Functions
++++++++++
+
+(Available under :mod:`monetio` namespace.)
+
+.. automethod:: monetio.cems.add_data
+
+CRN
+^^^
+
+.. automodule:: monetio.crn
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.crn.add_data
+
+.. autofunction:: monetio.crn.add_data
+
+IMPROVE
+^^^^^^^
+
+.. autoclass:: monetio.obs.improve_mod.IMPROVE
+
+Functions
++++++++++
+
+(Available under :mod:`monetio` namespace.)
+
+.. automethod:: monetio.improve.add_data
+
+ISH
+^^^
+
+.. automodule:: monetio.ish
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.ish.add_data
+
+.. autofunction:: monetio.ish.add_data
+
+
+ISH-lite
+^^^^^^^^
+
+.. automodule:: monetio.ish_lite
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.ish_lite.add_data
+
+.. autofunction:: monetio.ish_lite.add_data
+
+NADP
+^^^^
+
+.. automodule:: monetio.nadp
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.nadp.add_data
+
+.. autofunction:: monetio.nadp.add_data
+
+
+OpenAQ
+^^^^^^
+
+TODO
+
+PAMS
+^^^^
+
+.. automodule:: monetio.pams
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.pams.add_data
+
+.. autofunction:: monetio.pams.add_data
 
 Profile observations
 --------------------

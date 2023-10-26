@@ -2,7 +2,7 @@
 
 Primary website: https://nadp.slh.wisc.edu/
 
-NADP is composed of multiple regional `<networks> https://nadp.slh.wisc.edu/networks/`__:
+NADP is composed of multiple regional `networks <https://nadp.slh.wisc.edu/networks/>`__:
 
 * NTN (National Trends Network;
   "a long-term record of the acids, nutrients, and base cations in U.S. precipitation")
@@ -39,7 +39,8 @@ from numpy import NaN
 
 
 def add_data(dates, network="NTN", siteid=None, weekly=True):
-    """
+    """Add NADP data from `network`.
+
     Parameters
     ----------
     network : str
