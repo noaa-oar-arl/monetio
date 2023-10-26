@@ -1,7 +1,7 @@
 """ICARTT -- International Consortium for Atmospheric Research on Transport and Transformation format
 
 Many field campaigns save data in ICARTT format.
-Methods are available to combine flight data.
+Methods are available through MONET to combine flight data.
 
 Home page: https://www.earthdata.nasa.gov/esdis/esco/standards-and-practices/icartt-file-format
 
