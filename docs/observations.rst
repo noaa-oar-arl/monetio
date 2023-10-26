@@ -16,15 +16,6 @@ First we will import several libraries to aid for in the future.
     import cartopy.crs as ccrs  # map projections
     import cartopy.feature as cfeature # politcal and geographic features
 
-OpenAQ
-------
-
-to do.....
-
-CEMS
-----
-
-to do.....
 
 Climate Reference Network
 -------------------------
