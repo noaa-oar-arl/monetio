@@ -35,6 +35,17 @@ Available Measurements
 * Temperature (TEMP)
 * Relative Humidity and Dew Point Temperature (RHDP)
 
+Available Networks
+^^^^^^^^^^^^^^^^^^
+
+* NCORE (https://www3.epa.gov/ttn/amtic/ncore.html)
+* CSN (https://www.epa.gov/amtic/chemical-speciation-network-csn)
+* CASTNET (https://www.epa.gov/castnet)
+* IMPROVE (http://vista.cira.colostate.edu/Improve/)
+* PAMS (https://www.epa.gov/amtic/photochemical-assessment-monitoring-stations-pams)
+* SCHOOL AIR TOXICS (https://www3.epa.gov/ttnamti1/airtoxschool.html)
+* NEAR ROAD (NO2; https://www.epa.gov/amtic/no2-monitoring-near-road-monitoring)
+* NATTS (https://www3.epa.gov/ttnamti1/natts.html)
 """
 import inspect
 import os
@@ -43,8 +54,6 @@ import warnings
 import pandas as pd
 
 from .epa_util import read_monitor_file
-
-# this is a class to deal with aqs data
 
 
 def add_data(

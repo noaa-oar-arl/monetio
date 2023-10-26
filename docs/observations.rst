@@ -17,44 +17,6 @@ First we will import several libraries to aid for in the future.
     import cartopy.feature as cfeature # politcal and geographic features
 
 
-EPA AQS
--------
-
-Loading Multiple Measurements
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Let's load variables PM10 and OZONE using hourly data to get an idea of how to get multiple variables:
-
-.. code::   python
-
-  df = aqs.add_data(dates, param=['OZONE','PM10'])
-
-Loading Specific Network
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-Sometimes you may want to load a specific network that is available in the AQS data
-files.  For instance, lets load data from the Chemical Speciation Network (CSN;
-https://www.epa.gov/amtic/chemical-speciation-network-csn).
-As of writing this tutorial we will load the 2017 data as it is complete.
-
-.. code::   python
-
-    dates = pd.date_range(start='2017-01-01', end='2018-01-01', freq='H')
-    df = aqs.add_data(dates,param=['SPEC'], network='CSN', daily=True )
-
-Available Networks
-^^^^^^^^^^^^^^^^^^
-
-* NCORE (https://www3.epa.gov/ttn/amtic/ncore.html)
-* CSN (https://www.epa.gov/amtic/chemical-speciation-network-csn)
-* CASTNET (https://www.epa.gov/castnet)
-* IMPROVE (http://vista.cira.colostate.edu/Improve/)
-* PAMS (https://www.epa.gov/amtic/photochemical-assessment-monitoring-stations-pams)
-* SCHOOL AIR TOXICS (https://www3.epa.gov/ttnamti1/airtoxschool.html)
-* NEAR ROAD (NO2; https://www.epa.gov/amtic/no2-monitoring-near-road-monitoring)
-* NATTS (https://www3.epa.gov/ttnamti1/natts.html)
-
-
 NADP
 ----
 
