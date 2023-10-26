@@ -172,6 +172,9 @@ Functions
 Profile observations
 --------------------
 
+GEOMS
+^^^^^
+
 .. automodule:: monetio.geoms
 
 .. autosummary::
@@ -179,6 +182,18 @@ Profile observations
    monetio.geoms.open_dataset
 
 .. autofunction:: monetio.geoms.open_dataset
+
+
+ICARTT
+^^^^^^
+
+.. automodule:: monetio.icartt
+
+.. autosummary::
+
+   monetio.icartt.add_data
+
+.. autofunction:: monetio.icartt.add_data
 
 
 Utility functions
