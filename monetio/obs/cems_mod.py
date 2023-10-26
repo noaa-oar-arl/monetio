@@ -282,7 +282,7 @@ class CEMS:
             # open(efile, 'wb').write(r.content)
             # print('retrieved ' + ftpsite + fname)
             efile = ftpsite + fname
-            print("WARNING: Downloading file not supported at this time")
+            print("WARNING: Downloading file not supported at this time")  # TODO: support this
             print("you may download manually using the following address")
             print(efile)
         else:

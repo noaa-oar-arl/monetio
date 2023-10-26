@@ -1,10 +1,13 @@
-"""
-Data is taken from the Climate Reference Network.  This is to expand validation
- of the NOAA ARL model validation leveraging inhouse datasets.
+"""CRN -- The US Climate Reference Network
 
-    Data available at https://www.ncei.noaa.gov/access/crn/
+This is to expand validation of the NOAA ARL model validation
+leveraging inhouse datasets.
 
-    Here we use the hourly data.
+Data available at https://www.ncei.noaa.gov/access/crn/
+
+Except for the monthly datasets, CRN data are stored in yearly files for each site.
+
+Here we use the hourly data.
 
     Field#  Name                           Units
     ---------------------------------------------
@@ -46,82 +49,94 @@ Data is taken from the Climate Reference Network.  This is to expand validation
        36   SOIL_TEMP_20                   Celsius
        37   SOIL_TEMP_50                   Celsius
        38   SOIL_TEMP_100                  Celsius
-============================================
-Daily Data
-============================================
+
+Daily data
+
     Field#  Name                           Units
----------------------------------------------
-   1    WBANNO                         XXXXX
-   2    LST_DATE                       YYYYMMDD
-   3    CRX_VN                         XXXXXX
-   4    LONGITUDE                      Decimal_degrees
-   5    LATITUDE                       Decimal_degrees
-   6    T_DAILY_MAX                    Celsius
-   7    T_DAILY_MIN                    Celsius
-   8    T_DAILY_MEAN                   Celsius
-   9    T_DAILY_AVG                    Celsius
-   10   P_DAILY_CALC                   mm
-   11   SOLARAD_DAILY                  MJ/m^2
-   12   SUR_TEMP_DAILY_TYPE            X
-   13   SUR_TEMP_DAILY_MAX             Celsius
-   14   SUR_TEMP_DAILY_MIN             Celsius
-   15   SUR_TEMP_DAILY_AVG             Celsius
-   16   RH_DAILY_MAX                   %
-   17   RH_DAILY_MIN                   %
-   18   RH_DAILY_AVG                   %
-   19   SOIL_MOISTURE_5_DAILY          m^3/m^3
-   20   SOIL_MOISTURE_10_DAILY         m^3/m^3
-   21   SOIL_MOISTURE_20_DAILY         m^3/m^3
-   22   SOIL_MOISTURE_50_DAILY         m^3/m^3
-   23   SOIL_MOISTURE_100_DAILY        m^3/m^3
-   24   SOIL_TEMP_5_DAILY              Celsius
-   25   SOIL_TEMP_10_DAILY             Celsius
-   26   SOIL_TEMP_20_DAILY             Celsius
-   27   SOIL_TEMP_50_DAILY             Celsius
-   28   SOIL_TEMP_100_DAILY            Celsius
+    ---------------------------------------------
+       1    WBANNO                         XXXXX
+       2    LST_DATE                       YYYYMMDD
+       3    CRX_VN                         XXXXXX
+       4    LONGITUDE                      Decimal_degrees
+       5    LATITUDE                       Decimal_degrees
+       6    T_DAILY_MAX                    Celsius
+       7    T_DAILY_MIN                    Celsius
+       8    T_DAILY_MEAN                   Celsius
+       9    T_DAILY_AVG                    Celsius
+       10   P_DAILY_CALC                   mm
+       11   SOLARAD_DAILY                  MJ/m^2
+       12   SUR_TEMP_DAILY_TYPE            X
+       13   SUR_TEMP_DAILY_MAX             Celsius
+       14   SUR_TEMP_DAILY_MIN             Celsius
+       15   SUR_TEMP_DAILY_AVG             Celsius
+       16   RH_DAILY_MAX                   %
+       17   RH_DAILY_MIN                   %
+       18   RH_DAILY_AVG                   %
+       19   SOIL_MOISTURE_5_DAILY          m^3/m^3
+       20   SOIL_MOISTURE_10_DAILY         m^3/m^3
+       21   SOIL_MOISTURE_20_DAILY         m^3/m^3
+       22   SOIL_MOISTURE_50_DAILY         m^3/m^3
+       23   SOIL_MOISTURE_100_DAILY        m^3/m^3
+       24   SOIL_TEMP_5_DAILY              Celsius
+       25   SOIL_TEMP_10_DAILY             Celsius
+       26   SOIL_TEMP_20_DAILY             Celsius
+       27   SOIL_TEMP_50_DAILY             Celsius
+       28   SOIL_TEMP_100_DAILY            Celsius
 
-===============================================
- SUB HOURLY
- ==============================================
- Field#  Name                           Units
----------------------------------------------
-   1    WBANNO                         XXXXX
-   2    UTC_DATE                       YYYYMMDD
-   3    UTC_TIME                       HHmm
-   4    LST_DATE                       YYYYMMDD
-   5    LST_TIME                       HHmm
-   6    CRX_VN                         XXXXXX
-   7    LONGITUDE                      Decimal_degrees
-   8    LATITUDE                       Decimal_degrees
-   9    AIR_TEMPERATURE                Celsius
-   10   PRECIPITATION                  mm
-   11   SOLAR_RADIATION                W/m^2
-   12   SR_FLAG                        X
-   13   SURFACE_TEMPERATURE            Celsius
-   14   ST_TYPE                        X
-   15   ST_FLAG                        X
-   16   RELATIVE_HUMIDITY              %
-   17   RH_FLAG                        X
-   18   SOIL_MOISTURE_5                m^3/m^3
-   19   SOIL_TEMPERATURE_5             Celsius
-   20   WETNESS                        Ohms
-   21   WET_FLAG                       X
-   22   WIND_1_5                       m/s
-   23   WIND_FLAG                      X
+Sub-hourly data
 
-   """
+    Field#  Name                           Units
+    ---------------------------------------------
+       1    WBANNO                         XXXXX
+       2    UTC_DATE                       YYYYMMDD
+       3    UTC_TIME                       HHmm
+       4    LST_DATE                       YYYYMMDD
+       5    LST_TIME                       HHmm
+       6    CRX_VN                         XXXXXX
+       7    LONGITUDE                      Decimal_degrees
+       8    LATITUDE                       Decimal_degrees
+       9    AIR_TEMPERATURE                Celsius
+       10   PRECIPITATION                  mm
+       11   SOLAR_RADIATION                W/m^2
+       12   SR_FLAG                        X
+       13   SURFACE_TEMPERATURE            Celsius
+       14   ST_TYPE                        X
+       15   ST_FLAG                        X
+       16   RELATIVE_HUMIDITY              %
+       17   RH_FLAG                        X
+       18   SOIL_MOISTURE_5                m^3/m^3
+       19   SOIL_TEMPERATURE_5             Celsius
+       20   WETNESS                        Ohms
+       21   WET_FLAG                       X
+       22   WIND_1_5                       m/s
+       23   WIND_FLAG                      X
 
-import inspect
+"""
 import os
+from pathlib import Path
 
 import pandas as pd
 from numpy import array
 
+HERE = Path(__file__).parent
 
-def add_data(dates, param=None, daily=False, sub_hourly=False, download=False, latlonbox=None):
+
+def add_data(
+    dates,
+    *,
+    param=None,
+    daily=False,
+    sub_hourly=False,
+    download=False,
+    latlonbox=None,
+):
     a = CRN()
     df = a.add_data(
-        dates, daily=daily, sub_hourly=sub_hourly, download=download, latlonbox=latlonbox
+        dates,
+        daily=daily,
+        sub_hourly=sub_hourly,
+        download=download,
+        latlonbox=latlonbox,
     )
     return df
 
@@ -143,7 +158,7 @@ class CRN:
         )
         self.p_states = array(["CA", "OR", "WA"], dtype="|S10")
         self.objtype = "CRN"
-        self.monitor_file = inspect.getfile(self.__class__)[:-18] + "data/stations.tsv"
+        self.monitor_file = HERE / "../data/stations.tsv"
         self.monitor_df = None
         self.baseurl = "https://www1.ncdc.noaa.gov/pub/data/uscrn/products/"
         self.hcols = [
@@ -199,7 +214,6 @@ class CRN:
             "P_CALC",
             "SOLARAD",
             "SUR_TEMP_TYPE",
-            "SUR_TEMP_MAX",
             "SUR_TEMP_MAX",
             "SUR_TEMP_MIN",
             "SUR_TEMP_AVG",
@@ -261,6 +275,7 @@ class CRN:
                 url,
                 delim_whitespace=True,
                 names=cols,
+                dtype={"WBANNO": str},
                 parse_dates={"time_local": [1]},
                 infer_datetime_format=True,
                 na_values=nanvals,
@@ -272,6 +287,7 @@ class CRN:
                 url,
                 delim_whitespace=True,
                 names=cols,
+                dtype={"WBANNO": str},
                 parse_dates={
                     "time": ["UTC_DATE", "UTC_TIME"],
                     "time_local": ["LST_DATE", "LST_TIME"],
@@ -285,6 +301,7 @@ class CRN:
                 url,
                 delim_whitespace=True,
                 names=cols,
+                dtype={"WBANNO": str},
                 parse_dates={
                     "time": ["UTC_DATE", "UTC_TIME"],
                     "time_local": ["LST_DATE", "LST_TIME"],
@@ -363,7 +380,7 @@ class CRN:
                 url, fname = self.build_url(
                     y, state, site, vector, daily=daily, sub_hourly=sub_hourly
                 )
-                if self.check_url(url):
+                if self.check_url(url):  # TODO: multi-thread the URL checking
                     urls.append(url)
                     fnames.append(fname)
                     print(url)
@@ -384,10 +401,6 @@ class CRN:
         type
             Description of returned object.
 
-        """
-        """rdate - datetime object. Uses year and month. Day and hour are not used.
-           state - state abbreviation to retrieve data for
-           Files are by year month and state.
         """
         import wget
 
@@ -445,37 +458,24 @@ class CRN:
         else:
             dfs = [dask.delayed(self.load_file)(i) for i in urls]
         dff = dd.from_delayed(dfs)
-        self.df = dff.compute()
+        self.df = dff.compute()  # TODO: num_workers
         self.df = pd.merge(self.df, monitors, how="left", on=["WBANNO", "LATITUDE", "LONGITUDE"])
-        if ~self.df.columns.isin(["time"]).max():
-            self.df["time"] = self.df.time_local + pd.to_timedelta(self.df.GMT_OFFSET, unit="H")
+        if "time" not in self.df.columns:
+            print("note: setting 'time' to 'time_local'")
+            # self.df["time"] = self.df.time_local
+            self.df.insert(0, "time", self.df.time_local)
         id_vars = self.monitor_df.columns.append(pd.Index(["time", "time_local"]))
         keys = self.df.columns[self.df.columns.isin(id_vars)]
-        self.df = pd.melt(
-            self.df, id_vars=keys, var_name="variable", value_name="obs"
-        )  # this stacks columns to be inline with MONET
+        self.df = pd.melt(self.df, id_vars=keys, var_name="variable", value_name="obs")
+        # ^ this stacks columns to be inline with MONET
         self.df.rename(columns={"WBANNO": "siteid"}, inplace=True)
         self.change_units()
         self.df.columns = [i.lower() for i in self.df.columns]
 
+        return self.df
+
     def change_units(self):
-        """Short summary.
-
-        Parameters
-        ----------
-        df : type
-            Description of parameter `df`.
-        param : type
-            Description of parameter `param` (the default is 'O3').
-        aqs_param : type
-            Description of parameter `aqs_param` (the default is 'OZONE').
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
+        """Make some adjustments to units."""
         self.df["units"] = ""
         for v in self.df.variable.unique():
             if self.daily and v == "SOLARAD":
@@ -495,32 +495,19 @@ class CRN:
             elif v == "P_CALC":
                 self.df.loc[self.df.variable == v, "units"] = "mm"
 
-    def set_daterange(self, begin="", end=""):
-        """Short summary.
+    def set_daterange(self, begin="", end=""):  # TODO: unused
+        """Set :attr:`dates` to a range of dates.
 
         Parameters
         ----------
-        begin : type
-            Description of parameter `begin` (the default is '').
-        end : type
-            Description of parameter `end` (the default is '').
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
+        begin, end
+            Passed to ``pd.date_range``.
         """
         dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
         self.dates = dates
 
     def get_monitor_df(self):
-        """Short summary.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        self.monitor_df = pd.read_csv(self.monitor_file, delimiter="\t")
+        """Read the site metadata file, setting :attr:`monitor_df`."""
+        self.monitor_df = pd.read_csv(
+            self.monitor_file, delimiter="\t", dtype={"WBAN": str}
+        ).rename(columns={"WBAN": "WBANNO"})

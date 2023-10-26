@@ -17,11 +17,6 @@ First we will import several libraries to aid for in the future.
     import cartopy.feature as cfeature # politcal and geographic features
 
 
-Climate Reference Network
--------------------------
-
-to do.....
-
 Integrated Surface Database
 ---------------------------
 
