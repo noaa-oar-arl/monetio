@@ -1,11 +1,54 @@
-""" READS NAPD DATA """
+"""NADP -- the National Atmospheric Deposition Program
 
+Primary website: https://nadp.slh.wisc.edu/
+
+NADP is composed of multiple regional `<networks> https://nadp.slh.wisc.edu/networks/`__:
+
+* NTN (National Trends Network;
+  "a long-term record of the acids, nutrients, and base cations in U.S. precipitation")
+* MDN (Mercury Deposition Network)
+* AMoN (Ammonia Monitoring Network)
+* AMNet (Atmospheric Mercury Network)
+* MLN (Mercury Litterfall Network)
+* AIRMoN (Atmospheric Integrated Research Monitoring Network; **1992--2019**)
+
+You can read data from any of the networks with a single call by
+specifying the wanted network.
+
+Available Measurements
+======================
+
+Available measurements depend on network, but include:
+
+* net concentration of methyl mercury in ng/L (conc)
+* precipitation amount (in inches) reported by the rain gauge for the entire sampling period.
+  (rain gauge)
+* H+ (ph)
+* Ca2+ (ca)
+* Mg2+ (mg)
+* Na+ (na)
+* K+ (k)
+* SO42- (so4)
+* NO3- (no3)
+* Cl- (cl)
+* NH4+ (nh4)
+"""
 
 import pandas as pd
 from numpy import NaN
 
 
 def add_data(dates, network="NTN", siteid=None, weekly=True):
+    """
+    Parameters
+    ----------
+    network : str
+        Network name. Case-insensitive.
+    siteid : str, optional
+        Specific site to load. Case-insensitive.
+    weekly : bool
+        Otherwise annual.
+    """
     n = NADP()
     df = n.add_data(dates, network=network, siteid=siteid, weekly=weekly)
     return df
@@ -165,6 +208,7 @@ class NADP:
         return dfn
 
     def add_data(self, dates, network="NTN", siteid=None, weekly=True):
+        self.weekly = weekly
         url = self.build_url(network=network, siteid=siteid)
         if network.lower() == "ntn":
             df = self.read_ntn(url)
