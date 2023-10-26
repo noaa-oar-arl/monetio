@@ -213,8 +213,6 @@ def get_traj(tdump):
           Date and Time are a Datetime Object
 
     """
-    # 2023 Oct 8. the method of parsing dates was generating a warning.
-    #             rewrote so no warning is generated.
     # Going back to first line of file
     tdump.seek(0)
     # Gets the starting locations
