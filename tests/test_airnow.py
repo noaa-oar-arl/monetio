@@ -62,11 +62,11 @@ def test_add_data_daily():
     "date",
     [
         pd.Timestamp("2021/07/01"),
-        pd.Timestamp.now().floor("D"),
+        pd.Timestamp.now().floor("D") - pd.Timedelta(days=1),
     ],
     ids=[
         "2021/07/01 (historical)",
-        "current date",
+        "yesterday",
     ],
 )
 def test_check_zero_utc_offsets(date, bad_utcoffset):
