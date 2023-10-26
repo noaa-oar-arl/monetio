@@ -5,6 +5,9 @@ import pytest
 
 from monetio import openaq
 
+if sys.version_info < (3, 7):
+    pytest.skip("requires Python 3.7+", allow_module_level=True)
+
 # openaq._URL_CAP_RANDOM_SAMPLE = True
 openaq._URL_CAP = 4
 
@@ -13,7 +16,6 @@ openaq._URL_CAP = 4
 FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="H")[:-1]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7+")
 def test_openaq_first_date():
     dates = FIRST_DAY
     df = openaq.add_data(dates)
