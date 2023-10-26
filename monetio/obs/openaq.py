@@ -4,10 +4,12 @@ https://openaq.org/
 https://openaq-fetches.s3.amazonaws.com/index.html
 """
 import json
+import warnings
 
 import pandas as pd
 from numpy import NaN
 
+_URL_CAP_RANDOM_SAMPLE = False  # if false, take from end of list
 _URL_CAP = None  # set to int to limit number of files loaded for testing
 
 
@@ -380,9 +382,12 @@ class OPENAQ:
             print(urls[-1])
 
         if _URL_CAP is not None and len(urls) > _URL_CAP:
-            import random
+            if _URL_CAP_RANDOM_SAMPLE:
+                import random
 
-            urls = random.sample(urls, _URL_CAP)
+                urls = random.sample(urls, _URL_CAP)
+            else:
+                urls = urls[-_URL_CAP:]
 
         # Read JSON files
         func = self.read
@@ -425,6 +430,25 @@ class OPENAQ:
             if not good:
                 raise ValueError(f"Expected these species to all be in µg/m³: {non_molec}.")
 
+            # Determine averaging periods for each parameter
+            aps = {}
+            for p, g in df.groupby("parameter"):
+                aps[p] = g.averagingPeriod.dropna().unique()
+            mult_ap_lines = []
+            for p, ap in aps.items():
+                if len(ap) > 1:
+                    counts = df.averagingPeriod.loc[df.parameter == p].dropna().value_counts()
+                    s_counts = ", ".join(f"'{v}' ({n})" for v, n in counts.items())
+                    mult_ap_lines.append(f"{p!r}: {s_counts}")
+            if mult_ap_lines:
+                s_mults = "\n".join(f"- {s}" for s in mult_ap_lines)
+                warnings.warn(
+                    "Multiple averaging periods for"
+                    f"\n{s_mults}"
+                    "\nWill select data with averaging period 1H. "
+                    "Use wide_fmt=False if you want all data."
+                )
+
             # Pivot to wide format (each parameter gets its own column)
             index = [
                 "time",
@@ -439,12 +463,19 @@ class OPENAQ:
                 "sourceName",
                 "sourceType",
                 "mobile",
-                "averagingPeriod",
+                # "averagingPeriod",  # different parameters may have different standard averaging periods
             ]
             if self.engine == "pandas":
                 index.remove("attribution")
+
+            # NOTE: 1H is the most common averaging period by far
+            # NOTE: seems that some sites have dupe rows with city == "N/A"
+            na_locations = ["Wampanoag Laboratory"]
             df = (
-                df[(df.averagingPeriod == pd.Timedelta("1H")) & (df.city != "N/A")]
+                df[
+                    (df.averagingPeriod == pd.Timedelta("1H"))
+                    & ~(df.location.isin(na_locations) & (df.city == "N/A"))
+                ]
                 .pivot_table(
                     values="value",
                     index=index,
@@ -452,6 +483,7 @@ class OPENAQ:
                 )
                 .reset_index()
             )
+            df["averagingPeriod"] = pd.Timedelta("1H")  # TODO: could just not include
             df = df.rename(columns={p: f"{p}_ugm3" for p in self.NON_MOLEC_PARAMS}, errors="ignore")
             df = df.rename(columns={p: f"{p}_ppm" for p in self.PPM_TO_UGM3}, errors="ignore")
 

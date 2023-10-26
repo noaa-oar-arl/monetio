@@ -5,6 +5,7 @@ import pytest
 
 from monetio import openaq
 
+# openaq._URL_CAP_RANDOM_SAMPLE = True
 openaq._URL_CAP = 4
 
 # First date in the archive, just one file
