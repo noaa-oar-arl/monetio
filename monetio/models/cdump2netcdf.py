@@ -114,7 +114,6 @@ def handle_levels(levlist):
 
 # def cdump2awips(flist, outname, format='NETCDF4', d1=None, d2=None):
 def cdump2awips(xrash1, dt, outname, mscale=1, munit="unit", format="NETCDF4", d1=None, d2=None):
-
     # mass loading should be in g/m2 to compare to satellite.
     # concentration should be in mg/m3 to compare to threshold levels.
 

@@ -38,17 +38,13 @@ Available Measurements
 """
 import inspect
 import os
+import warnings
 
 import pandas as pd
-from dask.diagnostics import ProgressBar
 
 from .epa_util import read_monitor_file
 
 # this is a class to deal with aqs data
-
-
-pbar = ProgressBar()
-pbar.register()
 
 
 def add_data(
@@ -753,6 +749,18 @@ class AQS:
                 df.loc[con, "variable"] = "RH"
             if i == 62103:
                 df.loc[con, "variable"] = "DP"
+
+        # For any remaining, use parameter_name but warn
+        con = df.variable == ""
+        if con.sum() > 0:
+            _tbl = (
+                df[con][["parameter_name", "parameter_code"]]
+                .drop_duplicates("parameter_name")
+                .to_string(index=False)
+            )
+            warnings.warn(f"Short names not available for these variables:\n{_tbl}")
+        df.loc[con, "variable"] = df.parameter_name
+
         return df
 
     @staticmethod

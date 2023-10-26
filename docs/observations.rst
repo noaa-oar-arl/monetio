@@ -29,13 +29,13 @@ Let's load variables PM10 and OZONE using hourly data to get an idea of how to g
 
   df = aqs.add_data(dates, param=['OZONE','PM10'])
 
-Loading Specfic Network
-^^^^^^^^^^^^^^^^^^^^^^^
+Loading Specific Network
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Sometimes you may want to load a specific network that is available in the AQS data
 files.  For instance, lets load data from the Chemical Speciation Network (CSN;
 https://www.epa.gov/amtic/chemical-speciation-network-csn).
-As of writting this tutorial we will load the 2017 data as it is complete.
+As of writing this tutorial we will load the 2017 data as it is complete.
 
 .. code::   python
 
@@ -78,7 +78,7 @@ NTN
     "The NTN is the only network providing a long-term record of precipitation chemistry across the United States.
 
     Sites predominantly are located away from urban areas and point sources of pollution. Each site has a precipitation
-    chemistry collector and gage. The automated collector ensures that the sample is exposed only during precipitation (wet-only-sampling)."
+    chemistry collector and gauge. The automated collector ensures that the sample is exposed only during precipitation (wet-only-sampling)."
     - https://nadp.slh.wisc.edu/NTN/
 
 Available Measurements
@@ -97,14 +97,14 @@ Available Measurements
 MDN
 ^^^
 
-    "The MDN is the only network providing a longterm record of total mercury (Hg) concentration and deposition in precipitation in the United States and Canada. All MDN sites follow standard procedures and have uniform precipitation chemistry collectors and gages. The automated collector has the same basic design as the NTN collector but is modified to preserve mercury. Modifications include a glass funnel, connecting tube, bottle for collecting samples, and an insulated enclosure to house this sampling train. The funnel and connecting tube reduce sample exposure to the open atmosphere and limit loss of dissolved mercury. As an additional sample preservation measure, the collection bottle is charged with 20 mL of a one percent hydrochloric acid solution."
+    "The MDN is the only network providing a longterm record of total mercury (Hg) concentration and deposition in precipitation in the United States and Canada. All MDN sites follow standard procedures and have uniform precipitation chemistry collectors and gauges. The automated collector has the same basic design as the NTN collector but is modified to preserve mercury. Modifications include a glass funnel, connecting tube, bottle for collecting samples, and an insulated enclosure to house this sampling train. The funnel and connecting tube reduce sample exposure to the open atmosphere and limit loss of dissolved mercury. As an additional sample preservation measure, the collection bottle is charged with 20 mL of a one percent hydrochloric acid solution."
     - https://nadp.slh.wisc.edu/MDN/
 
 Available Measurements
 ======================
 
 * net concentration of methyl mercury in ng/L (conc)
-* precipitation amount (in inches) reported by the raingage for the entire sampling period. (raingage)
+* precipitation amount (in inches) reported by the rain gauge for the entire sampling period. (rain gauge)
 * Mg2+ (mg)
 * Na+ (na)
 * K+ (k)
@@ -165,7 +165,7 @@ To see what data is in the DataFrame simply output the column header values
 
 .. code:: python
 
-    print(df.colums.values)
+    print(df.columns.values)
 
 Available Measurements
 ^^^^^^^^^^^^^^^^^^^^^^

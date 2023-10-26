@@ -2,6 +2,11 @@
 API
 ===
 
+.. contents::
+   :depth: 3
+   :local:
+
+
 Data sources
 ============
 
@@ -58,6 +63,18 @@ Functions
    monetio.aqs.add_data
 
 .. autofunction:: monetio.aqs.add_data
+
+
+Profile observations
+--------------------
+
+.. automodule:: monetio.geoms
+
+.. autosummary::
+
+   monetio.geoms.open_dataset
+
+.. autofunction:: monetio.geoms.open_dataset
 
 
 Utility functions

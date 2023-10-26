@@ -349,3 +349,78 @@ def calc_13_category_usda_soil_type(clay, sand, silt):
     stype[where((clay >= 40) & (silt >= 40) & (clay != 255))] = 11  # silty clay
     stype[where((clay >= 40) & (sand <= 45) & (silt < 40) & (clay != 255))] = 12  # clay
     return stype
+
+
+_module_install_names = {
+    # module: GH, PyPI, conda-forge
+    "pyhdf": ("fhs/pyhdf", "pyhdf", "pyhdf"),
+}
+
+
+def _install_message(mod_name):
+    if mod_name not in _module_install_names:
+        return ""
+
+    gh, pypi_name, cf_name = _module_install_names[mod_name]
+    cf_ = f"Try installing from conda-forge using `conda install -c conda-forge {cf_name}`."
+
+    return f"{cf_}"
+
+
+def _import_required(mod_name: str):
+    from importlib import import_module
+
+    try:
+        return import_module(mod_name)
+    except ImportError as e:
+        raise RuntimeError(
+            f"importing required module '{mod_name}' failed. {_install_message(mod_name)}"
+        ) from e
+
+
+def _try_merge_exact(left, right, *, right_name=None):
+    """For two ``xr.Dataset``s, try ``left.merge(right, compat="equals", join="exact")``.
+    If it fails, print informative debugging messages and re-raise.
+    Otherwise, return the result.
+    """
+    import warnings
+
+    if right_name is None:
+        right_name = " "
+    else:
+        right_name = f" {right_name.strip()} "
+
+    try:
+        left = left.merge(right, compat="equals", join="exact")
+    except ValueError as e:
+        # Try to print more debug info
+        import re
+
+        name = r"(?P<name>[a-zA-Z0-9_]*)"
+
+        m = None
+        for regex in [
+            rf"not equal along these coordinates \(dimensions\): '{name}'",
+            # Older message, used up to at least 0.21.1:
+            rf"indexes along dimension '{name}' are not equal",
+        ]:
+            m = re.search(regex, str(e))
+            if m is not None:
+                break
+        if m is None:
+            warnings.warn(
+                f"Unexpected Exception message (expected to match {regex!r}): {e}", stacklevel=2
+            )
+            raise
+        else:
+            vn = m.groupdict()["name"]
+            print(f"self {vn!r}: dtype={left[vn].dtype}")
+            print(left[vn])
+            print(f"other {vn!r}: dtype={right[vn].dtype}")
+            print(right[vn])
+            raise ValueError(
+                f"Unable to merge{right_name}due to issue matching coordinates. "
+                "See debug messages above the traceback."
+            ) from e
+    else:
+        return left

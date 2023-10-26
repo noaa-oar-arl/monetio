@@ -44,7 +44,7 @@ Available Measurements
    :widths: 15, 85
 
    "SIZ",	"Size distribution"
-   "RIN",	"Refractive indicies (real and imaginary)"
+   "RIN",	"Refractive indices (real and imaginary)"
    "CAD",	"Coincident AOT data with almucantar retrieval"
    "VOL",	"Volume concentration, volume mean radius, effective radius and standard deviation"
    "TAB",	"AOT absorption"
@@ -60,6 +60,7 @@ Available Measurements
 * Source: https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
 * AOT: aerosol optical thickness
 """
+import warnings
 from datetime import datetime
 from functools import lru_cache
 
@@ -100,7 +101,7 @@ def add_local(
     # TODO: actually detect the specific inv type
 
     a.new_aod_values = interp_to_aod_values
-    if a.new_aod_values and not a.prod.startswith("AOD"):
+    if a.new_aod_values is not None and not a.prod.startswith("AOD"):
         print("`interp_to_aod_values` will be ignored")
 
     a.url = fname
@@ -111,7 +112,7 @@ def add_local(
 
     # TODO: DRY wrt. class?
     if freq is not None:
-        a.df = a.df.groupby("siteid").resample(freq).mean().reset_index()
+        a.df = a.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
 
     if detect_dust:
         a.dust_detect()
@@ -165,7 +166,7 @@ def add_data(
            during the `dates` time period.
 
         .. note::
-           `siteid` takes precendence over `latlonbox`
+           `siteid` takes precedence over `latlonbox`
            if both are specified.
     daily : bool
         Load daily averaged data.
@@ -204,16 +205,21 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
-    requested_parallel = n_procs > 1 or n_procs == -1
-    if has_joblib and requested_parallel:
-        # Split up by day
+    requested_parallel = n_procs != 1
+
+    # Split up by day
+    dates = pd.to_datetime(dates)
+    if dates is not None:
         min_date = dates.min()
         max_date = dates.max()
-        days = pd.date_range(start=min_date, end=max_date, freq="D")  # TODO: subtract 1?
-        days1 = days + pd.Timedelta(days=1)
+        time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")
+        if max_date not in time_bounds:
+            time_bounds = time_bounds.append(pd.DatetimeIndex([max_date]))
+
+    if has_joblib and requested_parallel and dates is not None and len(time_bounds) > 2:
         dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
-            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([d1, d2]), **kwargs, freq=None)
-            for d1, d2 in zip(days, days1)
+            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
+            for t1, t2 in zip(time_bounds[:-1], time_bounds[1:])
         )
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
@@ -349,7 +355,7 @@ class AERONET:
     def build_url(self):
         """Use attributes to build a URL and set :attr:`url`.
 
-        Targetting either of
+        Targeting either of
         - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_new.html
         - https://aeronet.gsfc.nasa.gov/print_web_data_help_v3_inv_new.html
         """
@@ -453,6 +459,7 @@ class AERONET:
         # Get info lines (before the header line with column names)
         info = self._lines_from_url(n=skiprows)
         if len(info.splitlines()) == 1:
+            # e.g. "AERONET Data Download (Version 3 Direct Sun)"
             raise Exception("valid query but no data found")
         elif info.startswith("<html>"):
             # Web Service showing an error message on the page (or `&if_no_html=1` manually removed)
@@ -519,7 +526,7 @@ class AERONET:
             now = datetime.utcnow()
             self.dates = pd.date_range(start=now.date(), end=now, freq="H")
         else:
-            self.dates = dates
+            self.dates = pd.DatetimeIndex(dates)
         if product is not None:
             self.prod = product.upper()
         else:
@@ -534,7 +541,7 @@ class AERONET:
         else:
             self.lunar = 0  # no lunar
         self.new_aod_values = interp_to_aod_values
-        if self.new_aod_values and not self.prod.startswith("AOD"):
+        if self.new_aod_values is not None and not self.prod.startswith("AOD"):
             print("`interp_to_aod_values` will be ignored")
 
         self.build_url()
@@ -547,7 +554,9 @@ class AERONET:
             ) from e
 
         if freq is not None:
-            self.df = self.df.groupby("siteid").resample(freq).mean().reset_index()
+            self.df = (
+                self.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+            )
 
         if detect_dust:
             self.dust_detect()
@@ -573,19 +582,22 @@ class AERONET:
 
             try:
                 import pytspack
-            except ImportError:
-                print("You must install pytspack before using this function")
-                raise
+            except ImportError as e:
+                raise RuntimeError(
+                    "You must install pytspack before using this function.\n"
+                    "See https://github.com/noaa-oar-arl/pytspack/"
+                ) from e
 
             new_wv = np.asarray(new_wv)
 
             # df_aod_nu = self._aeronet_aod_and_nu(row)
-            aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
+            aod_columns = [aod_column for aod_column in row.index if aod_column.startswith("aod_")]
             aods = row[aod_columns]
             wv = [
                 float(aod_column.replace("aod_", "").replace("nm", ""))
                 for aod_column in aod_columns
             ]
+            # TODO: the non-daily product has `exact_wavelengths_of_aod(um)_<wavelength>nm` that could be used
             a = pd.DataFrame({"aod": aods}).reset_index()
             a["wv"] = wv
             df_aod_nu = a.dropna()
@@ -604,6 +616,21 @@ class AERONET:
         )
         names = "aod_" + pd.Series(self.new_aod_values.astype(int).astype(str)) + "nm"
         out.columns = names.values
+        dup_names = list(set(self.df) & set(out))
+        if dup_names:
+            # Rename old cols, assuming preference for the specified new wavelengths
+            suff = "_orig"
+            warnings.warn(
+                f"Renaming duplicate AOD columns {dup_names} by adding suffix '{suff}'.",
+                stacklevel=2,
+            )
+            for name in dup_names:
+                self.df = self.df.rename(columns={name: f"{name}{suff}"})
+                if self.daily == 10:  # all data
+                    wl = name[4:-2]
+                    ename = f"exact_wavelengths_of_aod(um)_{wl}nm"
+                    ename_new = f"exact_wavelengths_of_aod(um)_{wl}nm{suff}"
+                    self.df = self.df.rename(columns={ename: ename_new})
         self.df = pd.concat([self.df, out], axis=1)
 
     # @staticmethod

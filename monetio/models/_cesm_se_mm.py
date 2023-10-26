@@ -13,7 +13,7 @@ def open_mfdataset(
     """Method to open multiple (or single) CESM SE netcdf files.
        This method extends the xarray.open_mfdataset functionality
        It is the main method called by the driver. Other functions defined
-       in this file are internally called by open_mfdataset and are preceeded
+       in this file are internally called by open_mfdataset and are proceeded
        by an underscore (e.g. _get_latlon).
 
     Parameters
@@ -58,6 +58,8 @@ def open_mfdataset(
         var_list.append("lat")
     if "lon" not in var_list:
         var_list.append("lon")
+    if "lev" not in var_list:
+        var_list.append("lev")
 
     # ===========================
     # Process the loaded data

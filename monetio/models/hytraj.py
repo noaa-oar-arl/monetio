@@ -1,9 +1,65 @@
-# Reads a tdump file, outputs a Pandas DataFrame
+"""reads tdump files int pandas DataFrame
+
+combine_dataset : reads multiple tdump files
+open_dataset    : reads one tdump file
+
+open_tdump
+get_metinfo
+get_traj
+get_startlocs
+time_str_fixer
+"""
 
 import re
 
 import numpy as np
 import pandas as pd
+
+
+def combine_dataset(flist, taglist=None, renumber=False, verbose=False):
+    """Opens multiple tdump files. returns Pandas DataFrame
+
+    flist    : list : filenames
+    taglist  : list : differentiate trajectories by adding extra pid column with this value.
+                      must be same length as flist
+    renumber : renumber the trajectories so all trajectories have unique number.
+               if renumber is true and taglist is None or an incorrect length, then pid column will not be generated.
+
+    If renumber is False and taglist is not specified then the function will create the pid column with
+    the tag being an integer starting from 1. Otherwise trajectories from different files but with
+    the same number cannot be told apart.
+    """
+    usepid = False
+
+    # check that taglist has same length as flist
+    if isinstance(taglist, (tuple, list, np.ndarray)):
+        if len(taglist) == len(flist):
+            usepid = True
+        # if it doesn't set to None
+        else:
+            if verbose:
+                print("WARNING, taglist different length than flist. cannot use")
+            taglist = None
+
+    # if not renumbering then need to use a tag to differentiate trajectories in different files.
+    if not renumber:
+        if not isinstance(taglist, (tuple, list, np.ndarray)):
+            taglist = np.arange(1, len(flist) + 2, 1)
+            usepid = True
+
+    maxtrajnum = 0
+    for iii, fname in enumerate(flist):
+        traj = open_dataset(fname)
+        if usepid:
+            traj["pid"] = taglist[iii]
+        if renumber:
+            traj["traj_num"] += maxtrajnum
+        if iii == 0:
+            rval = traj
+        else:
+            rval = pd.concat([rval, traj])
+        maxtrajnum = np.max(rval.traj_num.unique())
+    return rval
 
 
 def open_dataset(filename):
@@ -166,7 +222,48 @@ def get_traj(tdump):
     varibs = varibs.split(",")
     variables = varibs[1:]
     # Read the traj arrays into pandas dataframe
-    heads = [
+    heads = (
+        [
+            "traj_num",
+            "met_grid",
+            "forecast_hour",
+            "traj_age",
+            "latitude",
+            "longitude",
+            "altitude",
+        ]
+        + variables
+        + ["time"]
+    )
+
+    def dateparse(row):
+        slist = [row[2], row[3], row[4], row[5], row[6]]
+        tstr = " ".join(slist)
+        tstr = time_str_fixer(tstr)
+        tdate = pd.to_datetime(tstr, format="%y %m %d %H %M")
+        return tdate
+
+    dhash = {
+        0: int,
+        1: int,
+        2: str,
+        3: str,
+        4: str,
+        5: str,
+        6: str,
+        7: float,
+        8: float,
+        9: float,
+        10: float,
+        11: float,
+    }
+    traj = pd.read_csv(tdump, header=None, sep=r"\s+", dtype=dhash)
+    traj["time"] = traj.apply(lambda row: dateparse(row), axis=1)
+    traj = traj.drop([2, 3, 4, 5, 6], axis=1)
+    # Adds headers to dataframe
+    traj.columns = heads
+    # Makes all headers lowercase
+    neworder = [
         "time",
         "traj_num",
         "met_grid",
@@ -176,12 +273,6 @@ def get_traj(tdump):
         "longitude",
         "altitude",
     ] + variables
-    traj = pd.read_csv(tdump, header=None, sep=r"\s+", parse_dates={"time": [2, 3, 4, 5, 6]})
-    # Adds headers to dataframe
-    traj.columns = heads
-    # Makes all headers lowercase
+    traj = traj[neworder]
     traj.columns = map(str.lower, traj.columns)
-    # Puts time datetime object
-    traj["time"] = traj.apply(lambda row: time_str_fixer(row["time"]), axis=1)
-    traj["time"] = pd.to_datetime(traj["time"], format="%y %m %d %H %M")
     return traj

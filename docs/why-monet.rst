@@ -13,7 +13,7 @@ analysis.
 - Retrieving observational datasets for given time and space.
 - Efficiently combine/interpolate model and observational datasets.
 - Provide easy plotting using proven tools in python
-- Perform statics between model runs or observations or models and observations.
+- Perform statistics between model runs or observations or models and observations.
 
 Gallery
 -------

@@ -1,11 +1,19 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from monetio import aeronet
 
 DATA = Path(__file__).parent / "data"
+
+try:
+    import pytspack  # noqa: F401
+except ImportError:
+    has_pytspack = False
+else:
+    has_pytspack = True
 
 
 def test_build_url_required_param_checks():
@@ -105,7 +113,7 @@ def test_add_data_all_noninv(product):
 
 def test_add_data_valid_empty_query():
     dates = pd.date_range("2021/08/01", "2021/08/02")
-    site = "Tucson"
+    site = "Banana_River"
 
     with pytest.raises(Exception, match="loading from URL .+ failed") as ei:
         aeronet.add_data(dates, product="AOD20", siteid=site)
@@ -150,5 +158,94 @@ def test_add_data_lunar():
     assert df.index.size > 0
 
     dates = pd.date_range("2022/01/20", "2022/01/21")
-    df = aeronet.add_data(dates, lunar=True, siteid="Tucson")
+    df = aeronet.add_data(dates, lunar=True, siteid="Chilbolton")
     assert df.index.size > 0
+
+
+def test_serial_freq():
+    # For MM data proc example
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    df = aeronet.add_data(dates, freq="2H", n_procs=1)
+    assert (
+        pd.DatetimeIndex(sorted(df.time.unique()))
+        == pd.date_range("2019-09-01", freq="2H", periods=12)
+    ).all()
+
+
+@pytest.mark.skipif(has_pytspack, reason="has pytspack")
+def test_interp_without_pytspack():
+    # For MM data proc example
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
+    with pytest.raises(RuntimeError, match="You must install pytspack"):
+        aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
+
+
+@pytest.mark.skipif(not has_pytspack, reason="no pytspack")
+def test_interp_with_pytspack():
+    # For MM data proc example
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
+    with pytest.warns(UserWarning, match="Renaming duplicate AOD columns"):
+        df = aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
+    # Note: default wls for this period:
+    #
+    # wls = sorted(df.columns[df.columns.str.startswith("aod")].str.slice(4, -2).astype(int).tolist())
+    #
+    # [340, 380, 400, 412, 440,
+    #  443, 490, 500, 510, 532,
+    #  551, 555, 560, 620, 667,
+    #  675, 681, 709, 779, 865,
+    #  870, 1020, 1640]
+    #
+    # Note: Some of the ones we want already are in there (340 and 440 nm)
+
+    # Check for the new columns
+    assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
+
+    # Check for renamed duplicate columns
+    assert {c for c in df if c.startswith("aod_") and c.endswith("nm_orig")} == {
+        "aod_340nm_orig",
+        "aod_440nm_orig",
+    }
+    assert {
+        c for c in df if c.startswith("exact_wavelengths_of_aod") and c.endswith("nm_orig")
+    } == {"exact_wavelengths_of_aod(um)_340nm_orig", "exact_wavelengths_of_aod(um)_440nm_orig"}
+
+
+@pytest.mark.skipif(not has_pytspack, reason="no pytspack")
+def test_interp_daily_with_pytspack():
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    standard_wavelengths = np.array([0.55]) * 1000
+    df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
+
+    assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        pd.to_datetime(["2019-09-01", "2019-09-02"]),
+        pd.to_datetime(["2019-09-01", "2019-09-03"]),
+        pd.to_datetime(["2019-09-01", "2019-09-01 12:00"]),
+    ],
+    ids=[
+        "one day",
+        "two days",
+        "half day",
+    ],
+)
+def test_issue100(dates, request):
+    df1 = aeronet.add_data(dates, n_procs=1)
+    df2 = aeronet.add_data(dates, n_procs=2)
+    assert len(df1) == len(df2)
+    if request.node.callspec.id == "two days":
+        # Sort first (can use `df1.compare(df2)` for debugging)
+        # Seems the sorting is site then time, not time then site
+        # which is why this is necessary
+        df1_ = df1.sort_values(["time", "siteid"]).reset_index(drop=True)
+        df2_ = df2.sort_values(["time", "siteid"]).reset_index(drop=True)
+        assert df1_.equals(df2_)
+    else:
+        assert df1.equals(df2)
+    assert dates[0] < df1.time.min() < df1.time.max() < dates[-1]

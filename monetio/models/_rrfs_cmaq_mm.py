@@ -19,7 +19,7 @@ def open_mfdataset(
     var_list=None,
     fname_pm25=None,
     surf_only=False,
-    **kwargs
+    **kwargs,
 ):
     # Like WRF-chem add var list that just determines whether to calculate sums or not to speed this up.
     """Method to open RFFS-CMAQ dyn* netcdf files.
@@ -153,6 +153,8 @@ def open_mfdataset(
         ]
 
     if fname_pm25 is not None:
+        from ..util import _try_merge_exact
+
         # Add the processed pm2.5 species.
         dset_pm25 = xr.open_mfdataset(fname_pm25, concat_dim="time", combine="nested", **kwargs)
         dset_pm25 = dset_pm25.drop(
@@ -162,7 +164,7 @@ def open_mfdataset(
         # same pressure levels from the model dynf* files.
         # Attributes are formatted differently in pm25 file so remove attributes and use those from dynf* files.
         dset_pm25.attrs = {}
-        dset = dset.merge(dset_pm25)
+        dset = _try_merge_exact(dset, dset_pm25, right_name="PM2.5")
 
     # Standardize some variable names
     dset = dset.rename(
@@ -186,13 +188,16 @@ def open_mfdataset(
     dset["pres_pa_mid"] = _calc_pressure(dset)
 
     # Adjust pressure levels for all models such that the surface is first.
-    dset = dset.sortby("z", ascending=False)
-    dset = dset.sortby("z_i", ascending=False)
+    if np.all(np.diff(dset.z.values) > 0):  # increasing pressure
+        dset = dset.isel(z=slice(None, None, -1))  # -> decreasing
+    if np.all(np.diff(dset.z_i.values) > 0):  # increasing pressure
+        dset = dset.isel(z_i=slice(None, None, -1))  # -> decreasing
+    dset["dz_m"] = dset["dz_m"] * -1.0  # Change to positive values.
 
     # Note this altitude calcs needs to always go after resorting.
     # Altitude calculations are all optional, but for each model add values that are easy to calculate.
-    dset["alt_msl_m_full"] = _calc_hgt(dset)
-    dset["dz_m"] = dset["dz_m"] * -1.0  # Change to positive values.
+    if not surf_only:
+        dset["alt_msl_m_full"] = _calc_hgt(dset)
 
     # Set coordinates
     dset = dset.reset_index(
@@ -1089,14 +1094,14 @@ def _calc_pressure(dset):
     xarray.DataArray
         Mid-layer pressure with attributes.
     """
-    pres = dset.dp_pa.copy().load()  # Have to load into memory here so can assign levels.
-    srfpres = dset.surfpres_pa.copy().load()
+    p = dset.dp_pa.copy().load()  # Have to load into memory here so can assign levels.
+    psfc = dset.surfpres_pa.copy().load()
     for k in range(len(dset.z)):
-        pres_2 = dset.ak[k + 1] + srfpres * dset.bk[k + 1]
-        pres_1 = dset.ak[k] + srfpres * dset.bk[k]
-        pres[:, k, :, :] = (pres_2 - pres_1) / np.log(pres_2 / pres_1)
+        pres_2 = dset.ak[k + 1] + psfc * dset.bk[k + 1]
+        pres_1 = dset.ak[k] + psfc * dset.bk[k]
+        p[:, k, :, :] = (pres_2 - pres_1) / np.log(pres_2 / pres_1)
 
-    pres.name = "pres_pa_mid"
-    pres.attrs["units"] = "pa"
-    pres.attrs["long_name"] = "Pressure Mid Layer in Pa"
-    return pres
+    p.name = "pres_pa_mid"
+    p.attrs["units"] = "pa"
+    p.attrs["long_name"] = "Pressure Mid Layer in Pa"
+    return p

@@ -355,7 +355,7 @@ def _calc_nemsio_hgt(f):
     Returns
     -------
     xr.DataArray
-        Geoptential height with varialbes, coordinates and variable attributes.
+        Geoptential height with variables, coordinates and variable attributes.
 
     """
     sfc = f.hgtsfc
@@ -385,13 +385,11 @@ def calc_nemsio_pressure(dset):
         Description of returned object.
 
     """
-    # sfc = dset.pressfc.load() / 100.
-    # dpres = dset.dpres.load() / 100. * -1.
-    sfc = dset.pressfc / 100.0
-    dpres = dset.dpres / 100.0 * -1.0
-    dpres[:, 0, :, :] = sfc + dpres[:, 0, :, :]
-    pres = dpres.rolling(z=len(dset.z), min_periods=1).sum()
-    pres.name = "press"
-    pres.attrs["units"] = "mb"
-    pres.attrs["long_name"] = "Mid Layer Pressure"
-    return pres
+    psfc = dset.pressfc / 100.0
+    dp = dset.dpres / 100.0 * -1.0
+    dp[:, 0, :, :] = psfc + dp[:, 0, :, :]
+    p = dp.rolling(z=len(dset.z), min_periods=1).sum()
+    p.name = "press"
+    p.attrs["units"] = "mb"
+    p.attrs["long_name"] = "Mid Layer Pressure"
+    return p
