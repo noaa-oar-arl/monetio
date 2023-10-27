@@ -562,7 +562,7 @@ class AQS:
                 }
             )
         if network is not None:
-            self.df = self.df.dropna(subset="networks")
+            self.df = self.df.dropna(subset=["networks"])
         # if daily:
         #     self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="H")
         if pd.Series(self.df.columns).isin(["parameter_name"]).max():
