@@ -145,6 +145,11 @@ def get_locations(**kwargs):
     # Site ID
     df = df.rename(columns={"id": "siteid"})
     df["siteid"] = df.siteid.astype(str)
+    maybe_dupe_rows = df[df.siteid.duplicated(keep=False)].sort_values("siteid")
+    if not maybe_dupe_rows.empty:
+        logger.info(
+            f"note: found {len(maybe_dupe_rows)} rows with duplicate site IDs:\n{maybe_dupe_rows}"
+        )
     df = df.drop_duplicates("siteid", keep="first").reset_index(drop=True)  # seem to be some dupes
 
     return df
