@@ -39,6 +39,8 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
         Number of pages to fetch.
         By default, try to fetch as many as needed to get all results.
     """
+    import time
+
     if params is None:
         params = {}
 
@@ -67,6 +69,7 @@ def _consume(url, *, params=None, timeout=10, retry=5, limit=500, npages=None):
             if r.status_code == 408:
                 tries += 1
                 logger.info(f"request timed out (try {tries}/{retry})")
+                time.sleep(tries)
             else:
                 break
         r.raise_for_status()
