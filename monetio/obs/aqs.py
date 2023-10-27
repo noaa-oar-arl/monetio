@@ -546,7 +546,7 @@ class AQS:
         #     monitor_drop = [u'datum']
         #     self.monitor_df.drop(monitor_drop, axis=1, inplace=True)
         if network is not None:
-            # TODO: really should split the networks strings (on semicolon) to ensure no false positive matchs
+            # TODO: really should split the networks strings (on semicolon) to ensure no false positive matches
             monitors = self.monitor_df.loc[
                 self.monitor_df.networks.astype(str).str.contains(network)
             ].drop_duplicates(subset=["siteid"])
