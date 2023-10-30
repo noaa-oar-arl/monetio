@@ -339,15 +339,78 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
 
     if v2:
         fn = "Monitoring_Site_Locations_V2.dat"
-        raise NotImplementedError("v2 not implemented yet")
     else:
+        # Original format.
+        fn = "monitoring_site_locations.dat"
+
+    if s3:
+        base = "s3://files.airnowtech.org/airnow/"
+    else:
+        # NOTE: this doesn't work:
+        # base = "https://files.airnowtech.org/?prefix=airnow/"
+        base = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
+
+    if date is None:
+        sub = "today/"
+    else:
+        sub = date.strftime(r"%Y/%Y%m%d/")
+
+    url = f"{base}{sub}{fn}"
+
+    if v2:
+        # Columns are included in the file.
+        # |StationID|AQSID|FullAQSID
+        # |Parameter|MonitorType
+        # |SiteCode|SiteName|Status
+        # |AgencyID|AgencyName|EPARegion
+        # |Latitude|Longitude|Elevation
+        # |GMTOffset|CountryFIPS
+        # |CBSA_ID|CBSA_Name
+        # |StateAQSCode|StateAbbreviation
+        # |CountyAQSCode|CountyName
+        df = pd.read_csv(
+            url,
+            delimiter="|",
+            header=0,
+            dtype={0: str, 1: str, 2: str},  # site ID
+        )
+        df = df.rename(
+            columns={
+                "StationID": "siteid",
+                "AQSID": "aqsid",
+                "FullAQSID": "aqsid_full",
+                "Parameter": "parameter",
+                "MonitorType": "monitor_type",
+                "SiteCode": "site_code",
+                "SiteName": "site_name",
+                "Status": "status",
+                "AgencyID": "agency_id",
+                "AgencyName": "agency_name",
+                "EPARegion": "epa_region",
+                "Latitude": "latitude",
+                "Longitude": "longitude",
+                "Elevation": "elevation",
+                "GMTOffset": "gmt_offset",
+                "CountryFIPS": "country_code",
+                "CBSA_ID": "msa_code",
+                "CBSA_Name": "msa_name",
+                "StateAQSCode": "state_code",
+                "StateAbbreviation": "state_name",
+                "CountyAQSCode": "county_code",
+                "CountyName": "county_name",
+            }
+        )
+
+    else:
+        # Original format.
+        # Columns are _not_ included in the file.
         # Documentation is available at:
         # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/docs/MonitoringSiteFactSheet.pdf
         # But there are more columns than in there (19):
         # - CMSA (consolidated MSA) code and name
         # - city code and name
-        # But note that these are usually null.
-        fn = "monitoring_site_locations.dat"
+        # But note that these are usually null
+        # (maybe since they are not included in the v2 format?).
         columns = [
             "siteid",
             "parameter",
@@ -373,31 +436,23 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
             "city_code",
             "city_name",
         ]
+        df = pd.read_csv(
+            url,
+            delimiter="|",
+            header=None,
+            dtype={0: str},  # site ID
+            encoding="ISO-8859-1",
+        )
+        df.columns = columns
 
-    if s3:
-        base = "s3://files.airnowtech.org/airnow/"
-    else:
-        # NOTE: this doesn't work:
-        # base = "https://files.airnowtech.org/?prefix=airnow/"
-        base = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
-
-    if date is None:
-        sub = "today/"
-    else:
-        sub = date.strftime(r"%Y/%Y%m%d/")
-
-    url = f"{base}{sub}{fn}"
-
-    df = pd.read_csv(
-        url,
-        delimiter="|",
-        header=None,
-        dtype={0: str},  # site ID
-        encoding="ISO-8859-1",
+    # fmt: off
+    df = (
+        df
+        .drop(columns=["parameter"])
+        .drop_duplicates(subset=["siteid"])
+        .reset_index(drop=True)
     )
-    df.columns = columns
-    df = df.drop(columns=["parameter"])
-    df = df.drop_duplicates(subset=["siteid"])
+    # fmt: on
 
     return df
 
