@@ -401,11 +401,11 @@ def get_station_locations(df, *, today=True):  # TODO: better name might be `add
     from .epa_util import read_airnow_monitor_file
 
     if today:
-        meta = read_airnow_monitor_file(airnow=True)
+        meta = read_airnow_monitor_file(date=None)
     else:
         dates = sorted(df.time.dt.floor("D").unique())
         meta = (
-            pd.concat([read_airnow_monitor_file(date=date, airnow=True) for date in dates])
+            pd.concat([read_airnow_monitor_file(date=date) for date in dates])
             .drop_duplicates(subset=["siteid"])
             .reset_index(drop=True)
         )
