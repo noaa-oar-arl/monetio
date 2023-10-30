@@ -335,19 +335,35 @@ def convert_statenames_to_abv(df):
 
 
 def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
+    """Read site metadata from AirNow
+    (`files.airnowtech.org <https://files.airnowtech.org/?prefix=airnow/>`__).
+
+    Parameters
+    ----------
+    date : datetime, optional
+        Date to read (object must implement ``.strftime()``).
+        If ``None`` (default), the "today" file is read.
+    s3 : bool
+        Use S3 (default) or HTTP(S).
+    v2 : bool
+        Read the v2 format file (``Monitoring_Site_Locations_V2.dat``) for the day.
+        By default the original format file is read (``monitoring_site_locations.dat``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Site metadata dataframe, free of ``siteid`` duplicates.
+    """
     import pandas as pd
 
     if v2:
         fn = "Monitoring_Site_Locations_V2.dat"
     else:
-        # Original format.
         fn = "monitoring_site_locations.dat"
 
     if s3:
         base = "s3://files.airnowtech.org/airnow/"
     else:
-        # NOTE: this doesn't work:
-        # base = "https://files.airnowtech.org/?prefix=airnow/"
         base = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
 
     if date is None:
@@ -400,7 +416,6 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
                 "CountyName": "county_name",
             }
         )
-
     else:
         # Original format.
         # Columns are _not_ included in the file.
