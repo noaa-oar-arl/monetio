@@ -374,7 +374,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     url = f"{base}{sub}{fn}"
 
     if v2:
-        # Columns are included in the file.
+        # Column names are included in the file.
         # |StationID|AQSID|FullAQSID
         # |Parameter|MonitorType
         # |SiteCode|SiteName|Status
@@ -418,7 +418,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
         )
     else:
         # Original format.
-        # Columns are _not_ included in the file.
+        # Column names are _not_ included in the file.
         # Documentation is available at:
         # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/docs/MonitoringSiteFactSheet.pdf
         # But there are more columns than in there (19):
@@ -426,7 +426,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
         # - city code and name
         # But note that these are usually null
         # (maybe since they are not included in the v2 format?).
-        columns = [
+        names = [
             "siteid",
             "parameter",
             "site_code",
@@ -458,7 +458,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
             dtype={0: str},  # site ID
             encoding="ISO-8859-1",
         )
-        df.columns = columns
+        df.columns = names
 
     # fmt: off
     df = (
