@@ -334,6 +334,74 @@ def convert_statenames_to_abv(df):
     return df
 
 
+def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
+    import pandas as pd
+
+    if v2:
+        fn = "Monitoring_Site_Locations_V2.dat"
+        raise NotImplementedError("v2 not implemented yet")
+    else:
+        # Documentation is available at:
+        # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/docs/MonitoringSiteFactSheet.pdf
+        # But there are more columns than in there (19):
+        # - CMSA (consolidated MSA) code and name
+        # - city code and name
+        # But note that these are usually null.
+        fn = "monitoring_site_locations.dat"
+        columns = [
+            "siteid",
+            "parameter",
+            "site_code",
+            "site_name",
+            "status",
+            "agency",
+            "agency_name",
+            "epa_region",
+            "latitude",
+            "longitude",
+            "elevation",
+            "gmt_offset",
+            "country_code",
+            "cmsa_code",
+            "cmsa_name",
+            "msa_code",
+            "msa_name",
+            "state_code",
+            "state_name",
+            "county_code",
+            "county_name",
+            "city_code",
+            "city_name",
+        ]
+
+    if s3:
+        base = "s3://files.airnowtech.org/airnow/"
+    else:
+        # NOTE: this doesn't work:
+        # base = "https://files.airnowtech.org/?prefix=airnow/"
+        base = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
+
+    if date is None:
+        sub = "today/"
+    else:
+        sub = date.strftime(r"%Y/%Y%m%d/")
+
+    url = f"{base}{sub}{fn}"
+
+    df = pd.read_csv(
+        url,
+        delimiter="|",
+        header=None,
+        dtype={0: str},  # site ID
+        encoding="ISO-8859-1",
+    )
+    df.columns = columns
+    df = df.drop(columns=["parameter"])
+    df = df.drop_duplicates(subset=["siteid"])
+
+    return df
+
+
 def read_monitor_file(network=None, airnow=False, drop_latlon=True):
     import os
 
