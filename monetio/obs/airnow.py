@@ -380,25 +380,42 @@ def daterange(**kwargs):
     return pd.date_range(**kwargs)
 
 
-def get_station_locations(df):  # TODO: better name might be `add_station_locations`
-    """Short summary.
+def get_station_locations(df, *, today=True):  # TODO: better name might be `add_station_locations`
+    """Add site metadata to dataframe `df`.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Data, with ``siteid`` column.
+    today : bool
+        Use the "today" site metadata file
+        (faster, but may not cover all sites in the period).
+        Otherwise, use combined site metadata from each date in `df`.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
+        `df` merged with site metadata from
+        :func:`monetio.obs.epa_util.read_airnow_monitor_file`.
     """
-    from .epa_util import read_monitor_file
+    from .epa_util import read_airnow_monitor_file
 
-    monitor_df = read_monitor_file(airnow=True)
-    df = df.merge(monitor_df.drop_duplicates(), on="siteid", how="left", copy=False)
-    # TODO: maybe eliminate need for drop dup here
+    if today:
+        meta = read_airnow_monitor_file(airnow=True)
+    else:
+        dates = sorted(df.time.dt.floor("D").unique())
+        meta = (
+            pd.concat([read_airnow_monitor_file(date=date, airnow=True) for date in dates])
+            .drop_duplicates(subset=["siteid"])
+            .reset_index(drop=True)
+        )
+
+    df = df.merge(meta, on="siteid", how="left", copy=False)
 
     return df
 
 
-def get_station_locations_remerge(df):
+def get_station_locations_remerge(df):  # TODO: unused
     """Short summary.
 
     Parameters
