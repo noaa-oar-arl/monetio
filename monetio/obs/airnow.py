@@ -30,6 +30,9 @@ _TFinder = None
 def build_urls(dates, *, daily=False):
     """Construct AirNow file URLs for `dates`.
 
+    The files are in S3 storage, which can be explored at
+    https://files.airnowtech.org/
+
     Returns
     -------
     urls, fnames : pandas.Series
@@ -361,7 +364,7 @@ def get_utcoffset(lat, lon):
         return uo
 
 
-def get_station_locations(df, *, today=True):  # TODO: better name might be `add_station_locations`
+def get_station_locations(df, *, today=True):
     """Add site metadata to dataframe `df`.
 
     Parameters
