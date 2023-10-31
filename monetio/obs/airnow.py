@@ -102,7 +102,8 @@ def read_csv(fn):
         error_bad_lines=False,
         warn_bad_lines=True,
         encoding="ISO-8859-1",
-    )  # TODO: `error_bad_lines` is deprecated from v1.3
+    )
+    # TODO: `error_bad_lines` is deprecated from v1.3 (use `on_bad_lines='warn'` instead)
     # TODO: or hourly/daily option (to return proper empty df)?
 
     # Assign column names
