@@ -354,6 +354,8 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     pandas.DataFrame
         Site metadata dataframe, free of ``siteid`` duplicates.
     """
+    import sys
+
     import pandas as pd
 
     if v2:
@@ -361,7 +363,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     else:
         fn = "monitoring_site_locations.dat"
 
-    if s3:
+    if s3 and sys.version_info >= (3, 7):
         base = "s3://files.airnowtech.org/airnow/"
     else:
         base = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
