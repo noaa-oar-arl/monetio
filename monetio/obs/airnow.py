@@ -1,6 +1,7 @@
 """AirNow"""
 
 import os
+import sys
 from datetime import datetime
 
 import pandas as pd
@@ -42,22 +43,25 @@ def build_urls(dates, *, daily=False):
     urls = []
     fnames = []
     print("Building AIRNOW URLs...")
-    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: use S3 URL scheme instead?
+    if sys.version_info < (3, 7):
+        base_url = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
+    else:
+        base_url = "s3://files.airnowtech.org/airnow/"
     for dt in dates:
         if daily:
             fname = "daily_data.dat"
         else:
             fname = dt.strftime(r"HourlyData_%Y%m%d%H.dat")
-        # 2017/20170131/HourlyData_2017012408.dat
+        # e.g.
+        # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
         url = base_url + dt.strftime(r"%Y/%Y%m%d/") + fname
         urls.append(url)
         fnames.append(fname)
-    # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
-    # or https://files.airnowtech.org/?prefix=airnow/2017/20170108/
 
     # Note: files needed for comparison
     urls = pd.Series(urls, index=None)
     fnames = pd.Series(fnames, index=None)
+
     return urls, fnames
 
 
