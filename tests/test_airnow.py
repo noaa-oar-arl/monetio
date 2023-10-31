@@ -96,3 +96,13 @@ def test_check_zero_utc_offsets(date, bad_utcoffset):
         assert not df.utcoffset.isnull().any()
         assert bad_sites.empty
         assert ((df.utcoffset >= -12) & (df.utcoffset <= 14)).all()
+
+
+def test_hourly_vs_daily_cols():
+    assert airnow._hourly_cols != airnow._daily_cols
+    hourly_col_set = set(airnow._hourly_cols)
+    daily_col_set = set(airnow._daily_cols)
+    assert len(hourly_col_set) == len(airnow._hourly_cols)
+    assert len(daily_col_set) == len(airnow._daily_cols)
+    assert hourly_col_set - daily_col_set == {"time", "utcoffset"}
+    assert daily_col_set - hourly_col_set == {"hours"}

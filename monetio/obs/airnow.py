@@ -1,12 +1,34 @@
 """AirNow"""
 
 import os
+import re
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
-_today_monitor_df = None
+_hourly_cols = [
+    "date",
+    "time",
+    "siteid",
+    "site",
+    "utcoffset",
+    "variable",
+    "units",
+    "obs",
+    "source",
+]
+_daily_cols = [
+    "date",
+    "siteid",
+    "site",
+    "variable",
+    "units",
+    "obs",
+    "hours",
+    "source",
+]
 _savecols = [
     "time",
     "siteid",
@@ -24,6 +46,7 @@ _savecols = [
     "state_name",
     "epa_region",
 ]
+_today_monitor_df = None
 _TFinder = None
 
 
@@ -45,7 +68,7 @@ def build_urls(dates, *, daily=False):
 
     urls = []
     fnames = []
-    print("Building AIRNOW URLs...")
+    print("Building AirNow URLs...")
     if sys.version_info < (3, 7):
         base_url = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
     else:
@@ -68,13 +91,16 @@ def build_urls(dates, *, daily=False):
     return urls, fnames
 
 
-def read_csv(fn):
+def read_csv(fn, *, daily=None):
     """Read an AirNow CSV file.
 
     Parameters
     ----------
-    fn : str
+    fn
         File to read, passed to :func:`pandas.read_csv`.
+    daily : bool, optional
+        Is this is a daily (``True``) or hourly (``False``) file?
+        By default, attempt to determine based on the file name.
 
     Returns
     -------
@@ -83,48 +109,60 @@ def read_csv(fn):
         Additional processing done by :func:`aggregate_files` / :func:`add_data`
         not applied.
     """
-    hourly_cols = [
-        "date",
-        "time",
-        "siteid",
-        "site",
-        "utcoffset",
-        "variable",
-        "units",
-        "obs",
-        "source",
-    ]
-    daily_cols = ["date", "siteid", "site", "variable", "units", "obs", "hours", "source"]
-    dft = pd.read_csv(
+    from monetio.util import _get_pandas_version
+
+    pd_ver = _get_pandas_version()
+
+    if daily is None:
+        if isinstance(fn, Path):
+            fn_str = fn.as_posix()
+        else:
+            fn_str = str(fn)
+
+        if fn_str.endswith("daily_data.dat"):
+            daily = True
+        elif re.search(r"HourlyData_[0-9]{10}.dat", fn_str) is not None:
+            daily = False
+        else:
+            raise ValueError("Could not determine if file is daily or hourly")
+
+    dtype = {"siteid": str, "obs": float}
+    if daily:
+        names = _daily_cols
+    else:
+        names = _hourly_cols
+        dtype.update(utcoffset=float)
+
+    if pd_ver < (1, 3):
+        on_bad = dict(
+            error_bad_lines=False,
+            warn_bad_lines=True,
+        )
+    else:
+        on_bad = dict(on_bad_lines="warn")
+
+    df = pd.read_csv(
         fn,
         delimiter="|",
         header=None,
-        error_bad_lines=False,
-        warn_bad_lines=True,
+        names=names,
+        parse_dates=False,
+        dtype=dtype,
         encoding="ISO-8859-1",
+        **on_bad,
     )
-    # TODO: `error_bad_lines` is deprecated from v1.3 (use `on_bad_lines='warn'` instead)
-    # TODO: or hourly/daily option (to return proper empty df)?
 
-    # Assign column names
-    ncols = dft.columns.size
-    daily = False
-    if ncols == len(hourly_cols):
-        dft.columns = hourly_cols
-    elif ncols == len(hourly_cols) - 1:  # daily data
-        daily = True
-        dft.columns = daily_cols
+    # TODO: pandas v2 path using `date_format`?
+
+    if daily:
+        df["time"] = pd.to_datetime(df["date"], format=r"%m/%d/%y", exact=True)
     else:
-        raise Exception(f"unexpected number of columns: {ncols}")
+        df["time"] = pd.to_datetime(
+            df["date"] + " " + df["time"], format=r"%m/%d/%y %H:%M", exact=True
+        )
+    df = df.drop(columns=["date"])
 
-    dft["obs"] = dft.obs.astype(float)
-    # ^ TODO: could use smaller float type, provided precision is low
-    dft["siteid"] = dft.siteid.str.zfill(9)
-    # ^ TODO: does nothing; and some site IDs are longer (12) or start with letters
-    if not daily:
-        dft["utcoffset"] = dft.utcoffset.astype(int)  # FIXME: some sites have fractional UTC offset
-
-    return dft
+    return df
 
 
 def retrieve(url, fname):
@@ -181,7 +219,7 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
     import dask
     import dask.dataframe as dd
 
-    print("Aggregating AIRNOW files...")
+    print("Aggregating AirNow files...")
 
     urls, fnames = build_urls(dates, daily=daily)
     if download:
@@ -193,23 +231,17 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
     dff = dd.from_delayed(dfs)
     df = dff.compute(num_workers=n_procs).reset_index()
 
-    # Datetime conversion
-    if daily:
-        df["time"] = pd.to_datetime(df.date, format=r"%m/%d/%y", exact=True)
-    else:
-        df["time"] = pd.to_datetime(
-            df.date + " " + df.time, format=r"%m/%d/%y %H:%M", exact=True
-        )  # TODO: move to read_csv? (and some of this other stuff too?)
-        df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
-    df.drop(["date"], axis=1, inplace=True)
+    # Add LT column
+    if not daily:
+        df["time_local"] = df["time"] + pd.to_timedelta(df["utcoffset"], unit="H")
 
-    print("    Adding in Meta-data")
+    print("    Adding in site metadata")
     df = get_station_locations(df)
     if daily:
         df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
         df = df[_savecols]
-    df.drop_duplicates(inplace=True)
+    df.drop_duplicates(inplace=True)  # TODO: shouldn't be
 
     df = filter_bad_values(df, bad_utcoffset=bad_utcoffset)
 
@@ -309,7 +341,7 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
         else:
             raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
 
-    return df  # TODO: dropna here (since it is called `filter_bad_values`)?
+    return df  # TODO: optionally dropna here (since it is called `filter_bad_values`)?
 
 
 def get_utcoffset(lat, lon):
