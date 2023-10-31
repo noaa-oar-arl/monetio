@@ -6,7 +6,7 @@ from datetime import datetime
 
 import pandas as pd
 
-_monitor_df = None
+_today_monitor_df = None
 _savecols = [
     "time",
     "siteid",
@@ -385,7 +385,13 @@ def get_station_locations(df, *, today=True):
     from .epa_util import read_airnow_monitor_file
 
     if today:
-        meta = read_airnow_monitor_file(date=None)
+        global _today_monitor_df
+
+        if _today_monitor_df is None:
+            meta = read_airnow_monitor_file(date=None)
+            _today_monitor_df = meta
+        else:
+            meta = _today_monitor_df
     else:
         dates = sorted(df.time.dt.floor("D").unique())
         meta = (
