@@ -69,18 +69,19 @@ def build_urls(dates, *, daily=False):
 
 
 def read_csv(fn):
-    """Short summary.
+    """Read an AirNow CSV file.
 
     Parameters
     ----------
-    fn : string
-        file name to read
+    fn : str
+        File to read, passed to :func:`pandas.read_csv`.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
+        AirNow data in long format without site metadata.
+        Additional processing done by :func:`aggregate_files` / :func:`add_data`
+        not applied.
     """
     hourly_cols = [
         "date",
