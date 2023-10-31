@@ -131,15 +131,14 @@ def retrieve(url, fname):
 
     Parameters
     ----------
-    url : string
-        Description of parameter `url`.
-    fname : string
-        Description of parameter `fname`.
+    url : str
+        To be retrieved.
+    fname : str
+        File path to save to.
 
     Returns
     -------
     None
-
     """
     import requests
 
@@ -156,7 +155,8 @@ def retrieve(url, fname):
 
 
 def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
-    """Short summary.
+    """Load and combine multiple AirNow data files,
+    returning a dataframe in long format with site metadata added.
 
     Parameters
     ----------
@@ -228,6 +228,8 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
     download : bool, optional
         Whether to first download the AirNow files to the local directory.
     wide_fmt : bool
+        Convert from long ('parameter' and 'value' columns)
+        to wide format (each parameter gets its own column).
     n_procs : int
         For Dask.
     daily : bool
@@ -236,7 +238,7 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
 
         Info: https://files.airnowtech.org/airnow/docs/DailyDataFactSheet.pdf
 
-        Note: ``daily_data_v2.dat`` (includes AQI) is not available for all times,
+        Note: ``daily_data_v2.dat`` (includes AQI) is not available for all time periods,
         so we use ``daily_data.dat``.
     bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
         How to handle bad UTC offsets
@@ -269,6 +271,9 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
 
 def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     """Mark ``obs`` values less than 0 or greater than `max` as NaN.
+
+    .. note::
+       `df` is modified in place.
 
     Parameters
     ----------
@@ -315,13 +320,18 @@ def get_utcoffset(lat, lon):
     Parameters
     ----------
     lat, lon : float
-        Latitude and longitude of the location.
+        Latitude and longitude of the (single) location.
 
     Returns
     -------
     float
     """
     import warnings
+
+    import numpy as np
+
+    if not np.isscalar(lat) or not np.isscalar(lon):
+        raise TypeError("lat and lon must be scalars")
 
     try:
         import pytz
@@ -383,23 +393,4 @@ def get_station_locations(df, *, today=True):  # TODO: better name might be `add
 
     df = df.merge(meta, on="siteid", how="left", copy=False)
 
-    return df
-
-
-def get_station_locations_remerge(df):  # TODO: unused
-    """Short summary.
-
-    Parameters
-    ----------
-    df : type
-        Description of parameter `df`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    df = pd.merge(df, _monitor_df.drop(["Latitude", "Longitude"], axis=1), on="siteid")  # ,
-    # how='left')
     return df
