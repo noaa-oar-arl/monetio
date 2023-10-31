@@ -1,25 +1,12 @@
 """AirNow"""
 
 import os
-
-# this is written to retrieve airnow data concatenate and add to pandas array
-# for usage
 from datetime import datetime
 
 import pandas as pd
 
-datadir = "."
-cwd = os.getcwd()
-url = None
-dates = [
-    datetime.strptime("2016-06-06 12:00:00", "%Y-%m-%d %H:%M:%S"),
-    datetime.strptime("2016-06-06 13:00:00", "%Y-%m-%d %H:%M:%S"),
-]
-daily = False
-objtype = "AirNow"
-filelist = None
-monitor_df = None
-savecols = [
+_monitor_df = None
+_savecols = [
     "time",
     "siteid",
     "site",
@@ -36,7 +23,6 @@ savecols = [
     "state_name",
     "epa_region",
 ]
-
 _TFinder = None
 
 
@@ -165,7 +151,7 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
+def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
     """Short summary.
 
     Parameters
@@ -215,9 +201,9 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_
     print("    Adding in Meta-data")
     df = get_station_locations(df)
     if daily:
-        df = df[[col for col in savecols if col not in {"time_local", "utcoffset"}]]
+        df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
-        df = df[savecols]
+        df = df[_savecols]
     df.drop_duplicates(inplace=True)
 
     df = filter_bad_values(df, bad_utcoffset=bad_utcoffset)
@@ -361,25 +347,6 @@ def get_utcoffset(lat, lon):
         return uo
 
 
-def daterange(**kwargs):
-    """Short summary.
-
-    Parameters
-    ----------
-    begin : type
-        Description of parameter `begin` (the default is '').
-    end : type
-        Description of parameter `end` (the default is '').
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    return pd.date_range(**kwargs)
-
-
 def get_station_locations(df, *, today=True):  # TODO: better name might be `add_station_locations`
     """Add site metadata to dataframe `df`.
 
@@ -429,6 +396,6 @@ def get_station_locations_remerge(df):  # TODO: unused
         Description of returned object.
 
     """
-    df = pd.merge(df, monitor_df.drop(["Latitude", "Longitude"], axis=1), on="siteid")  # ,
+    df = pd.merge(df, _monitor_df.drop(["Latitude", "Longitude"], axis=1), on="siteid")  # ,
     # how='left')
     return df
