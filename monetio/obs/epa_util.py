@@ -376,7 +376,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     url = f"{base}{sub}{fn}"
 
     if v2:
-        # Column names are included in the file.
+        # Column names are included in the file's first line.
         # |StationID|AQSID|FullAQSID
         # |Parameter|MonitorType
         # |SiteCode|SiteName|Status
@@ -386,38 +386,41 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
         # |CBSA_ID|CBSA_Name
         # |StateAQSCode|StateAbbreviation
         # |CountyAQSCode|CountyName
+        names = [
+            "siteid",
+            "aqsid",
+            "aqsid_full",
+            "parameter",
+            "monitor_type",
+            "site_code",
+            "site_name",
+            "status",
+            "agency_id",
+            "agency_name",
+            "epa_region",
+            "latitude",
+            "longitude",
+            "elevation",
+            "gmt_offset",
+            "country_code",
+            "msa_code",
+            "msa_name",
+            "state_code",
+            "state_name",
+            "county_code",
+            "county_name",
+        ]
+        dtype = {i: str for i in range(len(names))}
+        for vn in ["latitude", "longitude", "elevation", "gmt_offset"]:
+            dtype[names.index(vn)] = float
         df = pd.read_csv(
             url,
             delimiter="|",
-            header=0,
-            dtype={0: str, 1: str, 2: str},  # site ID
+            header=None,
+            skiprows=1,
+            dtype=dtype,
         )
-        df = df.rename(
-            columns={
-                "StationID": "siteid",
-                "AQSID": "aqsid",
-                "FullAQSID": "aqsid_full",
-                "Parameter": "parameter",
-                "MonitorType": "monitor_type",
-                "SiteCode": "site_code",
-                "SiteName": "site_name",
-                "Status": "status",
-                "AgencyID": "agency_id",
-                "AgencyName": "agency_name",
-                "EPARegion": "epa_region",
-                "Latitude": "latitude",
-                "Longitude": "longitude",
-                "Elevation": "elevation",
-                "GMTOffset": "gmt_offset",
-                "CountryFIPS": "country_code",
-                "CBSA_ID": "msa_code",
-                "CBSA_Name": "msa_name",
-                "StateAQSCode": "state_code",
-                "StateAbbreviation": "state_name",
-                "CountyAQSCode": "county_code",
-                "CountyName": "county_name",
-            }
-        )
+        df.columns = names
     else:
         # Original format.
         # Column names are _not_ included in the file.
@@ -453,11 +456,14 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
             "city_code",
             "city_name",
         ]
+        dtype = {i: str for i in range(len(names))}
+        for vn in ["latitude", "longitude", "elevation", "gmt_offset"]:
+            dtype[names.index(vn)] = float
         df = pd.read_csv(
             url,
             delimiter="|",
             header=None,
-            dtype={0: str},  # site ID
+            dtype=dtype,
             encoding="ISO-8859-1",
         )
         df.columns = names
