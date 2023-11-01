@@ -480,42 +480,7 @@ def read_monitor_file(network=None, airnow=False, drop_latlon=True):
     import pandas as pd
 
     if airnow:
-        monitor_airnow_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/today/monitoring_site_locations.dat"
-        colsinuse = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
-        airnow = pd.read_csv(
-            monitor_airnow_url,
-            delimiter="|",
-            header=None,
-            usecols=colsinuse,
-            dtype={0: str},
-            encoding="ISO-8859-1",
-        )
-        airnow.columns = [
-            "siteid",
-            "Site_Code",
-            "Site_Name",
-            "Status",
-            "Agency",
-            "Agency_Name",
-            "EPA_region",
-            "latitude",
-            "longitude",
-            "Elevation",
-            "GMT_Offset",
-            "Country_Code",
-            "CMSA_Code",
-            "CMSA_Name",
-            "MSA_Code",
-            "MSA_Name",
-            "state_Code",
-            "state_Name",
-            "County_Code",
-            "County_Name",
-            "City_Code",
-        ]
-        airnow["airnow_flag"] = "AIRNOW"
-        airnow.columns = [i.lower() for i in airnow.columns]
-        return airnow
+        return read_airnow_monitor_file(date=None, v2=False)
     else:
         try:
             basedir = os.path.abspath(os.path.dirname(__file__))[:-3]
