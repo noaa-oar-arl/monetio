@@ -222,7 +222,7 @@ def aggregate_files(
     n_procs : int
         For Dask.
     daily : bool
-        Daily or hourly (defauly) data?
+        Daily or hourly (default) data?
     bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
         How to handle bad UTC offsets
         (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
