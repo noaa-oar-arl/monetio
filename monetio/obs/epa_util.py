@@ -480,6 +480,66 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     return df
 
 
+def get_aqs_metadata():
+    """Create an AQS site metadata dataframe by combining three data sources:
+
+    * sites: https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip
+    * monitors: https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip
+    * AirNow site metadata: :func:`read_airnow_monitor_file`
+
+    """
+    import pandas as pd
+
+    # #   Column
+    # ---  ------
+    # 0   State Code
+    # 1   County Code
+    # 2   Site Number
+    # 3   Latitude
+    # 4   Longitude
+    # 5   Datum
+    # 6   Elevation
+    # 7   Land Use
+    # 8   Location Setting
+    # 9   Site Established Date
+    # 10  Site Closed Date
+    # 11  Met Site State Code
+    # 12  Met Site County Code
+    # 13  Met Site Site Number
+    # 14  Met Site Type
+    # 15  Met Site Distance
+    # 16  Met Site Direction  (N, S, etc.)
+    # 17  GMT Offset
+    # 18  Owning Agency
+    # 19  Local Site Name
+    # 20  Address
+    # 21  Zip Code
+    # 22  State Name
+    # 23  County Name
+    # 24  City Name
+    # 25  CBSA Name
+    # 26  Tribe Name
+    # 27  Extraction Date
+    sites = pd.read_csv(
+        "https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip",
+        encoding="ISO-8859-1",
+        dtype=str,
+    )
+    for vn in ["Latitude", "Longitude", "Elevation", "GMT Offset", "Met Site Distance"]:
+        sites[vn] = sites[vn].astype(float)
+    for vn in ["Extraction Date"]:
+        sites[vn] = pd.to_datetime(sites[vn], format=r"%Y-%m-%d", exact=True)
+    sites = sites.rename(columns=lambda vn: vn.replace(" ", "_").lower())
+
+    # monitors = pd.read_csv(
+    #     "https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip",
+    #     encoding="ISO-8859-1",
+    # )
+
+    airnow = read_airnow_monitor_file(date=None, v2=False)
+    airnow["airnow_flag"] = True
+
+
 def read_monitor_file(network=None, airnow=False, drop_latlon=True):
     import os
 
