@@ -246,7 +246,7 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
         df["time_local"] = df["time"] + pd.to_timedelta(df["utcoffset"], unit="H")
 
     print("    Adding in site metadata")
-    df = get_station_locations(df, n_procs=n_procs)
+    df = get_station_locations(df, n_procs=n_procs, merge=True)
     if daily:
         df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
@@ -405,7 +405,7 @@ def get_utcoffset(lat, lon):
         return uo
 
 
-def get_station_locations(df, *, today=True, n_procs=1):
+def get_station_locations(df, *, today=True, n_procs=1, merge=True):
     """Add site metadata to dataframe `df`.
 
     Parameters
@@ -419,12 +419,16 @@ def get_station_locations(df, *, today=True, n_procs=1):
     n_procs : int
         For Dask.
         Used if `today` is false and `df` has multiple dates (unique days) and `n_procs` > 1.
+    merge : bool
+        Whether to merge the site metadata into `df` (default),
+        or return just the site metadata.
 
     Returns
     -------
     pandas.DataFrame
         `df` merged with site metadata from
         :func:`monetio.obs.epa_util.read_airnow_monitor_file`.
+        OR, if `merge` is false, just the site metadata.
     """
     from .epa_util import read_airnow_monitor_file
 
@@ -432,11 +436,7 @@ def get_station_locations(df, *, today=True, n_procs=1):
         global _today_monitor_df
 
         if _today_monitor_df is None:
-            meta = (
-                read_airnow_monitor_file(date=None)
-                .drop_duplicates(subset=["siteid"])
-                .reset_index(drop=True)
-            )
+            meta = read_airnow_monitor_file(date=None)
             _today_monitor_df = meta
         else:
             meta = _today_monitor_df
@@ -454,6 +454,7 @@ def get_station_locations(df, *, today=True, n_procs=1):
 
         meta = meta.drop_duplicates(subset=["siteid"]).reset_index(drop=True)
 
-    df = df.merge(meta, on="siteid", how="left", copy=False)
-
-    return df
+    if merge:
+        return df.merge(meta, on="siteid", how="left", copy=False)
+    else:
+        return meta
