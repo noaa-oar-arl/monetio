@@ -246,7 +246,7 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
         df["time_local"] = df["time"] + pd.to_timedelta(df["utcoffset"], unit="H")
 
     print("    Adding in site metadata")
-    df = get_station_locations(df)
+    df = get_station_locations(df, n_procs=n_procs)
     if daily:
         df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
@@ -405,7 +405,7 @@ def get_utcoffset(lat, lon):
         return uo
 
 
-def get_station_locations(df, *, today=True):
+def get_station_locations(df, *, today=True, n_procs=1):
     """Add site metadata to dataframe `df`.
 
     Parameters
@@ -416,6 +416,9 @@ def get_station_locations(df, *, today=True):
         Use the "today" site metadata file
         (faster, but may not cover all sites in the period).
         Otherwise, use combined site metadata from each date in `df`.
+    n_procs : int
+        For Dask.
+        Used if `today` is false and `df` has multiple dates (unique days) and `n_procs` > 1.
 
     Returns
     -------
@@ -429,17 +432,27 @@ def get_station_locations(df, *, today=True):
         global _today_monitor_df
 
         if _today_monitor_df is None:
-            meta = read_airnow_monitor_file(date=None)
+            meta = (
+                read_airnow_monitor_file(date=None)
+                .drop_duplicates(subset=["siteid"])
+                .reset_index(drop=True)
+            )
             _today_monitor_df = meta
         else:
             meta = _today_monitor_df
     else:
         dates = sorted(df.time.dt.floor("D").unique())
-        meta = (
-            pd.concat([read_airnow_monitor_file(date=date) for date in dates])
-            .drop_duplicates(subset=["siteid"])
-            .reset_index(drop=True)
-        )
+        if len(dates) > 1 and n_procs > 1:
+            import dask
+            import dask.dataframe as dd
+
+            dfs = [dask.delayed(read_airnow_monitor_file)(date=date) for date in dates]
+            df_lazy = dd.from_delayed(dfs)
+            meta = df_lazy.compute(num_workers=n_procs).reset_index(drop=True)
+        else:
+            meta = pd.concat([read_airnow_monitor_file(date=date) for date in dates])
+
+        meta = meta.drop_duplicates(subset=["siteid"]).reset_index(drop=True)
 
     df = df.merge(meta, on="siteid", how="left", copy=False)
 
