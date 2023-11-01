@@ -77,7 +77,12 @@ def test_check_zero_utc_offsets(date, bad_utcoffset):
 
     assert -180 <= df.longitude.min() < 0 < df.longitude.max() < 180
     bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
-    bad_sites = bad_rows.groupby("siteid")[["siteid", "site", "longitude"]].first()
+    bad_sites = (
+        bad_rows.groupby("siteid")[["siteid", "site", "state_name", "longitude"]]
+        .first()
+        .rename(columns={"state_name": "state"})
+    )
+    # NOTE: for site ID with 'site' all null, 'site' will be `None`` in `bad_sites`
     if bad_utcoffset == "leave":
         assert not bad_sites.empty
         msg = (

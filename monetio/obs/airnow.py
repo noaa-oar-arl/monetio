@@ -228,10 +228,13 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
         dfs = [dask.delayed(read_csv)(f) for f in fnames]
     else:
         dfs = [dask.delayed(read_csv)(f) for f in urls]
-    dff = dd.from_delayed(dfs)
-    df = dff.compute(num_workers=n_procs).reset_index()
+    df_lazy = dd.from_delayed(dfs)
+    df = df_lazy.compute(num_workers=n_procs).reset_index(drop=True)
 
-    # Add LT column
+    # It seems that sometimes there are some duplicate rows
+    df = df.drop_duplicates().reset_index(drop=True)
+
+    # Add local standard time column
     if not daily:
         df["time_local"] = df["time"] + pd.to_timedelta(df["utcoffset"], unit="H")
 
@@ -241,7 +244,6 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
         df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
         df = df[_savecols]
-    df.drop_duplicates(inplace=True)  # TODO: shouldn't be
 
     df = filter_bad_values(df, bad_utcoffset=bad_utcoffset)
 
@@ -330,7 +332,7 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
         if bad_utcoffset == "null":
             df.loc[bad_rows.index, "utcoffset"] = NaN
         elif bad_utcoffset == "drop":
-            df.drop(bad_rows.index, inplace=True)
+            df = df.drop(index=bad_rows.index)
         elif bad_utcoffset == "fix":
             df.loc[bad_rows.index, "utcoffset"] = bad_rows.apply(
                 lambda row: get_utcoffset(row.latitude, row.longitude),
