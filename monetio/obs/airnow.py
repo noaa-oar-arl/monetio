@@ -200,7 +200,15 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
+def aggregate_files(
+    dates,
+    *,
+    download=False,
+    n_procs=1,
+    daily=False,
+    bad_utcoffset="drop",
+    today_meta=True,
+):
     """Load and combine multiple AirNow data files,
     returning a dataframe in long format with site metadata added.
 
@@ -213,10 +221,16 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
         before loading.
     n_procs : int
         For Dask.
+    daily : bool
+        Daily or hourly (defauly) data?
     bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
         How to handle bad UTC offsets
         (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
         ``'fix'`` will use ``timezonefinder`` if it is installed.
+    today_meta : bool
+        Whether to use the "today" site metadata file
+        (faster, but may not cover all sites in the period).
+        Otherwise, use combined site metadata from each unique date.
 
     Returns
     -------
@@ -226,16 +240,16 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
     import dask
     import dask.dataframe as dd
 
-    print("Aggregating AirNow files...")
-
     urls, fnames = build_urls(dates, daily=daily)
     if download:
+        print("Downloading AirNow data files...")
         for url, fname in zip(urls, fnames):
             retrieve(url, fname)
         dfs = [dask.delayed(read_csv)(f) for f in fnames]
     else:
         dfs = [dask.delayed(read_csv)(f) for f in urls]
     df_lazy = dd.from_delayed(dfs)
+    print("Reading AirNow data files...")
     df = df_lazy.compute(num_workers=n_procs).reset_index(drop=True)
 
     # It seems that sometimes there are some duplicate rows
@@ -245,8 +259,8 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
     if not daily:
         df["time_local"] = df["time"] + pd.to_timedelta(df["utcoffset"], unit="H")
 
-    print("    Adding in site metadata")
-    df = get_station_locations(df, n_procs=n_procs, merge=True)
+    print("Adding in site metadata...")
+    df = get_station_locations(df, today=today_meta, n_procs=n_procs, merge=True)
     if daily:
         df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
@@ -257,7 +271,16 @@ def aggregate_files(dates, *, download=False, n_procs=1, daily=False, bad_utcoff
     return df.reset_index(drop=True)
 
 
-def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, bad_utcoffset="drop"):
+def add_data(
+    dates,
+    *,
+    download=False,
+    wide_fmt=True,
+    n_procs=1,
+    daily=False,
+    bad_utcoffset="drop",
+    today_meta=True,
+):
     """Retrieve and load AirNow data as a DataFrame.
 
     Note: to obtain full hourly data you must pass all desired hours
@@ -277,8 +300,9 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
     n_procs : int
         For Dask.
     daily : bool
-        Whether to get daily data only
+        Whether to get daily data
         (only unique days in `dates` will be used).
+        Default: false (hourly data).
 
         Info: https://files.airnowtech.org/airnow/docs/DailyDataFactSheet.pdf
 
@@ -288,6 +312,10 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
         How to handle bad UTC offsets
         (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
         ``'fix'`` will use ``timezonefinder`` if it is installed.
+    today_meta : bool
+        Whether to use the "today" site metadata file
+        (faster, but may not cover all sites in the period).
+        Otherwise, use combined site metadata from each unique date.
 
     Returns
     -------
@@ -301,6 +329,7 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
         n_procs=n_procs,
         daily=daily,
         bad_utcoffset=bad_utcoffset,
+        today_meta=today_meta,
     )
     if wide_fmt:
         df = (
@@ -441,7 +470,7 @@ def get_station_locations(df, *, today=True, n_procs=1, merge=True):
         else:
             meta = _today_monitor_df
     else:
-        dates = sorted(df.time.dt.floor("D").unique())
+        dates = sorted(pd.Timestamp(d) for d in df.time.dt.floor("D").unique())
         if len(dates) > 1 and n_procs > 1:
             import dask
             import dask.dataframe as dd
@@ -450,8 +479,11 @@ def get_station_locations(df, *, today=True, n_procs=1, merge=True):
             df_lazy = dd.from_delayed(dfs)
             meta = df_lazy.compute(num_workers=n_procs).reset_index(drop=True)
         else:
-            meta = pd.concat([read_airnow_monitor_file(date=date) for date in dates])
+            meta = pd.concat(
+                [read_airnow_monitor_file(date=date) for date in dates], ignore_index=True
+            )
 
+        # A large percentage of day-to-day duplicates are expected
         meta = meta.drop_duplicates(subset=["siteid"]).reset_index(drop=True)
 
     if merge:
