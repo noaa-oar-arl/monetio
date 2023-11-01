@@ -56,6 +56,13 @@ def build_urls(dates, *, daily=False):
     The files are in S3 storage, which can be explored at
     https://files.airnowtech.org/
 
+    Parameters
+    ----------
+    dates : array-like of datetime-like
+        Datetimes to load.
+        If ``daily=True``, all unique days in `dates`.
+        Otherwise, all unique hours in `dates`.
+
     Returns
     -------
     urls, fnames : pandas.Series
@@ -259,6 +266,8 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
     Parameters
     ----------
     dates : array-like of datetime-like
+        Datetimes corresponding to the desired unique days or hours to load.
+        A continuous period can be created with :func:`pandas.date_range`.
         Passed to :func:`build_urls`.
     download : bool, optional
         Whether to first download the AirNow files to the local directory.
