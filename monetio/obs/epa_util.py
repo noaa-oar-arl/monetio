@@ -497,6 +497,11 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     """
     import pandas as pd
 
+    if sites_file is None:
+        sites_file = "https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip"
+    if monitors_file is None:
+        monitors_file = "https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip"
+
     # #   Column
     # ---  ------
     # 0   State Code
@@ -506,7 +511,7 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     # 4   Longitude
     # 5   Datum
     # 6   Elevation
-    # 7   Land Use
+    # 7   Land Use  (RESIDENTIAL, AGRICULTURAL, FOREST, etc.)
     # 8   Location Setting
     # 9   Site Established Date
     # 10  Site Closed Date
@@ -528,7 +533,7 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     # 26  Tribe Name
     # 27  Extraction Date
     sites = pd.read_csv(
-        "https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip",
+        sites_file,
         encoding="ISO-8859-1",
         dtype=str,
     )
@@ -537,14 +542,71 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     for vn in ["Extraction Date"]:
         sites[vn] = pd.to_datetime(sites[vn], format=r"%Y-%m-%d", exact=True)
     sites = sites.rename(columns=lambda vn: vn.replace(" ", "_").lower())
+    sites["siteid"] = sites["state_code"] + sites["county_code"] + sites["site_number"]
+    assert sites.siteid.str.len().eq(9).all()
+    assert sites.siteid.nunique() == len(sites)
 
-    # monitors = pd.read_csv(
-    #     "https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip",
-    #     encoding="ISO-8859-1",
-    # )
+    #  #   Column
+    # ---  ------
+    #  0   State Code
+    #  1   County Code
+    #  2   Site Number
+    #  3   Parameter Code
+    #  4   Parameter Name
+    #  5   POC
+    #  6   Latitude
+    #  7   Longitude
+    #  8   Datum
+    #  9   First Year of Data
+    #  10  Last Sample Date
+    #  11  Monitor Type
+    #  12  Networks
+    #  13  Reporting Agency
+    #  14  PQAO
+    #  15  Collecting Agency
+    #  16  Exclusions
+    #  17  Monitoring Objective
+    #  18  Last Method Code
+    #  19  Last Method
+    #  20  Measurement Scale  (NEIGHBORHOOD, URBAN SCALE, REGIONAL SCALE, MIDDLE SCALE, MICROSCALE)
+    #  21  Measurement Scale Definition
+    #  22  NAAQS Primary Monitor
+    #  23  QA Primary Monitor
+    #  24  Local Site Name
+    #  25  Address
+    #  26  State Name
+    #  27  County Name
+    #  28  City Name
+    #  29  CBSA Name
+    #  30  Tribe Name
+    #  31  Extraction Date
+    monitors = pd.read_csv(
+        monitors_file,
+        encoding="ISO-8859-1",
+        dtype=str,
+    )
+    for vn in ["Latitude", "Longitude"]:
+        monitors[vn] = monitors[vn].astype(float)
+    for vn in ["POC"]:
+        monitors[vn] = monitors[vn].astype(int)
+    for vn in ["First Year of Data", "Last Sample Date", "Extraction Date"]:
+        monitors[vn] = pd.to_datetime(monitors[vn], format=r"%Y-%m-%d", exact=True)
+    monitors = monitors.rename(columns=lambda vn: vn.replace(" ", "_").lower())
+    monitors["siteid"] = monitors["state_code"] + monitors["county_code"] + monitors["site_number"]
+    assert monitors.siteid.str.len().eq(9).all()
+    assert monitors.siteid.nunique() < len(monitors), "can be multiple monitors per site"
 
     airnow = read_airnow_monitor_file(date=None, v2=False)
     airnow["airnow_flag"] = True
+
+    # Combine
+    meta = monitors.merge(
+        sites[["siteid", "land_use", "location_setting", "gmt_offset"]],
+        on=["siteid"],
+        how="left",
+    )
+
+    return meta
 
 
 def read_monitor_file(network=None, airnow=False, drop_latlon=True):
