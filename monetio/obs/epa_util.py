@@ -352,7 +352,7 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False, include_parameters
     include_parameters : bool
         Include a 'parameters' column in the output dataframe
         listing all parameters measured at each site as
-        string dtype, with parameters separated by semicolons.
+        string dtype, with parameters separated by semicolons (e.g. ``'O3;PM2.5'``).
         Note that the parameter list for a given site can vary with `date`.
 
     Returns
