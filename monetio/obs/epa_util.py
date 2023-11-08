@@ -480,12 +480,19 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     return df
 
 
-def get_aqs_metadata():
+def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     """Create an AQS site metadata dataframe by combining three data sources:
 
     * sites: https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip
     * monitors: https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip
     * AirNow site metadata: :func:`read_airnow_monitor_file`
+
+    Parameters
+    ----------
+    sites_file, monitors_file : path-like, optional
+        Paths to the AQS sites and monitors files
+        (``aqs_sites.zip`` and ``aqs_monitors.zip``;
+        default is to download from the EPA website).
 
     """
     import pandas as pd
