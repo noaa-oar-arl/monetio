@@ -274,7 +274,8 @@ def calc_daily_max(df, param=None, rolling_frequency=8):
 
 
 def convert_statenames_to_abv(df):
-    d = {
+    """For 'state_name' column in `df`, convert full names to 2-letter abbreviations in place."""
+    to_lower = {
         "Alabama": "AL",
         "Alaska": "AK",
         "Arizona": "AZ",
@@ -327,10 +328,10 @@ def convert_statenames_to_abv(df):
         "Wisconsin": "WI",
         "Wyoming": "WY",
     }
-    for i in d:
-        df["state_name"].loc[df.state_name.isin([i])] = d[i]
-    df["state_name"].loc[df.state_name.isin(["Canada"])] = "CC"
-    df["state_name"].loc[df.state_name.isin(["Mexico"])] = "MM"
+    for long, short in to_lower.items():
+        df.loc[df.state_name.eq(long), "state_name"] = short
+    df.loc[df.state_name.eq("Canada"), "state_name"] = "CC"
+    df.loc[df.state_name.eq("Mexico"), "state_name"] = "MM"
     return df
 
 
@@ -599,143 +600,112 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     airnow = read_airnow_monitor_file(date=None, v2=False)
     airnow["airnow_flag"] = True
 
-    # Combine
+    monitor_drop = [
+        "state_code",
+        "county_code",
+        "site_number",
+        "extraction_date",
+        "parameter_code",
+        "parameter_name",
+        "poc",
+        "last_sample_date",
+        "pqao",
+        "reporting_agency",
+        "exclusions",
+        "monitoring_objective",
+        "last_method_code",
+        "last_method",
+        "naaqs_primary_monitor",
+        "qa_primary_monitor",
+    ]
+    print(sorted(set(monitors.columns) - set(monitor_drop)))
+    # keep:
+    # ['address', 'cbsa_name', 'city_name', 'collecting_agency', 'county_name', 'datum',
+    # 'first_year_of_data', 'latitude', 'local_site_name', 'longitude', 'measurement_scale',
+    # 'measurement_scale_definition', 'monitor_type', 'networks', 'siteid', 'state_name', 'tribe_name']
+
+    airnow_drop = [
+        "site_code",
+        "site_name",
+        "status",
+        "agency",
+        "agency_name",
+        "country_code",
+        "cmsa_code",
+        "state_code",
+        "county_code",
+        "city_code",
+        "latitude",
+        "longitude",
+        "gmt_offset",
+        "state_name",
+        "county_name",
+    ]
+    print(sorted(set(airnow.columns) - set(airnow_drop)))
+    # keep:
+    # ['airnow_flag', 'city_name', 'cmsa_name', 'elevation', 'epa_region',
+    # 'msa_code', 'msa_name', 'siteid']
+    # NOTE: elevation, city name also in sites file
+
     meta = monitors.merge(
         sites[["siteid", "land_use", "location_setting", "gmt_offset"]],
-        on=["siteid"],
+        on="siteid",
         how="left",
     )
+    # NOTE: ~ 45% of AirNow site IDs are also in the AQS monitors file
+    meta = pd.concat(
+        [
+            meta.drop(columns=monitor_drop)
+            .drop_duplicates()
+            .dropna(subset=["latitude", "longitude"]),
+            airnow.drop(columns=airnow_drop),
+        ],
+        ignore_index=True,
+        sort=True,
+    )
+    # FIXME: this method (concat) leads to null lat/lon since lat/lon dropped from AirNow df
+    meta = convert_statenames_to_abv(meta)
 
-    return meta
+    # FIXME: site ID not unique in `meta`
+
+    return meta.reset_index(drop=True)
 
 
 def read_monitor_file(network=None, airnow=False, drop_latlon=True):
-    import os
+    """
 
+    Parameters
+    ----------
+    network : str, optional
+        Subset results by AQS network (e.g. IMPROVE, CSN).
+        Only relevant if `airnow` is false.
+    airnow : bool
+        If True, read AirNow monitoring site metadata.
+        Else, read AQS monitoring site metadata.
+    drop_latlon : bool
+        Only relevant if `airnow` is false.
+    """
     import pandas as pd
 
     if airnow:
         return read_airnow_monitor_file(date=None, v2=False)
     else:
-        try:
-            basedir = os.path.abspath(os.path.dirname(__file__))[:-3]
-            fname = os.path.join(basedir, "data", "monitoring_site_locations.hdf")
-            if os.path.isfile(fname):
-                print("Monitor File Path: " + fname)
-                sss = pd.read_hdf(fname)
-            # monitor_drop = ['state_code', u'county_code']
-            # s.drop(monitor_drop, axis=1, inplace=True)
-        except Exception:
-            print("Monitor File Not Found... Reprocessing")
-            baseurl = "https://aqs.epa.gov/aqsweb/airdata/"
-            site_url = baseurl + "aqs_sites.zip"
-            # has network info (CSN IMPROVE etc....)
-            monitor_url = baseurl + "aqs_monitors.zip"
-            # Airnow monitor file
-            monitor_airnow_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/today/monitoring_site_locations.dat"
-            colsinuse = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
-            airnow = pd.read_csv(
-                monitor_airnow_url,
-                delimiter="|",
-                header=None,
-                usecols=colsinuse,
-                dtype={0: str},
-                encoding="ISO-8859-1",
-            )
-            airnow.columns = [
-                "siteid",
-                "Site_Code",
-                "Site_Name",
-                "Status",
-                "Agency",
-                "Agency_Name",
-                "EPA_region",
-                "latitude",
-                "longitude",
-                "Elevation",
-                "GMT_Offset",
-                "Country_Code",
-                "CMSA_Code",
-                "CMSA_Name",
-                "MSA_Code",
-                "MSA_Name",
-                "state_Code",
-                "state_Name",
-                "County_Code",
-                "County_Name",
-                "City_Code",
-            ]
-            airnow["airnow_flag"] = "AIRNOW"
-            airnow.columns = [i.lower() for i in airnow.columns]
-            # Read EPA Site file
-            site = pd.read_csv(site_url, encoding="ISO-8859-1")
-            # read epa monitor file
-            monitor = pd.read_csv(monitor_url, encoding="ISO-8859-1")
-            # make siteid column
-            site["siteid"] = (
-                site["State Code"].astype(str).str.zfill(2)
-                + site["County Code"].astype(str).str.zfill(3)
-                + site["Site Number"].astype(str).str.zfill(4)
-            )
-            monitor["siteid"] = (
-                monitor["State Code"].astype(str).str.zfill(2)
-                + monitor["County Code"].astype(str).str.zfill(3)
-                + monitor["Site Number"].astype(str).str.zfill(4)
-            )
-            site.columns = [i.replace(" ", "_") for i in site.columns]
-            s = monitor.merge(
-                site[["siteid", "Land_Use", "Location_Setting", "GMT_Offset"]],
-                on=["siteid"],
-                how="left",
-            )
-            s.columns = [i.replace(" ", "_").lower() for i in s.columns]
-            monitor_drop = [
-                "state_code",
-                "county_code",
-                "site_number",
-                "extraction_date",
-                "parameter_code",
-                "parameter_name",
-                "poc",
-                "last_sample_date",
-                "pqao",
-                "reporting_agency",
-                "exclusions",
-                "monitoring_objective",
-                "last_method_code",
-                "last_method",
-                "naaqs_primary_monitor",
-                "qa_primary_monitor",
-            ]
-            s.drop(monitor_drop, axis=1, inplace=True)
-            # drop airnow keys for merge
-            airnow_drop = [
-                "site_Code",
-                "site_Name",
-                "status",
-                "agency",
-                "agency_name",
-                "country_code",
-                "cmsa_code",
-                "state_code",
-                "county_code",
-                "city_code",
-                "latitude",
-                "longitude",
-                "gmt_offset",
-                "state_name",
-                "county_name",
-            ]
-            airnow_drop = [i.lower() for i in airnow_drop]
-            airnow.drop(airnow_drop, axis=1, inplace=True)
-            ss = pd.concat([s, airnow], ignore_index=True, sort=True)
-            sss = convert_statenames_to_abv(ss).dropna(subset=["latitude", "longitude"])
-        if network is not None:
-            sss = sss.loc[sss.networks.isin([network])].drop_duplicates(subset=["siteid"])
-        # Getting error that 'latitude' 'longitude' not contained in axis
-        drop_latlon = False
-        if drop_latlon:
-            if pd.Series(sss.keys()).isin(["latitude", "longitude"]):
-                return sss.drop(["latitude", "longitude"], axis=1).drop_duplicates()
+        from pathlib import Path
+
+        data_dir = Path(__file__).parent.parent / "data"
+        assert data_dir.is_dir()
+        p = data_dir / "monitoring_site_locations.hdf"
+        if p.is_file():
+            sites = pd.read_hdf(p)
         else:
-            return sss.drop_duplicates()
+            print("Monitor File Not Found... Reprocessing")
+            sites = get_aqs_metadata()
+
+        if network is not None:
+            # FIXME: why drop site ID dupes here but not in normal results?
+            sites = sites.dropna(subset=["networks"])
+            sites = sites[sites.networks.str.contains(network)].drop_duplicates(subset=["siteid"])
+        if drop_latlon:
+            sites = sites.drop(columns=["latitude", "longitude"])
+
+        return sites.drop_duplicates().reset_index(drop=True)
