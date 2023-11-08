@@ -335,7 +335,7 @@ def convert_statenames_to_abv(df):
     return df
 
 
-def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
+def read_airnow_monitor_file(date=None, *, s3=True, v2=False, include_parameters=False):
     """Read site metadata from AirNow
     (`files.airnowtech.org <https://files.airnowtech.org/?prefix=airnow/>`__).
 
@@ -349,6 +349,11 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
     v2 : bool
         Read the v2 format file (``Monitoring_Site_Locations_V2.dat``) for the day.
         By default the original format file is read (``monitoring_site_locations.dat``).
+    include_parameters : bool
+        Include a 'parameters' column in the output dataframe
+        listing all parameters measured at each site as
+        string dtype, with parameters separated by semicolons.
+        Note that the parameter list for a given site can vary with `date`.
 
     Returns
     -------
@@ -468,6 +473,15 @@ def read_airnow_monitor_file(date=None, *, s3=True, v2=False):
             encoding="ISO-8859-1",
         )
         df.columns = names
+
+    if include_parameters:
+        parameters = (
+            df.groupby("siteid")
+            .parameter.unique()
+            .apply(lambda x: ";".join(sorted(x)))
+            .rename("parameters")
+        )
+        df = df.merge(parameters, on="siteid", how="left")
 
     # fmt: off
     df = (
