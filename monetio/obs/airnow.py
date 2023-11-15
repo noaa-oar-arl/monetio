@@ -1,25 +1,35 @@
 """AirNow"""
 
 import os
-
-# this is written to retrieve airnow data concatenate and add to pandas array
-# for usage
+import re
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
-datadir = "."
-cwd = os.getcwd()
-url = None
-dates = [
-    datetime.strptime("2016-06-06 12:00:00", "%Y-%m-%d %H:%M:%S"),
-    datetime.strptime("2016-06-06 13:00:00", "%Y-%m-%d %H:%M:%S"),
+_hourly_cols = [
+    "date",
+    "time",
+    "siteid",
+    "site",
+    "utcoffset",
+    "variable",
+    "units",
+    "obs",
+    "source",
 ]
-daily = False
-objtype = "AirNow"
-filelist = None
-monitor_df = None
-savecols = [
+_daily_cols = [
+    "date",
+    "siteid",
+    "site",
+    "variable",
+    "units",
+    "obs",
+    "hours",
+    "source",
+]
+_savecols = [
     "time",
     "siteid",
     "site",
@@ -36,12 +46,22 @@ savecols = [
     "state_name",
     "epa_region",
 ]
-
+_today_monitor_df = None
 _TFinder = None
 
 
 def build_urls(dates, *, daily=False):
     """Construct AirNow file URLs for `dates`.
+
+    The files are in S3 storage, which can be explored at
+    https://files.airnowtech.org/
+
+    Parameters
+    ----------
+    dates : array-like of datetime-like
+        Datetimes to load.
+        If ``daily=True``, all unique days in `dates`.
+        Otherwise, all unique hours in `dates`.
 
     Returns
     -------
@@ -55,85 +75,101 @@ def build_urls(dates, *, daily=False):
 
     urls = []
     fnames = []
-    print("Building AIRNOW URLs...")
-    base_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/"  # TODO: use S3 URL scheme instead?
+    print("Building AirNow URLs...")
+    if sys.version_info < (3, 7):
+        base_url = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
+    else:
+        base_url = "s3://files.airnowtech.org/airnow/"
     for dt in dates:
         if daily:
             fname = "daily_data.dat"
         else:
             fname = dt.strftime(r"HourlyData_%Y%m%d%H.dat")
-        # 2017/20170131/HourlyData_2017012408.dat
+        # e.g.
+        # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
         url = base_url + dt.strftime(r"%Y/%Y%m%d/") + fname
         urls.append(url)
         fnames.append(fname)
-    # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/2017/20170108/HourlyData_2016121506.dat
-    # or https://files.airnowtech.org/?prefix=airnow/2017/20170108/
 
     # Note: files needed for comparison
     urls = pd.Series(urls, index=None)
     fnames = pd.Series(fnames, index=None)
+
     return urls, fnames
 
 
-def read_csv(fn):
-    """Short summary.
+def read_csv(fn, *, daily=None):
+    """Read an AirNow CSV file.
 
     Parameters
     ----------
-    fn : string
-        file name to read
+    fn
+        File to read, passed to :func:`pandas.read_csv`.
+    daily : bool, optional
+        Is this is a daily (``True``) or hourly (``False``) file?
+        By default, attempt to determine based on the file name.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
+        AirNow data in long format without site metadata.
+        Additional processing done by :func:`aggregate_files` / :func:`add_data`
+        not applied.
     """
-    hourly_cols = [
-        "date",
-        "time",
-        "siteid",
-        "site",
-        "utcoffset",
-        "variable",
-        "units",
-        "obs",
-        "source",
-    ]
-    daily_cols = ["date", "siteid", "site", "variable", "units", "obs", "hours", "source"]
-    try:
-        dft = pd.read_csv(
-            fn,
-            delimiter="|",
-            header=None,
+    from monetio.util import _get_pandas_version
+
+    pd_ver = _get_pandas_version()
+
+    if daily is None:
+        if isinstance(fn, Path):
+            fn_str = fn.as_posix()
+        else:
+            fn_str = str(fn)
+
+        if fn_str.endswith("daily_data.dat"):
+            daily = True
+        elif re.search(r"HourlyData_[0-9]{10}.dat", fn_str) is not None:
+            daily = False
+        else:
+            raise ValueError("Could not determine if file is daily or hourly")
+
+    dtype = {"siteid": str, "obs": float}
+    if daily:
+        names = _daily_cols
+    else:
+        names = _hourly_cols
+        dtype.update(utcoffset=float)
+
+    if pd_ver < (1, 3):
+        on_bad = dict(
             error_bad_lines=False,
             warn_bad_lines=True,
-            encoding="ISO-8859-1",
-        )  # TODO: `error_bad_lines` is deprecated from v1.3
-    except Exception:
-        dft = pd.DataFrame(columns=hourly_cols)
-        # TODO: warning message or error instead?
-        # TODO: or hourly/daily option (to return proper empty df)?
-
-    # Assign column names
-    ncols = dft.columns.size
-    daily = False
-    if ncols == len(hourly_cols):
-        dft.columns = hourly_cols
-    elif ncols == len(hourly_cols) - 1:  # daily data
-        daily = True
-        dft.columns = daily_cols
+        )
     else:
-        raise Exception(f"unexpected number of columns: {ncols}")
+        on_bad = dict(on_bad_lines="warn")
 
-    dft["obs"] = dft.obs.astype(float)
-    # ^ TODO: could use smaller float type, provided precision is low
-    dft["siteid"] = dft.siteid.str.zfill(9)
-    # ^ TODO: does nothing; and some site IDs are longer (12) or start with letters
-    if not daily:
-        dft["utcoffset"] = dft.utcoffset.astype(int)  # FIXME: some sites have fractional UTC offset
+    df = pd.read_csv(
+        fn,
+        delimiter="|",
+        header=None,
+        names=names,
+        parse_dates=False,
+        dtype=dtype,
+        encoding="ISO-8859-1",
+        **on_bad,
+    )
 
-    return dft
+    # TODO: pandas v2 path using `date_format`?
+
+    if daily:
+        df["time"] = pd.to_datetime(df["date"], format=r"%m/%d/%y", exact=True)
+    else:
+        df["time"] = pd.to_datetime(
+            df["date"] + " " + df["time"], format=r"%m/%d/%y %H:%M", exact=True
+        )
+    df = df.drop(columns=["date"])
+
+    return df
 
 
 def retrieve(url, fname):
@@ -141,15 +177,14 @@ def retrieve(url, fname):
 
     Parameters
     ----------
-    url : string
-        Description of parameter `url`.
-    fname : string
-        Description of parameter `fname`.
+    url : str
+        To be retrieved.
+    fname : str
+        File path to save to.
 
     Returns
     -------
     None
-
     """
     import requests
 
@@ -165,8 +200,17 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_utcoffset="drop"):
-    """Short summary.
+def aggregate_files(
+    dates,
+    *,
+    download=False,
+    n_procs=1,
+    daily=False,
+    bad_utcoffset="drop",
+    today_meta=True,
+):
+    """Load and combine multiple AirNow data files,
+    returning a dataframe in long format with site metadata added.
 
     Parameters
     ----------
@@ -177,10 +221,16 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_
         before loading.
     n_procs : int
         For Dask.
+    daily : bool
+        Daily or hourly (default) data?
     bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
         How to handle bad UTC offsets
         (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
         ``'fix'`` will use ``timezonefinder`` if it is installed.
+    today_meta : bool
+        Whether to use the "today" site metadata file
+        (faster, but may not cover all sites in the period).
+        Otherwise, use combined site metadata from each unique date.
 
     Returns
     -------
@@ -190,42 +240,47 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_
     import dask
     import dask.dataframe as dd
 
-    print("Aggregating AIRNOW files...")
-
     urls, fnames = build_urls(dates, daily=daily)
     if download:
+        print("Downloading AirNow data files...")
         for url, fname in zip(urls, fnames):
             retrieve(url, fname)
         dfs = [dask.delayed(read_csv)(f) for f in fnames]
     else:
         dfs = [dask.delayed(read_csv)(f) for f in urls]
-    dff = dd.from_delayed(dfs)
-    df = dff.compute(num_workers=n_procs).reset_index()
+    df_lazy = dd.from_delayed(dfs)
+    print("Reading AirNow data files...")
+    df = df_lazy.compute(num_workers=n_procs).reset_index(drop=True)
 
-    # Datetime conversion
-    if daily:
-        df["time"] = pd.to_datetime(df.date, format=r"%m/%d/%y", exact=True)
-    else:
-        df["time"] = pd.to_datetime(
-            df.date + " " + df.time, format=r"%m/%d/%y %H:%M", exact=True
-        )  # TODO: move to read_csv? (and some of this other stuff too?)
-        df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
-    df.drop(["date"], axis=1, inplace=True)
+    # It seems that sometimes there are some duplicate rows
+    df = df.drop_duplicates().reset_index(drop=True)
 
-    print("    Adding in Meta-data")
-    df = get_station_locations(df)
+    # Add local standard time column
+    if not daily:
+        df["time_local"] = df["time"] + pd.to_timedelta(df["utcoffset"], unit="H")
+
+    print("Adding in site metadata...")
+    df = get_station_locations(df, today=today_meta, n_procs=n_procs, merge=True)
     if daily:
-        df = df[[col for col in savecols if col not in {"time_local", "utcoffset"}]]
+        df = df[[col for col in _savecols if col not in {"time_local", "utcoffset"}]]
     else:
-        df = df[savecols]
-    df.drop_duplicates(inplace=True)
+        df = df[_savecols]
 
     df = filter_bad_values(df, bad_utcoffset=bad_utcoffset)
 
     return df.reset_index(drop=True)
 
 
-def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, bad_utcoffset="drop"):
+def add_data(
+    dates,
+    *,
+    download=False,
+    wide_fmt=True,
+    n_procs=1,
+    daily=False,
+    bad_utcoffset="drop",
+    today_meta=True,
+):
     """Retrieve and load AirNow data as a DataFrame.
 
     Note: to obtain full hourly data you must pass all desired hours
@@ -234,24 +289,33 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
     Parameters
     ----------
     dates : array-like of datetime-like
+        Datetimes corresponding to the desired unique days or hours to load.
+        A continuous period can be created with :func:`pandas.date_range`.
         Passed to :func:`build_urls`.
     download : bool, optional
         Whether to first download the AirNow files to the local directory.
     wide_fmt : bool
+        Convert from long ('parameter' and 'value' columns)
+        to wide format (each parameter gets its own column).
     n_procs : int
         For Dask.
     daily : bool
-        Whether to get daily data only
+        Whether to get daily data
         (only unique days in `dates` will be used).
+        Default: false (hourly data).
 
         Info: https://files.airnowtech.org/airnow/docs/DailyDataFactSheet.pdf
 
-        Note: ``daily_data_v2.dat`` (includes AQI) is not available for all times,
+        Note: ``daily_data_v2.dat`` (includes AQI) is not available for all time periods,
         so we use ``daily_data.dat``.
     bad_utcoffset : {'null', 'drop', 'fix', 'leave'}, default: 'drop'
         How to handle bad UTC offsets
         (i.e. rows with UTC offset 0 but abs(longitude) > 20 degrees).
         ``'fix'`` will use ``timezonefinder`` if it is installed.
+    today_meta : bool
+        Whether to use the "today" site metadata file
+        (faster, but may not cover all sites in the period).
+        Otherwise, use combined site metadata from each unique date.
 
     Returns
     -------
@@ -265,6 +329,7 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
         n_procs=n_procs,
         daily=daily,
         bad_utcoffset=bad_utcoffset,
+        today_meta=today_meta,
     )
     if wide_fmt:
         df = (
@@ -279,6 +344,9 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
 
 def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     """Mark ``obs`` values less than 0 or greater than `max` as NaN.
+
+    .. note::
+       `df` is modified in place.
 
     Parameters
     ----------
@@ -302,7 +370,7 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
         if bad_utcoffset == "null":
             df.loc[bad_rows.index, "utcoffset"] = NaN
         elif bad_utcoffset == "drop":
-            df.drop(bad_rows.index, inplace=True)
+            df = df.drop(index=bad_rows.index)
         elif bad_utcoffset == "fix":
             df.loc[bad_rows.index, "utcoffset"] = bad_rows.apply(
                 lambda row: get_utcoffset(row.latitude, row.longitude),
@@ -313,7 +381,7 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
         else:
             raise ValueError("`bad_utcoffset` must be one of: 'null', 'drop', 'fix', 'leave'")
 
-    return df  # TODO: dropna here (since it is called `filter_bad_values`)?
+    return df  # TODO: optionally dropna here (since it is called `filter_bad_values`)?
 
 
 def get_utcoffset(lat, lon):
@@ -325,13 +393,18 @@ def get_utcoffset(lat, lon):
     Parameters
     ----------
     lat, lon : float
-        Latitude and longitude of the location.
+        Latitude and longitude of the (single) location.
 
     Returns
     -------
     float
     """
     import warnings
+
+    import numpy as np
+
+    if not np.isscalar(lat) or not np.isscalar(lon):
+        raise TypeError("lat and lon must be scalars")
 
     try:
         import pytz
@@ -361,57 +434,59 @@ def get_utcoffset(lat, lon):
         return uo
 
 
-def daterange(**kwargs):
-    """Short summary.
+def get_station_locations(df, *, today=True, n_procs=1, merge=True):
+    """Add site metadata to dataframe `df`.
 
     Parameters
     ----------
-    begin : type
-        Description of parameter `begin` (the default is '').
-    end : type
-        Description of parameter `end` (the default is '').
+    df : pandas.DataFrame
+        Data, with ``siteid`` column.
+    today : bool
+        Use the "today" site metadata file
+        (faster, but may not cover all sites in the period).
+        Otherwise, use combined site metadata from each date in `df`.
+    n_procs : int
+        For Dask.
+        Used if `today` is false and `df` has multiple dates (unique days) and `n_procs` > 1.
+    merge : bool
+        Whether to merge the site metadata into `df` (default),
+        or return just the site metadata.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    pandas.DataFrame
+        `df` merged with site metadata from
+        :func:`monetio.obs.epa_util.read_airnow_monitor_file`.
+        OR, if `merge` is false, just the site metadata.
     """
-    return pd.date_range(**kwargs)
+    from .epa_util import read_airnow_monitor_file
 
+    if today:
+        global _today_monitor_df
 
-def get_station_locations(df):  # TODO: better name might be `add_station_locations`
-    """Short summary.
+        if _today_monitor_df is None:
+            meta = read_airnow_monitor_file(date=None)
+            _today_monitor_df = meta
+        else:
+            meta = _today_monitor_df
+    else:
+        dates = sorted(pd.Timestamp(d) for d in df.time.dt.floor("D").unique())
+        if len(dates) > 1 and n_procs > 1:
+            import dask
+            import dask.dataframe as dd
 
-    Returns
-    -------
-    type
-        Description of returned object.
+            dfs = [dask.delayed(read_airnow_monitor_file)(date=date) for date in dates]
+            df_lazy = dd.from_delayed(dfs)
+            meta = df_lazy.compute(num_workers=n_procs).reset_index(drop=True)
+        else:
+            meta = pd.concat(
+                [read_airnow_monitor_file(date=date) for date in dates], ignore_index=True
+            )
 
-    """
-    from .epa_util import read_monitor_file
+        # A large percentage of day-to-day duplicates are expected
+        meta = meta.drop_duplicates(subset=["siteid"]).reset_index(drop=True)
 
-    monitor_df = read_monitor_file(airnow=True)
-    df = df.merge(monitor_df.drop_duplicates(), on="siteid", how="left", copy=False)
-    # TODO: maybe eliminate need for drop dup here
-
-    return df
-
-
-def get_station_locations_remerge(df):
-    """Short summary.
-
-    Parameters
-    ----------
-    df : type
-        Description of parameter `df`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    df = pd.merge(df, monitor_df.drop(["Latitude", "Longitude"], axis=1), on="siteid")  # ,
-    # how='left')
-    return df
+    if merge:
+        return df.merge(meta, on="siteid", how="left", copy=False)
+    else:
+        return meta
