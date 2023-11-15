@@ -501,14 +501,19 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     * sites: https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip
     * monitors: https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip
     * AirNow site metadata: :func:`read_airnow_monitor_file`
+      - The resulting dataframe has an ``airnow_flag`` column,
+        indicating which sites are part of AirNow.
 
     Parameters
     ----------
     sites_file, monitors_file : path-like, optional
         Paths to the AQS sites and monitors files
         (``aqs_sites.zip`` and ``aqs_monitors.zip``;
-        default is to download from the EPA website).
+        defaults are the EPA website URLs above).
 
+    Returns
+    -------
+    pandas.DataFrame
     """
     import pandas as pd
 
@@ -524,7 +529,7 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     # 2   Site Number
     # 3   Latitude
     # 4   Longitude
-    # 5   Datum
+    # 5   Datum  (geo)
     # 6   Elevation
     # 7   Land Use  (RESIDENTIAL, AGRICULTURAL, FOREST, etc.)
     # 8   Location Setting
@@ -571,7 +576,7 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
     #  5   POC
     #  6   Latitude
     #  7   Longitude
-    #  8   Datum
+    #  8   Datum  (geo)
     #  9   First Year of Data
     #  10  Last Sample Date
     #  11  Monitor Type
@@ -613,76 +618,86 @@ def get_aqs_metadata(*, sites_file=None, monitors_file=None):
 
     airnow = read_airnow_monitor_file(date=None, v2=False)
     airnow["airnow_flag"] = True
+    airnow = airnow.rename(
+        columns={
+            "site_name": "local_site_name",
+            "agency_name": "reporting_agency",
+        }
+    )
 
-    monitor_drop = [
-        "state_code",
-        "county_code",
-        "site_number",
-        "extraction_date",
-        "parameter_code",
-        "parameter_name",
-        "poc",
-        "last_sample_date",
-        "pqao",
-        "reporting_agency",
-        "exclusions",
-        "monitoring_objective",
-        "last_method_code",
-        "last_method",
-        "naaqs_primary_monitor",
-        "qa_primary_monitor",
-    ]
-    print(sorted(set(monitors.columns) - set(monitor_drop)))
-    # keep:
-    # ['address', 'cbsa_name', 'city_name', 'collecting_agency', 'county_name', 'datum',
-    # 'first_year_of_data', 'latitude', 'local_site_name', 'longitude', 'measurement_scale',
-    # 'measurement_scale_definition', 'monitor_type', 'networks', 'siteid', 'state_name', 'tribe_name']
-
-    airnow_drop = [
-        "site_code",
-        "site_name",
-        "status",
-        "agency",
-        "agency_name",
-        "country_code",
-        "cmsa_code",
-        "state_code",
-        "county_code",
-        "city_code",
-        "latitude",
-        "longitude",
+    site_keep = [
         "gmt_offset",
-        "state_name",
-        "county_name",
+        "land_use",
+        "location_setting",
+        "siteid",
     ]
-    print(sorted(set(airnow.columns) - set(airnow_drop)))
-    # keep:
-    # ['airnow_flag', 'city_name', 'cmsa_name', 'elevation', 'epa_region',
-    # 'msa_code', 'msa_name', 'siteid']
-    # NOTE: elevation, city name also in sites file
+    monitor_keep = [
+        "address",
+        "cbsa_name",
+        "city_name",
+        "collecting_agency",
+        "county_name",
+        "datum",
+        "first_year_of_data",
+        "latitude",
+        "local_site_name",
+        "longitude",
+        "measurement_scale",
+        # "measurement_scale_definition",
+        "monitor_type",
+        "networks",
+        "siteid",
+        "state_name",
+        "tribe_name",
+    ]
+    # TODO: parameter code/name ? (construct combined strings like in AirNow)
 
-    meta = monitors.merge(
-        sites[["siteid", "land_use", "location_setting", "gmt_offset"]],
+    # TODO: country_code ?
+    airnow_keep_in_aqs = [
+        "airnow_flag",
+        "cmsa_code",  # usually null
+        "cmsa_name",  # usually null
+        "epa_region",
+        "msa_code",
+        "msa_name",
+        "siteid",
+    ]
+    airnow_keep_new = [
+        "city_name",
+        "county_name",
+        "elevation",
+        "gmt_offset",
+        "latitude",
+        "local_site_name",  # renamed
+        "longitude",
+        "reporting_agency",  # renamed
+        "state_name",  # ~ 37% null
+    ] + airnow_keep_in_aqs
+
+    # Take desired columns and merge monitors metadata with sites metadata
+    meta = monitors[monitor_keep].merge(
+        sites[site_keep],
         on="siteid",
         how="left",
     )
-    # NOTE: ~ 45% of AirNow site IDs are also in the AQS monitors file
+
+    # Combine with AirNow metadata
+    # NOTE: ~ 45% of AirNow site IDs are also in the AQS sites file
+    is_airnow_in_aqs = airnow.siteid.isin(meta.siteid)
+    assert set(airnow_keep_in_aqs) & set(meta.columns) == {"siteid"}, "adding new cols"
+    meta = meta.merge(airnow.loc[is_airnow_in_aqs, airnow_keep_in_aqs], on="siteid", how="left")
     meta = pd.concat(
-        [
-            meta.drop(columns=monitor_drop)
-            .drop_duplicates()
-            .dropna(subset=["latitude", "longitude"]),
-            airnow.drop(columns=airnow_drop),
-        ],
+        [meta, airnow.loc[~is_airnow_in_aqs, airnow_keep_new]],
         ignore_index=True,
         sort=True,
     )
-    # FIXME: this method (concat) leads to null lat/lon since lat/lon dropped from AirNow df
+    meta["airnow_flag"] = meta["airnow_flag"].fillna(False)
     meta = convert_statenames_to_abv(meta)
 
-    # FIXME: site ID not unique in `meta`
+    # Drop AQS site ID duplicates (rows per monitor/parameter at each site)
+    meta = meta.drop_duplicates(subset=["siteid"], ignore_index=True)
 
-    return meta.reset_index(drop=True)
+    return meta
 
 
 def read_monitor_file(network=None, airnow=False, drop_latlon=True):
