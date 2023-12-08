@@ -37,6 +37,7 @@ Change log
 2023 12 Jan  AMC  get_thickness modified to calculate if the attribute specifying the vertical levels is bad
 2023 03 Mar  AMC  get_latlon modified. replace x>=180 with x>=180+lon_tolerance
 2023 03 Mar  AMC  get_latlongrid improved exception statements
+2023 08 Dec  AMC  add check_attributes to ModelBin and combine_datatset to make sure level height attribute is a list
 
 
 """
@@ -619,7 +620,7 @@ class ModelBin:
                             # then merge with main dataframe.
                             # self.dset = xr.concat([self.dset, dset],'levels')
                             # self.dset = xr.merge([self.dset, dset],compat='override')
-                            self.dset = xr.merge([self.dset, dset])
+                            self.dset = xr.merge([self.dset, dset],join='outer')
                             # self.dset = xr.combine_by_coords([self.dset, dset])
                             # self.dset = xr.merge([self.dset, dset], compat='override')
                         iimax += 1
@@ -640,6 +641,7 @@ class ModelBin:
         if not self.dset.any():
             return False
         if self.dset.variables:
+            self.atthash = check_attributes(self.atthash)
             self.dset.attrs = self.atthash
             # mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
             mgrid = get_latlongrid(self.gridhash, self.dset.coords["x"], self.dset.coords["y"])
@@ -805,8 +807,12 @@ def combine_dataset(
     # and use that for the new coordinates.
     newhxr = reset_latlon_coords(newhxr)
 
-    for key in keylist:
-        newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
+    # make sure all np.ndarrray in the attributes are converted to lists.
+    # the np arrays don't save well to netcdf file for some reason.
+    attrs = check_attributes(hxr.attrs)
+    newhxr = newhxr.assign_attrs(attrs)
+    #for key in keylist:
+    #    newhxr = newhxr.assign_attrs({key: hxr.attrs[key]})
     if check_grid:
         rval = fix_grid_continuity(newhxr)
     else:
@@ -1115,6 +1121,7 @@ def add_species(dset, species=None):
         ppp += 1  # End of loop adding all species
     atthash = dset.attrs
     atthash["Species ID"] = sflist
+    atthash = check_attributes(atthash)
     total_par = total_par.assign_attrs(atthash)
     return total_par
 
