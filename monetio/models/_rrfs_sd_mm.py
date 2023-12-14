@@ -176,7 +176,7 @@ def _calc_pressure(dset, surf_only=False):
         else:
            pres_2 = dset.ak[k + 1] + srfpres * dset.bk[k + 1]
            pres_1 = dset.ak[k] + srfpres * dset.bk[k]
-        pres[:, k, :, :] = (pres_2 - pres_1) / np.log(pres_2 / pres_1)
+        p[:, k, :, :] = (pres_2 - pres_1) / np.log(pres_2 / pres_1)
 
     p.name = "pres_pa_mid"
     p.attrs["units"] = "pa"
