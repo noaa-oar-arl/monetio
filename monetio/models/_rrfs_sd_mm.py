@@ -6,7 +6,7 @@ from pandas import Series
 
 
 def can_do(index):
-+    """
+    """
 +    Determines if the given index can be processed.
 +
 +    Parameters:
