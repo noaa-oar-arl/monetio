@@ -21,6 +21,7 @@ __all__ = [
     "_cmaq_mm",
     "_rrfs_cmaq_mm",
     "_wrfchem_mm",
+    "_rrfs_sd_mm",
     "cmaq",
     "camx",
     "fv3chem",
