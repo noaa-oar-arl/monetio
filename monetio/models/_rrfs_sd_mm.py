@@ -32,13 +32,13 @@ def open_mfdataset(
     dset = xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs)
     
     if {'smoke', 'dust'} <= dset.data_vars.keys():
-        dset['PM25'] = dset.smoke + dset.dust
-        dset['PM25'].attrs['long_name'] = 'Particulate Matter < 2.5 microns'
-        dset['PM25'].attrs['units'] = "ug/kg"
+        dset['pm25_sd'] = dset.smoke + dset.dust
+        dset['pm25_sd'].attrs['long_name'] = 'Particulate Matter < 2.5 microns'
+        dset['pm25_sd'].attrs['units'] = "ug/kg"
     if {'smoke', 'dust', 'coarsepm'} <= dset.data_vars.keys(): 
-        dset['PM10'] = dset.smoke + dset.dust + dset.coarsepm
-        dset['PM10'].attrs['long_name'] = 'Particulate Matter < 10 microns'
-        dset['PM10'].attrs['units'] = "ug/kg"
+        dset['pm10_sd'] = dset.smoke + dset.dust + dset.coarsepm
+        dset['pm10_sd'].attrs['long_name'] = 'Particulate Matter < 10 microns'
+        dset['pm10_sd'].attrs['units'] = "ug/kg"
 
     # Standardize some variable names
     dset = dset.rename(
