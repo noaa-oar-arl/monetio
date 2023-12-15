@@ -35,7 +35,7 @@ def open_mfdataset(
         dset['PM25'] = dset.smoke + dset.dust
         dset['PM25'].attrs['long_name'] = 'Particulate Matter < 2.5 microns'
         dset['PM25'].attrs['units'] = "ug/kg"
-    if 'smoke' in dset.data_vars and 'dust' in dset.data_vars and 'coarsepm' in dset.data_vars: 
+    if {'smoke', 'dust', 'coarsepm'} <= dset.data_vars.keys(): 
         dset['PM10'] = dset.smoke + dset.dust + dset.coarsepm
         dset['PM10'].attrs['long_name'] = 'Particulate Matter < 10 microns'
         dset['PM10'].attrs['units'] = "ug/kg"
