@@ -1,7 +1,6 @@
 """ RRFS-CMAQ File Reader """
 import numpy as np
 import xarray as xr
-from pandas import Series
 
 
 def open_mfdataset(
