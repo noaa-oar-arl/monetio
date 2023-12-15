@@ -5,22 +5,6 @@ from numpy import concatenate
 from pandas import Series
 
 
-def can_do(index):
-    """
-+    Determines if the given index can be processed.
-+
-+    Parameters:
-+        index (int): The index to check.
-+    
-+    Returns:
-+        bool: True if the index is the maximum value, False otherwise.
-+    """
-    if index.max():
-        return True
-    else:
-        return False
-
-
 def open_mfdataset(
     fname,
     var_list=None,
