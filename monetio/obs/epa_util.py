@@ -327,10 +327,11 @@ def convert_statenames_to_abv(df):
         "Wisconsin": "WI",
         "Wyoming": "WY",
     }
-    for i in d:
-        df["state_name"].loc[df.state_name.isin([i])] = d[i]
-    df["state_name"].loc[df.state_name.isin(["Canada"])] = "CC"
-    df["state_name"].loc[df.state_name.isin(["Mexico"])] = "MM"
+    for state, abbr in d.items():
+        df.loc[df.state_name.isin([state]), "state_name"] = abbr
+    df.loc[df.state_name.isin(["Canada"]), "state_name"] = "CC"
+    df.loc[df.state_name.isin(["Mexico"]), "state_name"] = "MM"
+    df.loc[df.state_name.isin(["Puerto Rico"]), "state_name"] = "PR"
     return df
 
 
@@ -377,12 +378,15 @@ def read_monitor_file(network=None, airnow=False, drop_latlon=True):
         airnow.columns = [i.lower() for i in airnow.columns]
         return airnow
     else:
+        # TODO: keep these files automatically if not found? or store processed ones in repo with CI cron job to update?
         try:
             basedir = os.path.abspath(os.path.dirname(__file__))[:-3]
             fname = os.path.join(basedir, "data", "monitoring_site_locations.hdf")
             if os.path.isfile(fname):
                 print("Monitor File Path: " + fname)
                 sss = pd.read_hdf(fname)
+            else:
+                raise Exception("monitor file not found")
             # monitor_drop = ['state_code', u'county_code']
             # s.drop(monitor_drop, axis=1, inplace=True)
         except Exception:
@@ -430,7 +434,7 @@ def read_monitor_file(network=None, airnow=False, drop_latlon=True):
             # Read EPA Site file
             site = pd.read_csv(site_url, encoding="ISO-8859-1")
             # read epa monitor file
-            monitor = pd.read_csv(monitor_url, encoding="ISO-8859-1")
+            monitor = pd.read_csv(monitor_url, encoding="ISO-8859-1", dtype={0: str, 30: str})
             # make siteid column
             site["siteid"] = (
                 site["State Code"].astype(str).str.zfill(2)

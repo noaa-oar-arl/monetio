@@ -1,5 +1,15 @@
+"""ICARTT -- International Consortium for Atmospheric Research on Transport and Transformation format
+
+Many field campaigns save data in ICARTT format.
+Methods are available through MONET to combine flight data.
+
+Home page: https://www.earthdata.nasa.gov/esdis/esco/standards-and-practices/icartt-file-format
+
+Format spec: https://www-air.larc.nasa.gov/missions/etc/IcarttDataFormat.htm
+"""
 import datetime
 import sys
+from pathlib import Path
 
 import pandas as pd
 import xarray as xr
@@ -24,7 +34,7 @@ def var_to_da(o, var_name, time):
     return da
 
 
-def class_to_xarray(o, time_str="Time_Start"):
+def class_to_xarray(o, time_str="Time_Start"):  # TODO: `time_str` unused
     # calculate the time stamps
     time_index = pd.to_datetime(o.times)
     das = {}
@@ -52,6 +62,11 @@ def class_to_xarray(o, time_str="Time_Start"):
 
 
 def add_data(filename):
+    """
+    Returns
+    -------
+    xarray.Dataset
+    """
     o = Dataset(filename)
     ds = class_to_xarray(o)
     return ds
@@ -73,32 +88,19 @@ class Variable:
         return self.splitChar.join([self.name, self.units, self.units])
 
     def __init__(self, name, units, scale=1.0, miss=-9999999):
-        """Short summary.
-
+        """
         Parameters
         ----------
-        name : type
-            Description of parameter `name`.
-        units : type
-            Description of parameter `units`.
-        scale : type
-            Description of parameter `scale`.
-        miss : type
-            Description of parameter `miss`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
+        name : str
+        units : str
+        scale : float
+            Scale factor
+        miss : str
+            Missing value, just as it appears in the ICARTT file.
         """
-        #: Name
         self.name = name
-        #: Units
         self.units = units
-        #: Scale factor
         self.scale = scale
-        #: Missing value (string, just as it appears in the ICARTT file)
         self.miss = str(miss)
         #: Split character for description string
         self.splitChar = ","
@@ -481,6 +483,15 @@ class Dataset:
         self.read_data()
 
     def __init__(self, f=None, loadData=True):
+        """
+        Parameters
+        ----------
+        f
+            File path or file handle.
+            If provided, the file header is read.
+        loadData : bool
+            Read the data as well, in the case that `f` has been provided.
+        """
         self.format = 1001
 
         self.revision = "0"
@@ -515,17 +526,14 @@ class Dataset:
         # read data if f is not None
         encoding = "utf-8"
         if f is not None:
-            if isinstance(f, str):
-                text = f
-                decoded = False
+            if isinstance(f, (str, Path)):
+                # text = f
+                # decoded = False
                 self.input_fhandle = open(f, encoding=encoding)
-            else:
-                text = f.decode(encoding)  # noqa: F841
-                decoded = True  # noqa: F841
-            # if isinstance(f, (str, unicode)):
-            # self.input_fhandle = open(f, 'r')
-            # else:
-            # self.input_fhandle = f
+            else:  # assume file handle
+                # text = f.decode(encoding)  # noqa: F841
+                # decoded = True  # noqa: F841
+                self.input_fhandle = f
 
             self.read_header()
             if loadData:

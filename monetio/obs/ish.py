@@ -1,6 +1,19 @@
-"""NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data).
+"""ISH -- NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data).
 
 https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+
+Available Measurements
+^^^^^^^^^^^^^^^^^^^^^^
+
+* dew point (dpt)
+* temperature (t)
+* visibility (vsb)
+* wind speed (ws)
+* wind direction (wdir)
+
+The ISD (ISH) database contains latitude, longitude, station name, station id,
+time, dew point (dpt), temperature (t), visibility (vsb),
+wind speed (ws), wind direction (wdir), as well as various quality flags.
 """
 import dask
 import dask.dataframe as dd
@@ -27,7 +40,7 @@ def add_data(
     ----------
     dates : sequence of datetime-like
     box : list of float, optional
-            ``[latmin, lonmin, latmax, lonmax]``.
+        ``[latmin, lonmin, latmax, lonmax]``.
     country, state, site : str, optional
         Select sites in a country or state or one specific site.
         Can use one at most of `box` and these.
@@ -297,7 +310,8 @@ class ISH:
             Can use one at most of `box` and these.
         resample : bool
             If false, return data at original resolution, which may be sub-hourly.
-            Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
+            Use ``resample=False`` if you want to obtain the full set of columns,
+            including quality flags.
         window
             Resampling window, e.g. ``'3H'``.
         n_procs : int
@@ -365,20 +379,8 @@ class ISH:
 
         return self.df
 
-    def get_url_file_objs(self, fname):
-        """Short summary.
-
-        Parameters
-        ----------
-        fname : type
-            Description of parameter `fname`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
+    def get_url_file_objs(self, urls):
+        """Download and unzip files, returning list of file names."""
         import gzip
         import shutil
 
@@ -386,32 +388,30 @@ class ISH:
 
         objs = []
         print("  Constructing ISH file objects from urls...")
-        mmm = 0
-        jjj = 0
-        for iii in fname:
+        nbad = 0
+        for url in urls:
             try:
-                r2 = requests.get(iii, stream=True)
-                temp = iii.split("/")
+                r2 = requests.get(url, stream=True)
+                temp = url.split("/")
                 temp = temp[-1]
-                fname = "isd." + temp.replace(".gz", "")
+                fn = "isd." + temp.replace(".gz", "")
                 if r2.status_code != 404:
-                    objs.append(fname)
-                    with open(fname, "wb") as fid:
+                    objs.append(fn)
+                    with open(fn, "wb") as fid:
                         # TODO. currently shutil writes the file to the hard
                         # drive. try to find way around this step, so file does
                         # not need to be written and then read.
                         gzip_file = gzip.GzipFile(fileobj=r2.raw)
                         shutil.copyfileobj(gzip_file, fid)
-                        print("SUCCEEDED REQUEST for " + iii)
+                        print("SUCCEEDED REQUEST for " + url)
                 else:
-                    print("404 message " + iii)
-                mmm += 1
+                    print("404 message " + url)
             except RuntimeError:
-                jjj += 1
-                print("REQUEST FAILED " + iii)
+                nbad += 1
+                print("REQUEST FAILED " + url)
                 pass
-            if jjj > 100:
-                print("Over " + str(jjj) + " failed. break loop")
+            if nbad > 100:
+                print(f"Over {nbad}/{len(urls)} failed. Stopping.")
                 break
         return objs
 
@@ -453,9 +453,8 @@ class ISH:
                 year_url = (
                     pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
                 )
-                all_urls.append(
-                    f"{url}/{date}/" + year_url
-                )  # add the full url path to the file name only
+                all_urls.append(f"{url}/{date}/" + year_url)
+                # ^ add the full url path to the file name only
 
             all_urls = pd.concat(all_urls, ignore_index=True)
         else:

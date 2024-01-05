@@ -3,29 +3,13 @@ from numpy import NaN
 
 
 class IMPROVE:
-    """Short summary.
+    """IMPROVE -- Interagency Monitoring of Protected Visual Environments
 
-    Attributes
-    ----------
-    datestr : type
-        Description of attribute `datestr`.
-    df : type
-        Description of attribute `df`.
-    daily : type
-        Description of attribute `daily`.
-    se_states : type
-        Description of attribute `se_states`.
-    ne_states : type
-        Description of attribute `ne_states`.
-    nc_states : type
-        Description of attribute `nc_states`.
-    sc_states : type
-        Description of attribute `sc_states`.
-    r_states : type
-        Description of attribute `r_states`.
-    p_states : type
-        Description of attribute `p_states`.
+    Primary website: http://vista.cira.colostate.edu/Improve/
 
+    Data access (registration required): http://views.cira.colostate.edu/fed/DataWizard/Default.aspx
+
+    Site metadata: http://vista.cira.colostate.edu/improve/wp-content/uploads/2022/09/IMPROVE_Sites_Active_and_Inactive_Updated_September_2022.xlsx
     """
 
     def __init__(self):
@@ -33,28 +17,30 @@ class IMPROVE:
         self.df = None
         self.daily = True
 
-    def add_data(self, fname, add_meta=False, delimiter="\t"):
-        """This assumes that you have downloaded the data from
-                        http://views.cira.colostate.edu/fed/DataWizard/Default.aspx
-                The data is the IMPROVE Aerosol dataset
-                Any number of sites
-                Parameters included are All
-                Fields include Dataset,Site,Date,Parameter,POC,Data_value,Unit,
-                Latitude,Longitude,State,EPA Site Code Options are delimited
-                ',' data only and normalized skinny format
+    def add_data(self, fname, add_meta=False, delimiter="\t"):  # TODO: `dates` arg?
+        """Load IMPROVE data from CSV.
+
+        .. note::
+           This assumes that
+
+           * You have downloaded the data from
+             http://views.cira.colostate.edu/fed/DataWizard/Default.aspx
+           * The data is the "IMPROVE Aerosol" dataset
+           * Any number of sites
+           * Parameters included are All
+           * Fields include: Dataset, Site, Date, Parameter, POC, Data Value, Unit,
+             Latitude, Longitude, State, EPA Site Code
+             - Recommended: MDL
+           * Options are delimited ',' data only and normalized skinny format
 
         Parameters
         ----------
-        fname : type
-            Description of parameter `fname`.
-        output : type
-            Description of parameter `output` (the default is '').
+        fname
+            Path of file to load.
 
         Returns
         -------
-        type
-            Description of returned object.
-
+        pandas.DataFrame
         """
         from .epa_util import read_monitor_file
 
@@ -111,58 +97,23 @@ class IMPROVE:
         self.df = df
         return df.copy()
 
-    def load_hdf(self, fname, dates):
-        """Short summary.
-
-        Parameters
-        ----------
-        fname : type
-            Description of parameter `fname`.
-        dates : type
-            Description of parameter `dates`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
+    def load_hdf(self, fname, dates):  # TODO: unused
         self.df = pd.read_hdf(fname)
         self.get_date_range(self.dates)
 
-    def get_date_range(self, dates):
-        """Short summary.
-
-        Parameters
-        ----------
-        dates : type
-            Description of parameter `dates`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
+    def get_date_range(self, dates):  # TODO: unused
+        """Narrow dataset to requested datetime period."""
         self.dates = dates
         con = (self.df.time >= dates[0]) & (self.df.time <= dates[-1])
         self.df = self.df.loc[con]
 
-    def set_daterange(self, begin="", end=""):
-        """Short summary.
+    def set_daterange(self, begin="", end=""):  # TODO: unused
+        """Set :attr:`dates` to a range of dates.
 
         Parameters
         ----------
-        begin : type
-            Description of parameter `begin` (the default is '').
-        end : type
-            Description of parameter `end` (the default is '').
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
+        begin, end
+            Passed to ``pd.date_range``.
         """
         dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
         self.dates = dates

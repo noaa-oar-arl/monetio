@@ -1,10 +1,3 @@
-"""
-NAME: cems_mod.py
-PGRMMER: Alice Crawford   ORG: ARL
-This code written at the NOAA air resources laboratory
-Python 3
-#################################################################
-"""
 import datetime
 import os
 
@@ -37,6 +30,7 @@ def addmonth(dt):
 def get_date_fmt(date, verbose=False):
     """Determines what format of the date is in.
     In some files year is first and others it is last.
+
     Parameters
     ----------
     date: str
@@ -62,33 +56,21 @@ def get_date_fmt(date, verbose=False):
 
 
 class CEMS:
-    """
-     Class for data from continuous emission monitoring systems (CEMS).
-     Data from power plants can be downloaded from
-     ftp://newftp.epa.gov/DMDNLoad/emissions/
+    """CEMS -- the Continuous Emission Monitoring Systems
+
+    Data from power plants can be downloaded from
+    ftp://newftp.epa.gov/DMDNLoad/emissions/
 
     Attributes
-     ----------
-     efile : type string
-         Description of attribute `efile`.
-     url : type string
-         Description of attribute `url`.
-     info : type string
-         Information about data.
-     df : pandas DataFrame
-         dataframe containing emissions data.
-    Methods
-     ----------
-     __init__(self)
-     add_data(self, rdate, states=['md'], download=False, verbose=True):
-     load(self, efile, verbose=True):
-     retrieve(self, rdate, state, download=True):
-
-     match_column(self, varname):
-     get_var(self, varname, loc=None, daterange=None, unitid=-99, verbose=True):
-     retrieve(self, rdate, state, download=True):
-     create_location_dictionary(self):
-     rename(self, ccc, newname, rcolumn, verbose):
+    ----------
+    efile : str
+        Emissions file.
+    url : str
+        Base URL.
+    info : str
+        Information about data.
+    df : pandas.DataFrame
+        Loaded dataframe containing emissions data.
     """
 
     def __init__(self):
@@ -105,31 +87,30 @@ class CEMS:
     def __str__(self):
         return self.info
 
-    def add_data(self, rdate, states=["md"], download=False, verbose=True):
-        """
-           gets the ftp url from the retrieve method and then
-           loads the data from the ftp site using the load method.
+    def add_data(self, rdate, states="MD", download=False, verbose=True):
+        """Load CEMS data.
 
         Parameters
         ----------
-        rdate : single datetime object of list of datetime objects
-               The first datetime object indicates the month and year of the
-               first file to retrieve.
-               The second datetime object indicates the month and year of the
-               last file to retrieve.
-        states : list of strings
-             list of two letter state identifications.
-        download : boolean
-               if download=True then retrieve will download the files and load
-               will read the downloaded files.
-               if download=False then retrieve will return the url and load
-               will read directly from ftp site.
-        verbose : boolean
-               if TRUE prints out additional information.
+        rdate : single datetime object or list of datetime objects
+            The first datetime object indicates the month and year of the
+            first file to retrieve.
+            The second datetime object indicates the month and year of the
+            last file to retrieve.
+        states : str or list of str
+            Two-letter state codes of state(s) to load in.
+            Case-insensitive.
+        download : bool
+            If ``download=True`` then retrieve will download the files and load
+            will read the downloaded files.
+            If ``download=False`` then retrieve will return the url and load
+            will read directly from ftp site.
+        verbose : bool
+            Print out additional information.
+
         Returns
         -------
-        boolean True
-
+        pandas.DataFrame
         """
         if isinstance(states, str):
             states = [states]
@@ -154,7 +135,7 @@ class CEMS:
             print("getting data")
             print(rd)
             for st in states:
-                url = self.retrieve(rd, st, download=download, verbose=verbose)
+                url = self.retrieve(rd, st.lower(), download=download, verbose=verbose)
                 self.load(url, verbose=verbose)
         return self.df
 
@@ -264,8 +245,7 @@ class CEMS:
             return temp[orisp, unitid]
 
     def retrieve(self, rdate, state, download=True, verbose=False):
-        """Short summary.
-
+        """
         Parameters
         ----------
         rdate : datetime object
@@ -279,7 +259,7 @@ class CEMS:
 
         Returns
         -------
-        efile string
+        efile : str
             if download FALSE then returns string with url of ftp
             if download TRUE then returns name of downloaded file
         """
@@ -302,7 +282,7 @@ class CEMS:
             # open(efile, 'wb').write(r.content)
             # print('retrieved ' + ftpsite + fname)
             efile = ftpsite + fname
-            print("WARNING: Downloading file not supported at this time")
+            print("WARNING: Downloading file not supported at this time")  # TODO: support this
             print("you may download manually using the following address")
             print(efile)
         else:

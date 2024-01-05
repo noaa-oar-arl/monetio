@@ -2,6 +2,9 @@
 API
 ===
 
+.. module:: monetio
+   :synopsis: Data input/output for MONET
+
 .. contents::
    :depth: 3
    :local:
@@ -19,7 +22,10 @@ for example, :func:`monetio.aeronet.add_data`.
 AERONET
 ^^^^^^^
 
-See :ref:`observations:AERONET` for more information.
+.. automodule:: monetio.aeronet
+
+Functions
++++++++++
 
 .. autosummary::
 
@@ -34,17 +40,140 @@ See :ref:`observations:AERONET` for more information.
 AirNow
 ^^^^^^
 
-See :ref:`observations:AirNow` for more information.
+.. automodule:: monetio.airnow
+
+Functions
++++++++++
 
 .. autosummary::
 
    monetio.airnow.add_data
+   monetio.airnow.read_csv
 
 .. autofunction:: monetio.airnow.add_data
+.. autofunction:: monetio.airnow.read_csv
 
+AQS
+^^^
+
+.. automodule:: monetio.aqs
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.aqs.add_data
+
+.. autofunction:: monetio.aqs.add_data
+
+
+CEMS
+^^^^
+
+.. autoclass:: monetio.obs.cems_mod.CEMS
+
+Functions
++++++++++
+
+(Available under :mod:`monetio` namespace.)
+
+.. automethod:: monetio.cems.add_data
+
+CRN
+^^^
+
+.. automodule:: monetio.crn
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.crn.add_data
+
+.. autofunction:: monetio.crn.add_data
+
+IMPROVE
+^^^^^^^
+
+.. autoclass:: monetio.obs.improve_mod.IMPROVE
+
+Functions
++++++++++
+
+(Available under :mod:`monetio` namespace.)
+
+.. automethod:: monetio.improve.add_data
+
+ISH
+^^^
+
+.. automodule:: monetio.ish
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.ish.add_data
+
+.. autofunction:: monetio.ish.add_data
+
+
+ISH-lite
+^^^^^^^^
+
+.. automodule:: monetio.ish_lite
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.ish_lite.add_data
+
+.. autofunction:: monetio.ish_lite.add_data
+
+NADP
+^^^^
+
+.. automodule:: monetio.nadp
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.nadp.add_data
+
+.. autofunction:: monetio.nadp.add_data
+
+
+OpenAQ
+^^^^^^
+
+TODO
+
+PAMS
+^^^^
+
+.. automodule:: monetio.pams
+
+Functions
++++++++++
+
+.. autosummary::
+
+   monetio.pams.add_data
+
+.. autofunction:: monetio.pams.add_data
 
 Profile observations
 --------------------
+
+GEOMS
+^^^^^
 
 .. automodule:: monetio.geoms
 
@@ -53,6 +182,18 @@ Profile observations
    monetio.geoms.open_dataset
 
 .. autofunction:: monetio.geoms.open_dataset
+
+
+ICARTT
+^^^^^^
+
+.. automodule:: monetio.icartt
+
+.. autosummary::
+
+   monetio.icartt.add_data
+
+.. autofunction:: monetio.icartt.add_data
 
 
 Utility functions

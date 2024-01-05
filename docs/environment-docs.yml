@@ -9,16 +9,19 @@ dependencies:
   - dask
   - netcdf4
   - numpy
-  - pandas
+  - pandas <2
   - s3fs
   - scipy
   - xarray
   #
   # optional
   - joblib
+  - lxml
   - requests
   #
   # docs
+  - jupyterlab
+  - myst-nb
   - sphinx=4.*
   - sphinx-autobuild
   - sphinx_rtd_theme
