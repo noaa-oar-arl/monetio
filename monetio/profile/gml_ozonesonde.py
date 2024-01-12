@@ -94,3 +94,5 @@ theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # close to "Pot
 time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
 
 df["time"] = time.tz_localize(None)
+df["latitude"] = float(meta["Latitude"])
+df["longitude"] = float(meta["Longitude"])
