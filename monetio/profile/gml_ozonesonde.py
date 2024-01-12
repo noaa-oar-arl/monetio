@@ -57,7 +57,7 @@ col_info = [
     # name, units, na
     ("lev", "", None),
     ("press", "hPa", "9999.9"),
-    ("alt", "km", "999.999"),  # TODO: not sure about this na val
+    ("altitude", "km", "999.999"),  # TODO: not sure about this na val
     ("theta", "K", "9999.9"),  # "Pottp", pretty sure this potential temperature
     ("temp", "degC", "999.9"),
     ("ftempv", "degC", "999.9"),  # TODO: what is this?
