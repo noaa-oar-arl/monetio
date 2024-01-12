@@ -1,16 +1,10 @@
 """
 Testing loading GML ozonesondes
 """
-# import re
 from io import StringIO
 
 import pandas as pd
 import requests
-
-# from tempfile import NamedTemporaryFile
-
-
-# from monetio import icartt
 
 # 100-m
 url = r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bu1043_2023_12_27_17.l100"
@@ -18,28 +12,16 @@ url = r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%2
 r = requests.get(url)
 r.raise_for_status()
 
-# # ICARTT parser doesn't seem to work for it
-# with NamedTemporaryFile(delete=False) as f:
-#     f.write(r.content)
-#     f.seek(0)
-# ic = icartt.add_data(f.name)
-
 blocks = r.text.replace("\r", "").split("\n\n")
 assert len(blocks) == 5
 
 # Metadata
 meta = {}
-todo = blocks[3].splitlines()
+todo = blocks[3].splitlines()[::-1]
 blah = ["Background: ", "Flowrate: ", "RH Corr: ", "Sonde Total O3 (SBUV): "]
-for line in todo:
+while todo:
+    line = todo.pop()
     key, val = line.split(":", 1)
-    # maybes = re.split(r"\s{2,}", val.strip())
-    # if len(maybes) == 1:
-    #     meta[key] = val
-    # else:
-    #     meta[key] = maybes[0]
-    #     todo.extend(maybes[1:])
-    #     continue
     for key_ish in blah:
         if key_ish in val:
             i = val.index(key_ish)
@@ -49,6 +31,24 @@ for line in todo:
     else:
         meta[key.strip()] = val.strip()
     # TODO: replace multi space in val with single
+
+assert list(meta) == [
+    "Station",
+    "Station Height",
+    "Latitude",
+    "Longitude",
+    "Flight Number",
+    "Launch Date",
+    "Launch Time",
+    "Radiosonde Type",
+    "Radiosonde Num",
+    "O3 Sonde ID",
+    "Background",
+    "Flowrate",
+    "RH Corr",
+    "Sonde Total O3",
+    "Sonde Total O3 (SBUV)",
+]
 
 col_info = [
     # name, units, na
