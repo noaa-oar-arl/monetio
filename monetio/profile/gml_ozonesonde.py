@@ -1,6 +1,7 @@
 """
 Testing loading GML ozonesondes
 """
+import re
 from io import StringIO
 
 import pandas as pd
@@ -30,7 +31,9 @@ while todo:
             break
     else:
         meta[key.strip()] = val.strip()
-    # TODO: replace multi space in val with single
+
+for k, v in meta.items():
+    meta[k] = re.sub(r"\s{2,}", " ", v)
 
 assert list(meta) == [
     "Station",
