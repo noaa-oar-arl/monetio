@@ -56,18 +56,20 @@ assert list(meta) == [
 col_info = [
     # name, units, na
     ("lev", "", None),
-    ("press", "hPa", None),
-    ("alt", "km", None),
-    ("theta", "K", None),  # "Pottp", pretty sure this potential temperature
-    ("temp", "degC", None),
-    ("ftempv", "degC", "999.9"),  # TODO: what is?
+    ("press", "hPa", "9999.9"),
+    ("alt", "km", "999.999"),  # TODO: not sure about this na val
+    ("theta", "K", "9999.9"),  # "Pottp", pretty sure this potential temperature
+    ("temp", "degC", "999.9"),
+    ("ftempv", "degC", "999.9"),  # TODO: what is this?
     ("rh", "%", "999"),
-    ("press_o3", "mPa", "99.90"),
+    ("o3_press", "mPa", "99.90"),
     ("o3", "ppmv", "99.999"),
-    ("o3_tot", "atm-cm", "99.9990"),  # 1 DU = 0.001 atm-cm
+    ("o3_cm", "atm-cm", "99.9990"),
+    # ^ 1 DU = 0.001 atm-cm; goes up with height so could be ozone below?
     ("pumptemp", "degC", "999.9"),  # "Ptemp", I think this is the pump temperature
-    ("o3_num", "10^11 cm-3", "999.999"),
-    ("o3_res", "DU", "9999"),
+    ("o3_nd", "10^11 cm-3", "999.999"),
+    ("o3_col", "DU", "9999"),
+    # TODO: ^ what is this? "O3 Res" goes down with height so could be total ozone above
     ("o3_uncert", "%", "99999.000"),
 ]
 
@@ -89,3 +91,6 @@ df = pd.read_csv(
 )
 
 theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # close to "Pottp"
+time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
+
+df["time"] = time.tz_localize(None)
