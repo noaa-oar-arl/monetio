@@ -535,14 +535,14 @@ class ISH:
         #     print(u)
         #     dfs.append(self.read_csv(u))
 
-        def func(fname):
+        def func(url):
             return self.read_data_frame(
-                fname,
+                url,
                 request_timeout=request_timeout,
                 request_retries=request_retries,
             )
 
-        dfs = [dask.delayed(func)(f) for f in urls.name]
+        dfs = [dask.delayed(func)(url) for url in urls.name]
         dff = dd.from_delayed(dfs)
         df = dff.compute(num_workers=n_procs)
 
