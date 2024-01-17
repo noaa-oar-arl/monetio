@@ -402,9 +402,7 @@ class ISH:
             self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")
-        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"}).drop(
-            columns=["fname"]
-        )
+        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
 
         return self.df
 
@@ -507,13 +505,12 @@ class ISH:
             all_urls = f"{url}/{year}/" + all_urls
 
         # get the dfloc meta data
-        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
-        for date in unique_years.strftime("%Y"):
-            sites["fname"] = (
-                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
+        for syear in unique_years.strftime("%Y"):
+            year_fnames = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
             )
-            for fname in sites.fname.values:
-                furls.append(f"{url}/{date[0:4]}/{fname}")
+            for fname in year_fnames:
+                furls.append(f"{url}/{syear}/{fname}")
 
         # files needed for comparison
         url = pd.Series(furls, index=None)
