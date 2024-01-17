@@ -399,9 +399,8 @@ class ISH:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
-            self.df = (
-                self.df.groupby("station_id").resample(window).mean(numeric_only=True).reset_index()
-            )
+            self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
+            # TODO: mean(numeric_only=True)
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")
         self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
