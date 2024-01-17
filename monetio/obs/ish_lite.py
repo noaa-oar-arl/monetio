@@ -316,7 +316,13 @@ class ISH:
 
         if resample and not df.empty:
             print("Resampling to every " + window)
-            df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
+            df = (
+                df.set_index("time")
+                .groupby("siteid")
+                .resample(window)
+                .mean(numeric_only=True)
+                .reset_index()
+            )
 
         # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
