@@ -167,14 +167,13 @@ class ISH:
             all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
             all_urls = f"{url}/{year}/" + all_urls
 
-        # Get the meta data
-        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
-        for date in unique_years.strftime("%Y"):
-            sites["fname"] = (
-                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
+        # Construct expected URLs based on sites and year(s) requested
+        for syear in unique_years.strftime("%Y"):
+            year_fnames = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
             )
-            for fname in sites.fname.values:
-                furls.append(f"{url}/{date[0:4]}/{fname}")
+            for fname in year_fnames:
+                furls.append(f"{url}/{syear}/{fname}")
 
         # Files needed for comparison
         url = pd.Series(furls, index=None)
@@ -323,7 +322,7 @@ class ISH:
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
             columns={"ctry": "country"}
         )
-        return df.drop(["station_id", "fname"], axis=1)
+        return df.drop(["station_id"], axis=1)
 
     def get_url_file_objs(self, fname):
         """Short summary.

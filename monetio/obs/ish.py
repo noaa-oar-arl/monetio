@@ -504,7 +504,7 @@ class ISH:
             all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
             all_urls = f"{url}/{year}/" + all_urls
 
-        # get the dfloc meta data
+        # Construct expected URLs based on sites and year(s) requested
         for syear in unique_years.strftime("%Y"):
             year_fnames = (
                 sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
