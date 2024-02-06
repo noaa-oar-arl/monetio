@@ -21,14 +21,18 @@ PLACES = [
 ]
 
 
-def discover_files():
+def discover_files(*, n_threads=3):
+    import itertools
+    from multiprocessing.pool import ThreadPool
+
     base = "https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde"
-    data = []
-    for place in PLACES:  # TODO: multithread?
+
+    def get_files(place):
         url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
         print(url)
         r = requests.get(url, timeout=10)
         r.raise_for_status()
+        data = []
         for m in re.finditer(r'href="([a-z0-9_]+\.l100)"', r.text):
             fn = m.group(1)
             if fn.startswith("san_cristobal_"):
@@ -42,6 +46,12 @@ def discover_files():
                 print(f"warning: Failed to parse {fn} for time")
                 t = np.nan
             data.append((place, t, fn, f"{url}{fn}"))
+        if not data:
+            print(f"warning: No files detected for pace {place!r}.")
+        return data
+
+    with ThreadPool(processes=n_threads) as pool:
+        data = list(itertools.chain.from_iterable(pool.imap_unordered(get_files, PLACES)))
 
     df = pd.DataFrame(data, columns=["place", "time", "fn", "url"])
 
