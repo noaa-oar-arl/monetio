@@ -71,7 +71,7 @@ def discover_files(place=None, *, n_threads=3):
 
 
 def add_data(dates, *, place=None, n_procs=1):
-    """
+    """Retrieve and load GML ozonesonde data as a DataFrame.
 
     Parameters
     ----------
@@ -90,10 +90,14 @@ def add_data(dates, *, place=None, n_procs=1):
 
     print("Discovering files...")
     df_urls = discover_files(place=place)
+    print(f"Discovered {len(df_urls)} 100-m files.")
 
     urls = df_urls[df_urls["time"].between(dates_min, dates_max, inclusive="both")]["url"].tolist()
 
-    print("Aggregating files...")
+    if not urls:
+        raise RuntimeError(f"No files found for dates {dates_min} to {dates_max}, place={place}.")
+
+    print(f"Aggregating {len(urls)} files...")
     dfs = [dask.delayed(read_100m)(f) for f in urls]
     dff = dd.from_delayed(dfs)
     df = dff.compute(num_workers=n_procs).reset_index()
