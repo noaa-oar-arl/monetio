@@ -1,5 +1,8 @@
 """
-Load GML ozonesondes from https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/
+Load NOAA Global Monitoring Laboratory (GML) ozonesondes
+from https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/
+
+More info: https://gml.noaa.gov/ozwv/ozsondes/
 """
 import re
 import warnings
@@ -109,6 +112,12 @@ def add_data(dates, *, place=None, n_procs=1):
 
 
 def read_100m(fp_or_url):
+    """Read a GML ozonesonde 100-m file (``.l100``).
+
+    Notes
+    -----
+    Close to ICARTT format, but not quite conformant enough to use the ICARTT reader.
+    """
     from io import StringIO
 
     if isinstance(fp_or_url, str) and fp_or_url.startswith(("http://", "https://")):
