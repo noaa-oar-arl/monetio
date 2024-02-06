@@ -37,7 +37,7 @@ def discover_files(place=None, *, n_threads=3):
 
     invalid = set(places) - set(PLACES)
     if invalid:
-        raise ValueError(f"Invalid place(s): {invalid}.")
+        raise ValueError(f"Invalid place(s): {invalid}. Valid options: {PLACES}.")
 
     def get_files(place):
         url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
@@ -62,7 +62,7 @@ def discover_files(place=None, *, n_threads=3):
             warnings.warn(f"No files detected for place {place!r}.")
         return data
 
-    with ThreadPool(processes=n_threads) as pool:
+    with ThreadPool(processes=min(n_threads, len(places))) as pool:
         data = list(itertools.chain.from_iterable(pool.imap_unordered(get_files, places)))
 
     df = pd.DataFrame(data, columns=["place", "time", "fn", "url"])
