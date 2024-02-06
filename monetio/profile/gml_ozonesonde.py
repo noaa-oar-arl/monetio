@@ -170,6 +170,7 @@ def read_100m(fp_or_url):
 
     col_info = [
         # name, units, na
+        # TODO: long_name?
         ("lev", "", None),
         ("press", "hPa", "9999.9"),
         ("altitude", "km", "999.999"),  # TODO: not sure about this na val
@@ -205,7 +206,7 @@ def read_100m(fp_or_url):
         na_values=na_values,
     )
 
-    # This close to "Pottp" but not exactly the same
+    # This is close to "Pottp" but not exactly the same
     theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # noqa: F841
 
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
@@ -213,5 +214,9 @@ def read_100m(fp_or_url):
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
+
+    if hasattr(df, "attrs"):
+        df.attrs["ds_attrs"] = meta
+        df.attrs["var_attrs"] = {name: {"units": units} for name, units, _ in col_info}
 
     return df
