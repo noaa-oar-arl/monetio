@@ -5,94 +5,103 @@ import re
 from io import StringIO
 
 import pandas as pd
-import requests
 
-# 100-m
-url = r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bu1043_2023_12_27_17.l100"
 
-r = requests.get(url)
-r.raise_for_status()
+def read_100m(fp_or_url):
+    import requests
 
-blocks = r.text.replace("\r", "").split("\n\n")
-assert len(blocks) == 5
-
-# Metadata
-meta = {}
-todo = blocks[3].splitlines()[::-1]
-blah = ["Background: ", "Flowrate: ", "RH Corr: ", "Sonde Total O3 (SBUV): "]
-while todo:
-    line = todo.pop()
-    key, val = line.split(":", 1)
-    for key_ish in blah:
-        if key_ish in val:
-            i = val.index(key_ish)
-            meta[key.strip()] = val[:i].strip()
-            todo.append(val[i:])
-            break
+    if fp_or_url.startswith("http"):
+        r = requests.get(fp_or_url, timeout=10)
+        r.raise_for_status()
+        text = r.text
     else:
-        meta[key.strip()] = val.strip()
+        with open(fp_or_url) as f:
+            text = f.read()
 
-for k, v in meta.items():
-    meta[k] = re.sub(r"\s{2,}", " ", v)
+    blocks = text.replace("\r", "").split("\n\n")
+    assert len(blocks) == 5
 
-assert list(meta) == [
-    "Station",
-    "Station Height",
-    "Latitude",
-    "Longitude",
-    "Flight Number",
-    "Launch Date",
-    "Launch Time",
-    "Radiosonde Type",
-    "Radiosonde Num",
-    "O3 Sonde ID",
-    "Background",
-    "Flowrate",
-    "RH Corr",
-    "Sonde Total O3",
-    "Sonde Total O3 (SBUV)",
-]
+    # Metadata
+    meta = {}
+    todo = blocks[3].splitlines()[::-1]
+    blah = ["Background: ", "Flowrate: ", "RH Corr: ", "Sonde Total O3 (SBUV): "]
+    while todo:
+        line = todo.pop()
+        key, val = line.split(":", 1)
+        for key_ish in blah:
+            if key_ish in val:
+                i = val.index(key_ish)
+                meta[key.strip()] = val[:i].strip()
+                todo.append(val[i:])
+                break
+        else:
+            meta[key.strip()] = val.strip()
 
-col_info = [
-    # name, units, na
-    ("lev", "", None),
-    ("press", "hPa", "9999.9"),
-    ("altitude", "km", "999.999"),  # TODO: not sure about this na val
-    ("theta", "K", "9999.9"),  # "Pottp", pretty sure this potential temperature
-    ("temp", "degC", "999.9"),
-    ("ftempv", "degC", "999.9"),  # TODO: what is this?
-    ("rh", "%", "999"),
-    ("o3_press", "mPa", "99.90"),
-    ("o3", "ppmv", "99.999"),
-    ("o3_cm", "atm-cm", "99.9990"),
-    # ^ 1 DU = 0.001 atm-cm; goes up with height so could be ozone below?
-    ("pumptemp", "degC", "999.9"),  # "Ptemp", I think this is the pump temperature
-    ("o3_nd", "10^11 cm-3", "999.999"),
-    ("o3_col", "DU", "9999"),
-    # TODO: ^ what is this? "O3 Res" goes down with height so could be total ozone above
-    ("o3_uncert", "%", "99999.000"),
-]
+    for k, v in meta.items():
+        meta[k] = re.sub(r"\s{2,}", " ", v)
 
-assert len(col_info) == len(blocks[4].splitlines()[2].split()) == 14
+    assert list(meta) == [
+        "Station",
+        "Station Height",
+        "Latitude",
+        "Longitude",
+        "Flight Number",
+        "Launch Date",
+        "Launch Time",
+        "Radiosonde Type",
+        "Radiosonde Num",
+        "O3 Sonde ID",
+        "Background",
+        "Flowrate",
+        "RH Corr",
+        "Sonde Total O3",
+        "Sonde Total O3 (SBUV)",
+    ]
 
-names = [c[0] for c in col_info]
-dtype = {c[0]: float for c in col_info}
-dtype["lev"] = int
-na_values = {c[0]: c[2] for c in col_info if c[2] is not None}
+    col_info = [
+        # name, units, na
+        ("lev", "", None),
+        ("press", "hPa", "9999.9"),
+        ("altitude", "km", "999.999"),  # TODO: not sure about this na val
+        ("theta", "K", "9999.9"),  # "Pottp", pretty sure this potential temperature
+        ("temp", "degC", "999.9"),
+        ("ftempv", "degC", "999.9"),  # TODO: what is this?
+        ("rh", "%", "999"),
+        ("o3_press", "mPa", "99.90"),
+        ("o3", "ppmv", "99.999"),
+        ("o3_cm", "atm-cm", "99.9990"),
+        # ^ 1 DU = 0.001 atm-cm; goes up with height so could be ozone below?
+        ("pumptemp", "degC", "999.9"),  # "Ptemp", I think this is the pump temperature
+        ("o3_nd", "10^11 cm-3", "999.999"),
+        ("o3_col", "DU", "9999"),
+        # TODO: ^ what is this? "O3 Res" goes down with height so could be total ozone above
+        ("o3_uncert", "%", "99999.000"),
+    ]
 
-df = pd.read_csv(
-    StringIO(blocks[4]),
-    skiprows=2,
-    header=None,
-    delimiter=r"\s+",
-    names=names,
-    dtype=dtype,
-    na_values=na_values,
-)
+    assert len(col_info) == len(blocks[4].splitlines()[2].split()) == 14
 
-theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # close to "Pottp"
-time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
+    names = [c[0] for c in col_info]
+    dtype = {c[0]: float for c in col_info}
+    dtype["lev"] = int
+    na_values = {c[0]: c[2] for c in col_info if c[2] is not None}
 
-df["time"] = time.tz_localize(None)
-df["latitude"] = float(meta["Latitude"])
-df["longitude"] = float(meta["Longitude"])
+    df = pd.read_csv(
+        StringIO(blocks[4]),
+        skiprows=2,
+        header=None,
+        delimiter=r"\s+",
+        names=names,
+        dtype=dtype,
+        na_values=na_values,
+    )
+
+    # This close to "Pottp" but not exactly the same
+    theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # noqa: F841
+
+    time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
+
+    df["time"] = time.tz_localize(None)
+    df["latitude"] = float(meta["Latitude"])
+    df["longitude"] = float(meta["Longitude"])
+
+    return df
