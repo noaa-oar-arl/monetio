@@ -1,14 +1,59 @@
 """
-Testing loading GML ozonesondes
+Load GML ozonesondes from https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/
 """
 import re
-from io import StringIO
 
+import numpy as np
 import pandas as pd
+import requests
+
+PLACES = [
+    "Boulder, Colorado",
+    "Hilo, Hawaii",
+    "Huntsville, Alabama",
+    "Narragansett, Rhode Island",
+    "Pago Pago, American Samoa",
+    "San Cristobal, Galapagos",
+    "South Pole, Antartica",  # note sp
+    "Summit, Greenland",
+    "Suva, Fiji",
+    "Trinidad Head, California",
+]
+
+
+def discover_files():
+    base = "https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde"
+    data = []
+    for place in PLACES:
+        url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
+        print(url)
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        for m in re.finditer(r'href="([a-z0-9_]+\.l100)"', r.text):
+            fn = m.group(1)
+            if fn.startswith("san_cristobal_"):
+                a, b = 3, -1
+            else:
+                a, b = 1, -1
+            t_str = "".join(re.split(r"[_\.]", fn)[a:b])
+            try:
+                t = pd.to_datetime(t_str, format=r"%Y%m%d%H")
+            except ValueError:
+                print(f"warning: Failed to parse {fn} for time")
+                t = np.nan
+            data.append((place, t, fn, f"{url}{fn}"))
+
+    df = pd.DataFrame(data, columns=["place", "time", "fn", "url"])
+
+    missing = set(PLACES) - set(df["place"].unique())
+    if missing:
+        print(f"warning: No files detected for these places: {missing}")
+
+    return df
 
 
 def read_100m(fp_or_url):
-    import requests
+    from io import StringIO
 
     if isinstance(fp_or_url, str) and fp_or_url.startswith(("http://", "https://")):
         r = requests.get(fp_or_url, timeout=10)
