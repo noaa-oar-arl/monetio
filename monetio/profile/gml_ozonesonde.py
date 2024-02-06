@@ -10,7 +10,7 @@ import pandas as pd
 def read_100m(fp_or_url):
     import requests
 
-    if fp_or_url.startswith("http"):
+    if isinstance(fp_or_url, str) and fp_or_url.startswith(("http://", "https://")):
         r = requests.get(fp_or_url, timeout=10)
         r.raise_for_status()
         text = r.text
