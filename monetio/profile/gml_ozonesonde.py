@@ -24,7 +24,7 @@ PLACES = [
 def discover_files():
     base = "https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde"
     data = []
-    for place in PLACES:
+    for place in PLACES:  # TODO: multithread?
         url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
         print(url)
         r = requests.get(url, timeout=10)
@@ -48,6 +48,29 @@ def discover_files():
     missing = set(PLACES) - set(df["place"].unique())
     if missing:
         print(f"warning: No files detected for these places: {missing}")
+
+    return df
+
+
+def add_data(dates, *, n_procs=1):
+    import dask
+    import dask.dataframe as dd
+
+    dates = pd.DatetimeIndex(dates)
+    dates_min, dates_max = dates.min(), dates.max()
+
+    print("Discovering files...")
+    df_urls = discover_files()
+
+    urls = df_urls[df_urls["time"].between(dates_min, dates_max, inclusive="both")]["url"].tolist()
+
+    print("Aggregating files...")
+    dfs = [dask.delayed(read_100m)(f) for f in urls]
+    dff = dd.from_delayed(dfs)
+    df = dff.compute(num_workers=n_procs).reset_index()
+
+    # Time subset again in case of times in files extending
+    df = df[df["time"].between(dates_min, dates_max, inclusive="both")]
 
     return df
 
