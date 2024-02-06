@@ -2,6 +2,7 @@
 Load GML ozonesondes from https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/
 """
 import re
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -21,11 +22,22 @@ PLACES = [
 ]
 
 
-def discover_files(*, n_threads=3):
+def discover_files(place=None, *, n_threads=3):
     import itertools
     from multiprocessing.pool import ThreadPool
 
     base = "https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde"
+
+    if place is None:
+        places = PLACES
+    elif isinstance(place, str):
+        places = [place]
+    else:
+        places = place
+
+    invalid = set(places) - set(PLACES)
+    if invalid:
+        raise ValueError(f"Invalid place(s): {invalid}.")
 
     def get_files(place):
         url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
@@ -43,26 +55,33 @@ def discover_files(*, n_threads=3):
             try:
                 t = pd.to_datetime(t_str, format=r"%Y%m%d%H")
             except ValueError:
-                print(f"warning: Failed to parse {fn} for time")
+                warnings.warn(f"Failed to parse file name {fn!r} for time.")
                 t = np.nan
             data.append((place, t, fn, f"{url}{fn}"))
         if not data:
-            print(f"warning: No files detected for pace {place!r}.")
+            warnings.warn(f"No files detected for place {place!r}.")
         return data
 
     with ThreadPool(processes=n_threads) as pool:
-        data = list(itertools.chain.from_iterable(pool.imap_unordered(get_files, PLACES)))
+        data = list(itertools.chain.from_iterable(pool.imap_unordered(get_files, places)))
 
     df = pd.DataFrame(data, columns=["place", "time", "fn", "url"])
-
-    missing = set(PLACES) - set(df["place"].unique())
-    if missing:
-        print(f"warning: No files detected for these places: {missing}")
 
     return df
 
 
-def add_data(dates, *, n_procs=1):
+def add_data(dates, *, place=None, n_procs=1):
+    """
+
+    Parameters
+    ----------
+    dates : sequence of datetime-like
+    place : str or sequence of str, optional
+        For example 'Boulder, Colorado'.
+        If not provided, all places will be used.
+    n_procs : int
+        For Dask.
+    """
     import dask
     import dask.dataframe as dd
 
@@ -70,7 +89,7 @@ def add_data(dates, *, n_procs=1):
     dates_min, dates_max = dates.min(), dates.max()
 
     print("Discovering files...")
-    df_urls = discover_files()
+    df_urls = discover_files(place=place)
 
     urls = df_urls[df_urls["time"].between(dates_min, dates_max, inclusive="both")]["url"].tolist()
 
