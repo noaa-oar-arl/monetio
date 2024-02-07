@@ -4,6 +4,12 @@ import pytest
 from monetio import gml_ozonesonde
 
 
+def test_discover_files():
+    files = gml_ozonesonde.discover_files()
+    assert len(files) > 0
+    assert set(files["place"].unique()) == set(gml_ozonesonde.PLACES)
+
+
 def test_read_100m():
     url = r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bu1043_2023_12_27_17.l100"
     df = gml_ozonesonde.read_100m(url)
