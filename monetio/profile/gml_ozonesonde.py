@@ -169,32 +169,63 @@ def read_100m(fp_or_url):
     ]
 
     col_info = [
-        # name, units, na
-        # TODO: long_name?
-        ("lev", "", None),
-        ("press", "hPa", "9999.9"),
-        ("altitude", "km", "999.999"),  # TODO: not sure about this na val
-        ("theta", "K", "9999.9"),  # "Pottp", pretty sure this potential temperature
-        ("temp", "degC", "999.9"),
-        ("ftempv", "degC", "999.9"),  # TODO: what is this?
-        ("rh", "%", "999"),
-        ("o3_press", "mPa", "99.90"),
-        ("o3", "ppmv", "99.999"),
-        ("o3_cm", "atm-cm", "99.9990"),
-        # ^ 1 DU = 0.001 atm-cm; goes up with height so could be ozone below?
-        ("pumptemp", "degC", "999.9"),  # "Ptemp", I think this is the pump temperature
-        ("o3_nd", "10^11 cm-3", "999.999"),
-        ("o3_col", "DU", "9999"),
-        # TODO: ^ what is this? "O3 Res" goes down with height so could be total ozone above
-        ("o3_uncert", "%", "99999.000"),
+        # name, long name, units, na val
+        #
+        # "Level" (just a counter, should never be nan)
+        ("lev", "level", "", None),
+        #
+        # "Press"
+        ("press", "radiosonde corrected pressure", "hPa", "9999.9"),
+        #
+        # "Alt"
+        # TODO: not sure about this na val
+        ("altitude", "altitude", "km", "999.999"),
+        #
+        # "Pottp"
+        ("theta", "potential temperature", "K", "9999.9"),
+        #
+        # "Temp"
+        ("temp", "radiosonde corrected temperature", "degC", "999.9"),
+        #
+        # "FtempV"
+        ("ftempv", "frost point temperature (radiosonde)", "degC", "999.9"),
+        #
+        # "Hum"
+        ("rh", "radiosonde corrected relative humidity", "%", "999"),
+        #
+        # "Ozone"
+        ("o3_press", "ozone partial pressure", "mPa", "99.90"),
+        #
+        # "Ozone"
+        ("o3", "ozone mixing ratio", "ppmv", "99.999"),
+        #
+        # "Ozone"
+        # note 1 DU = 0.001 atm-cm
+        # TODO: goes up with height so could be ozone below?
+        ("o3_cm", "total ozone", "atm-cm", "99.9990"),
+        #
+        # "Ptemp"
+        ("ptemp", "pump temperature", "degC", "999.9"),
+        #
+        # "O3 # DN"
+        ("o3_nd", "ozone number density", "10^11 cm-3", "999.999"),
+        #
+        # "O3 Res"
+        # TODO: goes down with height so could be total ozone above?
+        ("o3_col", "total column ozone above", "DU", "9999"),
+        #
+        # "O3 Uncert"
+        # TODO: uncertainty in which ozone value?
+        ("o3_uncert", "uncertainty in ozone", "%", "99999.000"),
     ]
 
+    assert all(len(c) == 4 for c in col_info)
     assert len(col_info) == len(blocks[4].splitlines()[2].split()) == 14
 
     names = [c[0] for c in col_info]
     dtype = {c[0]: float for c in col_info}
     dtype["lev"] = int
-    na_values = {c[0]: c[2] for c in col_info if c[2] is not None}
+    na_values = {c[0]: c[-1] for c in col_info if c[-1] is not None}
 
     df = pd.read_csv(
         StringIO(blocks[4]),
@@ -217,6 +248,12 @@ def read_100m(fp_or_url):
 
     if hasattr(df, "attrs"):
         df.attrs["ds_attrs"] = meta
-        df.attrs["var_attrs"] = {name: {"units": units} for name, units, _ in col_info}
+        df.attrs["var_attrs"] = {
+            name: {
+                "long_name": long_name,
+                "units": units,
+            }
+            for name, long_name, units, _ in col_info
+        }
 
     return df
