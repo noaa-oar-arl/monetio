@@ -26,7 +26,10 @@ PLACES = [
 ]
 
 
-def discover_files(place=None, *, n_threads=3):
+_FILES_L100_CACHE = {place: None for place in PLACES}
+
+
+def discover_files(place=None, *, n_threads=3, cache=True):
     import itertools
     from multiprocessing.pool import ThreadPool
 
@@ -44,6 +47,10 @@ def discover_files(place=None, *, n_threads=3):
         raise ValueError(f"Invalid place(s): {invalid}. Valid options: {PLACES}.")
 
     def get_files(place):
+        cached = _FILES_L100_CACHE[place]
+        if cached is not None:
+            return cached
+
         url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
         print(url)
         r = requests.get(url, timeout=10)
@@ -62,14 +69,22 @@ def discover_files(place=None, *, n_threads=3):
                 warnings.warn(f"Failed to parse file name {fn!r} for time.")
                 t = np.nan
             data.append((place, t, fn, f"{url}{fn}"))
+
         if not data:
             warnings.warn(f"No files detected for place {place!r}.")
+
         return data
 
     with ThreadPool(processes=min(n_threads, len(places))) as pool:
         data = list(itertools.chain.from_iterable(pool.imap_unordered(get_files, places)))
 
     df = pd.DataFrame(data, columns=["place", "time", "fn", "url"])
+
+    if cache:
+        for place in places:
+            _FILES_L100_CACHE[place] = list(
+                df[df["place"] == place].itertuples(index=False, name=None)
+            )
 
     return df
 
@@ -117,7 +132,7 @@ def add_data(dates, *, place=None, n_procs=1):
                 "long_name": c.long_name,
                 "units": c.units,
             }
-            for c in COL_INFO_100m
+            for c in COL_INFO_L100
         }
 
     return df
@@ -130,7 +145,7 @@ class ColInfo(NamedTuple):
     na_val: Optional[str]
 
 
-COL_INFO_100m = [
+COL_INFO_L100 = [
     # name, long name, units, na val
     #
     # "Level" (just a counter, should never be nan)
@@ -239,12 +254,12 @@ def read_100m(fp_or_url):
         "Sonde Total O3 (SBUV)",
     ]
 
-    assert len(blocks[4].splitlines()[2].split()) == len(COL_INFO_100m) == 14
+    assert len(blocks[4].splitlines()[2].split()) == len(COL_INFO_L100) == 14
 
-    names = [c.name for c in COL_INFO_100m]
-    dtype = {c.name: float for c in COL_INFO_100m}
+    names = [c.name for c in COL_INFO_L100]
+    dtype = {c.name: float for c in COL_INFO_L100}
     dtype["lev"] = int
-    na_values = {c.name: c.na_val for c in COL_INFO_100m if c.na_val is not None}
+    na_values = {c.name: c.na_val for c in COL_INFO_L100 if c.na_val is not None}
 
     df = pd.read_csv(
         StringIO(blocks[4]),
@@ -273,7 +288,7 @@ def read_100m(fp_or_url):
                 "long_name": c.long_name,
                 "units": c.units,
             }
-            for c in COL_INFO_100m
+            for c in COL_INFO_L100
         }
 
     return df
