@@ -12,6 +12,35 @@ import numpy as np
 import pandas as pd
 import requests
 
+
+def retry(func):
+    import time
+    from functools import wraps
+    from random import random as rand
+
+    n = 3
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for i in range(n):
+            try:
+                res = func(*args, **kwargs)
+            except (
+                requests.exceptions.ReadTimeout,
+                requests.exceptions.ConnectionError,
+            ) as e:
+                print(f"Failed: {e}")
+                time.sleep(0.5 * i + rand() * 0.1)
+            else:
+                break
+        else:
+            raise RuntimeError(f"failed after {n} tries")
+
+        return res
+
+    return wrapper
+
+
 PLACES = [
     "Boulder, Colorado",
     "Hilo, Hawaii",
@@ -46,6 +75,7 @@ def discover_files(place=None, *, n_threads=3, cache=True):
     if invalid:
         raise ValueError(f"Invalid place(s): {invalid}. Valid options: {PLACES}.")
 
+    @retry
     def get_files(place):
         cached = _FILES_L100_CACHE[place]
         if cached is not None:
@@ -213,14 +243,21 @@ def read_100m(fp_or_url):
     from io import StringIO
 
     if isinstance(fp_or_url, str) and fp_or_url.startswith(("http://", "https://")):
-        r = requests.get(fp_or_url, timeout=10)
-        r.raise_for_status()
-        text = r.text
-    else:
-        with open(fp_or_url) as f:
-            text = f.read()
 
-    blocks = text.replace("\r", "").split("\n\n")
+        @retry
+        def get_text():
+            r = requests.get(fp_or_url, timeout=10)
+            r.raise_for_status()
+            return r.text
+
+    else:
+
+        def get_text():
+            with open(fp_or_url) as f:
+                text = f.read()
+            return text
+
+    blocks = get_text().replace("\r", "").split("\n\n")
     assert len(blocks) == 5
 
     # Metadata
@@ -286,7 +323,7 @@ def read_100m(fp_or_url):
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
     df["station"] = meta["Station"]
-    df["station_height"] = float(meta["Station Height"])
+    df["station_height_str"] = meta["Station Height"]
 
     # Add metadata
     if hasattr(df, "attrs"):
