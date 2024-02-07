@@ -316,13 +316,15 @@ def read_100m(fp_or_url):
     # Note: This is close to "Pottp" but not exactly the same
     # theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)
 
-    # Add some variables from header
+    # Add some variables from header (these don't change in the profile)
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
     df["station"] = meta["Station"]
-    df["station_height_str"] = meta["Station Height"]
+    df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
+    df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
+    df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]  # e.g. '325 (62) DU'
 
     # Add metadata
     if hasattr(df, "attrs"):
