@@ -28,13 +28,12 @@ def retry(func):
             except (
                 requests.exceptions.ReadTimeout,
                 requests.exceptions.ConnectionError,
-            ) as e:
-                print(f"Failed: {e}")
+            ):
                 time.sleep(0.5 * i + rand() * 0.1)
             else:
                 break
         else:
-            raise RuntimeError(f"failed after {n} tries")
+            raise RuntimeError(f"{func.__name__} failed after {n} tries.")
 
         return res
 
