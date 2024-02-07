@@ -25,7 +25,7 @@ def test_add_data_place_sel():
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
     df = gml_ozonesonde.add_data(
         dates,
-        place=["Boulder, Colorado", "South Pole, Antartica"],
+        place=["Boulder, Colorado", "South Pole, Antarctica"],
         n_procs=2,
     )
     assert len(df) > 0

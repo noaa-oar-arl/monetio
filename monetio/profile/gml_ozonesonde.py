@@ -19,7 +19,7 @@ PLACES = [
     "Narragansett, Rhode Island",
     "Pago Pago, American Samoa",
     "San Cristobal, Galapagos",
-    "South Pole, Antartica",  # note sp
+    "South Pole, Antarctica",
     "Summit, Greenland",
     "Suva, Fiji",
     "Trinidad Head, California",
@@ -51,10 +51,16 @@ def discover_files(place=None, *, n_threads=3, cache=True):
         if cached is not None:
             return cached
 
-        url = f"{base}/{place}/100 Meter Average Files/".replace(" ", "%20")
+        if place == "South Pole, Antarctica":
+            url_place = "South Pole, Antartica"  # note sp
+        else:
+            url_place = place
+        url = f"{base}/{url_place}/100 Meter Average Files/".replace(" ", "%20")
         print(url)
+
         r = requests.get(url, timeout=10)
         r.raise_for_status()
+
         data = []
         for m in re.finditer(r'href="([a-z0-9_]+\.l100)"', r.text):
             fn = m.group(1)
