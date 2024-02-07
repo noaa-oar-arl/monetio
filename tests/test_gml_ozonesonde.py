@@ -20,6 +20,9 @@ def test_add_data():
     latlon = df["latitude"].astype(str) + "," + df["longitude"].astype(str)
     assert 1 < latlon.nunique() <= 10, "multiple sites; lat/lon doesn't change in profile"
 
+    # NOTE: Similar to the place folder names, but not all the same
+    assert df["station"].nunique() == latlon.nunique()
+
 
 def test_add_data_place_sel():
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")

@@ -277,14 +277,16 @@ def read_100m(fp_or_url):
         na_values=na_values,
     )
 
-    # This is close to "Pottp" but not exactly the same
-    theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # noqa: F841
+    # Note: This is close to "Pottp" but not exactly the same
+    # theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)
 
     # Add some variables from header
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
+    df["station"] = meta["Station"]
+    df["station_height"] = float(meta["Station Height"])
 
     # Add metadata
     if hasattr(df, "attrs"):
