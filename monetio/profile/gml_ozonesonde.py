@@ -262,11 +262,11 @@ def read_100m(fp_or_url):
     # Metadata
     meta = {}
     todo = blocks[3].splitlines()[::-1]
-    blah = ["Background: ", "Flowrate: ", "RH Corr: ", "Sonde Total O3 (SBUV): "]
+    on_val_side = ["Background: ", "Flowrate: ", "RH Corr: ", "Sonde Total O3 (SBUV): "]
     while todo:
         line = todo.pop()
         key, val = line.split(":", 1)
-        for key_ish in blah:
+        for key_ish in on_val_side:
             if key_ish in val:
                 i = val.index(key_ish)
                 meta[key.strip()] = val[:i].strip()

@@ -9,6 +9,16 @@ def test_read_100m():
     df = gml_ozonesonde.read_100m(url)
     assert len(df) > 0
 
+    assert df.attrs["ds_attrs"]["Station"] == "Boulder, CO"
+    assert df.attrs["ds_attrs"]["Station Height"] == "1743 meters"
+    assert df.attrs["ds_attrs"]["Flight Number"] == "BU1043"
+    assert df.attrs["ds_attrs"]["O3 Sonde ID"] == "2z43312"
+    assert df.attrs["ds_attrs"]["Background"] == "0.020 microamps (0.08 mPa)"
+    assert df.attrs["ds_attrs"]["Flowrate"] == "29.89 sec/100ml"
+    assert df.attrs["ds_attrs"]["RH Corr"] == "0.31 %"
+    assert df.attrs["ds_attrs"]["Sonde Total O3"] == "329 (65) DU"
+    assert df.attrs["ds_attrs"]["Sonde Total O3 (SBUV)"] == "325 (62) DU"
+
 
 def test_add_data():
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
