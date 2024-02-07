@@ -6,6 +6,7 @@ More info: https://gml.noaa.gov/ozwv/ozsondes/
 """
 import re
 import warnings
+from typing import NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -111,6 +112,65 @@ def add_data(dates, *, place=None, n_procs=1):
     return df
 
 
+class ColInfo(NamedTuple):
+    name: str
+    long_name: str
+    units: str
+    na_val: Optional[str]
+
+
+COL_INFO_100m = [
+    # name, long name, units, na val
+    #
+    # "Level" (just a counter, should never be nan)
+    ColInfo("lev", "level", "", None),
+    #
+    # "Press"
+    ColInfo("press", "radiosonde corrected pressure", "hPa", "9999.9"),
+    #
+    # "Alt"
+    # TODO: not sure about this na val
+    ColInfo("altitude", "altitude", "km", "999.999"),
+    #
+    # "Pottp"
+    ColInfo("theta", "potential temperature", "K", "9999.9"),
+    #
+    # "Temp"
+    ColInfo("temp", "radiosonde corrected temperature", "degC", "999.9"),
+    #
+    # "FtempV"
+    ColInfo("ftempv", "frost point temperature (radiosonde)", "degC", "999.9"),
+    #
+    # "Hum"
+    ColInfo("rh", "radiosonde corrected relative humidity", "%", "999"),
+    #
+    # "Ozone"
+    ColInfo("o3_press", "ozone partial pressure", "mPa", "99.90"),
+    #
+    # "Ozone"
+    ColInfo("o3", "ozone mixing ratio", "ppmv", "99.999"),
+    #
+    # "Ozone"
+    # note 1 DU = 0.001 atm-cm
+    # TODO: goes up with height so could be ozone below?
+    ColInfo("o3_cm", "total ozone", "atm-cm", "99.9990"),
+    #
+    # "Ptemp"
+    ColInfo("ptemp", "pump temperature", "degC", "999.9"),
+    #
+    # "O3 # DN"
+    ColInfo("o3_nd", "ozone number density", "10^11 cm-3", "999.999"),
+    #
+    # "O3 Res"
+    # TODO: goes down with height so could be total ozone above?
+    ColInfo("o3_col", "total column ozone above", "DU", "9999"),
+    #
+    # "O3 Uncert"
+    # TODO: uncertainty in which ozone value?
+    ColInfo("o3_uncert", "uncertainty in ozone", "%", "99999.000"),
+]
+
+
 def read_100m(fp_or_url):
     """Read a GML ozonesonde 100-m file (``.l100``).
 
@@ -168,64 +228,12 @@ def read_100m(fp_or_url):
         "Sonde Total O3 (SBUV)",
     ]
 
-    col_info = [
-        # name, long name, units, na val
-        #
-        # "Level" (just a counter, should never be nan)
-        ("lev", "level", "", None),
-        #
-        # "Press"
-        ("press", "radiosonde corrected pressure", "hPa", "9999.9"),
-        #
-        # "Alt"
-        # TODO: not sure about this na val
-        ("altitude", "altitude", "km", "999.999"),
-        #
-        # "Pottp"
-        ("theta", "potential temperature", "K", "9999.9"),
-        #
-        # "Temp"
-        ("temp", "radiosonde corrected temperature", "degC", "999.9"),
-        #
-        # "FtempV"
-        ("ftempv", "frost point temperature (radiosonde)", "degC", "999.9"),
-        #
-        # "Hum"
-        ("rh", "radiosonde corrected relative humidity", "%", "999"),
-        #
-        # "Ozone"
-        ("o3_press", "ozone partial pressure", "mPa", "99.90"),
-        #
-        # "Ozone"
-        ("o3", "ozone mixing ratio", "ppmv", "99.999"),
-        #
-        # "Ozone"
-        # note 1 DU = 0.001 atm-cm
-        # TODO: goes up with height so could be ozone below?
-        ("o3_cm", "total ozone", "atm-cm", "99.9990"),
-        #
-        # "Ptemp"
-        ("ptemp", "pump temperature", "degC", "999.9"),
-        #
-        # "O3 # DN"
-        ("o3_nd", "ozone number density", "10^11 cm-3", "999.999"),
-        #
-        # "O3 Res"
-        # TODO: goes down with height so could be total ozone above?
-        ("o3_col", "total column ozone above", "DU", "9999"),
-        #
-        # "O3 Uncert"
-        # TODO: uncertainty in which ozone value?
-        ("o3_uncert", "uncertainty in ozone", "%", "99999.000"),
-    ]
+    assert len(blocks[4].splitlines()[2].split()) == len(COL_INFO_100m) == 14
 
-    assert all(len(c) == 4 for c in col_info)
-    assert len(col_info) == len(blocks[4].splitlines()[2].split()) == 14
-
-    names = [c[0] for c in col_info]
-    dtype = {c[0]: float for c in col_info}
+    names = [c.name for c in COL_INFO_100m]
+    dtype = {c.name: float for c in COL_INFO_100m}
     dtype["lev"] = int
-    na_values = {c[0]: c[-1] for c in col_info if c[-1] is not None}
+    na_values = {c.name: c.na_val for c in COL_INFO_100m if c.na_val is not None}
 
     df = pd.read_csv(
         StringIO(blocks[4]),
@@ -249,11 +257,11 @@ def read_100m(fp_or_url):
     if hasattr(df, "attrs"):
         df.attrs["ds_attrs"] = meta
         df.attrs["var_attrs"] = {
-            name: {
-                "long_name": long_name,
-                "units": units,
+            c.name: {
+                "long_name": c.long_name,
+                "units": c.units,
             }
-            for name, long_name, units, _ in col_info
+            for c in COL_INFO_100m
         }
 
     return df
