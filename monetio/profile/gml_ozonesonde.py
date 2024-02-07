@@ -109,6 +109,17 @@ def add_data(dates, *, place=None, n_procs=1):
     # Time subset again in case of times in files extending
     df = df[df["time"].between(dates_min, dates_max, inclusive="both")]
 
+    # Add metadata
+    if hasattr(df, "attrs"):
+        df.attrs["ds_attrs"] = {"urls": urls}
+        df.attrs["var_attrs"] = {
+            c.name: {
+                "long_name": c.long_name,
+                "units": c.units,
+            }
+            for c in COL_INFO_100m
+        }
+
     return df
 
 
@@ -248,12 +259,13 @@ def read_100m(fp_or_url):
     # This is close to "Pottp" but not exactly the same
     theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)  # noqa: F841
 
+    # Add some variables from header
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
-
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
 
+    # Add metadata
     if hasattr(df, "attrs"):
         df.attrs["ds_attrs"] = meta
         df.attrs["var_attrs"] = {

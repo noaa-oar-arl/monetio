@@ -15,6 +15,8 @@ def test_add_data():
     df = gml_ozonesonde.add_data(dates, n_procs=2)
     assert len(df) > 0
 
+    assert df.attrs["var_attrs"]["o3"]["units"] == "ppmv"
+
     latlon = df["latitude"].astype(str) + "," + df["longitude"].astype(str)
     assert 1 < latlon.nunique() <= 10, "multiple sites; lat/lon doesn't change in profile"
 
