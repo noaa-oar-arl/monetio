@@ -6,7 +6,7 @@ More info: https://gml.noaa.gov/ozwv/ozsondes/
 """
 import re
 import warnings
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -177,7 +177,7 @@ class ColInfo(NamedTuple):
     name: str
     long_name: str
     units: str
-    na_val: Optional[str]
+    na_val: Optional[Union[str, Tuple[str, ...]]]
 
 
 COL_INFO_L100 = [
@@ -224,11 +224,11 @@ COL_INFO_L100 = [
     #
     # "O3 Res"
     # TODO: goes down with height so could be total ozone above?
-    ColInfo("o3_col", "total column ozone above", "DU", "9999"),
+    ColInfo("o3_col", "total column ozone above", "DU", ("9999", "99999", "99.999")),
     #
     # "O3 Uncert"
     # TODO: uncertainty in which ozone value?
-    ColInfo("o3_uncert", "uncertainty in ozone", "%", "99999.000"),
+    ColInfo("o3_uncert", "uncertainty in ozone", "%", ("99999.000", "99.999")),
 ]
 
 
@@ -321,10 +321,11 @@ def read_100m(fp_or_url):
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
-    df["station"] = meta["Station"]
+    df["station"] = meta["Station"]  # TODO: could normalize to place
     df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
     df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
     df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]  # e.g. '325 (62) DU'
+    # TODO: '99999 (99999) DU' if NA, could put empty string instead?
 
     # Add metadata
     if hasattr(df, "attrs"):
