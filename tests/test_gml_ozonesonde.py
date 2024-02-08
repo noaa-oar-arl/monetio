@@ -26,6 +26,20 @@ def test_read_100m():
     assert df.attrs["ds_attrs"]["Sonde Total O3 (SBUV)"] == "325 (62) DU"
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        # Missing 'O3 Uncert'
+        r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/San%20Cristobal,%20Galapagos/100%20Meter%20Average%20Files/sc204_2002_02_01_03.l100",
+        # Missing 'O3 Uncert' + different header blocks (only 1)
+        r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Narragansett,%20Rhode%20Island/100%20Meter%20Average%20Files/ri058_2004_08_05_18.l100",
+    ],
+)
+def test_read_100m_nonstd(url):
+    df = gml_ozonesonde.read_100m(url)
+    assert len(df) > 0
+
+
 def test_add_data():
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
     df = gml_ozonesonde.add_data(dates, n_procs=2)

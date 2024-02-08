@@ -251,6 +251,17 @@ COL_INFO_L100 = [
 ]
 
 
+_DATA_BLOCK_START_L100 = """\
+Level   Press    Alt   Pottp   Temp   FtempV   Hum  Ozone  Ozone   Ozone  Ptemp  O3 # DN O3 Res  O3 Uncert
+ Num     hPa      km     K      C       C       %    mPa    ppmv   atmcm    C   10^11/cc   DU          %
+"""
+
+_DATA_BLOCK_START_L100_NO_UNCERT = """\
+Level   Press    Alt   Pottp   Temp   FtempV   Hum  Ozone  Ozone   Ozone  Ptemp  O3 # DN O3 Res
+ Num     hPa      km     K      C       C       %    mPa    ppmv   atmcm    C   10^11/cc   DU
+"""
+
+
 def read_100m(fp_or_url):
     """Read a GML ozonesonde 100-m file (``.l100``).
 
@@ -320,46 +331,28 @@ def read_100m(fp_or_url):
     if not list(meta) == meta_keys_expected:
         raise ValueError(f"Expected metadata keys {meta_keys_expected}, got {list(meta)}.")
 
-    data_head1 = blocks[4].splitlines()[0]  # TODO: without splitlines? maybe startswith
-    data_head1_split = data_head1.split()
-    data_head1_split_expected = [
-        "Level",
-        "Press",
-        "Alt",
-        "Pottp",
-        "Temp",
-        "FtempV",
-        "Hum",
-        "Ozone",
-        "Ozone",
-        "Ozone",
-        "Ptemp",
-        "O3",
-        "#",
-        "DN",
-        "O3",
-        "Res",
-        "O3",
-        "Uncert",
-    ]
-    if not (
-        data_head1_split == data_head1_split_expected[:-2]
-        or data_head1_split == data_head1_split_expected
-    ):
+    data_block = blocks[4]
+    if data_block.startswith(_DATA_BLOCK_START_L100):
+        have_uncert = True
+    elif data_block.startswith(_DATA_BLOCK_START_L100_NO_UNCERT):
+        have_uncert = False
+    else:
+        head = "\n".join(data_block.splitlines()[:2] + ["..."])
         raise ValueError(
-            f"Expected data header line 1 like\n{' '.join(data_head1_split_expected)} "
-            f"(O3 Uncert allowed to be missing)\ngot\n{' '.join(data_head1_split)}"
+            "Data block does not start with expected header line(s) "
+            "(O3 Uncert allowed to be missing):\n"
+            f"{_DATA_BLOCK_START_L100}\n"
+            f"got\n{head}"
         )
-    have_uncert = len(data_head1_split) == len(data_head1_split_expected)
 
     col_info = COL_INFO_L100[:]
     if not have_uncert:
         _ = col_info.pop()
 
     ncol_expected = len(col_info)
-    data_block_ncol = len(blocks[4].splitlines()[2].split())
+    data_block_ncol = len(data_block[:400].splitlines()[2].split())
     if not data_block_ncol == ncol_expected:
-        head = "\n".join(blocks[4].splitlines()[:4] + ["..."])
+        head = "\n".join(data_block.splitlines()[:4] + ["..."])
         raise ValueError(
             f"Expected {ncol_expected} columns in data block, " f"got {data_block_ncol}:\n{head}"
         )
@@ -370,7 +363,7 @@ def read_100m(fp_or_url):
     na_values = {c.name: c.na_val for c in col_info if c.na_val is not None}
 
     df = pd.read_csv(
-        StringIO(blocks[4]),
+        StringIO(data_block),
         skiprows=2,
         header=None,
         delimiter=r"\s+",
