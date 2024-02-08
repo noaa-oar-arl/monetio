@@ -175,6 +175,36 @@ def add_data(dates, *, place=None, n_procs=1, errors="raise"):
     # Time subset again in case of times in files extending
     df = df[df["time"].between(dates_min, dates_max, inclusive="both")]
 
+    # Normalize station
+    # All values, as of 2024-02-08:
+    # > df.station.value_counts().sort_index()
+    # Boulder, CO                          650757
+    # Hilo, Hawaii                         627325
+    # Hilo,Hawaii                             192
+    # Huntsville                            10982
+    # Huntsville, AL                       314375
+    # Mauna Loa Observatory, Hawaii           605 (different site than Hilo)
+    # Pago Pago, American Samoa            370141
+    # San Cristobal, Galapagos, Ecuador    150244
+    # South Pole                           661422
+    # Summit, Greenland                    164620
+    # Suva, Fiji                           164065
+    # Trinidad Head, CA                    426409
+    # University of Rhode Island           105878
+    # helikite test                           326
+    # hsv                                     340
+    repl = {
+        "Boulder, CO": "Boulder, Colorado",
+        "Hilo,Hawaii": "Hilo, Hawaii",
+        "Huntsville": "Huntsville, Alabama",
+        "Huntsville, AL": "Huntsville, Alabama",
+        "San Cristobal, Galapagos, Ecuador": "San Cristobal, Galapagos",
+        "South Pole": "South Pole, Antarctica",
+        "Trinidad Head, CA": "Trinidad Head, California",
+    }
+    assert set(repl.values()) <= set(PLACES)
+    df["station"] = df["station"].replace(repl)
+
     # Add metadata
     if hasattr(df, "attrs"):
         df.attrs["ds_attrs"] = {"urls": urls}
