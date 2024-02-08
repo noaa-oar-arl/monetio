@@ -124,7 +124,7 @@ def discover_files(place=None, *, n_threads=3, cache=True):
     return df
 
 
-def add_data(dates, *, place=None, n_procs=1):
+def add_data(dates, *, place=None, n_procs=1, errors="raise"):
     """Retrieve and load GML ozonesonde data as a DataFrame.
 
     Parameters
@@ -135,12 +135,16 @@ def add_data(dates, *, place=None, n_procs=1):
         If not provided, all places will be used.
     n_procs : int
         For Dask.
+    errors : {'raise', 'warn', 'ignore'}
     """
     import dask
     import dask.dataframe as dd
 
     dates = pd.DatetimeIndex(dates)
     dates_min, dates_max = dates.min(), dates.max()
+
+    if errors not in {"raise", "warn", "ignore"}:
+        raise ValueError(f"Invalid errors setting: {errors!r}.")
 
     print("Discovering files...")
     df_urls = discover_files(place=place)
@@ -151,9 +155,21 @@ def add_data(dates, *, place=None, n_procs=1):
     if not urls:
         raise RuntimeError(f"No files found for dates {dates_min} to {dates_max}, place={place}.")
 
+    def func(fp_or_url):
+        try:
+            return read_100m(fp_or_url)
+        except Exception as e:
+            msg = f"Failed to read {fp_or_url}: {e}"
+            if errors == "raise":
+                raise RuntimeError(msg) from e
+            else:
+                if errors == "warn":
+                    warnings.warn(msg)
+                return pd.DataFrame()
+
     print(f"Aggregating {len(urls)} files...")
-    dfs = [dask.delayed(read_100m)(f) for f in urls]
-    dff = dd.from_delayed(dfs)
+    dfs = [dask.delayed(func)(url) for url in urls]
+    dff = dd.from_delayed(dfs, verify_meta=errors == "raise")
     df = dff.compute(num_workers=n_procs).reset_index()
 
     # Time subset again in case of times in files extending
@@ -260,7 +276,10 @@ def read_100m(fp_or_url):
             return text
 
     blocks = get_text().replace("\r", "").split("\n\n")
-    assert len(blocks) == 5
+    nblocks = len(blocks)
+    if not nblocks == 5:
+        heads = "\n".join("\n".join(b.splitlines()[:2] + ["..."]) for b in blocks)
+        raise ValueError(f"Expected 5 blocks, got {nblocks}:\n{heads}")
 
     # Metadata
     meta = {}
@@ -281,7 +300,7 @@ def read_100m(fp_or_url):
     for k, v in meta.items():
         meta[k] = re.sub(r"\s{2,}", " ", v)
 
-    assert list(meta) == [
+    meta_keys_expected = [
         "Station",
         "Station Height",
         "Latitude",
@@ -298,8 +317,13 @@ def read_100m(fp_or_url):
         "Sonde Total O3",
         "Sonde Total O3 (SBUV)",
     ]
+    if not list(meta) == meta_keys_expected:
+        raise ValueError(f"Expected metadata keys {meta_keys_expected}, got {list(meta)}.")
 
-    assert len(blocks[4].splitlines()[2].split()) == len(COL_INFO_L100) == 14
+    data_block_ncol = len(blocks[4].splitlines()[2].split())
+    if not data_block_ncol == len(COL_INFO_L100) == 14:
+        head = "\n".join(blocks[4].splitlines()[:4] + ["..."])
+        raise ValueError(f"Expected 14 columns in data block, got {data_block_ncol}:\n{head}")
 
     names = [c.name for c in COL_INFO_L100]
     dtype = {c.name: float for c in COL_INFO_L100}
