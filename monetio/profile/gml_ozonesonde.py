@@ -424,11 +424,11 @@ def read_100m(fp_or_url):
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
-    df["station"] = meta["Station"]  # TODO: could normalize to place (in add_data?)?
+    df["station"] = meta["Station"]
     df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
     df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
     df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]  # e.g. '325 (62) DU'
-    # TODO: '99999 (99999) DU' if NA, could put empty string instead?
+    # TODO: '99999 (99999) DU' if NA, could put empty string or None or NaN instead?
 
     # Add metadata
     if hasattr(df, "attrs"):
