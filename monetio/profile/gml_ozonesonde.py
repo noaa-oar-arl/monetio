@@ -288,13 +288,25 @@ def read_100m(fp_or_url):
 
     blocks = get_text().replace("\r", "").split("\n\n")
     nblocks = len(blocks)
-    if not nblocks == 5:
+    if nblocks == 5:  # normal
+        meta_block = blocks[3]
+        data_block = blocks[4]
+    elif nblocks == 2:
+        block_lines = blocks[0].splitlines()
+        for i, line in enumerate(block_lines):
+            if line.startswith(("Station:", "Station: ", "Station  ")):
+                break
+        else:
+            raise ValueError(f"Expected to find metadata to start with Station, got:\n{blocks[0]}")
+        meta_block = "\n".join(block_lines[i:])
+        data_block = blocks[1]
+    else:
         heads = "\n".join("\n".join(b.splitlines()[:2] + ["..."]) for b in blocks)
-        raise ValueError(f"Expected 5 blocks, got {nblocks}:\n{heads}")
+        raise ValueError(f"Expected 2 or 5 blocks, got {nblocks}:\n{heads}")
 
     # Metadata
     meta = {}
-    todo = blocks[3].splitlines()[::-1]
+    todo = meta_block.splitlines()[::-1]
     on_val_side = ["Background: ", "Flowrate: ", "RH Corr: ", "Sonde Total O3 (SBUV): "]
     while todo:
         line = todo.pop()
@@ -319,8 +331,9 @@ def read_100m(fp_or_url):
         "Flight Number",
         "Launch Date",
         "Launch Time",
-        "Radiosonde Type",
-        "Radiosonde Num",
+        # May see 'Vaisala number' and 'Vaisala humicap' instead of these two:
+        # "Radiosonde Type",
+        # "Radiosonde Num",
         "O3 Sonde ID",
         "Background",
         "Flowrate",
@@ -328,10 +341,9 @@ def read_100m(fp_or_url):
         "Sonde Total O3",
         "Sonde Total O3 (SBUV)",
     ]
-    if not list(meta) == meta_keys_expected:
+    if not set(meta) >= set(meta_keys_expected):
         raise ValueError(f"Expected metadata keys {meta_keys_expected}, got {list(meta)}.")
 
-    data_block = blocks[4]
     if data_block.startswith(_DATA_BLOCK_START_L100):
         have_uncert = True
     elif data_block.startswith(_DATA_BLOCK_START_L100_NO_UNCERT):
@@ -354,8 +366,10 @@ def read_100m(fp_or_url):
     if not data_block_ncol == ncol_expected:
         head = "\n".join(data_block.splitlines()[:4] + ["..."])
         raise ValueError(
-            f"Expected {ncol_expected} columns in data block, " f"got {data_block_ncol}:\n{head}"
+            f"Expected {ncol_expected} columns in data block, "
+            f"got {data_block_ncol} in first data line:\n{head}"
         )
+        # TODO: allow pandas to skip bad lines with `on_bad_lines='skip'`?
 
     names = [c.name for c in col_info]
     dtype = {c.name: float for c in col_info}
@@ -380,7 +394,7 @@ def read_100m(fp_or_url):
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
-    df["station"] = meta["Station"]  # TODO: could normalize to place
+    df["station"] = meta["Station"]  # TODO: could normalize to place (in add_data?)?
     df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
     df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
     df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]  # e.g. '325 (62) DU'

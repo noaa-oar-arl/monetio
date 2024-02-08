@@ -40,6 +40,17 @@ def test_read_100m_nonstd(url):
     assert len(df) > 0
 
 
+def test_read_100m_bad_data_line():
+    url = r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/San%20Cristobal,%20Galapagos/100%20Meter%20Average%20Files/sc204_2002_01_31_12.l100"
+    # Level   Press    Alt   Pottp   Temp   FtempV   Hum  Ozone  Ozone   Ozone  Ptemp  O3 # DN O3 Res
+    #  Num     hPa      km     K      C       C       %    mPa    ppmv   atmcm    C   10^11/cc   DU
+    #    0 -6331.0   0.008     0.0-3323.0   999.9    999-6666.00 10.529  0.0000  -91.8 1583.081    260
+    #    1   892.2   0.100   301.1   18.3    19.1    105   1.07  0.012  0.0009   32.3    2.649    259
+
+    with pytest.raises(ValueError, match="Expected 13 columns in data block"):
+        _ = gml_ozonesonde.read_100m(url)
+
+
 def test_add_data():
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
     df = gml_ozonesonde.add_data(dates, n_procs=2)
