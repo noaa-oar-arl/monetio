@@ -320,15 +320,54 @@ def read_100m(fp_or_url):
     if not list(meta) == meta_keys_expected:
         raise ValueError(f"Expected metadata keys {meta_keys_expected}, got {list(meta)}.")
 
-    data_block_ncol = len(blocks[4].splitlines()[2].split())
-    if not data_block_ncol == len(COL_INFO_L100) == 14:
-        head = "\n".join(blocks[4].splitlines()[:4] + ["..."])
-        raise ValueError(f"Expected 14 columns in data block, got {data_block_ncol}:\n{head}")
+    data_head1 = blocks[4].splitlines()[0]  # TODO: without splitlines? maybe startswith
+    data_head1_split = data_head1.split()
+    data_head1_split_expected = [
+        "Level",
+        "Press",
+        "Alt",
+        "Pottp",
+        "Temp",
+        "FtempV",
+        "Hum",
+        "Ozone",
+        "Ozone",
+        "Ozone",
+        "Ptemp",
+        "O3",
+        "#",
+        "DN",
+        "O3",
+        "Res",
+        "O3",
+        "Uncert",
+    ]
+    if not (
+        data_head1_split == data_head1_split_expected[:-2]
+        or data_head1_split == data_head1_split_expected
+    ):
+        raise ValueError(
+            f"Expected data header line 1 like\n{' '.join(data_head1_split_expected)} "
+            f"(O3 Uncert allowed to be missing)\ngot\n{' '.join(data_head1_split)}"
+        )
+    have_uncert = len(data_head1_split) == len(data_head1_split_expected)
 
-    names = [c.name for c in COL_INFO_L100]
-    dtype = {c.name: float for c in COL_INFO_L100}
+    col_info = COL_INFO_L100[:]
+    if not have_uncert:
+        _ = col_info.pop()
+
+    ncol_expected = len(col_info)
+    data_block_ncol = len(blocks[4].splitlines()[2].split())
+    if not data_block_ncol == ncol_expected:
+        head = "\n".join(blocks[4].splitlines()[:4] + ["..."])
+        raise ValueError(
+            f"Expected {ncol_expected} columns in data block, " f"got {data_block_ncol}:\n{head}"
+        )
+
+    names = [c.name for c in col_info]
+    dtype = {c.name: float for c in col_info}
     dtype["lev"] = int
-    na_values = {c.name: c.na_val for c in COL_INFO_L100 if c.na_val is not None}
+    na_values = {c.name: c.na_val for c in col_info if c.na_val is not None}
 
     df = pd.read_csv(
         StringIO(blocks[4]),
@@ -362,7 +401,7 @@ def read_100m(fp_or_url):
                 "long_name": c.long_name,
                 "units": c.units,
             }
-            for c in COL_INFO_L100
+            for c in col_info
         }
 
     return df
