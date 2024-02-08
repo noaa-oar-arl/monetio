@@ -51,6 +51,15 @@ def test_read_100m_bad_data_line():
         _ = gml_ozonesonde.read_100m(url)
 
 
+def test_read_100m_bad_header_line():
+    url = r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bu913_2021_08_10_16.l100"
+    # Level   Press    Alt   Pottp   Temp   FtempV   Hum  Ozone  Ozone   Ozone  Ptemp  O3 # DN O3 Res   Ftemp   Water
+    #  Num     hPa      km     K      C       C       %    mPa    ppmv   atmcm    C   10^11/cc   DU       C      ppmv
+
+    with pytest.raises(ValueError, match="Data block does not start with expected header"):
+        _ = gml_ozonesonde.read_100m(url)
+
+
 def test_add_data():
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
     df = gml_ozonesonde.add_data(dates, n_procs=2)
