@@ -130,12 +130,15 @@ def add_data(dates, *, place=None, n_procs=1, errors="raise"):
     Parameters
     ----------
     dates : sequence of datetime-like
+        The period between the min and max (both inclusive)
+        will be used to select the files to load.
     place : str or sequence of str, optional
         For example 'Boulder, Colorado'.
         If not provided, all places will be used.
     n_procs : int
         For Dask.
-    errors : {'raise', 'warn', 'ignore'}
+    errors : {'raise', 'warn', 'skip'}
+        What to do when there is an error reading a file.
     """
     import dask
     import dask.dataframe as dd
