@@ -216,7 +216,7 @@ def add_data(dates, *, place=None, n_procs=1, errors="raise"):
             for c in COL_INFO_L100
         }
 
-    return df
+    return df.drop(columns=["index"], errors="ignore").reset_index(drop=True)
 
 
 class ColInfo(NamedTuple):
