@@ -212,7 +212,7 @@ COL_INFO_L100 = [
     ColInfo("o3", "ozone mixing ratio", "ppmv", "99.999"),
     #
     # "Ozone"
-    # note 1 DU = 0.001 atm-cm
+    # Note 1 DU = 0.001 atm-cm
     # TODO: goes up with height so could be ozone below?
     ColInfo("o3_cm", "total ozone", "atm-cm", "99.9990"),
     #
@@ -223,11 +223,14 @@ COL_INFO_L100 = [
     ColInfo("o3_nd", "ozone number density", "10^11 cm-3", "999.999"),
     #
     # "O3 Res"
-    # TODO: goes down with height so could be total ozone above?
+    # From Owen Cooper (NOAA CSL):
+    #   This is the amount of ozone in Dobson units above a given altitude.
+    #   The values above the maximum balloon altitude are from a climatology.
+    #   This is mainly for UV absorption research.
     ColInfo("o3_col", "total column ozone above", "DU", ("9999", "99999", "99.999")),
     #
     # "O3 Uncert"
-    # TODO: uncertainty in which ozone value?
+    # Estimated uncertainty in the ozone measurement at a given altitude.
     ColInfo("o3_uncert", "uncertainty in ozone", "%", ("99999.000", "99.999")),
 ]
 
