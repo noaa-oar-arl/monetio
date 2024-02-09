@@ -240,7 +240,7 @@ COL_INFO_L100 = [
     #
     # "Alt"
     # TODO: not sure about this na val
-    ColInfo("altitude", "altitude", "km", "999.999"),
+    ColInfo("altitude", "altitude", "km", ("99.9", "999.9", "99.999", "999.999")),
     #
     # "Pottp"
     ColInfo("theta", "potential temperature", "K", "9999.9"),
