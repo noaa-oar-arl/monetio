@@ -244,6 +244,9 @@ COL_INFO_L100 = [
     # in the sounding computed from radiosonde pressure and temperature (or GPS if available?).
     # For 100-m data, the center of the 100-m layer
     # (data values included in the layer averages have altitude +/- 50 m of this).
+    # If not invalid and removed, the first row is the actual altitude of the launch,
+    # and the next row begins the clean 100-m intervals
+    # (i.e. first diff may not be 0.1, but the rest should be).
     ColInfo("altitude", "altitude", "km", ("99.9", "999.9", "99.999", "999.999")),
     #
     # "Pottp"
