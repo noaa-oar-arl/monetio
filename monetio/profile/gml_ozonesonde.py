@@ -236,36 +236,45 @@ COL_INFO_L100 = [
     ColInfo("lev", "level", "", None),
     #
     # "Press"
-    ColInfo("press", "radiosonde corrected pressure", "hPa", "9999.9"),
+    # Atmospheric pressure, from the radiosonde.
+    ColInfo("press", "pressure", "hPa", "9999.9"),
     #
     # "Alt"
-    # TODO: not sure about this na val
+    # Altitude above sea level
+    # computed from radiosonde pressure and temperature
+    # (or GPS if available?).
     ColInfo("altitude", "altitude", "km", ("99.9", "999.9", "99.999", "999.999")),
     #
     # "Pottp"
     ColInfo("theta", "potential temperature", "K", "9999.9"),
     #
     # "Temp"
-    ColInfo("temp", "radiosonde corrected temperature", "degC", "999.9"),
+    # Atmospheric temperature, from the radiosonde.
+    ColInfo("temp", "air temperature", "degC", "999.9"),
     #
     # "FtempV"
-    ColInfo("ftempv", "frost point temperature (radiosonde)", "degC", "999.9"),
+    # Frost point temperature, calculated from the radiosonde RH and temp.
+    ColInfo("ftempv", "frost point temperature", "degC", "999.9"),
     #
     # "Hum"
-    ColInfo("rh", "radiosonde corrected relative humidity", "%", "999"),
+    # RH, measured by the radiosonde.
+    ColInfo("rh", "relative humidity", "%", "999"),
     #
     # "Ozone"
+    # Measured by the ozone sensor cell.
     ColInfo("o3_press", "ozone partial pressure", "mPa", "99.90"),
     #
     # "Ozone"
+    # Calculated from the ozone partial pressure and atmospheric pressure.
     ColInfo("o3", "ozone mixing ratio", "ppmv", "99.999"),
     #
     # "Ozone"
     # Note 1 DU = 0.001 atm-cm
-    # TODO: goes up with height so could be ozone below?
-    ColInfo("o3_cm", "total ozone", "atm-cm", "99.9990"),
+    # Cumulative column ozone amount at this point in the profile.
+    ColInfo("o3_int", "integrated ozone below", "atm-cm", "99.9990"),
     #
     # "Ptemp"
+    # Pump temperature, from thermistor in the vicinity of the pump block.
     ColInfo("ptemp", "pump temperature", "degC", "999.9"),
     #
     # "O3 # DN"
@@ -276,7 +285,7 @@ COL_INFO_L100 = [
     #   This is the amount of ozone in Dobson units above a given altitude.
     #   The values above the maximum balloon altitude are from a climatology.
     #   This is mainly for UV absorption research.
-    ColInfo("o3_col", "total column ozone above", "DU", ("9999", "99999", "99.999")),
+    ColInfo("o3_res", "estimated total column ozone above", "DU", ("9999", "99999", "99.999")),
     #
     # "O3 Uncert"
     # Estimated uncertainty in the ozone measurement at a given altitude.
@@ -429,8 +438,14 @@ def read_100m(fp_or_url):
     df["longitude"] = float(meta["Longitude"])
     df["station"] = meta["Station"]
     df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
+
+    # Sonde total column ozone amount ('325 (62) DU') in two methods:
+    # - CMR: extrapolate constant mixing ratio above balloon burst to get ozone above that (the residual)
+    # - SBUV: compute the residual from the SBUV climate tables
+    # The first number is the total column ozone (integrated + residual).
+    # The number in parentheses is the residual.
     df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
-    df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]  # e.g. '325 (62) DU'
+    df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]
     # TODO: '99999 (99999) DU' if NA, could put empty string or None or NaN instead?
 
     # Add metadata
