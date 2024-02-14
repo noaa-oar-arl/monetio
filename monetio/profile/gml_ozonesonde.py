@@ -176,6 +176,7 @@ def add_data(dates, *, place=None, n_procs=1, errors="raise"):
     df = dff.compute(num_workers=n_procs).reset_index()
 
     # Time subset again just in case
+    # (file time may not match launch time; file time seems to be floored to nearest hour)
     df = df[df["time"].between(dates_min, dates_max, inclusive="both")]
 
     # Normalize station
@@ -440,6 +441,7 @@ def read_100m(fp_or_url):
 
     df["station"] = meta["Station"]
     df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
+    df["flight_number"] = meta["Flight Number"]
 
     # Sonde total column ozone amount ('325 (62) DU') from two methods:
     # - CMR: extrapolate constant mixing ratio above balloon burst to get ozone above that (the residual)

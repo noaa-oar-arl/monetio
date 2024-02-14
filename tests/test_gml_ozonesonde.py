@@ -95,3 +95,20 @@ def test_add_data_invalid_place(place):
     dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
     with pytest.raises(ValueError, match="Invalid place"):
         _ = gml_ozonesonde.add_data(dates, place=place)
+
+
+def test_same_place_and_launch_time():
+    # Two files with same file time and launch time:
+    # - https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bl774_2003_03_10_20.l100
+    # - https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bl775_2003_03_10_20.l100
+    # File time: 2003-03-10 20
+    # Launch time: 2003-03-10 20:41:11
+    dates = ["2003-03-10 20", "2003-03-10 21"]
+    df = gml_ozonesonde.add_data(dates, place="Boulder, Colorado", n_procs=2)
+    assert len(df) > 0
+
+    # Only one launch time
+    assert df["time"].nunique() == 1
+
+    # But multiple profiles
+    assert df["flight_number"].nunique() == 2
