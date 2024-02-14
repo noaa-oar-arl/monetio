@@ -241,8 +241,9 @@ COL_INFO_L100 = [
     #
     # "Alt"
     # Altitude above sea level
-    # computed from radiosonde pressure and temperature
-    # (or GPS if available?).
+    # in the sounding computed from radiosonde pressure and temperature (or GPS if available?).
+    # For 100-m data, the center of the 100-m layer
+    # (data values included in the layer averages have altitude +/- 50 m of this).
     ColInfo("altitude", "altitude", "km", ("99.9", "999.9", "99.999", "999.999")),
     #
     # "Pottp"
