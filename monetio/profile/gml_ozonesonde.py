@@ -445,7 +445,7 @@ def read_100m(fp_or_url):
     df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
     df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]
     for col in ["o3_tot_cmr_str", "o3_tot_sbuv_str"]:
-        df[col] = df[col].replace("99999 (99999) DU", np.nan)
+        df[col] = df[col].replace("99999 (99999) DU", np.nan).astype(object)
 
     # Add metadata
     if hasattr(df, "attrs"):
