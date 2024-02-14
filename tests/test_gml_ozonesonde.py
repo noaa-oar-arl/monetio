@@ -112,3 +112,8 @@ def test_same_place_and_launch_time():
 
     # But multiple profiles
     assert df["flight_number"].nunique() == 2
+
+    assert df.attrs["ds_attrs"]["urls"] == [
+        r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bl774_2003_03_10_20.l100",
+        r"https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/bl775_2003_03_10_20.l100",
+    ]
