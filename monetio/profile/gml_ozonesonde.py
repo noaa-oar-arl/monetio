@@ -428,25 +428,24 @@ def read_100m(fp_or_url):
         na_values=na_values,
     )
 
-    # Note: This is close to "Pottp" but not exactly the same
-    # theta_calc = (df.temp + 273.15) * (df.press / 1000) ** (-0.286)
-
     # Add some variables from header (these don't change in the profile)
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
     df["longitude"] = float(meta["Longitude"])
+
     df["station"] = meta["Station"]
     df["station_height_str"] = meta["Station Height"]  # e.g. '1743 meters'
 
-    # Sonde total column ozone amount ('325 (62) DU') in two methods:
+    # Sonde total column ozone amount ('325 (62) DU') from two methods:
     # - CMR: extrapolate constant mixing ratio above balloon burst to get ozone above that (the residual)
     # - SBUV: compute the residual from the SBUV climate tables
     # The first number is the total column ozone (integrated + residual).
     # The number in parentheses is the residual.
     df["o3_tot_cmr_str"] = meta["Sonde Total O3"]
     df["o3_tot_sbuv_str"] = meta["Sonde Total O3 (SBUV)"]
-    # TODO: '99999 (99999) DU' if NA, could put empty string or None or NaN instead?
+    for col in ["o3_tot_cmr_str", "o3_tot_sbuv_str"]:
+        df[col] = df[col].replace("99999 (99999) DU", np.nan)
 
     # Add metadata
     if hasattr(df, "attrs"):
