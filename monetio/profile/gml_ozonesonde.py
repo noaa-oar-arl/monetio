@@ -175,7 +175,7 @@ def add_data(dates, *, place=None, n_procs=1, errors="raise"):
     dff = dd.from_delayed(dfs, verify_meta=errors == "raise")
     df = dff.compute(num_workers=n_procs).reset_index()
 
-    # Time subset again in case of times in files extending
+    # Time subset again just in case
     df = df[df["time"].between(dates_min, dates_max, inclusive="both")]
 
     # Normalize station
@@ -404,12 +404,12 @@ def read_100m(fp_or_url):
         _ = col_info.pop()
 
     ncol_expected = len(col_info)
-    data_block_ncol = len(data_block[:400].splitlines()[2].split())
-    if not data_block_ncol == ncol_expected:
+    data_block_first_ncol = len(data_block[:400].splitlines()[2].split())
+    if not data_block_first_ncol == ncol_expected:
         head = "\n".join(data_block.splitlines()[:4] + ["..."])
         raise ValueError(
             f"Expected {ncol_expected} columns in data block, "
-            f"got {data_block_ncol} in first data line:\n{head}"
+            f"got {data_block_first_ncol} in first data line:\n{head}"
         )
         # TODO: allow pandas to skip bad lines with `on_bad_lines='skip'`?
 
@@ -428,7 +428,7 @@ def read_100m(fp_or_url):
         na_values=na_values,
     )
 
-    # Add some variables from header (these don't change in the profile)
+    # Add some variables from header as columns (these don't change in the profile)
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")
     df["time"] = time.tz_localize(None)
     df["latitude"] = float(meta["Latitude"])
