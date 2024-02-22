@@ -20,6 +20,7 @@ dependencies:
   - lxml
   - pyhdf <0.11
   - requests
+  - timezonefinder
   #
   # test
   - filelock
