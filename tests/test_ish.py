@@ -150,3 +150,19 @@ def test_ish_read_url_direct():
     assert set(orig_names) - set(df.columns) == {"date", "htime", "latitude", "longitude"}
 
     assert type(df.t_quality[0]) == str
+
+
+def test_ish_small_timeout_fails():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
+
+    with pytest.raises(RuntimeError, match="^Failed to connect"):
+        ish.add_data(dates, site=site, request_timeout=1e-6, request_retries=0)
+
+
+def test_ish_bad_retries_error():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
+
+    with pytest.raises(ValueError, match="^`request_retries` must be >= 0"):
+        ish.add_data(dates, site=site, request_retries=-1)
