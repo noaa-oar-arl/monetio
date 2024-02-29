@@ -202,6 +202,7 @@ class AQS:
                     "time_local": ["Date Local", "Time Local"],
                 },
                 infer_datetime_format=True,
+                low_memory=False,
             )
             # print(df.columns.values)
             df.columns = self.columns_rename(df.columns.values)
