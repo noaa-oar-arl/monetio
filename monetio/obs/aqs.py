@@ -179,14 +179,10 @@ class AQS:
 
         """
         if "daily" in url:
-
-            def dateparse(x):
-                return pd.datetime.strptime(x, "%Y-%m-%d")
-
             df = pd.read_csv(
                 url,
                 parse_dates={"time_local": ["Date Local"]},
-                date_parser=dateparse,
+                infer_datetime_format=True,
                 dtype={0: str, 1: str, 2: str},
                 encoding="ISO-8859-1",
             )
@@ -383,6 +379,8 @@ class AQS:
         import dask
         import dask.dataframe as dd
 
+        dates = pd.DatetimeIndex(dates)
+
         if param is None:
             params = [
                 "SPEC",
@@ -413,6 +411,7 @@ class AQS:
             dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in urls]
         dff = dd.from_delayed(dfs)
         dfff = dff.compute(num_workers=n_procs)
+        dfff = dfff[dfff.time.between(dates.min(), dates.max())]
         if meta:
             return self.add_data2(dfff, daily, network)
         else:
