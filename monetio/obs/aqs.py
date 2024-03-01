@@ -398,6 +398,8 @@ class AQS:
                 "TEMP",
                 "RHDP",
             ]
+        elif isinstance(param, str):
+            params = [param]
         else:
             params = param
         urls, fnames = self.build_urls(params, dates, daily=daily)
