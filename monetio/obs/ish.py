@@ -19,6 +19,8 @@ def add_data(
     window="H",
     download=False,
     n_procs=1,
+    request_timeout=10,
+    request_retries=4,
     verbose=False,
 ):
     """Retrieve and load ISH data as a DataFrame.
@@ -38,6 +40,10 @@ def add_data(
         Resampling window, e.g. ``'3H'``.
     n_procs : int
         For Dask.
+    request_timeout : float
+        Timeout (seconds) for requests when downloading ISH data files.
+    request_retries : int
+        Number of retries for requests when downloading ISH data files.
     verbose : bool
         Print debugging messages.
 
@@ -56,6 +62,8 @@ def add_data(
         window=window,
         download=download,
         n_procs=n_procs,
+        request_timeout=request_timeout,
+        request_retries=request_retries,
         verbose=verbose,
     )
     return df
@@ -192,7 +200,7 @@ class ISH:
             )
         return df
 
-    def read_data_frame(self, url_or_file):
+    def read_data_frame(self, url_or_file, *, request_timeout=10, request_retries=4):
         """Create a data frame from an ISH file.
 
         URL is assumed if `url_or_file` is a string that starts with ``http``.
@@ -203,8 +211,24 @@ class ISH:
 
             import requests
 
-            r = requests.get(url_or_file, timeout=10, stream=True)
-            r.raise_for_status()
+            if not request_retries >= 0:
+                raise ValueError(f"`request_retries` must be >= 0, got {request_retries!r}")
+
+            tries = 0
+            while tries - 1 < request_retries:
+                try:
+                    r = requests.get(url_or_file, timeout=request_timeout, stream=True)
+                    r.raise_for_status()
+                except requests.exceptions.RequestException as e:
+                    tries += 1
+                    if tries - 1 == request_retries:
+                        raise RuntimeError(
+                            f"Failed to connect to server for URL {url_or_file}. "
+                            f"timeout={request_timeout}, retries={request_retries}."
+                        ) from e
+                else:
+                    break
+
             with gzip.open(io.BytesIO(r.content), "rb") as f:
                 frame_as_array = np.genfromtxt(f, delimiter=self.WIDTHS, dtype=self.DTYPES)
         else:
@@ -283,6 +307,8 @@ class ISH:
         window="H",
         download=False,
         n_procs=1,
+        request_timeout=10,
+        request_retries=4,
         verbose=False,
     ):
         """Retrieve and load ISH data as a DataFrame.
@@ -302,6 +328,10 @@ class ISH:
             Resampling window, e.g. ``'3H'``.
         n_procs : int
             For Dask.
+        request_timeout : float
+            Timeout (seconds) for requests when downloading ISH data files.
+        request_retries : int
+            Number of retries for requests when downloading ISH data files.
         verbose : bool
             Print debugging messages.
 
@@ -344,24 +374,36 @@ class ISH:
         if download:
             objs = self.get_url_file_objs(urls.name)
             print("  Reading ISH into pandas DataFrame...")
-            dfs = [dask.delayed(self.read_data_frame)(f) for f in objs]
+
+            def func(fname):
+                return self.read_data_frame(
+                    fname,
+                    request_timeout=request_timeout,
+                    request_retries=request_retries,
+                )
+
+            dfs = [dask.delayed(func)(f) for f in objs]
             dff = dd.from_delayed(dfs)
             self.df = dff.compute(num_workers=n_procs)
         else:
             if verbose:
                 print(f"Aggregating {len(urls.name)} URLs...")
-            self.df = self.aggregrate_files(urls, n_procs=n_procs)
+            self.df = self.aggregrate_files(
+                urls,
+                n_procs=n_procs,
+                request_timeout=request_timeout,
+                request_retries=request_retries,
+            )
 
         if resample and not self.df.empty:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
             self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
+            # TODO: mean(numeric_only=True)
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")
-        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"}).drop(
-            columns=["fname"]
-        )
+        self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
 
         return self.df
 
@@ -463,14 +505,13 @@ class ISH:
             all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
             all_urls = f"{url}/{year}/" + all_urls
 
-        # get the dfloc meta data
-        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
-        for date in unique_years.strftime("%Y"):
-            sites["fname"] = (
-                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
+        # Construct expected URLs based on sites and year(s) requested
+        for syear in unique_years.strftime("%Y"):
+            year_fnames = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
             )
-            for fname in sites.fname.values:
-                furls.append(f"{url}/{date[0:4]}/{fname}")
+            for fname in year_fnames:
+                furls.append(f"{url}/{syear}/{fname}")
 
         # files needed for comparison
         url = pd.Series(furls, index=None)
@@ -480,7 +521,7 @@ class ISH:
 
         return final_urls
 
-    def aggregrate_files(self, urls, n_procs=1):
+    def aggregrate_files(self, urls, n_procs=1, request_timeout=10, request_retries=4):
         import dask
         import dask.dataframe as dd
 
@@ -493,7 +534,14 @@ class ISH:
         #     print(u)
         #     dfs.append(self.read_csv(u))
 
-        dfs = [dask.delayed(self.read_data_frame)(f) for f in urls.name]
+        def func(url):
+            return self.read_data_frame(
+                url,
+                request_timeout=request_timeout,
+                request_retries=request_retries,
+            )
+
+        dfs = [dask.delayed(func)(url) for url in urls.name]
         dff = dd.from_delayed(dfs)
         df = dff.compute(num_workers=n_procs)
 
