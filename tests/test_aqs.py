@@ -18,7 +18,7 @@ def test_aqs_daily_long():
             daily=True,
         )
     assert (df.variable == "").sum() == 0
-    t = df.time_local
+    t = df.time
     assert ((t.dt.year == 2019) & (t.dt.month == 8)).all()
 
 
@@ -31,5 +31,5 @@ def test_aqs_daily_wide():
         wide_fmt=True,
         daily=True,
     )
-    t = df.time_local
+    t = df.time
     assert ((t.dt.year == 2019) & (t.dt.month == 8)).all()
