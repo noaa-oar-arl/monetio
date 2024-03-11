@@ -86,7 +86,7 @@ class AQS:
         #    'state_name', 'county_name', 'date_of_last_change'
         # ]
         self.renameddcols = [
-            "time_local",
+            "time",
             "state_code",
             "county_code",
             "site_num",
@@ -187,7 +187,6 @@ class AQS:
                 encoding="ISO-8859-1",
             )
             df.columns = self.renameddcols
-            df.insert(0, "time", df.time_local)  # same
             df["pollutant_standard"] = df.pollutant_standard.astype(str)
             self.daily = True
             # df.rename(columns={'parameter_name':'variable'})
