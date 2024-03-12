@@ -176,7 +176,7 @@ def open_dataset(date, satellite, data_resolution='0.1', averaging_time='daily',
     
 
     if isinstance(date, str):
-        date_generated = [pd.Timestampdate]
+        date_generated = [pd.Timestamp(date)]
     else:
         date_generated = [date]
 
