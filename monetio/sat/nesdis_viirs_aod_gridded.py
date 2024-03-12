@@ -1,6 +1,3 @@
-
-
-
 def create_daily_aod_list(data_resolution, satellite, date_generated, fs):
     """
     Creates a list of daily AOD (Aerosol Optical Depth) files and calculates the total size of the files.
