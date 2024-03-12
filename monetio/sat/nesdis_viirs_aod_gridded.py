@@ -32,7 +32,7 @@ def create_daily_aod_list(data_resolution, satellite, date_generated, fs):
                 elif sat_name == 'noaa20':
                     prod_path = 'noaa-jpss/NOAA20/VIIRS/NOAA20_VIIRS_Aerosol_Optical_Depth_Gridded_Reprocessed/' + data_resolution[:4] + '_Degrees_Daily/' + year + '/'
                 # If file exists, add path to list and add file size to total
-                if fs.exists(prod_path + file_name) == True:
+                if fs.exists(prod_path + file_name) is True:
                     nodd_file_list.extend(fs.ls(prod_path + file_name))
                     nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
         else:
@@ -43,7 +43,7 @@ def create_daily_aod_list(data_resolution, satellite, date_generated, fs):
             file_name = 'viirs_eps_' + sat_name + '_aod_' + data_resolution + '_deg_' + file_date + '.nc'
             prod_path = 'noaa-jpss/' + satellite + '/VIIRS/' + satellite + '_VIIRS_Aerosol_Optical_Depth_Gridded_Reprocessed/' + data_resolution[:4] + '_Degrees_Daily/' + year + '/'
             # If file exists, add path to list and add file size to total
-            if fs.exists(prod_path + file_name) == True:
+            if fs.exists(prod_path + file_name) is True:
                 nodd_file_list.extend(fs.ls(prod_path + file_name))
                 nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
 
@@ -82,7 +82,7 @@ def create_monthly_aod_list(satellite, date_generated, fs):
                     elif sat_name == 'noaa20':
                         prod_path = 'noaa-jpss/NOAA20/VIIRS/NOAA20_VIIRS_Aerosol_Optical_Depth_Gridded_Reprocessed/0.25_Degrees_Monthly/'
                     # If file exists, add path to list and add file size to total
-                    if fs.exists(prod_path + file_name) == True:
+                    if fs.exists(prod_path + file_name) is True:
                         nodd_file_list.extend(fs.ls(prod_path + file_name))
                         nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
             else:
@@ -93,7 +93,7 @@ def create_monthly_aod_list(satellite, date_generated, fs):
                 file_name = 'viirs_aod_monthly_' + sat_name + '_0.250_deg_' + year_month + '.nc'
                 prod_path = 'noaa-jpss/' + satellite + '/VIIRS/' + satellite + '_VIIRS_Aerosol_Optical_Depth_Gridded_Reprocessed/0.25_Degrees_Monthly/'
                 # If file exists, add path to list and add file size to total
-                if fs.exists(prod_path + file_name) == True:
+                if fs.exists(prod_path + file_name) is True:
                     nodd_file_list.extend(fs.ls(prod_path + file_name))
                     nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
 
