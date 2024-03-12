@@ -1,6 +1,4 @@
-import s3fs
-import xarray as xr
-import pandas as pd
+
 
 
 def create_daily_aod_list(data_resolution, satellite, date_generated, fs):
@@ -169,6 +167,8 @@ def open_dataset(date, satellite, data_resolution='0.1', averaging_time='daily',
     """
     import xarray as xr
     import pandas as pd
+    import s3fs
+
     if satellite not in ('SNPP', 'NOAA20', 'both'):
         print("Invalid input for 'satellite': Valid values are 'SNPP', 'NOAA20', 'both'. Setting default to SNPP")
         satellite = 'SNPP'
@@ -223,6 +223,9 @@ def open_mfdataset(dates, satellite, data_resolution='0.1', averaging_time='dail
         ValueError: If the input parameters are invalid.
 
     """
+    import xarray as xr
+    import pandas as pd
+    import s3fs
 
     if satellite not in ('SNPP', 'NOAA20', 'both'):
         print("Invalid input for 'satellite': Valid values are 'SNPP', 'NOAA20', 'both'. Setting default to SNPP")
