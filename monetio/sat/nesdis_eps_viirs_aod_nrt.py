@@ -7,23 +7,25 @@ base_dir = "/pub/smcd/VIIRS_Aerosol/npp.viirs.aerosol.data/epsaot550/"
 def build_urls(dates, *, daily=True, res=0.1, sat="noaa20"):
     """Construct URLs for downloading NEPS data.
 
-     Parameters
-     ----------
-     dates : pd.DatetimeIndex or iterable of datetime Dates to download data for.
-     daily : bool, optional Whether to download daily (default) or sub-daily data.
+    Parameters
+    ----------
+    dates : pd.DatetimeIndex or iterable of datetime
+        Dates to download data for.
+    daily : bool, optional
+        Whether to download daily (default) or sub-daily data.
     res : float, optional
-         Resolution of data in km, only used for sub-daily data.
-     sat : str, optional
-         Satellite platform, only used for sub-daily data.
+        Resolution of data in km, only used for sub-daily data.
+    sat : str, optional
+        Satellite platform, only used for sub-daily data.
 
-     Returns
-     -------
-     pd.Series
-         Series with URLs and corresponding file names.
+    Returns
+    -------
+    pd.Series
+        Series with URLs and corresponding file names.
 
-     Notes
-     -----
-     The `res` and `sat` parameters are only used for sub-daily data.
+    Notes
+    -----
+    The `res` and `sat` parameters are only used for sub-daily data.
     """
 
     from collections.abc import Iterable
