@@ -4,9 +4,9 @@ from . import (
     _omps_nadir_mm,
     goes,
     modis_ornl,
+    nesdis_frp,
     nesdis_viirs_aod_aws_gridded,
     nesdis_viirs_aod_nrt,
-    nesdis_frp,
 )
 
 __all__ = [
