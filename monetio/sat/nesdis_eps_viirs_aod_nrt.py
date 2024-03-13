@@ -9,10 +9,8 @@ def build_urls(dates, *, daily=True, res=0.1, sat="noaa20"):
 
      Parameters
      ----------
-     dates : pd.DatetimeIndex or iterable of datetime
-         Dates to download data for.
-     daily : bool, optional
-         Whether to download daily (default) or sub-daily data.
+     dates : pd.DatetimeIndex or iterable of datetime Dates to download data for.
+     daily : bool, optional Whether to download daily (default) or sub-daily data.
     res : float, optional
          Resolution of data in km, only used for sub-daily data.
      sat : str, optional
