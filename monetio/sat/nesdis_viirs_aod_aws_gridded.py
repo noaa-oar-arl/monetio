@@ -174,7 +174,6 @@ def open_dataset(date, satellite, data_resolution='0.1', averaging_time='daily',
         print("Invalid input data_resolution. Valid values are '0.050', '0.100', '0.250'. Setting default to 0.1")
         data_resolution = '0.100'
     
-
     if isinstance(date, str):
         date_generated = [pd.Timestamp(date)]
     else:
