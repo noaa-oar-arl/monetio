@@ -1,6 +1,11 @@
+import sys
+
 import pytest
 
 from monetio.sat.nesdis_viirs_aod_aws_gridded import open_dataset
+
+if sys.version_info < (3, 7):
+    pytest.skip("s3fs requires Python 3.7+", allow_module_level=True)
 
 
 @pytest.mark.parametrize("sat", ["SNPP", "NOAA20"])
