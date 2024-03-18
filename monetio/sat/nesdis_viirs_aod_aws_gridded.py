@@ -207,7 +207,7 @@ def open_dataset(
     Opens a dataset for the given date, satellite, data resolution, and averaging time.
 
     Parameters:
-        date (str or datetime.datetime): The date for which to open the dataset.
+        date (str or datetime-like): The date for which to open the dataset.
         satellite (str): The satellite to retrieve data from. Valid values are 'SNPP', 'NOAA20', or 'both'.
         data_resolution (str, optional): The data resolution. Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
         averaging_time (str, optional): The averaging time. Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
