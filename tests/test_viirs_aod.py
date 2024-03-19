@@ -40,7 +40,7 @@ def test_open_dataset_bad_input():
 
 
 def test_open_dataset_no_data():
-    with pytest.raises(ValueError, match="Files not available"):
+    with pytest.raises(ValueError, match="File does not exist on AWS:"):
         open_dataset("1900-01-01")
 
 
@@ -65,7 +65,7 @@ def test_open_mfdataset_daily():
 
 
 def test_open_mfdataset_monthly():
-    with pytest.raises(ValueError, match="conflicting sizes for dimension 'time'"):
+    with pytest.raises(ValueError, match="not the same length"):
         open_mfdataset(["2020-01-01", "2020-01-02"], averaging_time="monthly")
 
     months = pd.date_range(start="2020-01-01", freq="MS", periods=2)
@@ -78,7 +78,12 @@ def test_open_mfdataset_daily_warning():
 
     # Warn and skip by default
     with pytest.warns(match="File does not exist on AWS:"):
-        ds = open_mfdataset(dates, satellite="SNPP", data_resolution=0.25, averaging_time="daily")
+        ds = open_mfdataset(
+            dates,
+            satellite="SNPP",
+            data_resolution=0.25,
+            averaging_time="daily",
+        )
     assert ds.sizes["time"] == 1
     assert (ds.time == pd.DatetimeIndex([dates[1]])).all()
 
@@ -89,6 +94,31 @@ def test_open_mfdataset_daily_warning():
             satellite="SNPP",
             data_resolution=0.25,
             averaging_time="daily",
+            error_missing=True,
+        )
+
+
+def test_open_mfdataset_monthly_warning():
+    dates = ["2011-12-01", "2012-01-01"]
+
+    # Warn and skip by default
+    with pytest.warns(match="File does not exist on AWS:"):
+        ds = open_mfdataset(
+            dates,
+            satellite="SNPP",
+            data_resolution=0.25,
+            averaging_time="monthly",
+        )
+    assert ds.sizes["time"] == 1
+    assert (ds.time == pd.DatetimeIndex([dates[1]])).all()
+
+    # Error optionally
+    with pytest.raises(ValueError, match="File does not exist on AWS:"):
+        ds = open_mfdataset(
+            dates,
+            satellite="SNPP",
+            data_resolution=0.25,
+            averaging_time="monthly",
             error_missing=True,
         )
 

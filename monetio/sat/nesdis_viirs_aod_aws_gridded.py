@@ -93,16 +93,16 @@ def create_monthly_aod_list(satellite, date_generated, fs, warning=False):
                 + "_VIIRS_Aerosol_Optical_Depth_Gridded_Reprocessed/0.25_Degrees_Monthly/"
             )
             # If file exists, add path to list and add file size to total
-            try:
-                if fs.exists(prod_path + file_name) is True:
-                    nodd_file_list.extend(fs.ls(prod_path + file_name))
-                    nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
-                elif warning:
-                    warnings.warn("File does not exist on AWS: " + prod_path + file_name)
+            if fs.exists(prod_path + file_name) is True:
+                nodd_file_list.extend(fs.ls(prod_path + file_name))
+                nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
+            else:
+                msg = "File does not exist on AWS: " + prod_path + file_name
+                if warning:
+                    warnings.warn(msg, stacklevel=2)
+                    nodd_file_list.append(None)
                 else:
-                    raise ValueError("File does not exist on AWS: " + prod_path + file_name)
-            except ValueError:
-                print("A error has occurred:")
+                    raise ValueError(msg)
 
     return nodd_file_list, nodd_total_size
 
@@ -211,7 +211,7 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
             "Valid values are 'daily', 'weekly', or 'monthly'"
         )
 
-    if len(file_list) == 0:
+    if len(file_list) == 0 or all(f is None for f in file_list):
         raise ValueError(f"Files not available for product and date: {date_generated[0]}")
 
     aws_file = fs.open(file_list[0])
@@ -279,9 +279,9 @@ def open_mfdataset(
     fs = s3fs.S3FileSystem(anon=True)
 
     if averaging_time.lower() == "monthly":
-        file_list, _ = create_monthly_aod_list(satellite, dates, fs)
+        file_list, _ = create_monthly_aod_list(satellite, dates, fs, warning=not error_missing)
     elif averaging_time.lower() == "weekly":
-        file_list, _ = create_weekly_aod_list(satellite, dates, fs)
+        file_list, _ = create_weekly_aod_list(satellite, dates, fs, warning=not error_missing)
     elif averaging_time.lower() == "daily":
         file_list, _ = create_daily_aod_list(
             data_resolution, satellite, dates, fs, warning=not error_missing
@@ -294,6 +294,12 @@ def open_mfdataset(
 
     if len(file_list) == 0 or all(f is None for f in file_list):
         raise ValueError(f"Files not available for product and dates: {dates}")
+
+    if not len(file_list) == len(dates):
+        raise ValueError(
+            "'dates' and discovered file list are not the same length. "
+            "Consider the time frequency ('averaging_time') when constructing your dates input."
+        )
 
     dates_good = []
     aws_files = []
