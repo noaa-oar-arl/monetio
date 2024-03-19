@@ -104,14 +104,21 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def open_dataset(datestr, satellite="noaa20", res=0.1, daily=True, add_timestamp=True):
+def open_dataset(date, satellite="noaa20", res=0.1, daily=True, add_timestamp=True):
+    """
+    Parameters
+    ----------
+    datestr : str or datetime-like
+        The date for which to open the dataset.
+        2022-10-29 to current is available.
+    """
     import pandas as pd
     import xarray as xr
 
-    if ~isinstance(datestr, pd.Timestamp):
-        d = pd.to_datetime(datestr)
+    if not isinstance(date, pd.Timestamp):
+        d = pd.to_datetime(date)
     else:
-        d = datestr
+        d = date
 
     try:
         if satellite.lower() not in ("noaa20", "snpp"):

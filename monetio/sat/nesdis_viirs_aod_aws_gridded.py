@@ -158,6 +158,8 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
 
     Parameters:
         date (str or datetime-like): The date for which to open the dataset.
+            SNPP has data from 2012-01-19 to 2020-12-31.
+            NOAA20 has data from 2018-01-01 to 2020-12-31.
         satellite (str): The satellite to retrieve data from.
             Valid values are 'SNPP', or 'NOAA20'.
         data_resolution (str, optional): The data resolution.
