@@ -177,15 +177,15 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
 
     if satellite not in {"SNPP", "NOAA20"}:
         raise ValueError(
-            f'Invalid input for "satellite" {satellite!r}: Valid values are "SNPP" or "NOAA20"'
+            f"Invalid input for 'satellite' {satellite!r}: Valid values are 'SNPP' or 'NOAA20'"
         )
 
     data_resolution_in = data_resolution
     data_resolution = str(data_resolution).ljust(5, "0")
-    if data_resolution not in ("0.050", "0.100", "0.250"):
+    if data_resolution not in {"0.050", "0.100", "0.250"}:
         raise ValueError(
-            f'Invalid input for "data_resolution" {data_resolution_in!r}: '
-            'Valid values are "0.050", "0.100", or "0.250"'
+            f"Invalid input for 'data_resolution' {data_resolution_in!r}: "
+            "Valid values are '0.050', '0.100', or '0.250'"
         )
 
     if isinstance(date, str):
