@@ -243,7 +243,6 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
 
     Raises:
         ValueError: If the input parameters are invalid.
-
     """
     import pandas as pd
     import s3fs

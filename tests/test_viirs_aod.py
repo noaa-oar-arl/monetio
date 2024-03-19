@@ -21,3 +21,22 @@ def test_open_dataset(sat, res):
     assert ds.sizes["lon"] == int(360 / res)
     assert ds.attrs["satellite_name"] == ("NPP" if sat == "SNPP" else "NOAA 20")
     assert ds.attrs["spatial_resolution"].strip().startswith(str(res))
+
+
+def test_open_dataset_bad_input():
+    with pytest.raises(ValueError, match="Invalid input"):
+        open_dataset("2020-01-01", satellite="GOES-16")
+
+    with pytest.raises(ValueError, match="Invalid input"):
+        open_dataset("2020-01-01", data_resolution=100)
+
+    with pytest.raises(ValueError, match="Invalid input"):
+        open_dataset("2020-01-01", averaging_time="asdf")
+
+
+def test_open_dataset_no_data():
+    with (
+        pytest.raises(ValueError, match="Invalid date"),
+        # pytest.warns(UserWarning, match="not available"),
+    ):
+        open_dataset("1900-01-01")
