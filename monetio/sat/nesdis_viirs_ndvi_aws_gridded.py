@@ -1,4 +1,4 @@
-def create_daily_vhi_list(date_generated, fs, fail_on_error=True):
+def create_daily_vhi_list(date_generated, fs):
     """
     Creates a list of daily vhi (Vegetative Health Index) files and calculates the total size of the files.
 
@@ -19,14 +19,19 @@ def create_daily_vhi_list(date_generated, fs, fail_on_error=True):
         prod_path = "noaa-cdr-ndvi-pds/data/" + year + "/"
         file_name = fs.glob(prod_path + "VIIRS-Land_*_" + file_date + "_*.nc")
         # If file exists, add path to list and add file size to total
-        print(file_name)
-        if fs.exists(file_name[0]) is True:
-            nodd_file_list.append(file_name[0])
-            nodd_total_size = nodd_total_size + fs.size(file_name[0])
+        try:
+            if fs.exists(prod_path + file_name) is True:
+                nodd_file_list.extend(fs.ls(prod_path + file_name))
+                nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
+            else:
+                raise ValueError
+        except ValueError:
+            print("File does not exist on AWS: " + prod_path + file_name)
+            return [], 0
     return nodd_file_list, nodd_total_size
 
 
-def open_dataset(date, download=False, save_path="./"):
+def open_dataset(date):
     """
     Opens a dataset for the given date, satellite, data resolution, and averaging time.
 
@@ -54,7 +59,14 @@ def open_dataset(date, download=False, save_path="./"):
 
     file_list, _ = create_daily_vhi_list(date_generated, fs)
 
-    aws_file = fs.open(file_list[0])
+    try:
+        if len(file_list) == 0:
+            raise ValueError
+        else:
+            aws_file = fs.open(file_list[0])
+    except ValueError:
+        print("Files not available for product and date:", date_generated[0])
+        return
 
     dset = xr.open_dataset(aws_file)
 
@@ -87,15 +99,27 @@ def open_mfdataset(dates, download=False, save_path="./"):
     import s3fs
     import xarray as xr
 
-    if not isinstance(dates, pd.DatetimeIndex):
-        raise ValueError("Expecting pandas.DatetimeIndex for 'dates' parameter.")
+    try:
+        if not isinstance(dates, pd.DatetimeIndex):
+            raise ValueError("Expecting pandas.DatetimeIndex for 'dates' parameter.")
+    except ValueError:
+        print("Invalid input for 'dates': Expecting pandas.DatetimeIndex")
+        return
 
     # Access AWS using anonymous credentials
     fs = s3fs.S3FileSystem(anon=True)
 
     file_list, total_size = create_daily_vhi_list(dates, fs)
 
-    aws_files = [fs.open(f) for f in file_list]
+    try:
+        if not file_list:
+            raise ValueError
+        aws_files = []
+        for f in file_list:
+            aws_files.append(fs.open(f))
+    except ValueError:
+        print("File not available for product and date")
+        return
 
     dset = xr.open_mfdataset(aws_files, concat_dim={"time": dates}, combine="nested")
 

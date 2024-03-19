@@ -7,6 +7,7 @@ from . import (  # nesdis_avhrr_aot_aws_gridded,
     nesdis_eps_viirs_aod_nrt,
     nesdis_frp,
     nesdis_viirs_aod_aws_gridded,
+    nesdis_viirs_ndvi_aws_gridded,
 )
 
 __all__ = [
@@ -14,7 +15,8 @@ __all__ = [
     "_modis_l2_mm",
     "_omps_nadir_mm",
     "nesdis_viirs_aod_aws_gridded",
-    # "nesdis_avhrr_aot_aws_gridded",
+    "nesdis_avhrr_aot_aws_gridded",
+    "nesdis_viirs_ndvi_aws_gridded",
     "nesdis_eps_viirs_aod_nrt",
     "nesdis_frp",
     "modis_ornl",
