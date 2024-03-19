@@ -4,7 +4,7 @@ def create_daily_aod_list(data_resolution, satellite, date_generated, fs, warnin
 
     Parameters:
     - data_resolution (str): The resolution of the AOD data.
-    - satellite (str): The satellite name. Can be 'both', 'SNPP', or 'NOAA20'.
+    - satellite (str): The satellite name. Can be 'SNPP' or 'NOAA20'.
     - date_generated (list): A list of dates for which to check the existence of AOD files.
     - fs (FileSystem): The file system object used to check file existence and size.
 
@@ -61,7 +61,7 @@ def create_monthly_aod_list(satellite, date_generated, fs, warning=False):
     Creates a list of monthly AOD (Aerosol Optical Depth) files for a given satellite and date range.
 
     Args:
-        satellite (str): The satellite name. Can be 'both', 'SNPP', or 'NOAA20'.
+        satellite (str): The satellite name. Can be 'SNPP' or 'NOAA20'.
         date_generated (list): A list of datetime objects representing the observation dates.
         fs: The file system object used to check for file existence and retrieve file information.
 
@@ -114,7 +114,7 @@ def create_weekly_aod_list(satellite, date_generated, fs, warning=False):
     Creates a list of files and calculates the total size of files for a given satellite, observation dates, and file system.
 
     Parameters:
-    satellite (str): The satellite name. Can be 'both', 'SNPP', or 'NOAA20'.
+    satellite (str): The satellite name. Can be 'SNPP' or 'NOAA20'.
     date_generated (list): A list of observation dates.
     fs (FileSystem): The file system object.
 
@@ -161,7 +161,7 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
             SNPP has data from 2012-01-19 to 2020-12-31.
             NOAA20 has data from 2018-01-01 to 2020-12-31.
         satellite (str): The satellite to retrieve data from.
-            Valid values are 'SNPP', or 'NOAA20'.
+            Valid values are 'SNPP' or 'NOAA20'.
         data_resolution (str, optional): The data resolution.
             Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
             Only has an effect when `averaging_time` is 'daily'.
@@ -230,7 +230,7 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
 
     Parameters:
         dates (pandas.DatetimeIndex): The dates for which to retrieve the data.
-        satellite (str): The satellite name. Valid values are 'SNPP', 'NOAA20', or 'both'.
+        satellite (str): The satellite name. Valid values are 'SNPP' or 'NOAA20'.
         data_resolution (str, optional): The data resolution. Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
         averaging_time (str, optional): The averaging time. Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
         download (bool, optional): Whether to download the data from AWS. Defaults to False.
@@ -248,7 +248,7 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
     import s3fs
     import xarray as xr
 
-    if satellite not in {"SNPP", "NOAA20", "both"}:
+    if satellite not in {"SNPP", "NOAA20"}:
         raise ValueError(
             f"Invalid input for 'satellite' {satellite!r}: Valid values are 'SNPP' or 'NOAA20'"
         )

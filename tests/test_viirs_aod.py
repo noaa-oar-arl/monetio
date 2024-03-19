@@ -45,7 +45,7 @@ def test_open_dataset_no_data():
 def test_open_mfdataset_bad_input():
     cases = [
         {"satellite": "GOES-16"},
-        # {"satellite": "both"},
+        {"satellite": "both"},
         {"data_resolution": 100},
         {"averaging_time": "asdf"},
     ]
