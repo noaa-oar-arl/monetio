@@ -38,6 +38,10 @@ __all__ = [
     #
     # satellite obs
     "goes",
+    "nesdis_eps_viirs_aod_nrt",
+    "nesdis_viirs_aod_aws_gridded",
+    "nesdis_avhrr_aot_aws_gridded",
+    "nesdis_viirs_ndvi_aws_gridded",
     #
     # models
     "camx",
