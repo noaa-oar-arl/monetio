@@ -124,8 +124,7 @@ def test_open_mfdataset_monthly_warning():
 
 
 def test_open_mfdataset_no_data():
-    with (
-        pytest.raises(ValueError, match="Files not available"),
-        pytest.warns(match="File does not exist on AWS:"),
+    with pytest.raises(ValueError, match="Files not available"), pytest.warns(
+        match="File does not exist on AWS:"
     ):
         open_mfdataset(["1900-01-01"])
