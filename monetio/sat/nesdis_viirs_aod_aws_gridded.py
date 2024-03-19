@@ -40,17 +40,16 @@ def create_daily_aod_list(data_resolution, satellite, date_generated, fs, warnin
             + "/"
         )
         # If file exists, add path to list and add file size to total
-        try:
-            if fs.exists(prod_path + file_name) is True:
-                nodd_file_list.extend(fs.ls(prod_path + file_name))
-                nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
-            elif warning:
-                warnings.warn("File does not exist on AWS: " + prod_path + file_name)
+        if fs.exists(prod_path + file_name) is True:
+            nodd_file_list.extend(fs.ls(prod_path + file_name))
+            nodd_total_size = nodd_total_size + fs.size(prod_path + file_name)
+        else:
+            msg = "File does not exist on AWS: " + prod_path + file_name
+            if warning:
+                warnings.warn(msg, stacklevel=2)
+                nodd_file_list.append(None)
             else:
-                raise ValueError
-        except ValueError:
-            print("File does not exist on AWS: " + prod_path + file_name)
-            return [], 0
+                raise ValueError(msg)
 
     return nodd_file_list, nodd_total_size
 
@@ -225,7 +224,9 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
     return dset
 
 
-def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time="daily"):
+def open_mfdataset(
+    dates, satellite="SNPP", data_resolution=0.1, averaging_time="daily", error_missing=False
+):
     """
     Opens and combines multiple NetCDF files into a single xarray dataset.
 
@@ -241,6 +242,8 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
             For 'weekly' and 'monthly' data, the resolution is always 0.25.
         averaging_time (str, optional): The averaging time.
             Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
+        error_missing (bool, optional): If False, skip missing files with warning
+            and continue processing. Otherwise, raise an error.
 
     Returns:
         xarray.Dataset: The combined dataset containing the data for the specified dates.
@@ -280,20 +283,27 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
     elif averaging_time.lower() == "weekly":
         file_list, _ = create_weekly_aod_list(satellite, dates, fs)
     elif averaging_time.lower() == "daily":
-        file_list, _ = create_daily_aod_list(data_resolution, satellite, dates, fs)
+        file_list, _ = create_daily_aod_list(
+            data_resolution, satellite, dates, fs, warning=not error_missing
+        )
     else:
         raise ValueError(
             f"Invalid input for 'averaging_time' {averaging_time!r}: "
             "Valid values are 'daily', 'weekly', or 'monthly'"
         )
 
-    if len(file_list) == 0:
+    if len(file_list) == 0 or all(f is None for f in file_list):
         raise ValueError(f"Files not available for product and dates: {dates}")
 
-    aws_files = [fs.open(f) for f in file_list]
+    dates_good = []
+    aws_files = []
+    for d, f in zip(dates, file_list):
+        if f is not None:
+            aws_files.append(fs.open(f))
+            dates_good.append(d)
 
     dset = xr.open_mfdataset(aws_files, concat_dim="time", combine="nested")
 
-    dset["time"] = dates
+    dset["time"] = dates_good
 
     return dset
