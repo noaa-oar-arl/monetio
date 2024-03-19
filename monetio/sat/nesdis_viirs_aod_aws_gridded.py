@@ -153,20 +153,23 @@ def create_weekly_aod_list(satellite, date_generated, fs, warning=False):
 
 
 def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="daily"):
-    """
-    Opens a dataset for the given date, satellite, data resolution, and averaging time.
+    """Load VIIRS AOD data
+    for the given date, satellite, data resolution, and averaging time.
 
     Parameters:
         date (str or datetime-like): The date for which to open the dataset.
-        satellite (str): The satellite to retrieve data from. Valid values are 'SNPP', or 'NOAA20'.
-        data_resolution (str, optional): The data resolution. Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
-        averaging_time (str, optional): The averaging time. Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
+        satellite (str): The satellite to retrieve data from.
+            Valid values are 'SNPP', or 'NOAA20'.
+        data_resolution (str, optional): The data resolution.
+            Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
+        averaging_time (str, optional): The averaging time.
+            Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
 
     Returns:
         xarray.Dataset: The opened dataset.
 
     Raises:
-        ValueError: If the input values are invalid.
+        ValueError: If the input parameters are invalid.
     """
     import pandas as pd
     import s3fs
