@@ -158,7 +158,7 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
 
     Parameters:
         date (str or datetime-like): The date for which to open the dataset.
-        satellite (str): The satellite to retrieve data from. Valid values are 'SNPP', 'NOAA20', or 'both'.
+        satellite (str): The satellite to retrieve data from. Valid values are 'SNPP', or 'NOAA20'.
         data_resolution (str, optional): The data resolution. Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
         averaging_time (str, optional): The averaging time. Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
 
@@ -172,20 +172,18 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
     import s3fs
     import xarray as xr
 
-    try:
-        if satellite not in ("SNPP", "NOAA20"):
-            raise ValueError
-    except ValueError:
-        print('Invalid input for "satellite": Valid values are "SNPP" or "NOAA20"')
-        return
+    if satellite not in {"SNPP", "NOAA20"}:
+        raise ValueError(
+            f'Invalid input for "satellite" {satellite!r}: Valid values are "SNPP" or "NOAA20"'
+        )
 
+    data_resolution_in = data_resolution
     data_resolution = str(data_resolution).ljust(5, "0")
-    try:
-        if data_resolution not in ("0.050", "0.100", "0.250"):
-            raise ValueError
-    except ValueError:
-        print('Invalid input for "data_resolution": Valid values are "0.050", "0.100", or "0.250"')
-        return
+    if data_resolution not in ("0.050", "0.100", "0.250"):
+        raise ValueError(
+            f'Invalid input for "data_resolution" {data_resolution_in!r}: '
+            'Valid values are "0.050", "0.100", or "0.250"'
+        )
 
     if isinstance(date, str):
         date_generated = [pd.Timestamp(date)]
@@ -195,32 +193,26 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
     # Access AWS using anonymous credentials
     fs = s3fs.S3FileSystem(anon=True)
 
-    try:
-        if averaging_time.lower() == "monthly":
-            file_list, _ = create_monthly_aod_list(satellite, date_generated, fs)
-        elif averaging_time.lower() == "weekly":
-            file_list, _ = create_weekly_aod_list(satellite, date_generated, fs)
-        elif averaging_time.lower() == "daily":
-            file_list, _ = create_daily_aod_list(data_resolution, satellite, date_generated, fs)
-        else:
-            raise ValueError
-    except ValueError:
-        print(
-            "Invalid input for 'averaging_time': Valid values are 'daily', 'weekly', or 'monthly'"
+    if averaging_time.lower() == "monthly":
+        file_list, _ = create_monthly_aod_list(satellite, date_generated, fs)
+    elif averaging_time.lower() == "weekly":
+        file_list, _ = create_weekly_aod_list(satellite, date_generated, fs)
+    elif averaging_time.lower() == "daily":
+        file_list, _ = create_daily_aod_list(data_resolution, satellite, date_generated, fs)
+    else:
+        raise ValueError(
+            f"Invalid input for 'averaging_time' {averaging_time!r}: "
+            "Valid values are 'daily', 'weekly', or 'monthly'"
         )
-        return
-    try:
-        if len(file_list) == 0:
-            raise ValueError
-        else:
-            aws_file = fs.open(file_list[0])
-    except ValueError:
-        print("Files not available for product and date:", date_generated[0])
-        return
+
+    if len(file_list) == 0:
+        raise ValueError(f"Files not available for product and date: {date_generated[0]}")
+
+    aws_file = fs.open(file_list[0])
 
     dset = xr.open_dataset(aws_file)
 
-    # add datetime
+    # Add datetime
     dset = dset.expand_dims(time=date_generated)
 
     return dset

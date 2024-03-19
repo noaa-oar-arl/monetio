@@ -26,6 +26,7 @@ def test_open_dataset(sat, res):
 def test_open_dataset_bad_input():
     with pytest.raises(ValueError, match="Invalid input"):
         open_dataset("2020-01-01", satellite="GOES-16")
+        open_dataset("2020-01-01", satellite="both")
 
     with pytest.raises(ValueError, match="Invalid input"):
         open_dataset("2020-01-01", data_resolution=100)
@@ -35,8 +36,5 @@ def test_open_dataset_bad_input():
 
 
 def test_open_dataset_no_data():
-    with (
-        pytest.raises(ValueError, match="Invalid date"),
-        # pytest.warns(UserWarning, match="not available"),
-    ):
+    with pytest.raises(ValueError, match="Files not available"):
         open_dataset("1900-01-01")
