@@ -153,7 +153,7 @@ def create_weekly_aod_list(satellite, date_generated, fs, warning=False):
 
 
 def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="daily"):
-    """Load VIIRS AOD data
+    """Load VIIRS AOD data from AWS
     for the given date, satellite, data resolution, and averaging time.
 
     Parameters:
@@ -162,6 +162,7 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
             Valid values are 'SNPP', or 'NOAA20'.
         data_resolution (str, optional): The data resolution.
             Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
+            Only has an effect when `averaging_time` is 'daily'.
         averaging_time (str, optional): The averaging time.
             Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
 
