@@ -200,11 +200,13 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
     fs = s3fs.S3FileSystem(anon=True)
 
     if averaging_time.lower() == "monthly":
-        file_list, _ = create_monthly_aod_list(satellite, date_generated, fs)
+        file_list, _ = create_monthly_aod_list(satellite, date_generated, fs, warning=False)
     elif averaging_time.lower() == "weekly":
-        file_list, _ = create_weekly_aod_list(satellite, date_generated, fs)
+        file_list, _ = create_weekly_aod_list(satellite, date_generated, fs, warning=False)
     elif averaging_time.lower() == "daily":
-        file_list, _ = create_daily_aod_list(data_resolution, satellite, date_generated, fs)
+        file_list, _ = create_daily_aod_list(
+            data_resolution, satellite, date_generated, fs, warning=False
+        )
     else:
         raise ValueError(
             f"Invalid input for 'averaging_time' {averaging_time!r}: "
