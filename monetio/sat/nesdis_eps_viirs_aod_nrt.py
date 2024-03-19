@@ -60,6 +60,19 @@ def build_urls(dates, *, daily=True, res=0.1, sat="noaa20"):
     return urls, fnames
 
 
+def check_remote_file_exists(file_url):
+    import requests
+
+    r = requests.head(file_url, stream=True, verify=False)
+
+    if r.status_code == 200:
+        _ = next(r.iter_content(10))
+        return True
+    else:
+        print(f"HTTP Error {r.status_code} - {r.reason}")
+        return False
+
+
 def retrieve(url, fname):
     """Download files from the airnowtech S3 server.
 
@@ -91,7 +104,7 @@ def retrieve(url, fname):
         print("\n File Exists: " + fname)
 
 
-def open_dataset(datestr, sat="noaa20", res=0.1, daily=True, add_timestamp=True):
+def open_dataset(datestr, satellite="noaa20", res=0.1, daily=True, add_timestamp=True):
     import pandas as pd
     import xarray as xr
 
@@ -99,19 +112,30 @@ def open_dataset(datestr, sat="noaa20", res=0.1, daily=True, add_timestamp=True)
         d = pd.to_datetime(datestr)
     else:
         d = datestr
-    if sat.lower() == "noaa20":
-        sat = "noaa20"
-    else:
-        sat = "snpp"
+
+    try:
+        if satellite.lower() not in ("noaa20", "snpp"):
+            raise ValueError
+        elif satellite.lower() == "noaa20":
+            sat = "noaa20"
+        else:
+            sat = "snpp"
+    except ValueError:
+        print("Invalid input for 'sat': Valid values are 'noaa20' or 'snpp'")
 
     # if (res != 0.1) or (res != 0.25):
     #    res = 0.1 # assume resolution is 0.1 if wrong value supplied
 
     urls, fnames = build_urls(d, sat=sat, res=res, daily=daily)
-
     url = urls.values[0]
     fname = fnames.values[0]
 
+    try:
+        if check_remote_file_exists(url) is False:
+            raise ValueError
+    except ValueError:
+        print("File does not exist on NOAA HTTPS server.", url)
+        return ValueError
     retrieve(url, fname)
 
     dset = xr.open_dataset(fname)
@@ -123,24 +147,38 @@ def open_dataset(datestr, sat="noaa20", res=0.1, daily=True, add_timestamp=True)
     return dset
 
 
-def open_mfdataset(datestr, sat="noaa20", res=0.1, daily=True, add_timestamp=True):
+def open_mfdataset(dates, satellite="noaa20", res=0.1, daily=True):
     import pandas as pd
     import xarray as xr
 
-    if isinstance(datestr, pd.DatetimeIndex) is False:
+    try:
+        if isinstance(dates, pd.DatetimeIndex):
+            d = dates
+        else:
+            raise TypeError
+    except TypeError:
         print("Please provide a pandas.DatetimeIndex")
-        exit
-    else:
-        d = datestr
+        return
 
-    if sat.lower() == "noaa20":
-        sat = "noaa20"
-    else:
-        sat = "snpp"
+    try:
+        if satellite.lower() not in ("noaa20", "snpp"):
+            raise ValueError
+        elif satellite.lower() == "noaa20":
+            sat = "noaa20"
+        else:
+            sat = "snpp"
+    except ValueError:
+        print("Invalid input for 'sat': Valid values are 'noaa20' or 'snpp'")
 
     urls, fnames = build_urls(d, sat=sat, res=res, daily=daily)
 
     for url, fname in zip(urls, fnames):
+        try:
+            if check_remote_file_exists(url) is False:
+                raise ValueError
+        except ValueError:
+            print("File does not exist on NOAA HTTPS server.", url)
+            return
         retrieve(url, fname)
 
     dset = xr.open_mfdataset(fnames, combine="nested", concat_dim={"time": d})
