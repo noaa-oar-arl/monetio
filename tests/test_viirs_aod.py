@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from monetio.sat.nesdis_viirs_aod_aws_gridded import open_dataset
+from monetio.sat.nesdis_viirs_aod_aws_gridded import open_dataset, open_mfdataset
 
 if sys.version_info < (3, 7):
     pytest.skip("s3fs requires Python 3.7+", allow_module_level=True)
@@ -26,6 +26,8 @@ def test_open_dataset(sat, res):
 def test_open_dataset_bad_input():
     with pytest.raises(ValueError, match="Invalid input"):
         open_dataset("2020-01-01", satellite="GOES-16")
+
+    with pytest.raises(ValueError, match="Invalid input"):
         open_dataset("2020-01-01", satellite="both")
 
     with pytest.raises(ValueError, match="Invalid input"):
@@ -38,3 +40,21 @@ def test_open_dataset_bad_input():
 def test_open_dataset_no_data():
     with pytest.raises(ValueError, match="Files not available"):
         open_dataset("1900-01-01")
+
+
+def test_open_mfdataset_bad_input():
+    cases = [
+        {"satellite": "GOES-16"},
+        # {"satellite": "both"},
+        {"data_resolution": 100},
+        {"averaging_time": "asdf"},
+    ]
+    for case in cases:
+        with pytest.raises(ValueError, match="Invalid input"):
+            open_mfdataset(["2020-01-01"], **case)
+
+
+def test_open_mfdataset():
+    ds = open_mfdataset(["2020-01-01", "2020-01-02"], satellite="both", data_resolution=0.25)
+    assert set(ds.dims) == {"time", "lat", "lon"}
+    assert ds.sizes["time"] == 1

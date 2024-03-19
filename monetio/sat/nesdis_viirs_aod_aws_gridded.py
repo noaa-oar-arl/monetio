@@ -242,60 +242,51 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
     Raises:
         ValueError: If the input parameters are invalid.
     """
+    from collections.abc import Iterable
+
     import pandas as pd
     import s3fs
     import xarray as xr
 
-    try:
-        if satellite not in ("SNPP", "NOAA20"):
-            raise ValueError
-    except ValueError:
-        print('Invalid input for "satellite": Valid values are "SNPP" or "NOAA20"')
+    if satellite not in {"SNPP", "NOAA20", "both"}:
+        raise ValueError(
+            f"Invalid input for 'satellite' {satellite!r}: Valid values are 'SNPP' or 'NOAA20'"
+        )
 
+    data_resolution_in = data_resolution
     data_resolution = str(data_resolution).ljust(5, "0")
-    try:
-        if data_resolution not in ("0.050", "0.100", "0.250"):
-            raise ValueError
-    except ValueError:
-        print('Invalid input for "data_resolution": Valid values are "0.050", "0.100", or "0.250"')
-        return
+    if data_resolution not in {"0.050", "0.100", "0.250"}:
+        raise ValueError(
+            f"Invalid input for 'data_resolution' {data_resolution_in!r}: "
+            "Valid values are '0.050', '0.100', or '0.250'"
+        )
 
-    try:
-        if not isinstance(dates, pd.DatetimeIndex):
-            raise ValueError("Expecting pandas.DatetimeIndex for 'dates' parameter.")
-    except ValueError:
-        print("Invalid input for 'dates': Expecting pandas.DatetimeIndex")
-        return
+    if isinstance(dates, Iterable):
+        dates = pd.DatetimeIndex(dates)
+    else:
+        dates = pd.DatetimeIndex([dates])
 
     # Access AWS using anonymous credentials
     fs = s3fs.S3FileSystem(anon=True)
 
-    try:
-        if averaging_time.lower() == "monthly":
-            file_list, _ = create_monthly_aod_list(satellite, dates, fs)
-        elif averaging_time.lower() == "weekly":
-            file_list, _ = create_weekly_aod_list(satellite, dates, fs)
-        elif averaging_time.lower() == "daily":
-            file_list, _ = create_daily_aod_list(data_resolution, satellite, dates, fs)
-        else:
-            raise ValueError
-    except ValueError:
-        print(
-            "Invalid input for 'averaging_time': Valid values are 'daily', 'weekly', or 'monthly'"
+    if averaging_time.lower() == "monthly":
+        file_list, _ = create_monthly_aod_list(satellite, dates, fs)
+    elif averaging_time.lower() == "weekly":
+        file_list, _ = create_weekly_aod_list(satellite, dates, fs)
+    elif averaging_time.lower() == "daily":
+        file_list, _ = create_daily_aod_list(data_resolution, satellite, dates, fs)
+    else:
+        raise ValueError(
+            f"Invalid input for 'averaging_time' {averaging_time!r}: "
+            "Valid values are 'daily', 'weekly', or 'monthly'"
         )
-        return
 
-    try:
-        if not file_list:
-            raise ValueError
-        aws_files = []
-        for f in file_list:
-            aws_files.append(fs.open(f))
-    except ValueError:
-        print("File not available for product and date")
-        return
+    if len(file_list) == 0:
+        raise ValueError(f"Files not available for product and dates: {dates}")
 
-    dset = xr.open_mfdataset(aws_files, concat_dim={"time": dates}, combine="nested")
+    aws_files = [fs.open(f) for f in file_list]
+
+    dset = xr.open_mfdataset(aws_files, concat_dim="time", combine="nested")
 
     dset["time"] = dates
 
