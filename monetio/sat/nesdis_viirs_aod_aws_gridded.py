@@ -162,9 +162,10 @@ def open_dataset(date, satellite="SNPP", data_resolution=0.1, averaging_time="da
             NOAA20 has data from 2018-01-01 to 2020-12-31.
         satellite (str): The satellite to retrieve data from.
             Valid values are 'SNPP' or 'NOAA20'.
-        data_resolution (str, optional): The data resolution.
-            Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
+        data_resolution (float or str, optional): The data resolution.
+            Valid values are '0.050', '0.100', or '0.250'. Defaults to 0.1°.
             Only has an effect when `averaging_time` is 'daily'.
+            For 'weekly' and 'monthly' data, the resolution is always 0.25.
         averaging_time (str, optional): The averaging time.
             Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
 
@@ -230,11 +231,16 @@ def open_mfdataset(dates, satellite="SNPP", data_resolution=0.1, averaging_time=
 
     Parameters:
         dates (pandas.DatetimeIndex): The dates for which to retrieve the data.
-        satellite (str): The satellite name. Valid values are 'SNPP' or 'NOAA20'.
-        data_resolution (str, optional): The data resolution. Valid values are '0.050', '0.100', or '0.250'. Defaults to '0.1'.
-        averaging_time (str, optional): The averaging time. Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
-        download (bool, optional): Whether to download the data from AWS. Defaults to False.
-        save_path (str, optional): The path to save the downloaded data. Defaults to './'.
+            SNPP has data from 2012-01-19 to 2020-12-31.
+            NOAA20 has data from 2018-01-01 to 2020-12-31.
+        satellite (str): The satellite name.
+            Valid values are 'SNPP' or 'NOAA20'.
+        data_resolution (float or str, optional): The data resolution.
+            Valid values are '0.050', '0.100', or '0.250'. Defaults to 0.1°.
+            Only has an effect when `averaging_time` is 'daily'.
+            For 'weekly' and 'monthly' data, the resolution is always 0.25.
+        averaging_time (str, optional): The averaging time.
+            Valid values are 'daily', 'weekly', or 'monthly'. Defaults to 'daily'.
 
     Returns:
         xarray.Dataset: The combined dataset containing the data for the specified dates.
