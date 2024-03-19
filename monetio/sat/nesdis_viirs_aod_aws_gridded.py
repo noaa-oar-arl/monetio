@@ -103,7 +103,7 @@ def create_monthly_aod_list(satellite, date_generated, fs, warning=False):
                 else:
                     raise ValueError("File does not exist on AWS: " + prod_path + file_name)
             except ValueError:
-                print("A error has occured:")
+                print("A error has occurred:")
 
     return nodd_file_list, nodd_total_size
 
