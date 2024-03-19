@@ -1,5 +1,6 @@
 import sys
 
+import pandas as pd
 import pytest
 
 from monetio.sat.nesdis_viirs_aod_aws_gridded import open_dataset, open_mfdataset
@@ -21,6 +22,7 @@ def test_open_dataset(sat, res):
     assert ds.sizes["lon"] == int(360 / res)
     assert ds.attrs["satellite_name"] == ("NPP" if sat == "SNPP" else "NOAA 20")
     assert ds.attrs["spatial_resolution"].strip().startswith(str(res))
+    assert (ds.time == pd.DatetimeIndex([date])).all()
 
 
 def test_open_dataset_bad_input():
@@ -55,6 +57,8 @@ def test_open_mfdataset_bad_input():
 
 
 def test_open_mfdataset():
-    ds = open_mfdataset(["2020-01-01", "2020-01-02"], satellite="both", data_resolution=0.25)
+    ds = open_mfdataset(["2020-01-01", "2020-01-02"], satellite="SNPP", data_resolution=0.25)
     assert set(ds.dims) == {"time", "lat", "lon"}
-    assert ds.sizes["time"] == 1
+    assert ds.sizes["time"] == 2
+    assert ds.attrs["spatial_resolution"].strip().startswith("0.25")
+    assert (ds.time == pd.DatetimeIndex(["2020-01-01", "2020-01-02"])).all()
