@@ -15,6 +15,7 @@ dependencies:
   - xarray
   #
   # optional
+  - h5netcdf
   - joblib
   - lxml
   - pyhdf <0.11
