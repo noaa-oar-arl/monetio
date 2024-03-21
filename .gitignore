@@ -4,7 +4,7 @@
 ._.DS_Store
 
 docs/api/
-
+tests/data/MOP*.he5
 
 # Default GitHub .gitignore for Python below:
 
