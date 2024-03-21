@@ -11,21 +11,15 @@ def build_urls(dates, *, filetype="mmc", data_var="dustaod550"):
     ----------
     dates : pd.DatetimeIndex or iterable of datetime
         Dates to download data for.
-    filetype : str, optional
+    filetype : {'mmc', 'c4'}, optional
         mmc or c4
-    res : float, optional
-        Resolution of data in km, only used for sub-daily data.
-    sat : str, optional
-        variable
+    data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
+        'smokeaod550', 'totaldustaod550'}, optional
 
     Returns
     -------
-    pd.Series
-        Series with URLs and corresponding file names.
-
-    Notes
-    -----
-    The `res` and `sat` parameters are only used for sub-daily data.
+    urls : pd.Series
+    fnames : pd.Series
     """
 
     from collections.abc import Iterable
@@ -71,19 +65,16 @@ def check_remote_file_exists(file_url):
 
 
 def retrieve(url, fname):
-    """Download files from the airnowtech S3 server.
+    """Download the file at `url` to path `fname` if it doesn't exist.
 
     Parameters
     ----------
-    url : string
-        Description of parameter `url`.
-    fname : string
-        Description of parameter `fname`.
+    url : str
+    fname : str or path-like
 
     Returns
     -------
     None
-
     """
     import os
 
@@ -105,9 +96,17 @@ def open_dataset(date, product="mmc", data_var="modeaod550"):
     """
     Parameters
     ----------
-    datestr : str or datetime-like
+    date : str or datetime-like
         The date for which to open the dataset.
         2022-10-29 to current is available.
+    product : {'mmc', 'c4'}, optional
+        mmc or c4
+    data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
+        'smokeaod550', 'totaldustaod550'}, optional
+
+    Returns
+    -------
+    xarray.Dataset
     """
     import pandas as pd
     import xarray as xr
@@ -135,7 +134,8 @@ def open_dataset(date, product="mmc", data_var="modeaod550"):
             raise ValueError
     except ValueError:
         print(
-            "Invalid input for 'data_var': Valid values are 'modeaod550' 'dustaod550' 'pm' 'seasaltaod550' 'smokeaod550' 'totaldustaod550'"
+            "Invalid input for 'data_var': Valid values are "
+            "'modeaod550' 'dustaod550' 'pm' 'seasaltaod550' 'smokeaod550' 'totaldustaod550'"
         )
 
     urls, fnames = build_urls(d, filetype=product, data_var=data_var)
@@ -160,9 +160,17 @@ def open_mfdataset(dates, product="mmc", data_var="modeaod550"):
     """
     Parameters
     ----------
-    datestr : str or datetime-like
-        The date for which to open the dataset.
+    dates : str or datetime-like
+        The dates for which to open the dataset.
         2022-10-29 to current is available.
+    product : {'mmc', 'c4'}, optional
+        mmc or c4
+    data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
+        'smokeaod550', 'totaldustaod550'}, optional
+
+    Returns
+    -------
+    xarray.Dataset
     """
     import pandas as pd
     import xarray as xr
@@ -194,7 +202,8 @@ def open_mfdataset(dates, product="mmc", data_var="modeaod550"):
             raise ValueError
     except ValueError:
         print(
-            "Invalid input for 'data_var': Valid values are 'modeaod550' 'dustaod550' 'pm' 'seasaltaod550' 'smokeaod550' 'totaldustaod550'"
+            "Invalid input for 'data_var': Valid values are "
+            "'modeaod550' 'dustaod550' 'pm' 'seasaltaod550' 'smokeaod550' 'totaldustaod550'"
         )
 
     urls, fnames = build_urls(d, filetype=product, data_var=data_var)
