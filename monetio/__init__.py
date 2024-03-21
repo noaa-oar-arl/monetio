@@ -49,6 +49,7 @@ __all__ = [
     "pardump",
     "prepchem",
     "raqms",
+    "icap_mme",
 ]
 
 

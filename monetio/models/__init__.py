@@ -9,6 +9,7 @@ from . import (
     fv3chem,
     hysplit,
     hytraj,
+    icap_mme,
     ncep_grib,
     pardump,
     prepchem,
@@ -30,6 +31,7 @@ __all__ = [
     "prepchem",
     "pardump",
     "raqms",
+    "icap_mme",
 ]
 
 __name__ = "models"
