@@ -19,6 +19,8 @@ def build_urls(dates, *, filetype="MMC", data_var="dustaod550"):
     dates : pd.DatetimeIndex or iterable of datetime
         Dates to download data for.
     filetype : {'MMC', 'C4', 'MME'}, optional
+        The first MME date is 2014-11-28, and the last 2022-09-11.
+        The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
 
@@ -116,6 +118,8 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
         The date for which to open the dataset.
         2022-10-29 to current is available.
     product : {'MMC', 'C4', 'MME'}, optional
+        The first MME date is 2014-11-28, and the last 2022-09-11.
+        The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
     download : bool, optional
@@ -163,6 +167,8 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
         The dates for which to open the dataset.
         2022-10-29 to current is available.
     product : {'MMC', 'C4', 'MME'}, optional
+        The first MME date is 2014-11-28, and the last 2022-09-11.
+        The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
     download : bool, optional
