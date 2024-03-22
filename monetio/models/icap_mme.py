@@ -15,11 +15,11 @@ the following aerosol forecast systems:
 - JMA MASINGAR
 - NASA GEOS-5
 - NRL NAAPS
-- NOAA NGAC
+- NOAA GEFS-Aerosols (previously NGAC)
 - Météo‐France MOCAGE
 - FMI SILAM
 
-The C4C product is a core four multi-model consensus product,
+The C4C product is a "core four multi-model consensus product",
 including members that use MODIS total AOD in assimilation.
 
 - ECMWF CAMS
