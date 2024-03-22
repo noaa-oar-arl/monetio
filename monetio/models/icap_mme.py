@@ -16,7 +16,7 @@ def build_urls(dates, *, filetype="MMC", data_var="dustaod550", verbose=True):
 
     Parameters
     ----------
-    dates : pd.DatetimeIndex or iterable of datetime
+    dates : datetime-like or iterable of datetime-like
         Dates to download data for.
     filetype : {'MMC', 'C4', 'MME'}, optional
         The first MME date is 2014-11-28, and the last 2022-09-11.
@@ -69,8 +69,9 @@ def check_remote_file_exists(file_url):
         return False
 
 
-def retrieve(url, fname, *, download=False, stream=True, verbose=True):
-    """Download the file at `url` to path `fname` if it doesn't exist.
+def retrieve(url, fname, *, download=False, verbose=True):
+    """Return BytesIO of the file at `url` or
+    download it to path `fname` if it doesn't exist.
 
     Parameters
     ----------
@@ -94,14 +95,14 @@ def retrieve(url, fname, *, download=False, stream=True, verbose=True):
     p = Path(fname).absolute()
 
     if not download:
-        r = requests.get(url, stream=stream)
+        r = requests.get(url, stream=True)
         r.raise_for_status()
         return BytesIO(r.content)
     else:
         if not p.is_file():
             if verbose:
                 print(f"Downloading {url} to {p.as_posix()}")
-            r = requests.get(url, stream=stream)
+            r = requests.get(url, stream=True)
             r.raise_for_status()
             with open(p, "wb") as f:
                 f.write(r.content)
@@ -116,7 +117,8 @@ def _check_file_url(url):
     Raises
     ------
     ValueError
-        If the file URL HEAD request doesn't return 200.
+        If the file URL HEAD request doesn't return 200,
+        with info about how to check available products / data vars for the date.
     """
     if not check_remote_file_exists(url):
         raise ValueError(
@@ -126,7 +128,7 @@ def _check_file_url(url):
         )
 
 
-def open_dataset(date, product="MMC", data_var="modeaod550", download=False, verbose=True):
+def open_dataset(date, product="MMC", data_var="dustaod550", download=False, verbose=True):
     """
     Parameters
     ----------
@@ -176,11 +178,11 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False, ver
     return dset
 
 
-def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False, verbose=True):
+def open_mfdataset(dates, product="MMC", data_var="dustaod550", download=False, verbose=True):
     """
     Parameters
     ----------
-    dates : str or datetime-like
+    dates : iterable of datetime-like
         The dates for which to open the dataset.
         2022-10-29 to current is available.
     product : {'MMC', 'C4', 'MME'}, optional
@@ -207,10 +209,7 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False, 
     import pandas as pd
     import xarray as xr
 
-    if isinstance(dates, pd.DatetimeIndex):
-        d = dates
-    else:
-        raise TypeError(f"Please provide a pandas.DatetimeIndex. Got {type(dates)}.")
+    d = pd.DatetimeIndex(dates)
 
     if product.upper() not in valid_filetypes:
         raise ValueError(f"Invalid input for 'product': Valid values are {valid_filetypes}.")
@@ -221,8 +220,8 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False, 
     urls, fnames = build_urls(d, filetype=product, data_var=data_var, verbose=verbose)
 
     if download is True:
+        paths = []
         for url, fname in zip(urls, fnames):
-            paths = []
             _check_file_url(url)
             paths.append(retrieve(url, fname, download=True, verbose=verbose))
         dset = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
