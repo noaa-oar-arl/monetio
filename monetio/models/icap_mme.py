@@ -119,7 +119,7 @@ def retrieve(url, fname, *, download=False, verbose=True):
 
     Returns
     -------
-    pathlib.Path or io.BytesIO
+    io.BytesIO or pathlib.Path
         The requested netCDF file.
     """
     from io import BytesIO
@@ -175,15 +175,20 @@ def open_dataset(date, product="MMC", data_var="dustaod550", *, download=False, 
         The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
-        Note that Which data variables are available
+        Note that which data variables are available
         depends on the `product` selection and the date.
     download : bool, optional
         If True, use files on disk, downloading if necessary.
-        If False, load from memory.
+        If False, download and load dataset in memory.
 
     Returns
     -------
     xarray.Dataset
+
+    Raises
+    ------
+    ValueError
+        If input parameters are invalid or a file does not exist on the server.
     """
     import pandas as pd
     import xarray as xr
@@ -225,11 +230,11 @@ def open_mfdataset(dates, product="MMC", data_var="dustaod550", *, download=Fals
         The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
-        Note that Which data variables are available
+        Note that which data variables are available
         depends on the `product` selection and the date.
     download : bool, optional
         If True, use files on disk, downloading if necessary.
-        If False, load from memory.
+        If False, download and load dataset in memory.
         In this case, the files are fully loaded instead of being opened lazily.
 
     Returns
