@@ -210,6 +210,11 @@ def open_dataset(date, product="MMC", data_var="dustaod550", *, download=False, 
 
 def open_mfdataset(dates, product="MMC", data_var="dustaod550", *, download=False, verbose=True):
     """
+    .. note::
+       Depending on the selected product/variable and the provided dates,
+       the result may have overlapping times.
+       You may wish to apply ``.drop_duplicates("time", keep="last")``.
+
     Parameters
     ----------
     dates : iterable of datetime-like
