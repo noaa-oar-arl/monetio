@@ -57,7 +57,7 @@ def build_urls(dates, *, filetype="MMC", data_var="dustaod550"):
 def check_remote_file_exists(file_url):
     import requests
 
-    r = requests.head(file_url, stream=True, verify=False)
+    r = requests.head(file_url, verify=False)
 
     if r.status_code == 200:
         return True
@@ -66,7 +66,7 @@ def check_remote_file_exists(file_url):
         return False
 
 
-def retrieve(url, fname):
+def retrieve(url, fname, download=False):
     """Download the file at `url` to path `fname` if it doesn't exist.
 
     Parameters
@@ -82,19 +82,26 @@ def retrieve(url, fname):
 
     import requests
 
-    if not os.path.isfile(fname):
-        print("\n Retrieving: " + fname)
-        print(url)
-        print("\n")
-        r = requests.get(url)
+    if download is False:
+        r = requests.get(url, stream=True)
         r.raise_for_status()
-        with open(fname, "wb") as f:
-            f.write(r.content)
+        return r
+    if not os.path.isfile(fname):
+        r = requests.get(url, stream=True)
+        r.raise_for_status()
+        if download is True:
+            print("\n Retrieving: " + fname)
+            print(url)
+            print("\n")
+            with open(fname, "wb") as f:
+                f.write(r.content)
+        else:
+            return r
     else:
         print("\n File Exists: " + fname)
 
 
-def open_dataset(date, product="MMC", data_var="modeaod550"):
+def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
     """
     Parameters
     ----------
@@ -109,6 +116,8 @@ def open_dataset(date, product="MMC", data_var="modeaod550"):
     -------
     xarray.Dataset
     """
+    import io
+
     import pandas as pd
     import xarray as xr
 
@@ -126,18 +135,19 @@ def open_dataset(date, product="MMC", data_var="modeaod550"):
     urls, fnames = build_urls(d, filetype=product, data_var=data_var)
     url = urls.values[0]
     fname = fnames.values[0]
-    print(url)
-    print(fname)
     if check_remote_file_exists(url) is False:
         raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
-    retrieve(url, fname)
-
-    dset = xr.open_dataset(fname)
+    if download is True:
+        retrieve(url, fname, download=True)
+        dset = xr.open_dataset(fname)
+    else:
+        r = retrieve(url, fname, download=False)
+        dset = xr.open_dataset(io.BytesIO(r.content))
 
     return dset
 
 
-def open_mfdataset(dates, product="MMC", data_var="modeaod550"):
+def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
     """
     Parameters
     ----------
@@ -157,6 +167,8 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550"):
     ValueError
         If input parameters are invalid or a file does not exist on the server.
     """
+    import io
+
     import pandas as pd
     import xarray as xr
 
@@ -172,15 +184,20 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550"):
         raise ValueError(f"Invalid input for 'data_var': Valid values are {valid_data_vars}.")
 
     urls, fnames = build_urls(d, filetype=product, data_var=data_var)
-    url = urls.values[0]
-    fname = fnames.values[0]
 
-    for url, fname in zip(urls, fnames):
-        if check_remote_file_exists(url) is False:
-            raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
-        retrieve(url, fname)
-
-    dset = xr.open_mfdataset(fnames, combine="nested", concat_dim="time")
-    # dset["time"] = d
+    if download is True:
+        for url, fname in zip(urls, fnames):
+            if check_remote_file_exists(url) is False:
+                raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
+            retrieve(url, fname, download=True)
+        dset = xr.open_mfdataset(fnames, combine="nested", concat_dim="time")
+    else:
+        dsets = []
+        for url, fname in zip(urls, fnames):
+            if check_remote_file_exists(url) is False:
+                raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
+            r = retrieve(url, fname, download=False)
+            dsets.append(xr.open_dataset(io.BytesIO(r.content)))
+        dset = xr.concat(dsets, dim="time")
 
     return dset
