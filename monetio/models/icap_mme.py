@@ -1,8 +1,5 @@
 import pandas as pd
 
-server = "ftp.star.nesdis.noaa.gov"
-base_dir = "/pub/smcd/VIIRS_Aerosol/npp.viirs.aerosol.data/epsaot550/"
-
 valid_filetypes = ("MMC", "C4", "MME")
 valid_data_vars = (
     "modeaod550",
