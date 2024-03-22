@@ -122,6 +122,8 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
         The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
+        Note that Which data variables are available
+        depends on the `product` selection and the date.
     download : bool, optional
         If True, use files on disk, downloading if necessary.
         If False, load from memory.
@@ -171,6 +173,8 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
         The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
+        Note that Which data variables are available
+        depends on the `product` selection and the date.
     download : bool, optional
         If True, use files on disk, downloading if necessary.
         If False, load from memory.
