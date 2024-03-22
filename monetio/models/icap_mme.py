@@ -110,6 +110,21 @@ def retrieve(url, fname, *, download=False, stream=True, verbose=True):
         return p
 
 
+def _check_file_url(url):
+    """
+    Raises
+    ------
+    ValueError
+        If the file URL HEAD request doesn't return 200.
+    """
+    if not check_remote_file_exists(url):
+        raise ValueError(
+            f"File does not exist on ICAP HTTPS server: {url}. "
+            f"Check {url[:url.index('icap_')]} to see the available "
+            "`product` and `data_var`s for this month."
+        )
+
+
 def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
     """
     Parameters
@@ -149,8 +164,7 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
     urls, fnames = build_urls(d, filetype=product, data_var=data_var)
     url = urls.values[0]
     fname = fnames.values[0]
-    if check_remote_file_exists(url) is False:
-        raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
+    _check_file_url(url)
     if download is True:
         p = retrieve(url, fname, download=True)
         dset = xr.open_dataset(p)
@@ -208,15 +222,13 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
     if download is True:
         for url, fname in zip(urls, fnames):
             paths = []
-            if check_remote_file_exists(url) is False:
-                raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
+            _check_file_url(url)
             paths.append(retrieve(url, fname, download=True))
         dset = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
     else:
         dsets = []
         for url, fname in zip(urls, fnames):
-            if check_remote_file_exists(url) is False:
-                raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
+            _check_file_url(url)
             o = retrieve(url, fname, download=False)
             dsets.append(xr.open_dataset(o))
         dset = xr.concat(dsets, dim="time")
