@@ -1,3 +1,37 @@
+"""
+ICAP-MME
+
+"`ICAP <https://aero.und.edu/atmos/icap/index.html>`__
+(International Cooperative for Aerosol Prediction)
+is an international forum for aerosol forecast centres,
+remote sensing data providers and lead system developers
+to share best practices and discuss pressing issues
+facing the operational aerosol community."
+
+The ICAP multi-model ensemble (ICAP-MME) is constructed from
+the following aerosol forecast systems:
+
+- ECMWF CAMS
+- JMA MASINGAR
+- NASA GEOS-5
+- NRL NAAPS
+- NOAA NGAC
+- Météo‐France MOCAGE
+- FMI SILAM
+
+The C4C product is a core four multi-model consensus product,
+including members that use MODIS total AOD in assimilation.
+
+- ECMWF CAMS
+- JMA MASINGAR
+- NASA GEOS-5
+- NRL NAAPS
+
+The data is 6-hourly, each file including multiple time steps (e.g. 21 or 25).
+
+Online visualizer: https://usgodae.org/metools/ensemble/
+"""
+
 import pandas as pd
 
 valid_filetypes = ("MMC", "C4", "MME")
