@@ -13,18 +13,20 @@ the following aerosol forecast systems:
 
 - ECMWF CAMS
 - JMA MASINGAR
-- NASA GEOS-5
+- NASA GEOS
 - NRL NAAPS
-- NOAA GEFS-Aerosols (previously NGAC)
+- NOAA GEFS-Aerosols (NGAC before 2022-09)
 - Météo‐France MOCAGE
 - FMI SILAM
+- UKMO dust forecast (Unified Model)
+- BSC MONARCH
 
 The C4C product is a "core four multi-model consensus product",
-including members that use MODIS total AOD in assimilation.
+including members that use MODIS and other observational total AOD in assimilation:
 
 - ECMWF CAMS
 - JMA MASINGAR
-- NASA GEOS-5
+- NASA GEOS
 - NRL NAAPS
 
 The data is 6-hourly, each file including multiple time steps (e.g. 21 or 25).
