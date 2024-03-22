@@ -11,7 +11,7 @@ valid_data_vars = (
 )
 
 
-def build_urls(dates, *, filetype="MMC", data_var="dustaod550"):
+def build_urls(dates, *, filetype="MMC", data_var="dustaod550", verbose=True):
     """Construct URLs for downloading NEPS data.
 
     Parameters
@@ -39,7 +39,8 @@ def build_urls(dates, *, filetype="MMC", data_var="dustaod550"):
 
     urls = []
     fnames = []
-    print("Building ICAP-MME URLs...")
+    if verbose:
+        print("Building ICAP-MME URLs...")
     base_url = "https://usgodae.org/ftp/outgoing/nrl/ICAP-MME/"
 
     for dt in dates:
@@ -125,7 +126,7 @@ def _check_file_url(url):
         )
 
 
-def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
+def open_dataset(date, product="MMC", data_var="modeaod550", download=False, verbose=True):
     """
     Parameters
     ----------
@@ -161,21 +162,21 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
     if data_var.lower() not in valid_data_vars:
         raise ValueError(f"Invalid input for 'data_var': Valid values are {valid_data_vars}.")
 
-    urls, fnames = build_urls(d, filetype=product, data_var=data_var)
+    urls, fnames = build_urls(d, filetype=product, data_var=data_var, verbose=verbose)
     url = urls.values[0]
     fname = fnames.values[0]
     _check_file_url(url)
     if download is True:
-        p = retrieve(url, fname, download=True)
+        p = retrieve(url, fname, download=True, verbose=verbose)
         dset = xr.open_dataset(p)
     else:
-        o = retrieve(url, fname, download=False)
+        o = retrieve(url, fname, download=False, verbose=verbose)
         dset = xr.open_dataset(o)
 
     return dset
 
 
-def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
+def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False, verbose=True):
     """
     Parameters
     ----------
@@ -217,19 +218,19 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
     if data_var.lower() not in valid_data_vars:
         raise ValueError(f"Invalid input for 'data_var': Valid values are {valid_data_vars}.")
 
-    urls, fnames = build_urls(d, filetype=product, data_var=data_var)
+    urls, fnames = build_urls(d, filetype=product, data_var=data_var, verbose=verbose)
 
     if download is True:
         for url, fname in zip(urls, fnames):
             paths = []
             _check_file_url(url)
-            paths.append(retrieve(url, fname, download=True))
+            paths.append(retrieve(url, fname, download=True, verbose=verbose))
         dset = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
     else:
         dsets = []
         for url, fname in zip(urls, fnames):
             _check_file_url(url)
-            o = retrieve(url, fname, download=False)
+            o = retrieve(url, fname, download=False, verbose=verbose)
             dsets.append(xr.open_dataset(o))
         dset = xr.concat(dsets, dim="time")
 
