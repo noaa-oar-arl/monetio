@@ -66,39 +66,46 @@ def check_remote_file_exists(file_url):
         return False
 
 
-def retrieve(url, fname, download=False):
+def retrieve(url, fname, *, download=False, stream=True, verbose=True):
     """Download the file at `url` to path `fname` if it doesn't exist.
 
     Parameters
     ----------
     url : str
     fname : str or path-like
+    download : bool, optional
+        If True, download the file (if it doesn't already exist)
+        and return ``pathlib.Path``.
+        Otherwise, return ``io.BytesIO`` of the file in memory.
 
     Returns
     -------
-    None
+    pathlib.Path or io.BytesIO
+        The requested netCDF file.
     """
-    import os
+    from io import BytesIO
+    from pathlib import Path
 
     import requests
 
-    if download is False:
-        r = requests.get(url, stream=True)
+    p = Path(fname).absolute()
+
+    if not download:
+        r = requests.get(url, stream=stream)
         r.raise_for_status()
-        return r
-    if not os.path.isfile(fname):
-        r = requests.get(url, stream=True)
-        r.raise_for_status()
-        if download is True:
-            print("\n Retrieving: " + fname)
-            print(url)
-            print("\n")
-            with open(fname, "wb") as f:
+        return BytesIO(r.content)
+    else:
+        if not p.is_file():
+            if verbose:
+                print(f"Downloading {url} to {p.as_posix()}")
+            r = requests.get(url, stream=stream)
+            r.raise_for_status()
+            with open(p, "wb") as f:
                 f.write(r.content)
         else:
-            return r
-    else:
-        print("\n File Exists: " + fname)
+            if verbose:
+                print(f"File Exists: {p.as_posix()}")
+        return p
 
 
 def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
@@ -111,13 +118,14 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
     product : {'MMC', 'C4', 'MME'}, optional
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
+    download : bool, optional
+        If True, use files on disk, downloading if necessary.
+        If False, load from memory.
 
     Returns
     -------
     xarray.Dataset
     """
-    import io
-
     import pandas as pd
     import xarray as xr
 
@@ -138,11 +146,11 @@ def open_dataset(date, product="MMC", data_var="modeaod550", download=False):
     if check_remote_file_exists(url) is False:
         raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
     if download is True:
-        retrieve(url, fname, download=True)
-        dset = xr.open_dataset(fname)
+        p = retrieve(url, fname, download=True)
+        dset = xr.open_dataset(p)
     else:
-        r = retrieve(url, fname, download=False)
-        dset = xr.open_dataset(io.BytesIO(r.content))
+        o = retrieve(url, fname, download=False)
+        dset = xr.open_dataset(o)
 
     return dset
 
@@ -157,6 +165,10 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
     product : {'MMC', 'C4', 'MME'}, optional
     data_var : {'modeaod550', 'dustaod550', 'pm', 'seasaltaod550', \
         'smokeaod550', 'totaldustaod550'}, optional
+    download : bool, optional
+        If True, use files on disk, downloading if necessary.
+        If False, load from memory.
+        In this case, the files are fully loaded instead of being opened lazily.
 
     Returns
     -------
@@ -167,8 +179,6 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
     ValueError
         If input parameters are invalid or a file does not exist on the server.
     """
-    import io
-
     import pandas as pd
     import xarray as xr
 
@@ -187,17 +197,18 @@ def open_mfdataset(dates, product="MMC", data_var="modeaod550", download=False):
 
     if download is True:
         for url, fname in zip(urls, fnames):
+            paths = []
             if check_remote_file_exists(url) is False:
                 raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
-            retrieve(url, fname, download=True)
-        dset = xr.open_mfdataset(fnames, combine="nested", concat_dim="time")
+            paths.append(retrieve(url, fname, download=True))
+        dset = xr.open_mfdataset(paths, combine="nested", concat_dim="time")
     else:
         dsets = []
         for url, fname in zip(urls, fnames):
             if check_remote_file_exists(url) is False:
                 raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
-            r = retrieve(url, fname, download=False)
-            dsets.append(xr.open_dataset(io.BytesIO(r.content)))
+            o = retrieve(url, fname, download=False)
+            dsets.append(xr.open_dataset(o))
         dset = xr.concat(dsets, dim="time")
 
     return dset
