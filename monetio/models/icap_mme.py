@@ -60,7 +60,7 @@ def build_urls(dates, *, filetype="MMC", data_var="dustaod550", verbose=True):
 def check_remote_file_exists(file_url):
     import requests
 
-    r = requests.head(file_url, verify=False)
+    r = requests.head(file_url)
 
     if r.status_code == 200:
         return True
