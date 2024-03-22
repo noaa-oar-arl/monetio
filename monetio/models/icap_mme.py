@@ -168,12 +168,7 @@ def open_dataset(date, product="MMC", data_var="dustaod550", download=False, ver
     url = urls.values[0]
     fname = fnames.values[0]
     _check_file_url(url)
-    if download is True:
-        p = retrieve(url, fname, download=True, verbose=verbose)
-        dset = xr.open_dataset(p)
-    else:
-        o = retrieve(url, fname, download=False, verbose=verbose)
-        dset = xr.open_dataset(o)
+    dset = xr.open_dataset(retrieve(url, fname, download=download, verbose=verbose))
 
     return dset
 
