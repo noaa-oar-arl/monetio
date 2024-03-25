@@ -27,11 +27,11 @@ __all__ = [
     "fv3chem",
     "hysplit",
     "hytraj",
-    "ncep_grib",
-    "prepchem",
-    "pardump",
-    "raqms",
     "icap_mme",
+    "ncep_grib",
+    "pardump",
+    "prepchem",
+    "raqms",
 ]
 
 __name__ = "models"
