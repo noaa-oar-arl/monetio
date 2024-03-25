@@ -32,6 +32,8 @@ including members that use MODIS and other observational total AOD in assimilati
 The data is 6-hourly, each file including multiple time steps (e.g. 21 or 25).
 
 Online visualizer: https://usgodae.org/metools/ensemble/
+
+The files are loaded from: https://usgodae.org/ftp/outgoing/nrl/ICAP-MME/
 """
 
 import pandas as pd
@@ -93,7 +95,7 @@ def build_urls(dates, filetype="MMC", data_var="dustaod550", *, verbose=True):
     return urls, fnames
 
 
-def check_remote_file_exists(file_url, *, verbose=True):
+def remote_file_exists(file_url, *, verbose=True):
     import requests
 
     r = requests.head(file_url)
@@ -157,7 +159,7 @@ def _check_file_url(url, *, verbose=True):
         If the file URL HEAD request doesn't return 200,
         with info about how to check available products / data vars for the date.
     """
-    if not check_remote_file_exists(url, verbose=verbose):
+    if not remote_file_exists(url, verbose=verbose):
         raise ValueError(
             f"File does not exist on ICAP HTTPS server: {url}. "
             f"Check {url[:url.index('icap_')]} to see the available "
@@ -171,7 +173,6 @@ def open_dataset(date, product="MMC", data_var="dustaod550", *, download=False, 
     ----------
     date : str or datetime-like
         The date for which to open the dataset.
-        2022-10-29 to current is available.
     product : {'MMC', 'C4', 'MME'}, optional
         The first MME date is 2014-11-28, and the last 2022-09-11.
         The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
@@ -226,7 +227,6 @@ def open_mfdataset(dates, product="MMC", data_var="dustaod550", *, download=Fals
     ----------
     dates : iterable of datetime-like
         The dates for which to open the dataset.
-        2022-10-29 to current is available.
     product : {'MMC', 'C4', 'MME'}, optional
         The first MME date is 2014-11-28, and the last 2022-09-11.
         The first non-MME (C4 and MMC) is 2022-09-01, and these continue to the present.
