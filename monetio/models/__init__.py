@@ -9,6 +9,7 @@ from . import (
     fv3chem,
     hysplit,
     hytraj,
+    icap_mme,
     ncep_grib,
     pardump,
     prepchem,
@@ -26,9 +27,10 @@ __all__ = [
     "fv3chem",
     "hysplit",
     "hytraj",
+    "icap_mme",
     "ncep_grib",
-    "prepchem",
     "pardump",
+    "prepchem",
     "raqms",
 ]
 
