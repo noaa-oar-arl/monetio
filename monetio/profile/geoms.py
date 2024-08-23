@@ -110,7 +110,7 @@ def open_dataset(fp, *, rename_all=True, squeeze=True):
         n = ds[ref].size
         time_dims = [
             dim_name
-            for dim_name, dim_size in ds.dims.items()
+            for dim_name, dim_size in ds.sizes.items()
             if dim_name.startswith("fakeDim") and dim_size == n
         ]
         ds = ds.rename_dims({dim_name: new_dim for dim_name in time_dims})

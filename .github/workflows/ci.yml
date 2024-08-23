@@ -44,7 +44,7 @@ jobs:
             attrs=22.2.0
 
       - name: Test with pytest
-        run: pytest -n auto -v
+        run: pytest -n auto -v -W "ignore:Downloading test file:UserWarning::"
 
       - name: Test with pytspack installed
         run: |

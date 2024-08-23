@@ -590,7 +590,7 @@ class AERONET:
     #     df_aod_nu = a.dropna()
     #     df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
     #     if len(df_aod_nu_sorted) < 2:
-    #         return xi * np.NaN
+    #         return xi * np.nan
     #     else:
     #         x, y, yp, sigma = pytspack.tspsi(
     #             df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values

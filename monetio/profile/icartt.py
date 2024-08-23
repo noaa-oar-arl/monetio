@@ -422,13 +422,13 @@ class Dataset:
         self.input_fhandle.close()
 
     def __nan_miss_float(self, raw):
-        # vals = [x.replace(self.VAR[i].miss, 'NaN')  for i, x in enumerate(raw)]
-        # s = pd.Series(vals).str.replace('NaN.0','NaN')
-        # s = s.str.replace('NaN0','NaN')
+        # vals = [x.replace(self.VAR[i].miss, 'nan')  for i, x in enumerate(raw)]
+        # s = pd.Series(vals).str.replace('NaN.0','nan')
+        # s = s.str.replace('NaN0','nan')
         # s = s.str.strip().astype(float)
         # return s.values.tolist()
         # return [
-        #     float(x.replace(self.VAR[i].miss, 'NaN').replace('NaN.0','NaN').replace('NaN0','NaN').strip())
+        #     float(x.replace(self.VAR[i].miss, 'nan').replace('NaN.0','nan').replace('NaN0','nan').strip())
         #     for i, x in enumerate(raw)
         # ]
         vals = []
