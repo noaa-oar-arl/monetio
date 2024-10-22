@@ -48,6 +48,8 @@ Profile observations
 
 .. automodule:: monetio.geoms
 
+.. currentmodule:: None
+
 .. autosummary::
 
    monetio.geoms.open_dataset
