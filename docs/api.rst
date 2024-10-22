@@ -2,6 +2,10 @@
 API
 ===
 
+.. module:: monetio
+
+.. currentmodule:: None
+
 .. contents::
    :depth: 3
    :local:
