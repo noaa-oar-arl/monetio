@@ -245,15 +245,15 @@ def _ioapi_grid_from_dataset(ds, earth_radius=6370000):
             "+x_0=0 +y_0=0 +datum=WGS84 +units=m +a={r} +b={r}"
         )
         p4 = p4.format(**pargs)
-    elif proj_id == 4:
-        # Polar stereo
-        p4 = "+proj=stere +lat_ts={lat_1} +lon_0={lon_0} +lat_0=90.0" "+x_0=0 +y_0=0 +a={r} +b={r}"
-        p4 = p4.format(**pargs)
     elif proj_id == 3:
         # Mercator
         p4 = (
             "+proj=merc +lat_ts={lat_1} " "+lon_0={center_lon} " "+x_0={x0} +y_0={y0} +a={r} +b={r}"
         )
+        p4 = p4.format(**pargs)
+    elif proj_id == 4:
+        # Polar stereo
+        p4 = "+proj=stere +lat_ts={lat_1} +lon_0={lon_0} +lat_0=90.0" "+x_0=0 +y_0=0 +a={r} +b={r}"
         p4 = p4.format(**pargs)
     else:
         raise NotImplementedError("IOAPI proj not implemented yet: " "{}".format(proj_id))
