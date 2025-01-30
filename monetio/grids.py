@@ -237,12 +237,13 @@ def _ioapi_grid_from_dataset(ds, *, earth_radius=6370_000):
         "r": earth_radius,
     }
 
+    # https://www.cmascenter.org/ioapi/documentation/all_versions/html/GRIDS.html
     proj_id = ds.GDTYP
     if proj_id == 1:
         # Lat-Lon
         p4 = "+proj=longlat"
     elif proj_id == 2:
-        # Lambert
+        # Lambert Conformal Conic
         p4 = (
             "+proj=lcc +lat_1={lat_1} +lat_2={lat_2} "
             "+lat_0={lat_0} +lon_0={lon_0} "
