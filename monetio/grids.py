@@ -254,6 +254,9 @@ def _ioapi_grid_from_dataset(ds, *, earth_radius=6370_000):
     elif proj_id == 7:
         # Equatorial Mercator
         p4 = "+proj=merc +lat_ts={lat_1} +lon_0={lon_0} +x_0={x0} +y_0={y0} +a={r} +b={r}"
+    elif proj_id == 8:
+        # Transverse Mercator
+        p4 = "+proj=tmerc +lat_ts={lat_1} +k_0={lat_2} +lon_0={lon_0} +x_0={x0} +y_0={y0} +a={r} +b={r}"
     else:
         raise NotImplementedError("IOAPI proj not implemented yet: {proj_id}")
 
