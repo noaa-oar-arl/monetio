@@ -66,8 +66,19 @@ def _read_pandora_file(file_path):
     return data
 
 
-def open_mfdataset():
-    pass
+def open_mfdataset(path):
+    if isinstance(path, str):
+        files = sorted(glob(path))
+    ds = _read_pandora_file(files[0])
+    if len(files) == 1:
+        return ds
+    for f in files[1:]:
+        ds2 = _read_pandora_file(f)
+        if ds['Data file version'] != ds2['Data file version']:
+            raise Exception("Different data file versions, cannot concatenate")
+        ds = xr.concat([ds, _read_pandora_file(f)], dim='x')
+    return ds
+
 
 if __name__ == "__main__":
     data = _read_pandora_file("Pandora204s1_BoulderCO-NCAR_L2_rfuh5p1-8.txt")
