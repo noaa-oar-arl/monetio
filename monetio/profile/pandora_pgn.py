@@ -1,8 +1,8 @@
-import xarray as xr
-import pandas as pd
-import numpy as np
-from glob import glob
 import datetime as dt
+from glob import glob
+
+import pandas as pd
+import xarray as xr
 
 
 def _parse_metadata(value):
@@ -18,6 +18,8 @@ def _parse_metadata(value):
     int | float | datetime | str
         parsed data
     """
+    if value == "":  # Deal with the empty string as a special case
+        return value
     try:
         return int(value)
     except ValueError:
@@ -61,11 +63,11 @@ def _rename_and_format(df):
     -------
     xr.Dataset
         Dataset with the renamed data
-        """
-    df2 = df.rename(_name_columns, axis='columns')
-    df2 = df2.rename(columns={'Column 1': 'time'})
-    df2 = df2.set_index('time')
-    return df2.to_xarray().expand_dims('x', axis=1)
+    """
+    df2 = df.rename(_name_columns, axis="columns")
+    df2 = df2.rename(columns={"Column 1": "time"})
+    df2 = df2.set_index("time")
+    return df2.to_xarray().expand_dims("x", axis=1)
 
 
 def _read_pandora_file(file_path):
@@ -87,7 +89,7 @@ def _read_pandora_file(file_path):
         "history": f"{dt.datetime.now()}: created from _read_pandora_files, pandora_pgn.py"
     }
     data_collection = []
-    with open(file_path, "r", encoding="latin-1") as f:
+    with open(file_path, encoding="latin-1") as f:
         for line in f:
             line_stripped = line.rstrip()
             if line_stripped.startswith("-----------"):
@@ -103,11 +105,14 @@ def _read_pandora_file(file_path):
                 data_collection.append(line_stripped.split())
     _df = pd.DataFrame(data_collection)
     times = pd.to_datetime(_df[0], format="ISO8601").dt.tz_localize(None)
-    measurements = _df.loc[:, _df.columns != 0].apply(pd.to_numeric)
+    # errors = corece turns non valid strings into NaN
+    measurements = _df.loc[:, _df.columns != 0].apply(pd.to_numeric, errors="coerce")
     df = pd.concat([times, measurements], axis=1)
     data = _rename_and_format(df)
     data["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
+    data["latitude"].attrs["units"] = "degrees_north"
     data["longitude"] = (("x",), [global_attrs["Location longitude [deg]"]])
+    data["longitude"].attrs["units"] = "degrees_east"
     data.attrs = global_attrs
     for k in headers:
         if k in data:
@@ -115,8 +120,11 @@ def _read_pandora_file(file_path):
         elif k.startswith("From Column"):
             optional_keys = headers[k]
     non_shared_keys = list(set(data.keys()) - set(headers.keys()))
-    for k in non_shared_keys:
-        data[k].attrs["description"] = optional_keys
+    non_shared_keys.remove("latitude")
+    non_shared_keys.remove("longitude")
+    if len(non_shared_keys) > 0:
+        for k in non_shared_keys:
+            data[k].attrs["description"] = optional_keys
     data["siteid"] = (("x",), [data.attrs["Short location name"]])
     data = data.assign_coords({"longitude": data["longitude"], "latitude": data["latitude"]})
     return data
@@ -160,19 +168,23 @@ def open_mfdataset(path):
     """
     if isinstance(path, str):
         files = sorted(glob(path))
+    if isinstance(path, list):
+        files = []
+        for file in path:
+            files = files + list(glob(str(file)))
+        files = sorted(files)
     ds = _read_pandora_file(files[0])
-    if len(files) == 1:
-        return ds
-    for f in files[1:]:
-        ds2 = _read_pandora_file(f)
-        if ds.attrs["Data file version"] != ds2.attrs["Data file version"]:
-            raise Exception("Different data file versions, cannot concatenate")
-        if ds.attrs["Short location name"] != ds2.attrs["Short location name"]:
-            ds = xr.concat([ds, ds2], dim="x")
-        else:
-            ds = xr.concat([ds, ds2], dim="time")
-        _merge_global_attrs(ds, ds2, ds)
-    ds.attrs["history"] = [f"{dt.datetime.now()}: open_mfdataset from pandora_pgn.py "] + ds.attrs[
-        "history"
-    ]
+    if len(files) > 1:
+        for f in files[1:]:
+            ds2 = _read_pandora_file(f)
+            if ds.attrs["Data file version"] != ds2.attrs["Data file version"]:
+                raise Exception("Different data file versions, cannot concatenate")
+            if ds.attrs["Short location name"] != ds2.attrs["Short location name"]:
+                ds = xr.concat([ds, ds2], dim="x")
+            else:
+                ds = xr.concat([ds, ds2], dim="time")
+            _merge_global_attrs(ds, ds2, ds)
+        ds.attrs["history"] = [
+            f"{dt.datetime.now()}: open_mfdataset from pandora_pgn.py "
+        ] + ds.attrs["history"]
     return ds
