@@ -51,7 +51,7 @@ def _name_columns(index_number):
 
 
 def _rename_and_format(df):
-    """Renames each variable with the column number, following the convetion of PGN files.
+    """Renames each variable with the column number, following the convention of PGN files.
     It formats the data as an xarray.Dataset and adds the x dimension
 
     Parameters
