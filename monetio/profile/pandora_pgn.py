@@ -106,7 +106,9 @@ def _read_pandora_file(file_path):
     _df = pd.DataFrame(data_collection)
     times = pd.to_datetime(_df[0], format="ISO8601").dt.tz_localize(None)
     # errors = corece turns non valid strings into NaN
-    measurements = _df.loc[:, _df.columns != 0].apply(pd.to_numeric, errors="coerce")
+    measurements = _df.loc[:, _df.columns != 0].apply(
+        pd.to_numeric, errors="coerce", downcast="float"
+    )
     df = pd.concat([times, measurements], axis=1)
     data = _rename_and_format(df)
     data["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
