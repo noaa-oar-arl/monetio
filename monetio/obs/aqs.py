@@ -86,7 +86,7 @@ class AQS:
         #    'state_name', 'county_name', 'date_of_last_change'
         # ]
         self.renameddcols = [
-            "time_local",
+            "time",
             "state_code",
             "county_code",
             "site_num",
@@ -100,10 +100,10 @@ class AQS:
             "pollutant_standard",
             "units",
             "event_type",
-            "observation_Count",
-            "observation_Percent",
+            "observation_count",
+            "observation_percent",
             "obs",
-            "1st_max_Value",
+            "1st_max_value",
             "1st_max_hour",
             "aqi",
             "method_code",
@@ -179,14 +179,10 @@ class AQS:
 
         """
         if "daily" in url:
-
-            def dateparse(x):
-                return pd.datetime.strptime(x, "%Y-%m-%d")
-
             df = pd.read_csv(
                 url,
                 parse_dates={"time_local": ["Date Local"]},
-                date_parser=dateparse,
+                infer_datetime_format=True,
                 dtype={0: str, 1: str, 2: str},
                 encoding="ISO-8859-1",
             )
@@ -202,6 +198,7 @@ class AQS:
                     "time_local": ["Date Local", "Time Local"],
                 },
                 infer_datetime_format=True,
+                low_memory=False,
             )
             # print(df.columns.values)
             df.columns = self.columns_rename(df.columns.values)
@@ -381,6 +378,8 @@ class AQS:
         import dask
         import dask.dataframe as dd
 
+        dates = pd.DatetimeIndex(dates)
+
         if param is None:
             params = [
                 "SPEC",
@@ -396,6 +395,8 @@ class AQS:
                 "TEMP",
                 "RHDP",
             ]
+        elif isinstance(param, str):
+            params = [param]
         else:
             params = param
         urls, fnames = self.build_urls(params, dates, daily=daily)
@@ -409,6 +410,7 @@ class AQS:
             dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in urls]
         dff = dd.from_delayed(dfs)
         dfff = dff.compute(num_workers=n_procs)
+        dfff = dfff[dfff.time.between(dates.min(), dates.max())]
         if meta:
             return self.add_data2(dfff, daily, network)
         else:

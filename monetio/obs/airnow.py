@@ -292,15 +292,15 @@ def filter_bad_values(df, *, max=3000, bad_utcoffset="drop"):
     -------
     pandas.DataFrame
     """
-    from numpy import NaN
+    from numpy import nan
 
-    df.loc[(df.obs > max) | (df.obs < 0), "obs"] = NaN
+    df.loc[(df.obs > max) | (df.obs < 0), "obs"] = nan
 
     # Bad UTC offsets (GH #86)
     if "utcoffset" in df.columns:
         bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
         if bad_utcoffset == "null":
-            df.loc[bad_rows.index, "utcoffset"] = NaN
+            df.loc[bad_rows.index, "utcoffset"] = nan
         elif bad_utcoffset == "drop":
             df.drop(bad_rows.index, inplace=True)
         elif bad_utcoffset == "fix":

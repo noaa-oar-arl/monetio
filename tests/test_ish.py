@@ -6,6 +6,13 @@ import pytest
 
 from monetio import ish
 
+try:
+    import requests
+
+    requests.head("https://www1.ncdc.noaa.gov/pub/data/noaa/")
+except Exception:
+    pytest.skip("NCEI server issues", allow_module_level=True)
+
 
 def test_ish_read_history():
     dates = pd.date_range("2020-09-01", "2020-09-02")
@@ -149,4 +156,20 @@ def test_ish_read_url_direct():
     assert set(df.columns) - set(orig_names) == {"time"}
     assert set(orig_names) - set(df.columns) == {"date", "htime", "latitude", "longitude"}
 
-    assert type(df.t_quality[0]) == str
+    assert type(df.t_quality[0]) is str
+
+
+def test_ish_small_timeout_fails():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
+
+    with pytest.raises(RuntimeError, match="^Failed to connect"):
+        ish.add_data(dates, site=site, request_timeout=1e-6, request_retries=0)
+
+
+def test_ish_bad_retries_error():
+    dates = pd.date_range("2020-09-01", "2020-09-02")
+    site = "72224400358"  # "College Park AP"
+
+    with pytest.raises(ValueError, match="^`request_retries` must be >= 0"):
+        ish.add_data(dates, site=site, request_retries=-1)

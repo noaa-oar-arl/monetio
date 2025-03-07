@@ -21,7 +21,17 @@ AirNow
 
 AirNow is the near realtime dataset for air composition and meteorology measurements.
 
-    "The U.S. EPA AirNow program is the national repository of real time air quality data and forecasts for the United States. AirNow is the vehicle for providing timely Air Quality Index (AQI) information to the public, media outlets, other federal agencies and their applications, and to the research community. The system is managed by the U.S. EPA’s Office of Air Quality Planning and Standards Outreach and Information Division, Information Transfer Group in Research Triangle Park (RTP), North Carolina. AirNow is currently hosted and operated at a contractor facility, known as the AirNow Data Management Center (DMC), which currently resides outside of RTP." - https://www.airnow.gov/index.cfm?action=ani.airnowUS
+.. epigraph::
+
+   The U.S. EPA AirNow program is the national repository of real time air quality data and forecasts for the United States.
+   AirNow is the vehicle for providing timely Air Quality Index (AQI) information to the public,
+   media outlets, other federal agencies and their applications, and to the research community.
+   The system is managed by the U.S. EPA's Office of Air Quality Planning and Standards Outreach and Information Division,
+   Information Transfer Group in Research Triangle Park (RTP), North Carolina.
+   AirNow is currently hosted and operated at a contractor facility,
+   known as the AirNow Data Management Center (DMC), which currently resides outside of RTP.
+
+   -- http://web.archive.org/web/20170628063910/https://www.airnow.gov/index.cfm?action=ani.airnowUS
 
 AirNow_ data can be downloaded from the Amazon S3 server and aggregated using the
 monet.obs.airnow class.  For example,lets say that we want to look at data from

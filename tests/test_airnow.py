@@ -1,5 +1,3 @@
-import warnings
-
 import pandas as pd
 import pytest
 
@@ -62,15 +60,22 @@ def test_add_data_daily():
     "date",
     [
         pd.Timestamp("2021/07/01"),
-        pd.Timestamp.now().floor("D"),
+        pd.Timestamp("2024/04/23"),
+        pd.Timestamp("2024/05/23"),
+        pd.Timestamp.now().floor("D") - pd.Timedelta(days=1),
     ],
     ids=[
-        "2021/07/01 (historical)",
-        "current date",
+        "multiple_bad",  # 24
+        "some_bad",  # 1
+        "zero_bad",
+        "yesterday",  # varies
     ],
 )
-def test_check_zero_utc_offsets(date, bad_utcoffset):
+def test_check_zero_utc_offsets(date, bad_utcoffset, request, printer):
     dates = [date]
+
+    case = request.node.callspec.id.split("-")[0]
+    assert case in {"multiple_bad", "some_bad", "zero_bad", "yesterday"}
 
     df = airnow.add_data(dates, daily=False, wide_fmt=True, bad_utcoffset=bad_utcoffset)
     # NOTE: No utcoffset in the data if daily
@@ -79,15 +84,22 @@ def test_check_zero_utc_offsets(date, bad_utcoffset):
     bad_rows = df.query("utcoffset == 0 and abs(longitude) > 20")
     bad_sites = bad_rows.groupby("siteid")[["siteid", "site", "longitude"]].first()
     if bad_utcoffset == "leave":
-        assert not bad_sites.empty
-        msg = (
-            f"For {date.strftime(r'%Y-%m-%d')}, found "
-            f"{len(bad_sites)} sites with zero UTC offset and abs(lon) > 20:\n"
-        )
-        msg += bad_sites.to_string(index=False)
-        warnings.warn(msg)
+        if case in {"multiple_bad", "some_bad"}:
+            assert not bad_sites.empty
+        elif case == "zero_bad":
+            assert bad_sites.empty
+        if case != "zero_bad":
+            msg = (
+                f"For {date.strftime(r'%Y-%m-%d')}, found "
+                f"{len(bad_sites)} sites with zero UTC offset and abs(lon) > 20:\n"
+            )
+            msg += bad_sites.to_string(index=False)
+            printer(msg)
     elif bad_utcoffset == "null":
-        assert df.utcoffset.isnull().sum() > 0
+        if case in {"multiple_bad", "some_bad"}:
+            assert df.utcoffset.isnull().sum() > 0
+        elif case == "zero_bad":
+            assert not df.utcoffset.isnull().any()
         assert bad_sites.empty
     elif bad_utcoffset == "drop":
         assert not df.utcoffset.isnull().any()
@@ -96,3 +108,5 @@ def test_check_zero_utc_offsets(date, bad_utcoffset):
         assert not df.utcoffset.isnull().any()
         assert bad_sites.empty
         assert ((df.utcoffset >= -12) & (df.utcoffset <= 14)).all()
+    else:
+        raise AssertionError

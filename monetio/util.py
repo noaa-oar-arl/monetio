@@ -321,30 +321,30 @@ def calc_13_category_usda_soil_type(clay, sand, silt):
 
     stype = zeros(clay.shape)
     stype[where((silt + clay * 1.5 < 15.0) & (clay != 255))] = 1.0  # SAND
-    stype[
-        where((silt + 1.5 * clay >= 15.0) & (silt + 1.5 * clay < 30) & (clay != 255))
-    ] = 2.0  # Loamy Sand
+    stype[where((silt + 1.5 * clay >= 15.0) & (silt + 1.5 * clay < 30) & (clay != 255))] = (
+        2.0  # Loamy Sand
+    )
     stype[
         where((clay >= 7.0) & (clay < 20) & (sand > 52) & (silt + 2 * clay >= 30) & (clay != 255))
     ] = 3.0  # Sandy Loam (cond 1)
-    stype[
-        where((clay < 7) & (silt < 50) & (silt + 2 * clay >= 30) & (clay != 255))
-    ] = 3  # sandy loam (cond 2)
-    stype[
-        where((silt >= 50) & (clay >= 12) & (clay < 27) & (clay != 255))
-    ] = 4  # silt loam (cond 1)
+    stype[where((clay < 7) & (silt < 50) & (silt + 2 * clay >= 30) & (clay != 255))] = (
+        3  # sandy loam (cond 2)
+    )
+    stype[where((silt >= 50) & (clay >= 12) & (clay < 27) & (clay != 255))] = (
+        4  # silt loam (cond 1)
+    )
     stype[where((silt >= 50) & (silt < 80) & (clay < 12) & (clay != 255))] = 4  # silt loam (cond 2)
     stype[where((silt >= 80) & (clay < 12) & (clay != 255))] = 5  # silt
     stype[
         where((clay >= 7) & (clay < 27) & (silt >= 28) & (silt < 50) & (sand <= 52) & (clay != 255))
     ] = 6  # loam
-    stype[
-        where((clay >= 20) & (clay < 35) & (silt < 28) & (sand > 45) & (clay != 255))
-    ] = 7  # sandy clay loam
+    stype[where((clay >= 20) & (clay < 35) & (silt < 28) & (sand > 45) & (clay != 255))] = (
+        7  # sandy clay loam
+    )
     stype[where((clay >= 27) & (clay < 40.0) & (sand > 40) & (clay != 255))] = 8  # silt clay loam
-    stype[
-        where((clay >= 27) & (clay < 40.0) & (sand > 20) & (sand <= 45) & (clay != 255))
-    ] = 9  # clay loam
+    stype[where((clay >= 27) & (clay < 40.0) & (sand > 20) & (sand <= 45) & (clay != 255))] = (
+        9  # clay loam
+    )
     stype[where((clay >= 35) & (sand > 45) & (clay != 255))] = 10  # sandy clay
     stype[where((clay >= 40) & (silt >= 40) & (clay != 255))] = 11  # silty clay
     stype[where((clay >= 40) & (sand <= 45) & (silt < 40) & (clay != 255))] = 12  # clay

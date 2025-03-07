@@ -742,14 +742,14 @@ class EmissionsCall(EpaApiObject):
                 try:
                     rval = float(cname) * float(optime)
                 except BaseException:
-                    rval = np.NaN
+                    rval = np.nan
             return rval
 
         def lme_getmass(cname):
             try:
                 rval = float(cname)
             except BaseException:
-                rval = np.NaN
+                rval = np.nan
             return rval
 
         df["SO2MODC"] = df["SO2MODC"].map(simpletofloat)
@@ -1151,9 +1151,9 @@ class MonitoringPlan(EpaApiObject):
                     try:
                         dhash["stackht"] = float(att["stackHeight"]) * ft2m
                     except ValueError:
-                        dhash["stackht"] = np.NaN
+                        dhash["stackht"] = np.nan
                 else:
-                    dhash["stackht"] = np.NaN
+                    dhash["stackht"] = np.nan
 
                 # dhash["crossAreaExit"] = att["crossAreaExit"]
                 # dhash["crossAreaFlow"] = att["crossAreaFlow"]
@@ -1499,14 +1499,14 @@ class FacilitiesData(EpaApiObject):
                         # fuel_hash['unitid'] = fuel
                         unithash["primary_fuel"] = fuel
                     else:
-                        unithash["primary_fuel"] = np.NaN
+                        unithash["primary_fuel"] = np.nan
                 for gid in sid["controls"]:
                     if gid["parameterCode"].strip() == "SO2":
                         control = gid["controlCode"]
                         # control_hash['unitid'] = control
                         unithash["so2_contro"] = control
                     else:
-                        unithash["so2_contro"] = np.NaN
+                        unithash["so2_contro"] = np.nan
                 slist.append(unithash)
             unitdf = pd.DataFrame(slist)
 

@@ -42,6 +42,7 @@ Change log
 2024 04 Mar  AMC  bug fixes to combine_dataset
 
 """
+
 import datetime
 import logging
 import sys
@@ -464,11 +465,11 @@ class ModelBin:
         concframe["levels"] = lev_name
         concframe["time"] = pdate1
 
-        # rename jndx x
-        # rename indx y
+        # rename jndx y
+        # rename indx x
         names = concframe.columns.values
         names = ["y" if x == "jndx" else x for x in names]
-        names = ["x" if x == "indx" else x for x in names]
+        names = ["x" if x == "indx" else x for x in names]  # codespell:ignore indx
         names = ["z" if x == "levels" else x for x in names]
         concframe.columns = names
         concframe.set_index(

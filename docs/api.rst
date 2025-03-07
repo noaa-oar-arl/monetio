@@ -2,6 +2,10 @@
 API
 ===
 
+.. module:: monetio
+
+.. py:currentmodule:: None
+
 .. contents::
    :depth: 3
    :local:
@@ -47,6 +51,8 @@ Profile observations
 --------------------
 
 .. automodule:: monetio.geoms
+
+.. py:currentmodule:: None
 
 .. autosummary::
 
