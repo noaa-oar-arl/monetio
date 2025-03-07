@@ -50,7 +50,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
+import warnings
 
 
 def open_dataset(
@@ -207,7 +208,7 @@ class ModelBin:
 
         if readwrite == "r":
             if verbose:
-                logger.info(f"reading {filename}")
+                print(f"reading {filename}")
             self.dataflag = self.readfile(filename, drange, verbose=verbose, century=century)
 
     @staticmethod
@@ -347,10 +348,10 @@ class ModelBin:
            number of starting locations in file.
         """
         if len(hdata1["start_loc"]) != 1:
-            logger.warning(
-                f"WARNING in ModelBin {self.filename} _readfile - number of starting locations incorrect"
+            warning.warn(
+                f"In ModelBin {self.filename} _readfile - number of starting locations incorrect"
             )
-            logger.warning(str(hdata1["start_loc"]))
+            warning.warn(str(hdata1["start_loc"]))
             return None
         # in python 3 np.fromfile reads the record into a list even if it is
         # just one number.
@@ -380,7 +381,7 @@ class ModelBin:
                     century = 2000
                 else:
                     century = 1900
-                logger.info(f"WARNING: Guessing Century for HYSPLIT concentration file {century}")
+                logger.info(f"Guessing Century for HYSPLIT concentration file {century}")
             # add sourcedate which is datetime.datetime object
             sourcedate = datetime.datetime(
                 century + hdata2["r_year"][nnn],
@@ -456,7 +457,9 @@ class ModelBin:
         """
         lev_name = hdata8a["lev"][0]
         col_name = hdata8a["poll"][0].decode("UTF-8")
-        edata = hdata8b.byteswap().newbyteorder()  # otherwise get endian error.
+        #edata = hdata8b.byteswap().newbyteorder()  # otherwise get endian error.
+        edata = hdata8b.byteswap()  # otherwise get endian error.
+        edata = edata.view(edata.dtype.newbyteorder('little'))
         concframe = pd.DataFrame.from_records(edata)
         concframe["levels"] = lev_name
         concframe["time"] = pdate1
@@ -642,7 +645,7 @@ class ModelBin:
             #  imax iterations.
             if iimax > imax:
                 testf = False
-                logger.warning(f"greater than imax {testf},{iimax},{imax}")
+                warning.warn(f"greater than imax {testf},{iimax},{imax}")
             if inc_iii:
                 iii += 1
 
@@ -663,7 +666,7 @@ class ModelBin:
             self.dset = self.dset.reset_coords()
             self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
         if iii == 0 and verbose:
-            print("Warning: ModelBin class _readfile method: no data in the date range found")
+            print("ModelBin class _readfile method: no data in the date range found")
             return False
         return True
 
@@ -811,12 +814,12 @@ def combine_dataset(
         if not cobject.empty:
             xlist.append(cobject)
         else:
-            logger.warning(f"could not open {bbb[0]}")
+            warning.warn(f"could not open {bbb[0]}")
 
     # check that grids are equal by comparing each grid to the one before.
     for iii, xobj in enumerate(xlist[1:]):
         if not xobj.grid_equal(xlist[iii]):
-            logger.warning("WARNING: grids are not the same. cannot combine")
+            warning.warn("grids are not the same. cannot combine")
             sys.exit()
 
     xlist.sort()
@@ -1037,14 +1040,14 @@ def get_latlongrid(attrs, xindx, yindx):
     try:
         lonlist = [lon[x - 1] for x in xindx]
     except Exception as eee:
-        logger.warning(f"Exception {eee}")
-        logger.warning("try increasing Number Number Lon Points")
+        warning.warn(f"Exception {eee}")
+        warning.warn("try increasing Number Number Lon Points")
         success = False
     try:
         latlist = [lat[x - 1] for x in yindx]
     except Exception as eee:
-        logger.warning(f"Exception {eee}")
-        logger.warning("try increasing Number Number Lat Points")
+        warning.warn(f"Exception {eee}")
+        warning.warn("try increasing Number Number Lat Points")
         success = False
 
     if not success:
@@ -1211,7 +1214,7 @@ def add_species(dset, species=None):
                 warn = "WARNING: hysplit.add_species function"
                 warn += ": species not found" + str(val) + "\n"
                 warn += " valid species ids are " + str.join(", ", splist)
-                logger.warning(warn)
+                warning.warn(warn)
     sss = 0
     tmp = []
     # Looping through all species in dataset
@@ -1241,7 +1244,7 @@ def calculate_thickness(cdump):
     for avalue in alts:
         thash[avalue] = avalue - aaa
         aaa = avalue
-    logger.warning(f"WARNING: thickness calculated from z values please verify {thash}")
+    warning.warn(f"WARNING: thickness calculated from z values please verify {thash}")
     return thash
 
 
@@ -1272,8 +1275,8 @@ def get_thickness(cdump):
                 calculate = True
 
     if calculate:
-        logger.warning(f"warning: {cstr} attribute needed to calculate level thicknesses")
-        logger.warning("warning: alternative calculation from z dimension values")
+        warning.warn(f"{cstr} attribute needed to calculate level thicknesses")
+        warning.warn("alternative calculation from z dimension values")
         thash = calculate_thickness(cdump)
     else:
         levs = cdump.attrs[cstr]
