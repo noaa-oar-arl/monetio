@@ -40,6 +40,7 @@ Change log
 2023 08 Dec  AMC  add check_attributes to ModelBin and combine_datatset to make sure level height attribute is a list
 2024 01 Apr  AMC  added logging. for combine_dataset add continue to exception so it won't fail.
 2024 04 Mar  AMC  bug fixes to combine_dataset
+2025 07 Mar  AMC  added in modifications by TAdeJong to reduce calls to xr.merge and speed up reading.
 
 """
 
@@ -471,12 +472,13 @@ class ModelBin:
         names = ["y" if x == "jndx" else x for x in names]
         names = ["x" if x == "indx" else x for x in names]  # codespell:ignore indx
         names = ["z" if x == "levels" else x for x in names]
+        names = [col_name if x == "conc" else x for x in names]
         concframe.columns = names
-        concframe.set_index(
-            ["time", "z", "y", "x"],
-            inplace=True,
-        )
-        concframe.rename(columns={"conc": col_name}, inplace=True)
+        # concframe.set_index(
+        #     ["time", "z", "y", "x"],
+        #     inplace=True,
+        # )
+        #concframe.rename(columns={"conc": col_name}, inplace=True)
         # mgrid = np.meshgrid(lat, lon)
         return concframe
 
@@ -580,6 +582,7 @@ class ModelBin:
         # Safety valve - will not allow more than 1000 loops to be executed.
         imax = 1e8
         testf = True
+        timedslist = []
         while testf:
             hdata6 = np.fromfile(fid, dtype=rec6, count=1)
             hdata7 = np.fromfile(fid, dtype=rec6, count=1)
@@ -591,10 +594,12 @@ class ModelBin:
                 print("sample time", pdate1, " to ", pdate2)
             # datelist = []
             inc_iii = False
-            # LOOP to go through each level
-            for _ in range(self.atthash["Number of Levels"]):
-                # LOOP to go through each pollutant
-                for _ in range(self.atthash["Number of Species"]):
+            # LOOP to go through each pollutant
+            poldslist = []
+            for _ in range(self.atthash["Number of Species"]):
+                # LOOP to go through each level
+                concframes = []
+                for _ in range(self.atthash["Number of Levels"]):
                     # record 8a has the number of elements (ne). If number of
                     # elements greater than 0 than there are concentrations.
                     hdata8a = np.fromfile(fid, dtype=rec8a, count=1)
@@ -625,23 +630,23 @@ class ModelBin:
                             concframe = self.parse_hdata8(hdata8a, hdata8b, pdate2)
                         else:
                             concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1)
-                        dset = xr.Dataset.from_dataframe(concframe)
+                        concframes += [concframe]
                         # if verbose:
                         #    print("Adding ", "Pollutant", pollutant, "Level", lev)
-                        # if this is the first time through. create dataframe
-                        # for first level and pollutant.
-                        if not self.dset.any():
-                            self.dset = dset
-                        else:  # create dataframe for level and pollutant and
-                            # then merge with main dataframe.
-                            # self.dset = xr.concat([self.dset, dset],'levels')
-                            # self.dset = xr.merge([self.dset, dset],compat='override')
-                            self.dset = xr.merge([self.dset, dset], join="outer")
-                            # self.dset = xr.combine_by_coords([self.dset, dset])
-                            # self.dset = xr.merge([self.dset, dset], compat='override')
+    
                         iimax += 1
-                # END LOOP to go through each pollutant
-            # END LOOP to go through each level
+                # END LOOP to go through each level
+                if len(concframes) > 0:
+                    concframes = pd.concat(concframes)
+                    concframes.set_index(
+                                    ["time", "z", "y", "x"],
+                                    inplace=True,
+                    )
+                    dset = xr.Dataset.from_dataframe(concframes)
+                    poldslist += [dset]
+                else:
+                    poldslist += [None]
+            # END LOOP to go through each pollutant
             # safety check - will stop sampling time while loop if goes over
             #  imax iterations.
             if iimax > imax:
@@ -649,13 +654,22 @@ class ModelBin:
                 warning.warn(f"greater than imax {testf},{iimax},{imax}")
             if inc_iii:
                 iii += 1
-
+            if len(poldslist) > 0:
+                timedslist += [poldslist]
+        # END OF Loop to go through each sampling time
         self.atthash.update(self.gridhash)
         self.atthash["Species ID"] = list(set(self.atthash["Species ID"]))
         self.atthash["Coordinate time description"] = "Beginning of sampling time"
-        # END OF Loop to go through each sampling time
-        if not self.dset.any():
+
+        Ns = range(self.atthash["Number of Species"])
+        # Grab per species all relevant datasets in the time list
+        dsets = [[ll[n] for ll in timedslist if ll[n] is not None] for n in Ns]
+        dsets = [xr.concat(ds, dim='time') for ds in dsets if len(ds) > 0]
+        if len(dsets) == 0:
             return False
+        self.dset = xr.merge(dsets)
+        # if not self.dset.any():
+        #     return False
         if self.dset.variables:
             self.atthash = check_attributes(self.atthash)
             self.dset.attrs = self.atthash
