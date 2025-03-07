@@ -95,9 +95,9 @@ def read_data(fname, lat, lon, date):
     da.attrs["units"] = ""
     da.name = "VIIRS EPS AOT"
     da.attrs["long_name"] = "Aerosol Optical Thickness"
-    da.attrs[
-        "source"
-    ] = "ftp://ftp.star.nesdis.noaa.gov/pub/smcd/VIIRS_Aerosol/npp.viirs.aerosol.data/epsaot550"
+    da.attrs["source"] = (
+        "ftp://ftp.star.nesdis.noaa.gov/pub/smcd/VIIRS_Aerosol/npp.viirs.aerosol.data/epsaot550"
+    )
     return da
 
 

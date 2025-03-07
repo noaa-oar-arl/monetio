@@ -18,8 +18,8 @@
         CMAQ model data including new CAf calculation
     # allvars = Series(["TEMP", "Q", "PRES"])
     #         "p": dset["PRES"][:].compute().values
-        var_list.append("pres")
-        if var == "pres":  # Insert special versions.
+        var_list.append("pres")  # 'pressure'
+        if var == "pres":
         "SIZ",
                 df.loc[con, "variable"] = "Caf"
                 df.loc[con, "variable"] = "Laf"
@@ -37,3 +37,6 @@
     # https://aeronet.gsfc.nasa.gov/cgi-bin/print_web_data_inv_v3?site=Cart_Site&year=2002&month=6&day=1&year2=2003&month2=6&day2=14&product=SIZ&AVG=20&ALM15=1&if_no_html=1
    "RIN",	"Refractive indices (real and imaginary)"
         "RIN",
+                ("indx", int2),  # longitude index
+        # rename indx x
+                        # get rec8 - indx and jndx

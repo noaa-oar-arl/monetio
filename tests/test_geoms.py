@@ -21,19 +21,19 @@ def test_open():
     ds = geoms.open_dataset(TEST_FP)
     assert "o3_mixing_ratio_volume_derived" in ds.variables
     assert tuple(ds["o3_mixing_ratio_volume_derived"].dims) == ("time", "altitude")
-    assert ds.dims == {"time": 28, "altitude": 496}
+    assert ds.sizes == {"time": 28, "altitude": 496}
 
 
 def test_open_no_rename_vars():
     ds = geoms.open_dataset(TEST_FP, rename_all=False)
     assert "O3.MIXING.RATIO.VOLUME_DERIVED" in ds.variables
     assert tuple(ds["O3.MIXING.RATIO.VOLUME_DERIVED"].dims) == ("time", "altitude")
-    assert ds.dims == {"time": 28, "altitude": 496}
+    assert ds.sizes == {"time": 28, "altitude": 496}
 
 
 def test_open_no_squeeze():
     ds = geoms.open_dataset(TEST_FP, squeeze=False)
-    assert ds.dims == {
+    assert ds.sizes == {
         "latitude": 1,
         "longitude": 1,
         "altitude_instrument": 1,

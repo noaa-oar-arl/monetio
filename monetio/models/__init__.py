@@ -1,4 +1,5 @@
 from . import (
+    _camx_mm,
     _cesm_fv_mm,
     _cesm_se_mm,
     _cmaq_mm,
@@ -17,6 +18,7 @@ from . import (
 )
 
 __all__ = [
+    "_camx_mm",
     "_cesm_se_mm",
     "_cesm_fv_mm",
     "_cmaq_mm",

@@ -8,6 +8,7 @@ in a fixed-width format free of duplicate values, sub-hourly data, and complicat
 
 --- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
 """
+
 import numpy as np
 import pandas as pd
 
@@ -184,7 +185,7 @@ class ISH:
         return final_urls
 
     def read_csv(self, fname):
-        from numpy import NaN
+        from numpy import nan
 
         columns = [
             "year",
@@ -219,7 +220,7 @@ class ISH:
         df["precip_1hr"] /= 10.0
         df["precip_6hr"] /= 10.0
         df["siteid"] = siteid
-        df = df.replace(-9999, NaN)
+        df = df.replace(-9999, nan)
         return df
 
     def aggregrate_files(self, urls, n_procs=1):
@@ -312,7 +313,7 @@ class ISH:
 
         # Narrow in time (each file contains a year)
         df = df.loc[(df.time >= self.dates.min()) & (df.time <= self.dates.max())]
-        df = df.replace(-999.9, np.NaN)
+        df = df.replace(-999.9, np.nan)
 
         if resample and not df.empty:
             print("Resampling to every " + window)

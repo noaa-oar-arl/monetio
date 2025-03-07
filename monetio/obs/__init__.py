@@ -10,6 +10,7 @@ from . import (
     ish_lite,
     nadp,
     openaq,
+    openaq_v2,
     pams,
 )
 
@@ -25,6 +26,7 @@ __all__ = [
     "cems_mod",
     "nadp",
     "openaq",
+    "openaq_v2",
     "pams",
 ]
 

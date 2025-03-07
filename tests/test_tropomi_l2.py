@@ -2,11 +2,12 @@ import shutil
 import warnings
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from filelock import FileLock
 
-from monetio.sat._tropomi_l2_no2_mm import open_dataset
+from monetio.sat._tropomi_l2_no2_mm import open_dataset, read_trpdataset
 
 HERE = Path(__file__).parent
 
@@ -32,7 +33,7 @@ def retrieve_test_file():
     return p
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def test_file_path(tmp_path_factory, worker_id):
     if worker_id == "master":
         # Not executing with multiple workers;
@@ -53,11 +54,18 @@ def test_file_path(tmp_path_factory, worker_id):
             return p_test
 
 
+T_REF = pd.Timestamp("2019-07-15")
+KEY = T_REF.strftime(r"%Y-%m-%d")
+
+
 def test_open_dataset(test_file_path):
     vn = "nitrogendioxide_tropospheric_column"  # mol m-2
-    t_ref = pd.Timestamp("2019-07-15")
 
-    ds = open_dataset(test_file_path, vn)[t_ref.strftime(r"%Y%m%d")]
+    ds = open_dataset(test_file_path, vn)[KEY][0]
+
+    with pytest.warns(FutureWarning, match="read_trpdataset is an alias"):
+        ds_alias = read_trpdataset(test_file_path, vn)[KEY][0]
+    assert ds_alias.identical(ds)
 
     assert set(ds.coords) == {"time", "lat", "lon", "scan_time"}
     assert set(ds) == {vn}
@@ -67,8 +75,103 @@ def test_open_dataset(test_file_path):
     assert ds[vn].min() < 0
 
     assert ds.time.ndim == 0
-    assert pd.Timestamp(ds.time.values) == t_ref
-    assert (ds.scan_time.dt.floor("D") == t_ref).all()
+    assert pd.Timestamp(ds.time.values) == T_REF
+    assert (ds.scan_time.dt.floor("D") == T_REF).all()
 
-    ds2 = open_dataset(test_file_path, {vn: {"minimum": 1e-9}})[t_ref.strftime(r"%Y%m%d")]
+    ds2 = open_dataset(
+        test_file_path,
+        {
+            vn: {"minimum": 1e-9},
+            "latitude_bounds": {},
+            "longitude_bounds": {},
+            "preslev": {},
+            "qa_value": None,
+        },
+    )[KEY][0]
+
+    assert not ds2[vn].isnull().all()
     assert ds2[vn].min() >= 1e-9
+
+    for i in range(4):
+        assert not ds2[f"latitude_bounds_{i}"].isnull().any()
+        assert ds2[f"latitude_bounds_{i}"].min() >= -90
+        assert ds2[f"latitude_bounds_{i}"].max() <= 90
+        assert not ds2[f"longitude_bounds_{i}"].isnull().any()
+        assert ds2[f"longitude_bounds_{i}"].min() >= -180
+        assert ds2[f"longitude_bounds_{i}"].max() <= 180
+
+    assert not ds2["preslev"].isnull().all()
+    assert ds2.preslev.mean(dim=("y", "x")).diff("z").to_series().lt(0).all(), "surface first"
+    assert not ds2["troppres"].isnull().all()
+    assert ds2["troppres"].mean() < ds2["preslev"].mean()
+
+    qa = ds2["qa_value"]
+    assert not ds2[vn].where(qa <= 0.7).isnull().all()
+
+
+def test_open_dataset_qa(test_file_path):
+    vn = "nitrogendioxide_tropospheric_column"  # mol m-2
+
+    # Based on example YML from Meng
+    ds = open_dataset(
+        test_file_path,
+        {
+            "qa_value": {"quality_flag_min": 0.7, "var_applied": [vn], "fillvalue": None},
+            vn: {"scale": 60221410000000000000, "fillvalue": 9.96921e36},
+            "averaging_kernel": {"fillvalue": 9.96921e36},
+            "air_mass_factor_total": {"fillvalue": 9.96921e36},
+            "air_mass_factor_troposphere": {"fillvalue": 9.96921e36},
+            "latitude": None,
+            "longitude": None,
+            "preslev": {
+                "tm5_constant_a": {"group": ["PRODUCT"], "maximum": 9e36},
+                "tm5_constant_b": {"group": ["PRODUCT"], "maximum": 9e36},
+                "surface_pressure": {"group": ["PRODUCT/SUPPORT_DATA/INPUT_DATA"], "maximum": 9e36},
+                "tm5_tropopause_layer_index": {"group": ["PRODUCT"]},
+            },
+        },
+    )[KEY][0]
+
+    # assert {vn, "ph", "phb", "pb", "p", "T"} <= set(ds.data_vars)
+
+    qa = ds["qa_value"]
+    assert ds[vn].where(qa <= 0.7).isnull().all()
+
+
+def test_open_dataset_opts(test_file_path):
+    vn = "nitrogendioxide_tropospheric_column"  # mol m-2
+
+    def get(**kwargs):
+        granules = open_dataset(
+            test_file_path,
+            {
+                vn: kwargs,
+            },
+        )
+        return granules[KEY][0]
+
+    def om(x):
+        return np.floor(np.log10(x))
+
+    ds0 = get()
+    assert om(ds0[vn].mean()) == -6
+    assert ds0[vn].min() < 0
+    assert om(ds0[vn].max()) == -4
+    assert np.isclose(ds0[vn], 0, atol=0).sum() == 0
+
+    ds = get(scale=1000)
+    assert om(ds[vn].mean()) == -3
+
+    ds = get(minimum=0)
+    assert ds[vn].min() >= 0
+    n = ds[vn].isnull().sum()
+    tgt = 1.0311603546142578e-05
+    assert np.isclose(ds[vn], tgt, atol=0).sum() > 0
+
+    ds = get(maximum=1e-5)
+    assert ds[vn].max() <= 1e-5
+
+    ds = get(minimum=0, fillvalue=tgt)
+    assert ds[vn].min() > 0
+    assert ds[vn].isnull().sum() > n
+    assert np.isclose(ds[vn], tgt, atol=0).sum() == 0

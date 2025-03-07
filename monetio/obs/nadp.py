@@ -1,8 +1,7 @@
 """ READS NAPD DATA """
 
-
 import pandas as pd
-from numpy import NaN
+from numpy import nan
 
 
 def add_data(dates, network="NTN", siteid=None, weekly=True):
@@ -60,15 +59,15 @@ class NADP:
         meta.drop(["startdate", "stopdate"], axis=1, inplace=True)
         dfn = pd.merge(df, meta, on="siteid", how="left")
         dfn.dropna(subset=["latitude", "longitude"], inplace=True)
-        dfn.loc[(dfn.flagmg == "<") | (dfn.mg < 0), "mg"] = NaN
-        dfn.loc[(dfn.flagbr == "<") | (dfn.br < 0), "br"] = NaN
-        dfn.loc[(dfn.flagso4 == "<") | (dfn.so4 < 0), "so4"] = NaN
-        dfn.loc[(dfn.flagcl == "<") | (dfn.cl < 0), "cl"] = NaN
-        dfn.loc[(dfn.flagno3 == "<") | (dfn.no3 < 0), "no3"] = NaN
-        dfn.loc[(dfn.flagnh4 == "<") | (dfn.nh4 < 0), "nh4"] = NaN
-        dfn.loc[(dfn.flagk == "<") | (dfn.k < 0), "k"] = NaN
-        dfn.loc[(dfn.flagna == "<") | (dfn.na < 0), "na"] = NaN
-        dfn.loc[(dfn.flagca == "<") | (dfn.ca < 0), "ca"] = NaN
+        dfn.loc[(dfn.flagmg == "<") | (dfn.mg < 0), "mg"] = nan
+        dfn.loc[(dfn.flagbr == "<") | (dfn.br < 0), "br"] = nan
+        dfn.loc[(dfn.flagso4 == "<") | (dfn.so4 < 0), "so4"] = nan
+        dfn.loc[(dfn.flagcl == "<") | (dfn.cl < 0), "cl"] = nan
+        dfn.loc[(dfn.flagno3 == "<") | (dfn.no3 < 0), "no3"] = nan
+        dfn.loc[(dfn.flagnh4 == "<") | (dfn.nh4 < 0), "nh4"] = nan
+        dfn.loc[(dfn.flagk == "<") | (dfn.k < 0), "k"] = nan
+        dfn.loc[(dfn.flagna == "<") | (dfn.na < 0), "na"] = nan
+        dfn.loc[(dfn.flagca == "<") | (dfn.ca < 0), "ca"] = nan
         return dfn
 
     def read_mdn(self, url):
@@ -86,7 +85,7 @@ class NADP:
         meta.columns = [i.lower() for i in meta.columns]
         dfn = pd.merge(df, meta, on="siteid", how="left")
         dfn.dropna(subset=["latitude", "longitude"], inplace=True)
-        dfn.loc[dfn.qr == "C", ["rgppt", "svol", "subppt", "hgconc", "hgdep"]] = NaN
+        dfn.loc[dfn.qr == "C", ["rgppt", "svol", "subppt", "hgconc", "hgdep"]] = nan
         return dfn
 
     def read_airmon(self, url):
@@ -125,7 +124,7 @@ class NADP:
                 "conduclab",
                 "conducfield",
             ],
-        ] = NaN
+        ] = nan
         return dfn
 
     def read_amon(self, url):
@@ -143,7 +142,7 @@ class NADP:
         meta.columns = [i.lower() for i in meta.columns]
         dfn = pd.merge(df, meta, on="siteid", how="left")
         dfn.dropna(subset=["latitude", "longitude"], inplace=True)
-        dfn.loc[dfn.qr == "C", ["airvol", "conc"]] = NaN
+        dfn.loc[dfn.qr == "C", ["airvol", "conc"]] = nan
         return dfn
 
     def read_amnet(self, url):
@@ -161,7 +160,7 @@ class NADP:
         meta.columns = [i.lower() for i in meta.columns]
         dfn = pd.merge(df, meta, on="siteid", how="left")
         dfn.dropna(subset=["latitude", "longitude"], inplace=True)
-        dfn.loc[dfn.qr == "C", ["airvol", "conc"]] = NaN
+        dfn.loc[dfn.qr == "C", ["airvol", "conc"]] = nan
         return dfn
 
     def add_data(self, dates, network="NTN", siteid=None, weekly=True):

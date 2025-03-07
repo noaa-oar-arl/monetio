@@ -2,27 +2,27 @@ import shutil
 import warnings
 from pathlib import Path
 
-import pandas as pd
+import numpy as np
 import pytest
 from filelock import FileLock
 
-from monetio.sat._mopitt_l3_mm import get_start_time, load_variable, open_dataset
+from monetio.models._cesm_fv_mm import open_mfdataset
 
 HERE = Path(__file__).parent
 
 
 def retrieve_test_file():
-    fn = "MOP03JM-201701-L3V95.9.3.he5"
+    fn = "CAM_chem_merra2_FCSD_1deg_QFED_world_201909-01-09_small_sfc.nc"
 
     # Download to tests/data if not already present
     p = HERE / "data" / fn
     if not p.is_file():
-        warnings.warn(f"Downloading test file {fn} for MOPITT L3 test")
+        warnings.warn(f"Downloading test file {fn} for CESM-FV test")
         import requests
 
         r = requests.get(
             "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/"
-            f"example_observation_data/satellite/{fn}",
+            + f"example_model_data/cesmfv_example/{fn}",
             stream=True,
         )
         r.raise_for_status()
@@ -43,7 +43,7 @@ def test_file_path(tmp_path_factory, worker_id):
     root_tmp_dir = tmp_path_factory.getbasetemp().parent
 
     # Copy to the shared test location
-    p_test = root_tmp_dir / "mopitt_l3_test.he5"
+    p_test = root_tmp_dir / "cesm_fv_test.nc"
     with FileLock(p_test.as_posix() + ".lock"):
         if p_test.is_file():
             return p_test
@@ -53,21 +53,21 @@ def test_file_path(tmp_path_factory, worker_id):
             return p_test
 
 
-def test_get_start_time(test_file_path):
-    t = get_start_time(test_file_path)
-    assert t.floor("D") == pd.Timestamp("2017-01-01")
+def _test_ds(ds):
+    assert set(ds.dims) == {"time", "x", "y", "z"}
+
+    # Test coordinates
+    assert "lat" not in ds.variables
+    assert "lon" not in ds.variables
+    assert "latitude" in ds.coords
+    assert "longitude" in ds.coords
+    assert np.all(ds.latitude.values[0, :] == ds.latitude.values[0, 0])
+    assert np.all(ds.longitude.values[:, 0] == ds.longitude.values[0, 0])
+    assert tuple(ds["O3"].dims) == ("time", "z", "y", "x")
+    assert ds["O3"].attrs["units"] == "ppbv"
 
 
-def test_load_variable(test_file_path):
-    ds = load_variable(test_file_path, "column")
-    assert set(ds.coords) == {"lon", "lat"}
-    assert set(ds) == {"column"}
-    assert ds.column.mean() > 0
-
-
-def test_open_dataset(test_file_path):
-    ds = open_dataset(test_file_path, "column")
-    assert set(ds.coords) == {"time", "lat", "lon"}
-    assert set(ds) == {"column"}
-    assert ds.column.mean() > 0
-    assert (ds.time.dt.floor("D") == pd.Timestamp("2017-01-01")).all()
+def test_open_mfdataset(test_file_path):
+    file_path = str(test_file_path)
+    ds = open_mfdataset(file_path)
+    _test_ds(ds)
