@@ -383,7 +383,7 @@ class ModelBin:
                     century = 2000
                 else:
                     century = 1900
-                logger.info(f"Guessing Century for HYSPLIT concentration file {century}")
+                warning.warn(f"Guessing Century for HYSPLIT concentration file {century}")
             # add sourcedate which is datetime.datetime object
             sourcedate = datetime.datetime(
                 century + hdata2["r_year"][nnn],
