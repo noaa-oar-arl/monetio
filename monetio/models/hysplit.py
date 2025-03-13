@@ -350,10 +350,10 @@ class ModelBin:
            number of starting locations in file.
         """
         if len(hdata1["start_loc"]) != 1:
-            warning.warn(
+            warnings.warn(
                 f"In ModelBin {self.filename} _readfile - number of starting locations incorrect"
             )
-            warning.warn(str(hdata1["start_loc"]))
+            warnings.warn(str(hdata1["start_loc"]))
             return None
         # in python 3 np.fromfile reads the record into a list even if it is
         # just one number.
@@ -383,7 +383,7 @@ class ModelBin:
                     century = 2000
                 else:
                     century = 1900
-                warning.warn(f"Guessing Century for HYSPLIT concentration file {century}")
+                warnings.warn(f"Guessing Century for HYSPLIT concentration file {century}")
             # add sourcedate which is datetime.datetime object
             sourcedate = datetime.datetime(
                 century + hdata2["r_year"][nnn],
@@ -651,7 +651,7 @@ class ModelBin:
             #  imax iterations.
             if iimax > imax:
                 testf = False
-                warning.warn(f"greater than imax {testf},{iimax},{imax}")
+                warnings.warn(f"greater than imax {testf},{iimax},{imax}")
             if inc_iii:
                 iii += 1
             if len(poldslist) > 0:
@@ -829,12 +829,12 @@ def combine_dataset(
         if not cobject.empty:
             xlist.append(cobject)
         else:
-            warning.warn(f"could not open {bbb[0]}")
+            warnings.warn(f"could not open {bbb[0]}")
 
     # check that grids are equal by comparing each grid to the one before.
     for iii, xobj in enumerate(xlist[1:]):
         if not xobj.grid_equal(xlist[iii]):
-            warning.warn("grids are not the same. cannot combine")
+            warnings.warn("grids are not the same. cannot combine")
             sys.exit()
 
     xlist.sort()
@@ -1055,14 +1055,14 @@ def get_latlongrid(attrs, xindx, yindx):
     try:
         lonlist = [lon[x - 1] for x in xindx]
     except Exception as eee:
-        warning.warn(f"Exception {eee}")
-        warning.warn("try increasing Number Number Lon Points")
+        warnings.warn(f"Exception {eee}")
+        warnings.warn("try increasing Number Number Lon Points")
         success = False
     try:
         latlist = [lat[x - 1] for x in yindx]
     except Exception as eee:
-        warning.warn(f"Exception {eee}")
-        warning.warn("try increasing Number Number Lat Points")
+        warnings.warn(f"Exception {eee}")
+        warnings.warn("try increasing Number Number Lat Points")
         success = False
 
     if not success:
@@ -1226,10 +1226,10 @@ def add_species(dset, species=None):
     else:
         for val in species:
             if val not in splist:
-                warn = "WARNING: hysplit.add_species function"
+                warn = "warnings: hysplit.add_species function"
                 warn += ": species not found" + str(val) + "\n"
                 warn += " valid species ids are " + str.join(", ", splist)
-                warning.warn(warn)
+                warnings.warn(warn)
     sss = 0
     tmp = []
     # Looping through all species in dataset
@@ -1259,7 +1259,7 @@ def calculate_thickness(cdump):
     for avalue in alts:
         thash[avalue] = avalue - aaa
         aaa = avalue
-    warning.warn(f"WARNING: thickness calculated from z values please verify {thash}")
+    warnings.warn(f"WARNING: thickness calculated from z values please verify {thash}")
     return thash
 
 
@@ -1290,8 +1290,8 @@ def get_thickness(cdump):
                 calculate = True
 
     if calculate:
-        warning.warn(f"{cstr} attribute needed to calculate level thicknesses")
-        warning.warn("alternative calculation from z dimension values")
+        warnings.warn(f"{cstr} attribute needed to calculate level thicknesses")
+        warnings.warn("alternative calculation from z dimension values")
         thash = calculate_thickness(cdump)
     else:
         levs = cdump.attrs[cstr]
