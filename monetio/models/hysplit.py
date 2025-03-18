@@ -41,6 +41,8 @@ Change log
 2024 01 Apr  AMC  added logging. for combine_dataset add continue to exception so it won't fail.
 2024 04 Mar  AMC  bug fixes to combine_dataset
 2025 07 Mar  AMC  added in modifications by TAdeJong to reduce calls to xr.merge and speed up reading.
+2025 18 Mar  AMC  added changes in order to make netcdf file CF compliant. This involves changing some attribute names.
+2025 18 Mar  AMC  tried to get rid of convertin non-nanosecond precision datetime valeus to nanosecond precision warnings.
 
 """
 
