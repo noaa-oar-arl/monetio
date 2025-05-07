@@ -64,15 +64,19 @@ Change log
 """
 
 import datetime
-import logging
 import sys
+import warnings
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-from  hysplit2cf_helper import make_coordinates_cf_compliant, calculate_bounds, make_z_coordinate_cf_compliant, time2cf, add_title_history
-
-import warnings
+from hysplit2cf_helper import (
+    add_title_history,
+    calculate_bounds,
+    make_coordinates_cf_compliant,
+    make_z_coordinate_cf_compliant,
+    time2cf,
+)
 
 # Suppress specific UserWarning about datetime precision
 warnings.filterwarnings(
@@ -82,12 +86,7 @@ warnings.filterwarnings(
 
 
 def open_dataset(
-    fname,
-    drange=None,
-    century=None,
-    verbose=False,
-    massunit = '1',
-    pollutant='pollutant'
+    fname, drange=None, century=None, verbose=False, massunit="1", pollutant="pollutant"
 ):
     """Short summary.
 
@@ -131,9 +130,9 @@ def open_dataset(
         century=century,
         verbose=verbose,
         readwrite="r",
-        sample_time_stamp='mid',
+        sample_time_stamp="mid",
         massunit=massunit,
-        pollutant_desc=pollutant
+        pollutant_desc=pollutant,
     )
     if binfile.dataflag:
         dset = binfile.dset
@@ -197,8 +196,8 @@ class ModelBin:
         verbose=True,
         readwrite="r",
         sample_time_stamp="start",
-        massunit='1',     # Add massunit parameter
-        pollutant_desc='pollutant'
+        massunit="1",  # Add massunit parameter
+        pollutant_desc="pollutant",
     ):
         """
         drange :  list of two datetime objects.
@@ -246,9 +245,7 @@ class ModelBin:
         if readwrite == "r":
             if verbose:
                 print(f"reading {filename}")
-            self.dataflag = self.readfile(
-                filename, drange, verbose=verbose, century=century
-            )
+            self.dataflag = self.readfile(filename, drange, verbose=verbose, century=century)
 
     @staticmethod
     def define_struct():
@@ -422,9 +419,7 @@ class ModelBin:
                     century = 2000
                 else:
                     century = 1900
-                warnings.warn(
-                    f"Guessing Century for HYSPLIT concentration file {century}"
-                )
+                warnings.warn(f"Guessing Century for HYSPLIT concentration file {century}")
             # add sourcedate which is datetime.datetime object
             sourcedate = datetime.datetime(
                 century + hdata2["r_year"][nnn],
@@ -443,9 +438,9 @@ class ModelBin:
         ahash = {}
         ahash["latitude_point_count"] = hdata3["nlat"][0]
         ahash["longitude_point_count"] = hdata3["nlon"][0]
-        ahash["latitude_spacing"] = hdata3["dlat"][0]  
-        ahash["longitude_spacing"] = hdata3["dlon"][0]  
-        ahash["latitude_min"] = hdata3["llcrnr_lat"][0] 
+        ahash["latitude_spacing"] = hdata3["dlat"][0]
+        ahash["longitude_spacing"] = hdata3["dlon"][0]
+        ahash["latitude_min"] = hdata3["llcrnr_lat"][0]
         ahash["longitude_min"] = hdata3["llcrnr_lon"][0]
         return ahash
 
@@ -475,17 +470,15 @@ class ModelBin:
         dt = pdate2 - pdate1
         sample_dt = dt.days * 24 + dt.seconds / 3600.0
         # self.atthash["Sampling Time"] = pdate2 - pdate1
-        self.atthash[
-            "sampling_period_hours"
-        ] = sample_dt  # Changed from sample time hours
-        #if self.sample_time_stamp == "end":
+        self.atthash["sampling_period_hours"] = sample_dt  # Changed from sample time hours
+        # if self.sample_time_stamp == "end":
         #    self.atthash["time_bounds"] = "end"  # Changed from time description
-        #else:
+        # else:
         #    self.atthash["time_bounds"] = "start"
         return True, pdate1, pdate2
 
     @staticmethod
-    def parse_hdata8(hdata8a, hdata8b, pdate1,pdate2,time_stamp,massunit):
+    def parse_hdata8(hdata8a, hdata8b, pdate1, pdate2, time_stamp, massunit):
         """
         @brief Parse concentration data record
         @param hdata8a Header data for record
@@ -506,30 +499,32 @@ class ModelBin:
         concframe["levels"] = lev_name
 
         # Convert datetime to nanosecond precision explicitly
-        if time_stamp=='start':
+        if time_stamp == "start":
             time_ns = pd.Timestamp(pdate1).asm8  # Convert to numpy.datetime64[ns]
-        elif time_stamp=='end':
+        elif time_stamp == "end":
             time_ns = pd.Timestamp(pdate2).asm8  # Convert to numpy.datetime64[ns]
-        elif time_stamp=='mid':
-            time_ns = pd.Timestamp(pdate1 + (pdate2 - pdate1) / 2).asm8  # Convert to numpy.datetime64[ns]
+        elif time_stamp == "mid":
+            time_ns = pd.Timestamp(
+                pdate1 + (pdate2 - pdate1) / 2
+            ).asm8  # Convert to numpy.datetime64[ns]
         concframe["time"] = time_ns
-        
+
         # Create time bounds for each row
         bound1 = pd.Timestamp(pdate1).strftime("%Y-%m-%dT%H:%M:%SZ")
         bound2 = pd.Timestamp(pdate2).strftime("%Y-%m-%dT%H:%M:%SZ")
-        concframe['time_bounds'] = [[bound1, bound2] for _ in range(len(concframe))]
+        concframe["time_bounds"] = [[bound1, bound2] for _ in range(len(concframe))]
 
-        # Rename columns 
+        # Rename columns
         names = concframe.columns.values
         names = ["y" if x == "jndx" else x for x in names]
         names = ["x" if x == "indx" else x for x in names]
         names = ["z" if x == "levels" else x for x in names]
         names = [col_name if x == "conc" else x for x in names]
         concframe.columns = names
-        
+
         ## Add concentration unit information
-        #if 'conc' in edata.dtype.names:
-        #    concframe[col_name].attrs['units'] = massunit 
+        # if 'conc' in edata.dtype.names:
+        #    concframe[col_name].attrs['units'] = massunit
 
         return concframe
 
@@ -540,30 +535,27 @@ class ModelBin:
         """
         if time_bounds is None or len(time_bounds) == 0:
             return
-            
+
         # Get unique time bounds for each time
-        unique_bounds = time_bounds.groupby('time')['time_bounds'].first()
- 
+        unique_bounds = time_bounds.groupby("time")["time_bounds"].first()
+
         # Convert to array with bnds dimension
-        bounds_array = np.zeros((len(unique_bounds), 2), dtype='datetime64[ns]')
+        bounds_array = np.zeros((len(unique_bounds), 2), dtype="datetime64[ns]")
         for i, (_, bounds) in enumerate(unique_bounds.items()):
             # Remove timezone info from string before converting to datetime64
-            bounds_array[i,0] = pd.Timestamp(bounds[0].replace('Z','')).asm8
-            bounds_array[i,1] = pd.Timestamp(bounds[1].replace('Z','')).asm8
-            
+            bounds_array[i, 0] = pd.Timestamp(bounds[0].replace("Z", "")).asm8
+            bounds_array[i, 1] = pd.Timestamp(bounds[1].replace("Z", "")).asm8
+
         # Add bounds dimension if not present
-        if 'bnds' not in self.dset.dims:
-            self.dset['bnds'] = np.array([0,1])
-            
+        if "bnds" not in self.dset.dims:
+            self.dset["bnds"] = np.array([0, 1])
+
         # Add time bounds coordinate
-        self.dset['time_bounds'] = xr.DataArray(
+        self.dset["time_bounds"] = xr.DataArray(
             bounds_array,
-            dims=['time', 'bnds'],
-            coords={'time': self.dset.time, 'bnds': self.dset.bnds},
-            attrs={
-                'long_name': 'start and end times of sampling period',
-                'units': 'UTC' 
-            }
+            dims=["time", "bnds"],
+            coords={"time": self.dset.time, "bnds": self.dset.bnds},
+            attrs={"long_name": "start and end times of sampling period", "units": "UTC"},
         )
 
     def readfile(self, filename, drange, verbose, century):
@@ -624,9 +616,7 @@ class ModelBin:
         hdata5a = np.fromfile(fid, dtype=rec5a, count=1)
         np.fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
         np.fromfile(fid, dtype=rec5c, count=1)
-        self.atthash["number_of_species"] = hdata5a["pollnum"][
-            0
-        ]  # Changed from Number of Species
+        self.atthash["number_of_species"] = hdata5a["pollnum"][0]  # Changed from Number of Species
         self.atthash["Species_ID"] = []
 
         # Loop to reads records 6-8. Number of loops is equal to number of
@@ -665,9 +655,7 @@ class ModelBin:
                     # )
                     # if number of elements is nonzero then
                     if hdata8a["ne"] >= 1:
-                        self.atthash["Species_ID"].append(
-                            hdata8a["poll"][0].decode("UTF-8")
-                        )
+                        self.atthash["Species_ID"].append(hdata8a["poll"][0].decode("UTF-8"))
                         # get rec8 - indx and jndx
                         hdata8b = np.fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
                         # add sample start time to list of start times with
@@ -685,14 +673,20 @@ class ModelBin:
                     if savedata and hdata8a["ne"] >= 1:
                         self.nonzeroconcdates.append(pdate1)
                         inc_iii = True
-                        concframe = self.parse_hdata8(hdata8a, hdata8b, pdate1,pdate2,self.sample_time_stamp,self.massunit)
-                        
+                        concframe = self.parse_hdata8(
+                            hdata8a, hdata8b, pdate1, pdate2, self.sample_time_stamp, self.massunit
+                        )
+
                         # Split out time_bounds into separate frame and store in instance
-                        if 'time_bounds' in concframe:
-                            time_bounds = concframe[['time', 'time_bounds']]
-                            self.time_bounds_data = pd.concat([self.time_bounds_data, time_bounds]) if self.time_bounds_data is not None else time_bounds
-                            concframe = concframe.drop('time_bounds', axis=1)
-                            
+                        if "time_bounds" in concframe:
+                            time_bounds = concframe[["time", "time_bounds"]]
+                            self.time_bounds_data = (
+                                pd.concat([self.time_bounds_data, time_bounds])
+                                if self.time_bounds_data is not None
+                                else time_bounds
+                            )
+                            concframe = concframe.drop("time_bounds", axis=1)
+
                         concframes += [concframe]
                         # if verbose:
                         #    print("Adding ", "Pollutant", pollutant, "Level", lev)
@@ -706,10 +700,10 @@ class ModelBin:
                         inplace=True,
                     )
                     dset = xr.Dataset.from_dataframe(concframes)
-                    #varname = list(dset.data_vars.keys())
-                    #varname = varname[0]
-                    #dra = fix_grid_continuity(dset[varname],verbose=verbose)
-                    #dset = dra.to_dataset(name=varname)
+                    # varname = list(dset.data_vars.keys())
+                    # varname = varname[0]
+                    # dra = fix_grid_continuity(dset[varname],verbose=verbose)
+                    # dset = dra.to_dataset(name=varname)
                     poldslist += [dset]
                 else:
                     poldslist += [None]
@@ -736,26 +730,26 @@ class ModelBin:
         Ns = range(self.atthash["number_of_species"])  # Use new attribute name
         # Grab per species all relevant datasets in the time list
         dsets = [[ll[n] for ll in timedslist if ll[n] is not None] for n in Ns]
-        dsets = [xr.concat(ds, dim="time") for ds in dsets if len(ds) > 0]  # note to copilot - do not change this line!
+        dsets = [
+            xr.concat(ds, dim="time") for ds in dsets if len(ds) > 0
+        ]  # note to copilot - do not change this line!
         if len(dsets) == 0:
             return False
         self.dset = xr.merge(dsets)
         if self.dset.variables:
             self.atthash = check_attributes(self.atthash)
             self.dset.attrs = self.atthash
-            self.dset = fix_grid_continuity(self.dset, verbose=verbose)  
-        # Add time bounds before setting up coordinates 
+            self.dset = fix_grid_continuity(self.dset, verbose=verbose)
+            # Add time bounds before setting up coordinates
             if self.time_bounds_data is not None:
-                #print('Adding time bounds')
+                # print('Adding time bounds')
                 self.add_time_bounds(self.time_bounds_data)
-            
-        # Continue with existing coordinate setup
-            #self.atthash = check_attributes(self.atthash)
-            #self.dset.attrs = self.atthash
+
+            # Continue with existing coordinate setup
+            # self.atthash = check_attributes(self.atthash)
+            # self.dset.attrs = self.atthash
             # mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
-            mgrid = get_latlongrid(
-                self.gridhash, self.dset.coords["x"], self.dset.coords["y"]
-            )
+            mgrid = get_latlongrid(self.gridhash, self.dset.coords["x"], self.dset.coords["y"])
             self.dset = self.dset.assign_coords(longitude=(("x"), mgrid[0]))
             self.dset = self.dset.assign_coords(latitude=(("y"), mgrid[1]))
 
@@ -766,8 +760,8 @@ class ModelBin:
             return False
         # Only apply attributes to data variables, not coordinates
         for var in self.dset.data_vars:
-            self.dset[var].attrs["units"] = f'{self.massunit} m-3' 
-            self.dset[var].attrs["standard_name"] = f'mass_concentration_of_{self.pollutant}_in_air'
+            self.dset[var].attrs["units"] = f"{self.massunit} m-3"
+            self.dset[var].attrs["standard_name"] = f"mass_concentration_of_{self.pollutant}_in_air"
         return True
 
 
@@ -777,7 +771,7 @@ class CombineObject:
     """
 
     def __init__(
-        self, blist: tuple, drange=None, century=None, massunit='1', pollutant='pollutant'
+        self, blist: tuple, drange=None, century=None, massunit="1", pollutant="pollutant"
     ):
         self.fname = blist[0]
         self.source = blist[1]
@@ -853,9 +847,9 @@ class CombineObject:
                 verbose=verbose,
                 massunit=massunit,
                 pollutant=pollutant
-                #sample_time_stamp=sample_time_stamp,
-                #check_grid=False,
-                #cf_compliant=True
+                # sample_time_stamp=sample_time_stamp,
+                # check_grid=False,
+                # cf_compliant=True
             )
         else:  # use all dates
             hxr = open_dataset(
@@ -864,9 +858,9 @@ class CombineObject:
                 verbose=verbose,
                 massunit=massunit,
                 pollutant=pollutant
-                #sample_time_stamp=sample_time_stamp,
-                #check_grid=False,
-                #cf_compliant=True
+                # sample_time_stamp=sample_time_stamp,
+                # check_grid=False,
+                # cf_compliant=True
             )
         return hxr
 
@@ -877,10 +871,10 @@ def combine_dataset(
     species=None,
     century=None,
     verbose=False,
-    massunit='1',
-    pollutant='pollutant',
-    #sample_time_stamp="start",
-    #check_grid=True,
+    massunit="1",
+    pollutant="pollutant",
+    # sample_time_stamp="start",
+    # check_grid=True,
 ):
     """
     Inputs :
@@ -918,8 +912,7 @@ def combine_dataset(
     # removes any cdumps that are empty.
     # Convert times to nanosecond precision before combining
 
-
-    #def convert_time_precision(ds):
+    # def convert_time_precision(ds):
     #    if "time" in ds.coords:
     #        times = pd.to_datetime(ds.time.values).to_numpy(dtype="datetime64[ns]")
     #        ds = ds.assign_coords(time=times)
@@ -928,7 +921,7 @@ def combine_dataset(
     # Create list of datasets to combine
     xlist = []
     for bbb in blist:
-        cobject = CombineObject(bbb, drange, century,massunit=massunit, pollutant=pollutant)
+        cobject = CombineObject(bbb, drange, century, massunit=massunit, pollutant=pollutant)
         if not cobject.empty:
             # Convert time precision when loading
             # cobject.hxr = convert_time_precision(cobject.hxr)
@@ -975,21 +968,21 @@ def combine_dataset(
     # concat on source dimension
     newhxr = xr.concat(outlist, "source")
     newhxr["source"] = sourcelist
-    
+
     atthash = xlist[0].hxr.attrs
     attrs = check_attributes(atthash)
     newhxr = newhxr.assign_attrs(attrs)
     newhxr = reset_latlon_coords(newhxr)
     newhxr = reduce_dims(newhxr)
     # change time coordinate back to datetime
-    #rval = fix_grid_continuity(newhxr,verbose=verbose)
-    #rval = add_massunit(rval,unit,pollutant)
+    # rval = fix_grid_continuity(newhxr,verbose=verbose)
+    # rval = add_massunit(rval,unit,pollutant)
     return newhxr
 
 
 def reduce_dims(dset):
     """@brief Reduce dimensions of boundary variables to their core dimensions.
-    @param dset xarray.Dataset Dataset with boundary variables to simplify 
+    @param dset xarray.Dataset Dataset with boundary variables to simplify
     @return xarray.Dataset Dataset with simplified boundary variables
     @details For variables like latitude_bounds, longitude_bounds, etc., reduces dimensions
              from complex (e.g., source, ens, y, bnds) to just core dims (e.g., y, bnds).
@@ -998,68 +991,68 @@ def reduce_dims(dset):
     """
     # Dictionary mapping boundary variables to their core dimensions
     bounds_core_dims = {
-        'latitude_bounds': ('y', 'bnds'),
-        'longitude_bounds': ('x', 'bnds'),
-        'time_bounds': ('time', 'bnds'),
-        'z_bounds': ('z', 'bnds')
+        "latitude_bounds": ("y", "bnds"),
+        "longitude_bounds": ("x", "bnds"),
+        "time_bounds": ("time", "bnds"),
+        "z_bounds": ("z", "bnds"),
     }
-    
+
     # Copy the dataset to avoid modifying the original
     new_dset = dset.copy()
-    
+
     # Process each boundary variable if it exists
     for var_name, core_dims in bounds_core_dims.items():
         if var_name in new_dset.data_vars:
             var = new_dset[var_name]
-            
+
             # Check if the variable has extra dimensions
             current_dims = var.dims
-            if set(current_dims) != set(core_dims) and all(dim in current_dims for dim in core_dims):
+            if set(current_dims) != set(core_dims) and all(
+                dim in current_dims for dim in core_dims
+            ):
                 # Variable has extra dimensions, need to simplify
-                
+
                 # Get the coordinate values for the core dimensions
                 core_coords = {dim: new_dset[dim] for dim in core_dims if dim in new_dset.coords}
-                
+
                 # For boundary variables that span extra dimensions (like ens, source),
                 # we'll take the first element along those dimensions
                 # Create indexing dictionary for selecting the first element of non-core dims
                 idx = {dim: 0 for dim in current_dims if dim not in core_dims}
-                
+
                 # Extract the values using the indexing
                 if idx:
                     reduced_values = var.isel(**idx).values
                 else:
                     reduced_values = var.values
-                
+
                 # Create new DataArray with only core dimensions
                 attrs = var.attrs.copy()
                 new_dset[var_name] = xr.DataArray(
-                    reduced_values,
-                    dims=core_dims,
-                    coords=core_coords,
-                    attrs=attrs
+                    reduced_values, dims=core_dims, coords=core_coords, attrs=attrs
                 )
-                
+
                 # Update the bounds attribute on the corresponding coordinate if needed
                 if core_dims[0] in new_dset.coords:
                     coord = new_dset[core_dims[0]]
-                    #if 'bounds' not in coord.attrs or coord.attrs['bounds'] != var_name:
+                    # if 'bounds' not in coord.attrs or coord.attrs['bounds'] != var_name:
                     #    coord.attrs['bounds'] = var_name
-    
+
     return new_dset
 
 
-def add_massunit(dset, massunit, pollutant='pollutant'):
+def add_massunit(dset, massunit, pollutant="pollutant"):
     """
     Adds mass unit to each species in the dataset.
     """
     for var in dset.variables:
-        if set(dset[var].dims).issuperset({'x', 'y', 'z'}):
-            dset[var].attrs["units"] = f'{massunit} m-3'
-            dset[var].attrs["standard_name"] = f'mass_concentration_of_{pollutant}_in_air'
-            #print('adding attributes {}'.format(var))
-    
+        if set(dset[var].dims).issuperset({"x", "y", "z"}):
+            dset[var].attrs["units"] = f"{massunit} m-3"
+            dset[var].attrs["standard_name"] = f"mass_concentration_of_{pollutant}_in_air"
+            # print('adding attributes {}'.format(var))
+
     return dset
+
 
 def get_time_index(timevals, stime, dt):
     """
@@ -1067,13 +1060,14 @@ def get_time_index(timevals, stime, dt):
     stime    : start time of time grid
     dt       : integer - time resolution in hours of time grid.
     """
+
     def apply(ttt):
         diff = pd.to_datetime(ttt) - stime
         dh = diff.days * 24 + diff.seconds / 3600
         iii = dh / dt
         return int(iii)
-    return [apply(x) for x in timevals]
 
+    return [apply(x) for x in timevals]
 
 
 def reset_latlon_coords(hxr):
@@ -1108,7 +1102,8 @@ def fix_grid_continuity(dset, verbose=False):
     # Check if grid already continuous
     if check_grid_continuity(dset):
         return dset
-    if verbose: print('Grid is not continuous, attempting to fix...')
+    if verbose:
+        print("Grid is not continuous, attempting to fix...")
 
     # Get grid indices
     xvv = dset.x.values
@@ -1121,11 +1116,10 @@ def fix_grid_continuity(dset, verbose=False):
     xindx = np.arange(xlim[0], xlim[1] + 1)
     yindx = np.arange(ylim[0], ylim[1] + 1)
     try:
-         dset = dset.reindex(x=xindx, y=yindx, method=None,fill_value=0)
+        dset = dset.reindex(x=xindx, y=yindx, method=None, fill_value=0)
     except ValueError as e:
-         warnings.warn(f"Failed to reindex dataset: {e}")    
+        warnings.warn(f"Failed to reindex dataset: {e}")
     return dset
-
 
 
 def check_grid_continuity(dset):
@@ -1191,7 +1185,7 @@ def get_latlongrid(attrs, xindx, yindx):
 
     if not success:
         return None
-    #mgrid = np.meshgrid(lonlist, latlist)
+    # mgrid = np.meshgrid(lonlist, latlist)
     return lonlist, latlist
 
 
@@ -1237,12 +1231,12 @@ def add_species(dset, species=None):
     @param dset : xarray dataset
     @param speices : list of Species ID's which are names of data varialbes in dset.
               if none then all ids in the "species ID" attribute will be used.
-              if 'Species_ID' is not in the attributes then all variables in the    
+              if 'Species_ID' is not in the attributes then all variables in the
                 dataset will be used.
     @return dset : xarray dataset with added data variables.
     """
     if not species:
-        if "Species_ID"  in dset.attrs.keys():
+        if "Species_ID" in dset.attrs.keys():
             species = dset.attrs["Species_ID"]
 
     # Sum the variables
@@ -1256,7 +1250,6 @@ def add_species(dset, species=None):
     return returnset
 
 
-
 def check_attributes(atthash):
     # when writing to netcdf file, attributes which are numpy arrays do not write properly.
     # need to change them to lists.
@@ -1267,16 +1260,17 @@ def check_attributes(atthash):
             atthash[key] = newval
     return atthash
 
-def sum_datavars(dset, varlist=None, newname='SUM'):
+
+def sum_datavars(dset, varlist=None, newname="SUM"):
     """@brief Sum data variables that share time,z,y,x coordinates.
     @param dset xarray.Dataset Dataset containing variables to sum
-    @param varlist list: List of variable names to sum. If None, sums all variables with matching coords 
+    @param varlist list: List of variable names to sum. If None, sums all variables with matching coords
     @param newname str: Name for the summed variable (default: 'SUM')
     @return xarray.Dataset Dataset with new summed variable
     """
     # Required coordinates
-    req_coords = {'time', 'z', 'y', 'x'}
-    
+    req_coords = {"time", "z", "y", "x"}
+
     # If varlist provided, verify variables exist
     if varlist is not None:
         missing_vars = [var for var in varlist if var not in dset.data_vars]
@@ -1287,7 +1281,7 @@ def sum_datavars(dset, varlist=None, newname='SUM'):
             if not varlist:
                 warnings.warn("No requested variables found in dataset")
                 return dset
-    
+
     # Find variables with matching coordinates
     matching_vars = []
     for var in dset.data_vars:
@@ -1295,80 +1289,84 @@ def sum_datavars(dset, varlist=None, newname='SUM'):
         if req_coords.issubset(var_coords):
             if varlist is None or var in varlist:
                 matching_vars.append(var)
-    
+
     if not matching_vars:
         warnings.warn("No variables found with required coordinates (time,z,y,x)")
         return dset
-        
+
     # Check units and standard_names across variables
     units = None
     pollutants = []
     for var in matching_vars:
         # Check units
-        if 'units' in dset[var].attrs:
-            var_units = dset[var].attrs['units']
+        if "units" in dset[var].attrs:
+            var_units = dset[var].attrs["units"]
             if units is None:
                 units = var_units
             elif var_units != units:
                 warnings.warn(f"Mismatched units found: {var} has {var_units}, expected {units}")
                 return dset
-                
+
         # Extract pollutant name from standard_name if it exists
-        if 'standard_name' in dset[var].attrs:
-            std_name = dset[var].attrs['standard_name']
-            if std_name.startswith('mass_concentration_of_') and std_name.endswith('_in_air'):
+        if "standard_name" in dset[var].attrs:
+            std_name = dset[var].attrs["standard_name"]
+            if std_name.startswith("mass_concentration_of_") and std_name.endswith("_in_air"):
                 # Extract pollutant name from between prefix and suffix
-                pollutant = std_name[len('mass_concentration_of_'):-len('_in_air')]
+                pollutant = std_name[len("mass_concentration_of_") : -len("_in_air")]
                 if pollutant not in pollutants:
                     pollutants.append(pollutant)
-    
-    # Sum the matching variables  
+
+    # Sum the matching variables
     total = dset[matching_vars[0]].copy()
     for var in matching_vars[1:]:
         total = total + dset[var]
-        
+
     # Create new dataset with sum
     dset[newname] = total
-    
+
     # Add attributes to new variable
     attrs = {
-        'long_name': f'Sum of variables: {", ".join(matching_vars)}',
-        'constituent_variables': matching_vars
+        "long_name": f'Sum of variables: {", ".join(matching_vars)}',
+        "constituent_variables": matching_vars,
     }
-    
+
     # Add units if they were found
     if units is not None:
-        attrs['units'] = units
-        
+        attrs["units"] = units
+
     # Create combined standard_name if pollutants were found
     if pollutants:
-        combined_pollutant = '_'.join(pollutants)
-        attrs['standard_name'] = f'mass_concentration_of_{combined_pollutant}_in_air'
-        
+        combined_pollutant = "_".join(pollutants)
+        attrs["standard_name"] = f"mass_concentration_of_{combined_pollutant}_in_air"
+
     dset[newname].attrs.update(attrs)
     return dset
+
 
 def calc_thickness(dset):
     """@brief Calculate thickness of each z-level from z_bounds
     @param dset xarray.Dataset Dataset with z_bounds coordinate
     @return xarray.DataArray Layer thickness values
     """
-    if 'z_bounds' not in dset:
+    if "z_bounds" not in dset:
         raise ValueError("Dataset missing z_bounds coordinate")
-        
+
     # Calculate thickness as difference between upper and lower bounds
     thickness = dset.z_bounds.isel(bnds=1) - dset.z_bounds.isel(bnds=0)
-    
+
     # Add attributes
-    thickness.attrs.update({
-        'units': 'm',
-        'long_name': 'thickness of vertical layer',
-        'standard_name': 'layer_thickness',
-    })
-    
+    thickness.attrs.update(
+        {
+            "units": "m",
+            "long_name": "thickness of vertical layer",
+            "standard_name": "layer_thickness",
+        }
+    )
+
     return thickness
 
-def calc_massload(dset, species=None,varname=None):
+
+def calc_massload(dset, species=None, varname=None):
     """@brief Calculate column mass loading by summing mass in each layer over height
     @param dset xarray.Dataset HYSPLIT dataset with z_bounds
     @param species list: Optional list of species to include
@@ -1376,43 +1374,44 @@ def calc_massload(dset, species=None,varname=None):
     """
     # Get summed concentration for specified species
     dset = dset.copy()
-    if isinstance(species,(list,np.ndarray)) and len(species) > 1:
+    if isinstance(species, (list, np.ndarray)) and len(species) > 1:
         conc = sum_datavars(dset, varlist=species)
-        varname='SUM'
+        varname = "SUM"
     elif not species:
         conc = add_species(dset, species=species)
-        varname='SUM'
+        varname = "SUM"
     else:
-        conc = dset 
-        if not varname: 
-           if 'SUM' in dset.data_vars:
-               varname = 'SUM'
+        conc = dset
+        if not varname:
+            if "SUM" in dset.data_vars:
+                varname = "SUM"
 
     if varname not in dset.data_vars:
         raise ValueError(f"Variable '{varname}' not found in dataset")
-
 
     # Calculate layer thickness
     thickness = calc_thickness(dset)
     # Multiply concentration by thickness to get mass in each layer
     layer_mass = conc[varname] * thickness
- 
+
     # Sum over z dimension to get column mass loading
-    column_mass = layer_mass.sum(dim='z')
-    
+    column_mass = layer_mass.sum(dim="z")
+
     # Add as new variable with attributes
-    dset['column_mass_loading'] = column_mass
-    units = conc[varname].attrs.get('units', '1 m-3')
-    units = units.replace('m-3', 'm-2')
-    dset.column_mass_loading.attrs.update({
-        'units': units,
-        'long_name': 'column integrated mass loading',
-        'standard_name': 'atmosphere_mass_content_of_air',
-        'coordinates': 'time latitude longitude'
-    })
-    
+    dset["column_mass_loading"] = column_mass
+    units = conc[varname].attrs.get("units", "1 m-3")
+    units = units.replace("m-3", "m-2")
+    dset.column_mass_loading.attrs.update(
+        {
+            "units": units,
+            "long_name": "column integrated mass loading",
+            "standard_name": "atmosphere_mass_content_of_air",
+            "coordinates": "time latitude longitude",
+        }
+    )
+
     # Drop z-related coordinates and variables
-    dset = dset.drop_vars([varname, 'z', 'z_bounds'], errors='ignore')
-    dset = dset.drop_dims('z', errors='ignore')
-    
+    dset = dset.drop_vars([varname, "z", "z_bounds"], errors="ignore")
+    dset = dset.drop_dims("z", errors="ignore")
+
     return dset
