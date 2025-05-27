@@ -630,6 +630,8 @@ def _choose_xarray_engine_and_keywords(fname):
             "engine": "pseudonetcdf",
             "backend_kwargs": {"format": "uamiv"},
         }
+    keywords["combine"] = "nested"
+    keywords["concat_dim"] = "TSTEP"
     return keywords
 
 

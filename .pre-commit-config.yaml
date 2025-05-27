@@ -6,7 +6,7 @@ repos:
         exclude: tdump\.[0-9]*
       - id: end-of-file-fixer
       - id: check-docstring-first
-        exclude: monetio/obs/openaq_v2\.py
+        exclude: monetio/obs/openaq_v(2|3)\.py
       - id: check-yaml
 
   - repo: https://github.com/asottile/pyupgrade
