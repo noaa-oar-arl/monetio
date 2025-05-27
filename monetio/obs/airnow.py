@@ -51,7 +51,7 @@ def build_urls(dates, *, daily=False):
     if daily:
         dates = dates.floor("D").unique()
     else:  # hourly
-        dates = dates.floor("H").unique()
+        dates = dates.floor("h").unique()
 
     urls = []
     fnames = []
@@ -106,10 +106,9 @@ def read_csv(fn):
             fn,
             delimiter="|",
             header=None,
-            error_bad_lines=False,
-            warn_bad_lines=True,
+            on_bad_lines='warn',
             encoding="ISO-8859-1",
-        )  # TODO: `error_bad_lines` is deprecated from v1.3
+        )
     except Exception:
         dft = pd.DataFrame(columns=hourly_cols)
         # TODO: warning message or error instead?
