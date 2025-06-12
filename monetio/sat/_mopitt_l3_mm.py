@@ -1,7 +1,8 @@
 """MOPITT gridded data file reader.
 
 History:
-
+- updated 2025-06-12
+  * Altered to allow for directly accessing from OPeNDAP server (https://opendap.larc.nasa.gov/opendap/MOPITT/MOP03J.009/contents.html)
 - updated 2024-02 meb
   * read multiple variables into a DataSet instead of individual variables
   * add functions to combine profiles and surface as in rrb's code
@@ -17,34 +18,46 @@ from pathlib import Path
 
 import pandas as pd
 import xarray as xr
+import numpy as np
+import h5py
+import warnings
 
 
-def get_start_time(filename):
+def get_start_time(filename,from_opendap=False):
     """Method to read the time in MOPITT level 3 HDF files.
 
     Parameters
     ----------
     filename : str
         Path to the file.
+    from_opendap : bool
+        Flag specifying if data is local or being read from the OPeNDAP
 
     Returns
     -------
     pandas.Timestamp or pandas.NaT
     """
-    import h5py
-
-    structure = "/HDFEOS/ADDITIONAL/FILE_ATTRIBUTES"
-
-    inFile = h5py.File(filename, "r")
-
-    grp = inFile[structure]
-    k = grp.attrs
-    startTimeBytes = k.get("StartTime", default=None)  # one-element float array
+    
+    if from_opendap:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            inFile = xr.open_dataset(filename)
+        structure =  'HDFEOS_ADDITIONAL_FILE_ATTRIBUTES'
+        startTime_varname = f'{structure}.StartTime'
+        k = inFile.attrs
+        startTimeBytes = k.get(startTime_varname,None)
+    else:
+        inFile = h5py.File(filename, "r")
+        structure = "/HDFEOS/ADDITIONAL/FILE_ATTRIBUTES"    
+        startTime_varname = 'StartTime'
+        k = inFile[structure].attrs
+        startTimeBytes = k.get(startTime_varname, default=None)[0]# one-element float array
+    
     if startTimeBytes is None:
         startTime = pd.NaT
     else:
         startTime = pd.to_datetime(
-            startTimeBytes[0],
+            startTimeBytes,
             unit="s",
             origin="1993-01-01 00:00:00",
         )
@@ -54,8 +67,67 @@ def get_start_time(filename):
     return startTime
 
 
-def load_variable(filename, varname):
-    """Method to open MOPITT gridded HDF files.
+def load_variable_opendap(filename, varname):
+    """Method to open MOPITT gridded files from OPeNDAP. Reading either directly from the OPeNDAP database 
+    or using netCDF files that originated from reading directly from OPeNDAP drops the grouped structure.
+    Masks data that is missing (turns into ``np.nan``).
+
+    Parameters
+    ----------
+    filename
+        Path to the file. May be a url
+    varname : str
+        The variable to load from the MOPITT file.
+
+    Returns
+    -------
+    xarray.Dataset
+    """
+    # Load the dimensions
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ds = xr.open_dataset(filename)
+    lat = ds["Latitude"].values
+    lon = ds["Longitude"].values
+    alt = ds["Pressure2"].values
+    alt_short = ds["Pressure"].values
+
+    # 2D or 3D variables to choose from
+    variable_dict = {
+        "column": "RetrievedCOTotalColumnDay",
+        "apriori_col": "APrioriCOTotalColumnDay",
+        "apriori_surf": "APrioriCOSurfaceMixingRatioDay",
+        "pressure_surf": "SurfacePressureDay",
+        "ak_col": "TotalColumnAveragingKernelDay",
+        "apriori_prof": "APrioriCOMixingRatioProfileDay",
+    }
+    if varname not in variable_dict:
+        raise ValueError(f"Variable {varname!r} not in {sorted(variable_dict)}.")
+    data_loaded = ds[[variable_dict[varname]]]
+
+    ds.close()
+
+    # Create xarray DataArray
+    if varname in {"column", "apriori_col", "apriori_surf", "pressure_surf"}:
+        data_loaded = data_loaded.rename({'XDim': 'lon','YDim': 'lat',
+                                          variable_dict[varname]: varname})
+    elif varname == "ak_col":
+        data_loaded = data_loaded.rename({'XDim': 'lon','YDim': 'lat', 'Prs2': 'alt',
+                                          variable_dict[varname]: varname})
+    elif varname == "apriori_prof":
+        data_loaded = data_loaded.rename({'XDim': 'lon','YDim': 'lat', 'Prs': 'alt',
+                                          variable_dict[varname]: varname})
+    else:
+        raise AssertionError(f"Variable {varname!r} in variable dict but not accounted for.")
+
+    # missing value -> nan
+    data_loaded[varname] = data_loaded[varname].where(data_loaded[varname] != -9999.0)
+
+    return data_loaded
+    
+def load_variable_local_h5_files(filename, varname):
+    """Method to open MOPITT gridded HDF files saved locally after being downloaded from a database using wget.
+    These files retain the h5 group structure. 
     Masks data that is missing (turns into ``np.nan``).
 
     Parameters
@@ -69,7 +141,6 @@ def load_variable(filename, varname):
     -------
     xarray.Dataset
     """
-    import h5py
 
     ds = xr.Dataset()
 
@@ -148,7 +219,6 @@ def _add_pressure_variables(dataset):
     -------
     xarray.DataSet
     """
-    import numpy as np
 
     # broadcast 10 levels 1000 to 100 hPa repeated everywhere
     dummy, press_dummy_arr = xr.broadcast(dataset["ak_col"], dataset["ak_col"].alt)
@@ -195,7 +265,6 @@ def _combine_apriori(dataset):
     -------
     xarray.Dataset
     """
-    import numpy as np
 
     dataset["apriori_prof"][:, :, :, -1] = dataset["apriori_surf"].values
 
@@ -216,7 +285,7 @@ def _combine_apriori(dataset):
     return dataset
 
 
-def open_dataset(files, varnames):
+def open_dataset(files, varnames,from_opendap=False):
     """Loop through files to open the MOPITT level 3 data for variable `varname`.
 
     Parameters
@@ -226,6 +295,8 @@ def open_dataset(files, varnames):
         If :class:`str`, shell-style wildcards (e.g. ``*``) will be expanded.
     varnames : str or list of str
         The variable(s) to load from the MOPITT file.
+    from_opendap : bool
+        Flag specifying if data is local or being read from the OPeNDAP
 
     Returns
     -------
@@ -246,8 +317,12 @@ def open_dataset(files, varnames):
         print(filename)
         file_varset = []
         for varname in varnames:
-            data = load_variable(filename, varname)
-            time = get_start_time(filename)
+            if from_opendap:
+                data = load_variable_opendap(filename, varname)
+            else:
+                data = load_variable_local_h5_files(filename, varname)
+            
+            time = get_start_time(filename,from_opendap=from_opendap)
             data = data.expand_dims(axis=0, time=[time])
             file_varset.append(data)
 
