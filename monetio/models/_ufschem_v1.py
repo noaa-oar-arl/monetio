@@ -1,4 +1,9 @@
-""" UFS-Chem v1 File Reader. Modified from RRFS-CMAQ File Reader """
+""" 
+UFS-Chem v1 File Reader. 
+Modified from RRFS-CMAQ File Reader 
+
+6/2025: Additional modifications to optionally read sfc files
+"""
 
 import numpy as np
 import xarray as xr
@@ -18,6 +23,8 @@ def open_mfdataset(
     convert_to_ppb=True,
     var_list=None,
     surf_only=False,
+    fname_sfc=None,
+    sfc_varlist=['aod550'],
     **kwargs,
 ):
     """Method to open UFS-Chem v1 netcdf files.
@@ -37,6 +44,11 @@ def open_mfdataset(
     surf_only: boolean
         Whether to save only surface data to save on memory and computational
         cost (True) or not (False).
+    fname_sfc : string or list
+        Path to the sfc file in UFS-Chem. This file contains additonal variables 
+        and diagnostics not included in the standard atm files.
+    sfc_varlist : list
+        List of variables from the sfc file to include in output.
 
     Returns
     -------
@@ -142,7 +154,13 @@ def open_mfdataset(
     if var_list is not None:
         if bool(list_remove_extra_only):  # confirm list not empty
             dset = dset.drop_vars(list_remove_extra_only)
-
+    
+    # Read in additional variables from the sfc file
+    if fname_sfc is not None:
+        ds_sfc = xr.open_mfdataset(fname_sfc, **kwargs)[sfc_varlist]
+        ds_sfc = ds_sfc.rename({"grid_yt": "y",
+            "grid_xt": "x"})
+        dset = dset.merge(ds_sfc)
     return dset
 
 def _calc_hgt(f):
