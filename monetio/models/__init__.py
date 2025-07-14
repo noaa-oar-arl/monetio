@@ -15,6 +15,7 @@ from . import (
     pardump,
     prepchem,
     raqms,
+    ufs,
 )
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "pardump",
     "prepchem",
     "raqms",
+    "ufs",
 ]
 
 __name__ = "models"
