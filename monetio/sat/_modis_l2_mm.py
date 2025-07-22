@@ -102,9 +102,7 @@ def read_mfdataset(fnames, variable_dict, debug=False):
         files = fnames
 
     granules = OrderedDict()
-    print(files)
     for file in files:
-        print('reading granule')
         granule = read_dataset(file, variable_dict)
         apply_quality_flag(granule)
         granule_str = file.split("/")[-1]
