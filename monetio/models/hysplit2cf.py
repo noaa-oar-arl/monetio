@@ -36,7 +36,7 @@ Helper Functions:
 22. `check_attributes` - Ensures attributes are in proper format
 23. `sum_datavars` - Sums data variables with matching coordinates
 24. `calc_thickness` - Calculates thickness from z_bounds
-25. `calc_massload` - Calculates column mass loading
+25. `calc_massload` - Calculates column mass loading. Replaces hysp_massload
 
 
 --------
@@ -70,6 +70,7 @@ Change log
 2025 24 Mar  AMC  added sum_datavars function to improve add_species
 2025 24 Mar  AMC  corrected combine_dataset to correctly add ens as a coordinate
 2025 07 May  AMC  modifications to produce and use CF compliant netcdf files.
+2025 23 Jul  AMC  cross platform independent definition of dtypes
 
 """
 
@@ -264,10 +265,10 @@ class ModelBin:
         specify the length of the record. These bytes are called pad below.
         They are not used here, but are thrown out. The following block defines
         a numpy dtype object for each record in the binary file."""
-        real4 = ">f"
-        int4 = ">i"
-        int2 = ">i2"
-        char4 = ">a4"
+        real4 = ">f4"  # big endian 4-byte float
+        int4 = ">i4"   # big endian 4-byte integer
+        int2 = ">i2"   # big endian 2-byte integer
+        char4 = ">a4"  # big endian 4-byte character array
 
         rec1 = dtype(
             [

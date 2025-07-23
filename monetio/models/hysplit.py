@@ -49,6 +49,7 @@ Change log
 2025 18 Mar  AMC  added changes in order to make netcdf file CF compliant. This involves changing some attribute names.
 2025 18 Mar  AMC  tried to get rid of convertin non-nanosecond precision datetime valeus to nanosecond precision warnings.
 2025 23 Jul  AMC  fixed expand_dims() assignment bug, removed deprecated pandas inplace usage.
+2025 23 Jul  AMC  cross platform independent definition of dtypes
 
 """
 
@@ -229,10 +230,10 @@ class ModelBin:
         a numpy dtype object for each record in the binary file."""
         from numpy import dtype
 
-        real4 = ">f"
-        int4 = ">i"
-        int2 = ">i2"
-        char4 = ">a4"
+        real4 = ">f4"  # big endian 4-byte float
+        int4 = ">i4"   # big endian 4-byte integer
+        int2 = ">i2"   # big endian 2-byte integer
+        char4 = ">a4"  # big endian 4-byte character array
 
         rec1 = dtype(
             [
