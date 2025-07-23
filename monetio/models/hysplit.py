@@ -5,6 +5,11 @@ This code developed at the NOAA Air Resources Laboratory.
 Alice Crawford
 Allison Ring
 
+Requirements:
+- Python 3.6+: Uses f-strings and UTF-8 decoding of numpy bytes
+- xarray 0.15+: Uses modern coordinate assignment with tuples, drop_vars(), and assign_coords()
+- pandas: Compatible with recent versions (inplace parameter usage updated)
+
 -------------
 Functions:
 -------------
@@ -43,6 +48,7 @@ Change log
 2025 07 Mar  AMC  added in modifications by TAdeJong to reduce calls to xr.merge and speed up reading.
 2025 18 Mar  AMC  added changes in order to make netcdf file CF compliant. This involves changing some attribute names.
 2025 18 Mar  AMC  tried to get rid of convertin non-nanosecond precision datetime valeus to nanosecond precision warnings.
+2025 23 Jul  AMC  fixed expand_dims() assignment bug, removed deprecated pandas inplace usage.
 
 """
 
@@ -640,9 +646,8 @@ class ModelBin:
                 # END LOOP to go through each level
                 if len(concframes) > 0:
                     concframes = pd.concat(concframes)
-                    concframes.set_index(
-                                    ["time", "z", "y", "x"],
-                                    inplace=True,
+                    concframes = concframes.set_index(
+                                    ["time", "z", "y", "x"]
                     )
                     dset = xr.Dataset.from_dataframe(concframes)
                     poldslist += [dset]
@@ -677,11 +682,14 @@ class ModelBin:
             self.dset.attrs = self.atthash
             # mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
             mgrid = get_latlongrid(self.gridhash, self.dset.coords["x"], self.dset.coords["y"])
-            self.dset = self.dset.assign_coords(longitude=(("y", "x"), mgrid[0]))
-            self.dset = self.dset.assign_coords(latitude=(("y", "x"), mgrid[1]))
+            if mgrid is not None:
+                self.dset = self.dset.assign_coords(longitude=(("y", "x"), mgrid[0]))
+                self.dset = self.dset.assign_coords(latitude=(("y", "x"), mgrid[1]))
 
-            self.dset = self.dset.reset_coords()
-            self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
+                self.dset = self.dset.reset_coords()
+                self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
+            else:
+                warnings.warn("Could not create lat/lon grid - using index coordinates only")
         if iii == 0 and verbose:
             print("ModelBin class _readfile method: no data in the date range found")
             return False
@@ -864,7 +872,7 @@ def combine_dataset(
         for eee in elist:
             aaa, junk = xr.align(eee.xrash, xbig, join="outer")
             aaa = aaa.fillna(0)
-            aaa.expand_dims("ens")
+            aaa = aaa.expand_dims("ens")
             aaa["ens"] = eee.ens
             inlist.append(aaa)
         # concat on ensemble dimension
@@ -966,6 +974,9 @@ def reset_latlon_coords(hxr):
     hxr : xarray DataSet as output from open_dataset or combine_dataset
     """
     mgrid = get_latlongrid(hxr.attrs, hxr.x.values, hxr.y.values)
+    if mgrid is None:
+        warnings.warn("Could not create lat/lon grid for coordinate reset")
+        return hxr
     if "latitude" in hxr.coords:
         hxr = hxr.drop("longitude")
     if "longitude" in hxr.coords:
@@ -994,6 +1005,9 @@ def fix_grid_continuity(dset):
 
     mgrid = get_latlongrid(dset.attrs, xindx, yindx)
     # mgrid = get_even_latlongrid(dset, xlim, ylim)
+    if mgrid is None:
+        warnings.warn("Could not create lat/lon grid for grid continuity fix")
+        return dset
     conc = np.zeros_like(mgrid[0])
     dummy = xr.DataArray(conc, dims=["y", "x"])
     dummy = dummy.assign_coords(latitude=(("y", "x"), mgrid[1]))
@@ -1383,9 +1397,9 @@ def _alt_multiply(pars):
             newpar = mml
         else:
             newpar = xr.concat([newpar, mml], "z")
-        yyy += 1  # End of loop calculating heights
         if "z" not in newpar.dims:
             newpar = newpar.expand_dims("z")
+        yyy += 1  # End of loop calculating heights
     return newpar
 
 
@@ -1395,7 +1409,8 @@ def check_attributes(atthash):
     for key in atthash.keys():
         val = atthash[key]
         if isinstance(val, np.ndarray):
-            newval = list(val)
+            # Convert numpy array to list using tolist() method
+            newval = val.tolist()
             atthash[key] = newval
     return atthash
 

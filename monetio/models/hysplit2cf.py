@@ -52,11 +52,15 @@ Change log
 2023 12 Jan  AMC  get_thickness modified to calculate if the attribute specifying the vertical levels is bad
 2023 03 Mar  AMC  get_latlon modified. replace x>=180 with x>=180+lon_tolerance
 2023 03 Mar  AMC  get_latlongrid improved exception statements
-2023 08 Dec  AMC  add check_attributes to ModelBin and combine_datatset to make sure level height attribute is a list
-2024 01 Apr  AMC  added logging. for combine_dataset add continue to exception so it won't fail.
+2023 08 Dec  AMC  add check_attributes to ModelBin and combine_datatset to make 
+                 sure level height attribute is a list
+2024 01 Apr  AMC  added logging. for combine_dataset add continue to exception 
+                 so it won't fail.
 2024 04 Mar  AMC  bug fixes to combine_dataset
-2025 07 Mar  AMC  added in modifications by TAdeJong to reduce calls to xr.merge and speed up reading.
-2025 24 Mar  AMC  modified parse_hdata8 so it can use end time, start time, or middle of time as time stamp
+2025 07 Mar  AMC  added in modifications by TAdeJong to reduce calls to xr.merge and 
+                 speed up reading.
+2025 24 Mar  AMC  modified parse_hdata8 so it can use end time, start time, or middle 
+                 of time as time stamp
 2025 24 Mar  AMC  added sum_datavars function to improve add_species
 2025 24 Mar  AMC  corrected combine_dataset to correctly add ens as a coordinate
 2025 07 May  AMC  modifications to produce and use CF compliant netcdf files.
@@ -70,6 +74,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
+from numpy import dtype
 from hysplit2cf_helper import (
     add_title_history,
     calculate_bounds,
@@ -142,8 +147,8 @@ def open_dataset(
         rval = time2cf(rval)
         rval = add_title_history(rval)
         return rval
-    else:
-        return xr.Dataset()
+    
+    return xr.Dataset()
 
 
 def check_drange(drange, pdate1, pdate2):
@@ -167,7 +172,7 @@ def check_drange(drange, pdate1, pdate2):
     # range or time range not specified
     if drange is None:
         savedata = True
-    elif pdate1 >= drange[0] and pdate1 <= drange[1] and pdate2 <= drange[1]:
+    elif drange[0] <= pdate1 <= drange[1] and pdate2 <= drange[1]:
         savedata = True
     elif pdate1 > drange[1] or pdate2 > drange[1]:
         testf = False
@@ -253,8 +258,6 @@ class ModelBin:
         specify the length of the record. These bytes are called pad below.
         They are not used here, but are thrown out. The following block defines
         a numpy dtype object for each record in the binary file."""
-        from numpy import dtype
-
         real4 = ">f"
         int4 = ">i"
         int2 = ">i2"
@@ -515,14 +518,14 @@ class ModelBin:
         concframe["time_bounds"] = [[bound1, bound2] for _ in range(len(concframe))]
 
         # Rename columns
-        names = concframe.columns.values
+        names = concframe.columns.values.tolist()
         names = ["y" if x == "jndx" else x for x in names]
         names = ["x" if x == "indx" else x for x in names]
         names = ["z" if x == "levels" else x for x in names]
         names = [col_name if x == "conc" else x for x in names]
         concframe.columns = names
 
-        ## Add concentration unit information
+        # Add concentration unit information
         # if 'conc' in edata.dtype.names:
         #    concframe[col_name].attrs['units'] = massunit
 
@@ -901,12 +904,13 @@ def combine_dataset(
     If files have no concentrations then they will be skipped.
 
     """
-    # 2024 04 March. when the input datasets did not have identical time coordinates, the align method of
-    #                xarray was not working properly. Changing the time coordinate to an integer first
-    #                fixes the problem.
-    #                Another issue is that the combination only worked when either the source or the ensemble dimension
-    #                had length of 1. Did not work properly with multiple sources and multiple ensembles.
-    #                to fix this changed how enslist and sourcelist were defined and utilized.
+    # 2024 04 March. when the input datasets did not have identical time coordinates, 
+    # the align method of xarray was not working properly. Changing the time coordinate 
+    # to an integer first fixes the problem.
+    # Another issue is that the combination only worked when either the source or the 
+    # ensemble dimension had length of 1. Did not work properly with multiple sources 
+    # and multiple ensembles. to fix this changed how enslist and sourcelist were 
+    # defined and utilized.
 
     # create list of datasets to be combined and their properties.
     # removes any cdumps that are empty.
@@ -1033,10 +1037,10 @@ def reduce_dims(dset):
                 )
 
                 # Update the bounds attribute on the corresponding coordinate if needed
-                if core_dims[0] in new_dset.coords:
-                    coord = new_dset[core_dims[0]]
-                    # if 'bounds' not in coord.attrs or coord.attrs['bounds'] != var_name:
-                    #    coord.attrs['bounds'] = var_name
+                # if core_dims[0] in new_dset.coords:
+                #     coord = new_dset[core_dims[0]]
+                #     if 'bounds' not in coord.attrs or coord.attrs['bounds'] != var_name:
+                #         coord.attrs['bounds'] = var_name
 
     return new_dset
 
