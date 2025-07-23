@@ -7,6 +7,12 @@ This code developed at the NOAA Air Resources Laboratory.
 Alice Crawford
 Allison Ring
 
+Requirements:
+- Python 3.6+ (for f-strings)
+- xarray 0.15.0+ (for drop_vars(errors="ignore"), assign_coords tuple syntax)
+- pandas (recent version, inplace parameters deprecated)
+- numpy
+
 -------------
 MAIN Functions:
 -------------
@@ -698,9 +704,8 @@ class ModelBin:
                 # END LOOP to go through each level
                 if len(concframes) > 0:
                     concframes = pd.concat(concframes)
-                    concframes.set_index(
-                        ["time", "z", "y", "x"],
-                        inplace=True,
+                    concframes = concframes.set_index(
+                        ["time", "z", "y", "x"]
                     )
                     dset = xr.Dataset.from_dataframe(concframes)
                     # varname = list(dset.data_vars.keys())
@@ -753,11 +758,17 @@ class ModelBin:
             # self.dset.attrs = self.atthash
             # mgrid = self.makegrid(self.dset.coords["x"], self.dset.coords["y"])
             mgrid = get_latlongrid(self.gridhash, self.dset.coords["x"], self.dset.coords["y"])
-            self.dset = self.dset.assign_coords(longitude=(("x"), mgrid[0]))
-            self.dset = self.dset.assign_coords(latitude=(("y"), mgrid[1]))
+            if mgrid is not None:
+                self.dset = self.dset.assign_coords(longitude=(("x"), mgrid[0]))
+                self.dset = self.dset.assign_coords(latitude=(("y"), mgrid[1]))
+            else:
+                warnings.warn("Could not create lat/lon grid, skipping coordinate assignment")
 
             self.dset = self.dset.reset_coords()
-            self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
+            if mgrid is not None:
+                self.dset = self.dset.set_coords(["time", "latitude", "longitude"])
+            else:
+                self.dset = self.dset.set_coords(["time"])
         if iii == 0 and verbose:
             print("ModelBin class _readfile method: no data in the date range found")
             return False
@@ -1079,6 +1090,10 @@ def reset_latlon_coords(hxr):
     hxr : xarray DataSet as output from open_dataset or combine_dataset
     """
     mgrid = get_latlongrid(hxr.attrs, hxr.x.values, hxr.y.values)
+    if mgrid is None:
+        warnings.warn("Could not create lat/lon grid in reset_latlon_coords")
+        return hxr
+    
     lon_attrs = {}
     lat_attrs = {}
     if "latitude" in hxr.coords:
@@ -1243,6 +1258,10 @@ def add_species(dset, species=None):
         if "Species_ID" in dset.attrs.keys():
             species = dset.attrs["Species_ID"]
 
+    if species is None:
+        warnings.warn("No species found for processing")
+        return dset
+
     # Sum the variables
     dset = sum_datavars(dset.copy(), varlist=species)
 
@@ -1260,7 +1279,7 @@ def check_attributes(atthash):
     for key in atthash.keys():
         val = atthash[key]
         if isinstance(val, np.ndarray):
-            newval = list(val)
+            newval = val.tolist()
             atthash[key] = newval
     return atthash
 
