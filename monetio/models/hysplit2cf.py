@@ -1037,10 +1037,10 @@ def reduce_dims(dset):
                 )
 
                 # Update the bounds attribute on the corresponding coordinate if needed
-                # if core_dims[0] in new_dset.coords:
-                #     coord = new_dset[core_dims[0]]
-                #     if 'bounds' not in coord.attrs or coord.attrs['bounds'] != var_name:
-                #         coord.attrs['bounds'] = var_name
+                if core_dims[0] in new_dset.coords:
+                     coord = new_dset[core_dims[0]]
+                     if 'bounds' not in coord.attrs or coord.attrs['bounds'] != var_name:
+                         coord.attrs['bounds'] = var_name
 
     return new_dset
 
