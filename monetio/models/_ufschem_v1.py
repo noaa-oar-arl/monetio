@@ -122,6 +122,10 @@ def open_mfdataset(
     )  # For now drop z_i no variables use it.
     dset["latitude"] = dset["latitude"].isel(time=0)
     dset["longitude"] = dset["longitude"].isel(time=0)
+    
+    # modify longitude from 0-360 to -180-180
+    dset['longitude'] = xr.where(dset['longitude'] >= 180, dset['longitude'] - 360, dset['longitude'])
+
     dset = dset.reset_coords()
     dset = dset.set_coords(["latitude", "longitude"])
 
