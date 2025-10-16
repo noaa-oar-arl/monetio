@@ -151,7 +151,8 @@ def open_mfdataset(
                 dset[i] = dset[i] * dset["pres_pa_mid"] / dset["temperature_k"] / 287.05535
                 dset[i].attrs["units"] = r"$\mu g m^{-3}$"
 
-
+    # drop time_iso variable 
+    dest = dset.drop_vars(['time_iso'])
     # Drop extra variables that were part of sum, but are not in original var_list
     # to save memory and computational time.
     # This is only revevant if var_list is provided
