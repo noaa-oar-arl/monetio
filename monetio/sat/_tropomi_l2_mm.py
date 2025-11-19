@@ -339,15 +339,3 @@ def open_datasets(all_files, variable_dict):
         # Select time coverage start as key, removing the trailing Z
         ds_collection[d.attrs["time_coverage_start"].replace("Z", "")] = d
     return ds_collection
-
-
-if __name__ == "__main__":
-    path = "/glade/derecho/scratch/plichtig/TROPOMI"
-    test_dataset = (
-        f"{path}/S5P_RPRO_L2__NO2____20220720T000819_20220720T014949_24695_03_020400_20230203T042051.nc"
-    )
-
-    all_swaths = open_datasets(
-        test_dataset, variable_dict={"pres_pa_mid": {}, "tm5_tropopause_pressure": {}}
-    )
-    
