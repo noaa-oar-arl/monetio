@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from filelock import FileLock
 
-from monetio.sat._tempo_l2_no2_mm import open_dataset
+from monetio.sat.tempo_l2 import open_dataset
 
 HERE = Path(__file__).parent
 

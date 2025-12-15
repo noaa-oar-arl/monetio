@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from filelock import FileLock
 
-from monetio.sat._omps_l3_mm import open_dataset
+from monetio.sat.omps_l3 import open_dataset
 
 HERE = Path(__file__).parent
 
