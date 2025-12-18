@@ -408,7 +408,7 @@ class ISH:
                 self.df[group_cols + list(numeric_cols)]
                 .groupby("station_id")
                 .resample(window)
-                .mean()
+                .mean(numeric_only=True)
                 .reset_index()
             )
             # Merge back with non-numeric columns (e.g., time, station_id) if needed
