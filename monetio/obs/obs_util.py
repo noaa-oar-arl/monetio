@@ -1,4 +1,4 @@
-""" Obs Utilities """
+"""Obs Utilities"""
 
 import datetime
 import sys

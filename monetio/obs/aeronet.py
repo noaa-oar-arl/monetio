@@ -10,11 +10,11 @@ import numpy as np
 import pandas as pd
 
 try:
-    from joblib import Parallel, delayed
+    import dask
 
-    has_joblib = True
+    has_dask = True
 except ImportError:
-    has_joblib = False
+    has_dask = False
 
 
 def add_local(
@@ -54,7 +54,13 @@ def add_local(
 
     # TODO: DRY wrt. class?
     if freq is not None:
-        a.df = a.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+        a.df = (
+            a.df.set_index("time")
+            .groupby("siteid")
+            .resample(freq)
+            .mean(numeric_only=True)
+            .reset_index()
+        )
 
     if detect_dust:
         a.dust_detect()
@@ -81,8 +87,8 @@ def add_data(
     interp_to_aod_values=None,
     #
     # joblib
-    n_procs=1,
-    verbose=10,
+    n_procs=1,  # TODO: remove kwarg as we moved to dask instead of joblib
+    verbose=10,  # TODO: remove kwarg as we moved to dask instead of joblib
 ):
     """Load AERONET data from the AERONET Web Service.
 
@@ -158,21 +164,21 @@ def add_data(
         if max_date not in time_bounds:
             time_bounds = time_bounds.append(pd.DatetimeIndex([max_date]))
 
-    if has_joblib and requested_parallel and dates is not None and len(time_bounds) > 2:
-        dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
-            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
+    if has_dask and requested_parallel and dates is not None and len(time_bounds) > 2:
+        tasks = [
+            dask.delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
             for t1, t2 in zip(time_bounds[:-1], time_bounds[1:])
-        )
+        ]
+        dfs = dask.compute(*tasks, scheduler="processes", num_workers=n_procs)
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
             df.index = df.time
-            df = df.groupby("siteid").resample(freq).mean().reset_index()
+            df = df.groupby("siteid").resample(freq).mean(numeric_only=True).reset_index()
         return df.reset_index(drop=True)
     else:
-        if not has_joblib and requested_parallel:
+        if not has_dask and requested_parallel:
             print(
-                "Please install joblib to use the parallel feature of monetio.aeronet. "
-                "Proceeding in serial mode..."
+                "Please install dask to use the parallel feature of monetio.aeronet. Proceeding in serial mode..."
             )
         df = a.add_data(
             dates=dates,
@@ -497,7 +503,11 @@ class AERONET:
 
         if freq is not None:
             self.df = (
-                self.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+                self.df.set_index("time")
+                .groupby("siteid")
+                .resample(freq)
+                .mean(numeric_only=True)
+                .reset_index()
             )
 
         if detect_dust:
@@ -574,30 +584,6 @@ class AERONET:
                     ename_new = f"exact_wavelengths_of_aod(um)_{wl}nm{suff}"
                     self.df = self.df.rename(columns={ename: ename_new})
         self.df = pd.concat([self.df, out], axis=1)
-
-    # @staticmethod
-    # def _tspack_aod_interp(row, new_wv=[440.0, 470.0, 550.0, 670.0, 870.0, 1020.0, 1240.0]):
-    #     try:
-    #         import pytspack
-    #     except ImportError:
-    #         print("You must install pytspack before using this function")
-
-    #     # df_aod_nu = self._aeronet_aod_and_nu(row)
-    #     aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
-    #     aods = row[aod_columns]
-    #     wv = [float(aod_column.replace("aod_", "").replace("nm", "")) for aod_column in aod_columns]
-    #     a = pd.DataFrame({"aod": aods}).reset_index()
-    #     a["wv"] = wv
-    #     df_aod_nu = a.dropna()
-    #     df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
-    #     if len(df_aod_nu_sorted) < 2:
-    #         return xi * np.nan
-    #     else:
-    #         x, y, yp, sigma = pytspack.tspsi(
-    #             df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values
-    #         )
-    #         yi = pytspack.hval(self.new_aod_values, x, y, yp, sigma)
-    #         return yi
 
     @staticmethod
     def _aeronet_aod_and_nu(row):

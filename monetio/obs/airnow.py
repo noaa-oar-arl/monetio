@@ -106,10 +106,9 @@ def read_csv(fn):
             fn,
             delimiter="|",
             header=None,
-            error_bad_lines=False,
-            warn_bad_lines=True,
             encoding="ISO-8859-1",
-        )  # TODO: `error_bad_lines` is deprecated from v1.3
+            on_bad_lines="warn",  # Use 'warn' to log bad lines, or 'skip' to silently skip
+        )
     except Exception:
         dft = pd.DataFrame(columns=hourly_cols)
         # TODO: warning message or error instead?
@@ -266,6 +265,7 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
         daily=daily,
         bad_utcoffset=bad_utcoffset,
     )
+    print(df)
     if wide_fmt:
         df = (
             long_to_wide(df)

@@ -193,7 +193,7 @@ def add_met_data_3D(d_chem, d_met):
     # d_met has a final TSTEP not present in d_chem
     d_met = d_met.isel(TSTEP=slice(0, len(d_met.TSTEP) - 1))
     if "pressure" in d_met.variables:
-        d_chem["pres_pa_mid"] = d_met["PRESS_MB"] * 100
+        d_chem["pres_pa_mid"] = d_met["pressure"] * 100
     elif "PRESS_MB" in d_met.variables:
         d_chem["pres_pa_mid"] = d_met["PRESS_MB"] * 100
     else:
@@ -464,7 +464,7 @@ def _calc_midlayer_height_agl(dset):
     dz_m[:, 1:, :, :] = layer_height_agl[:, 1:, :, :].values - layer_height_agl[:, :-1, :, :].values
     dz_m.attrs["long_name"] = "dz in meters"
     dz_m.attrs["var_desc"] = "Layer thickness in meters"
-    return alt_agl_m_mid, layer_height_agl
+    return alt_agl_m_mid, dz_m
 
 
 def _calc_midlayer_height_msl(dset, dset_lu):
@@ -630,6 +630,8 @@ def _choose_xarray_engine_and_keywords(fname):
             "engine": "pseudonetcdf",
             "backend_kwargs": {"format": "uamiv"},
         }
+    keywords["combine"] = "nested"
+    keywords["concat_dim"] = "TSTEP"
     return keywords
 
 
@@ -641,7 +643,6 @@ fine = np.array(
         "PSO4",
         "PNO3",
         "PNH4",
-        "PH2O",
         "PCL",
         "PEC",
         "FPRM",

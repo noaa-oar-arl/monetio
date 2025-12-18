@@ -9,13 +9,15 @@ More information: http://raqms-ops.ssec.wisc.edu/
 import xarray as xr
 
 
-def open_dataset(fname, *, surf_only=False):
+def open_dataset(fname, *, convert_to_ppb=True, surf_only=False):
     """Open a single dataset from RAQMS output. Currently expects netCDF file format.
 
     Parameters
     ----------
     fname : str
         File to be opened.
+    convert_to_ppb : bool
+        If true the units of the gas species will be converted to ppbv
 
     Returns
     -------
@@ -28,18 +30,24 @@ def open_dataset(fname, *, surf_only=False):
         )
 
     ds = xr.open_dataset(names[0], drop_variables=["theta"])
-    ds = _fix(ds, surf_only=surf_only)
+    ds = _fix(ds, surf_only=surf_only, convert_to_ppb=convert_to_ppb)
 
     return ds
 
 
-def open_mfdataset(fname, *, surf_only=False):
+def open_mfdataset(fname, *, convert_to_ppb=True, var_list=None, surf_only=False):
     """Open a multiple file dataset from RAQMS output.
 
     Parameters
     ----------
     fname : str or list of str
         Files to be opened, expressed as a glob string or list of string paths.
+    convert_to_ppb : bool
+        If true the units of the gas species will be converted to ppbv
+    var_list : list of str, optional
+        List of variables to include in output. MELODIES MONET should only read in
+        variables needed to plot in order to save on memory and simulation cost
+        especially for vertical data. If ``None`` (default), will read in all model data.
 
     Returns
     -------
@@ -52,20 +60,36 @@ def open_mfdataset(fname, *, surf_only=False):
             "in netCDF format."
             "Do not mix and match file types."
         )
-
     ds = xr.open_mfdataset(names, concat_dim="time", drop_variables=["theta"], combine="nested")
-    ds = _fix(ds, surf_only=surf_only)
+    if var_list is not None:
+        var_list.extend(["lat", "lon", "IDATE", "Times", "psfc", "delp", "pdash", "ttheta"])
+        ds = ds[var_list]
+    ds = _fix(ds, surf_only=surf_only, convert_to_ppb=convert_to_ppb)
 
     return ds
 
 
-def _fix(ds, *, surf_only):
+def _fix(ds, *, surf_only, convert_to_ppb):
     ds = _fix_grid(ds)
     ds = _fix_time(ds)
     ds = _fix_pres(ds)
 
     if surf_only:
         ds = ds.isel(z=0).expand_dims("z")
+
+    if convert_to_ppb:
+        for i in ds.variables:
+            if "units" in ds[i].attrs:
+                if ds[i].attrs["units"] == "ppv":
+                    with xr.set_options(keep_attrs=True):
+                        ds[i] = ds[i] * 1e9
+                    ds[i].attrs["units"] = "ppbv"
+
+    if "ttheta" in ds.keys():
+        # Calculate temperature from potential temperature
+        k = 0.28571428571428564  # R/cp = kappa (unitless; value for dry air from metpy.constants)
+        ds["temperature_k"] = ds["ttheta"] * (ds["pres_pa_mid"] / 100000) ** k
+        ds["temperature_k"].attrs["units"] = "K"
 
     ds = ds.transpose("time", "z", "y", "x")
 

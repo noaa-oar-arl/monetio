@@ -400,7 +400,20 @@ class ISH:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
-            self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
+            # Only aggregate numeric columns to avoid TypeError on string columns
+            numeric_cols = self.df.select_dtypes(include=["number"]).columns
+            # Keep groupby columns in the result
+            group_cols = ["station_id"]
+            resampled = (
+                self.df[group_cols + list(numeric_cols)]
+                .groupby("station_id")
+                .resample(window)
+                .mean(numeric_only=True)
+                .reset_index()
+            )
+            # Merge back with non-numeric columns (e.g., time, station_id) if needed
+            # For now, assign to self.df
+            self.df = resampled
             # TODO: mean(numeric_only=True)
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")

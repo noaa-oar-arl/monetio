@@ -12,6 +12,7 @@ from .obs import (
     nadp,
     openaq,
     openaq_v2,
+    openaq_v3,
     pams,
 )
 from .profile import geoms, gml_ozonesonde, icartt, tolnet
@@ -43,6 +44,7 @@ __all__ = [
     "nadp",
     "openaq",
     "openaq_v2",
+    "openaq_v3",
     "pams",
     #
     # profile obs

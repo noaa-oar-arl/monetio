@@ -1,4 +1,4 @@
-""" WRF-Chem File reader """
+"""WRF-Chem File reader"""
 
 import xarray as xr
 from pandas import Series
@@ -15,10 +15,10 @@ def open_mfdataset(
     fname,
     convert_to_ppb=True,
     mech="racm_esrl_vcp",
-    var_list=["o3"],
+    var_list=None,
     surf_only=False,
     surf_only_nc=False,
-    **kwargs
+    **kwargs,
 ):
     """Method to open WRF-chem and RAP-chem netcdf files.
 
@@ -54,6 +54,9 @@ def open_mfdataset(
     from netCDF4 import Dataset
     from wrf import ALL_TIMES, extract_global_attrs, getvar
 
+    if var_list is None:
+        var_list = ["o3"]
+
     # Get dictionary of summed species for the mechanism of choice.
     dict_sum = dict_species_sums(mech=mech)
 
@@ -82,19 +85,22 @@ def open_mfdataset(
     if not surf_only_nc:
         # Add some additional defaults needed for aircraft analysis
         # Turn this on also if need to convert aerosols
-        var_list.append("pres")
+        var_list.append("pres")  # 'pressure'
         var_list.append("height")
-        var_list.append("tk")
+        var_list.append("tk")  # 'temp'
         var_list.append("height_agl")
         var_list.append("PSFC")
         # need to calculate surface pressure and dp and optionally dz here.
 
         # Additional defaults for satellite analysis
-        var_list.append("zstag")
+        var_list.append("zstag")  # 'height'
 
     var_wrf_list = []
     for var in var_list:
-        if var == "pres":  # Insert special versions.
+        if not surf_only_nc and var in {"temperature_k", "pres_pa_mid"}:
+            # These will already be included in the final result
+            continue
+        if var == "pres":
             var_wrf = getvar(
                 wrflist, var, timeidx=ALL_TIMES, method="cat", squeeze=False, units="Pa"
             )
@@ -104,6 +110,38 @@ def open_mfdataset(
             )
             if var == "zstag":
                 var_wrf = var_wrf.rename("zstag")
+        elif var in {"uvmet10", "uvmet"}:
+            # These return u and v wind components in one variable
+            var_wrf = getvar(wrflist, var, timeidx=ALL_TIMES, method="cat", squeeze=False)
+            var_wrf_list.extend(
+                [
+                    var_wrf.isel(u_v=0).drop_vars("u_v").rename(f"{var}_u"),
+                    var_wrf.isel(u_v=1).drop_vars("u_v").rename(f"{var}_v"),
+                ]
+            )
+            continue
+        elif var in {"uvmet10_wspd_wdir", "uvmet_wspd_wdir"}:
+            # These return wind speed and wind direction in one variable
+            pref = var.split("_")[0]
+            var_wrf = getvar(wrflist, var, timeidx=ALL_TIMES, method="cat", squeeze=False)
+            var_wrf_list.extend(
+                [
+                    var_wrf.isel(wspd_wdir=0).drop_vars("wspd_wdir").rename(f"{pref}_wspd"),
+                    (
+                        var_wrf.isel(wspd_wdir=1)
+                        .drop_vars("wspd_wdir")
+                        .rename(f"{pref}_wdir")
+                        .assign_attrs(units="deg")
+                    ),
+                ]
+            )
+            continue
+        elif var in {"uvmet10_wspd", "uvmet10_wdir", "uvmet_wspd", "uvmet_wdir"}:
+            # These return a variable with _wspd_wdir suffix instead of the correct name
+            var_wrf = getvar(wrflist, var, timeidx=ALL_TIMES, method="cat", squeeze=False)
+            var_wrf = var_wrf.drop_vars("wspd_wdir").rename(var)
+            if var.endswith("_wdir"):
+                var_wrf = var_wrf.assign_attrs(units="deg")
         else:
             var_wrf = getvar(wrflist, var, timeidx=ALL_TIMES, method="cat", squeeze=False)
         var_wrf_list.append(var_wrf)

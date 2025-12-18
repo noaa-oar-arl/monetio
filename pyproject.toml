@@ -1,6 +1,72 @@
+[tool.flake8]
+max-line-length = 100
+ignore = [
+    "E203",  # whitespace before ':' - doesn't work well with black
+    "E402",  # module level import not at top of file
+    "E501",  # line too long - let black worry about that
+    "W503",  # line break before binary operator
+    "E226",  # missing whitespace around arithmetic operator
+]
 [build-system]
-requires = ["setuptools>=39.2.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "monetio"
+dynamic = ["version"]
+description = "The Model and Observation Evaluation Toolkit (MONET) I/O package"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Barry D. Baker", email = "barry.baker@noaa.gov"},
+]
+maintainers = [
+    {name = "Barry D. Baker", email = "barry.baker@noaa.gov"},
+]
+urls = {"Homepage" = "https://github.com/noaa-oar-arl/monetio"}
+dependencies = [
+    "dask",
+    "netCDF4",
+    "pandas",
+    "s3fs",
+    "scipy",
+    "xarray",
+    "requests",
+    "h5netcdf",
+    "h5py",
+    "lxml",
+    "pyhdf!=0.11.3",
+    "timezonefinder",
+    "pyarrow"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "monetio.__version__"}
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-print",
+    "pytest-xdist",
+    "filelock",
+    "black",
+    "isort"
+]
+
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+    "filelock"
+]
+
+
+[tool.setuptools]
+packages = ["monetio", "monetio.models", "monetio.obs", "monetio.profile", "monetio.sat"]
+package-data = {"monetio" = ["data/*.csv", "data/*.tsv", "data/*.txt", "data/*.png"]}
+
 
 [tool.black]
 line-length = 100

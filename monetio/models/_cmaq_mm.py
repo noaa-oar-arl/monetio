@@ -1,4 +1,4 @@
-""" CMAQ File Reader """
+"""CMAQ File Reader"""
 
 import xarray as xr
 from numpy import array, concatenate
@@ -24,7 +24,7 @@ def open_mfdataset(
     fname_vert=None,
     fname_surf=None,
     concatenate_forecasts=False,
-    **kwargs
+    **kwargs,
 ):
     """Method to open CMAQ IOAPI netcdf files.
 

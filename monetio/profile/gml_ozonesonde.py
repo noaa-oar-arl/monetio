@@ -13,28 +13,29 @@ import numpy as np
 import pandas as pd
 import requests
 
+TIMEOUT = 15  # seconds
+RETRIES = 5
+
 
 def retry(func):
     import time
     from functools import wraps
     from random import random as rand
 
-    n = 3
-
     @wraps(func)
     def wrapper(*args, **kwargs):
-        for i in range(n):
+        for i in range(RETRIES):
             try:
                 res = func(*args, **kwargs)
             except (
                 requests.exceptions.ReadTimeout,
                 requests.exceptions.ConnectionError,
             ):
-                time.sleep(0.5 * i + rand() * 0.1)
+                time.sleep(0.5 * i**1.5 + rand() * 0.1)
             else:
                 break
         else:
-            raise RuntimeError(f"{func.__name__} failed after {n} tries.")
+            raise RuntimeError(f"{func.__name__} failed after {RETRIES} tries.")
 
         return res
 
@@ -88,7 +89,7 @@ def discover_files(location=None, *, n_threads=3, cache=True):
         url = f"{base}/{url_location}/100 Meter Average Files/".replace(" ", "%20")
         print(url)
 
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=TIMEOUT)
         r.raise_for_status()
 
         data = []
@@ -330,7 +331,7 @@ def read_100m(fp_or_url):
 
         @retry
         def get_text():
-            r = requests.get(fp_or_url, timeout=10)
+            r = requests.get(fp_or_url, timeout=TIMEOUT)
             r.raise_for_status()
             return r.text
 

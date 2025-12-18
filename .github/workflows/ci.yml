@@ -19,41 +19,29 @@ jobs:
     if: github.repository == 'noaa-oar-arl/monetio'
     strategy:
       matrix:
-        python-version: ["3.6", "3.8", "3.10"]
+        python-version: ["3.9", "3.10", "3.11"]
     defaults:
       run:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Set up Python (micromamba) [>3.6]
-        if: matrix.python-version != '3.6'
+      - name: Set up Python (micromamba)
         uses: mamba-org/setup-micromamba@v2
         with:
           environment-file: environment-dev.yml
           cache-environment: true
           create-args: >-
             python=${{ matrix.python-version }}
-
-      - name: Set up Python (micromamba) [3.6]
-        if: matrix.python-version == '3.6'
-        uses: mamba-org/setup-micromamba@v2
-        with:
-          environment-file: environment-dev.yml
-          cache-environment: true
-          create-args: >-
-            python=${{ matrix.python-version }}
-            attrs=22.2.0
-            aioitertools=0.11.0
 
       - name: Test with pytest
-        run: pytest -n auto -v -ra -W "ignore:Downloading test file:UserWarning::"
+        run: pytest -n auto --dist loadgroup -v -ra -W "ignore:Downloading test file:UserWarning::"
 
       - name: Test with pytspack installed
         run: |
           pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
-          pytest -n auto -v -rsx -k with_pytspack
+          pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
 
   docs:
     name: Check docs build
@@ -64,7 +52,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python (micromamba)
         uses: mamba-org/setup-micromamba@v2
