@@ -69,5 +69,5 @@ def _test_ds(ds):
 
 def test_open_mfdataset(test_file_path):
     file_path = str(test_file_path)
-    ds = open_mfdataset(file_path)
+    ds = open_mfdataset(file_path, engine="netcdf4")
     _test_ds(ds)

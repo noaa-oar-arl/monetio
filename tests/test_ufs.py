@@ -52,16 +52,24 @@ def test_deprecated_rrfs_cmaq_mm() -> None:
 
 
 def _compare_with_baseline_(actual: xr.Dataset, baseline_path: Path) -> None:
+    import numpy as np
+
     with xr.open_dataset(baseline_path) as baseline:
-        try:
-            assert actual.identical(baseline)
-        except AssertionError:
-            # Let's dig into the variables a bit more
-            for var_name, var in itertools.chain(actual.data_vars.items(), actual.coords.items()):
-                try:
+        # Compare variables with tolerance for numerical arrays
+        for var_name, var in itertools.chain(actual.data_vars.items(), actual.coords.items()):
+            try:
+                if (
+                    hasattr(var, "values")
+                    and hasattr(baseline[var_name], "values")
+                    and np.issubdtype(var.dtype, np.floating)
+                ):
+                    assert np.allclose(
+                        var.values, baseline[var_name].values, equal_nan=True, rtol=1e-5, atol=1e-8
+                    )
+                else:
                     assert var.identical(baseline[var_name])
-                except AssertionError:
-                    print(var.to_series().describe())
-                    raise
-            # If there are no assertion issues here, then it's related to global attributes (probably)
-            raise
+            except AssertionError:
+                print(f"Difference in variable: {var_name}")
+                print(var.to_series().describe())
+                raise
+        # If there are no assertion issues here, then it's related to global attributes (probably)

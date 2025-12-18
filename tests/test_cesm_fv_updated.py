@@ -11,6 +11,8 @@ from monetio.models._cesm_fv_mm import _calc_pressure, _calc_pressure_i, open_mf
 
 HERE = Path(__file__).parent
 
+cesm_xdist = pytest.mark.xdist_group(name="retrieve-files")
+
 
 def retrieve_test_file():
     fn = "f.e22.FCnudged.f09_f09_mg17.cst_emis.cam.h1.2018-12-25-43200.nc"
@@ -34,9 +36,7 @@ def retrieve_test_file():
 
 
 @pytest.fixture(scope="module")
-def test_file_path(tmp_path_factory, worker_id=None):
-    worker_id = "master"
-
+def test_file_path(tmp_path_factory, worker_id):
     if worker_id == "master":
         # Not executing with multiple workers;
         # let pytest's fixture caching do its job
@@ -46,7 +46,7 @@ def test_file_path(tmp_path_factory, worker_id=None):
     root_tmp_dir = tmp_path_factory.getbasetemp().parent
 
     # Copy to the shared test location
-    p_test = root_tmp_dir / "cesm_fv_test.nc"
+    p_test = root_tmp_dir / "cesm_fv_test2.nc"
     with FileLock(p_test.as_posix() + ".lock"):
         if p_test.is_file():
             return p_test
@@ -131,10 +131,11 @@ def _check_altitude(ds):
     assert ds["alt_msl_m_mid"].attrs["units"] == "m", "Units for alt_msl_m_mid are incorrect. "
 
 
+@cesm_xdist
 def test_open_mfdataset(test_file_path):
     file_path = str(test_file_path)
     var_list = ["NO2"]
-    ds = open_mfdataset(file_path, var_list=var_list)
+    ds = open_mfdataset(file_path, var_list=var_list, engine="netcdf4")
     _check_dimensions(ds)
     _check_latitude_and_longitude(ds)
     _check_time(ds)
@@ -142,10 +143,11 @@ def test_open_mfdataset(test_file_path):
     _check_vertical_levels(ds)
 
 
+@cesm_xdist
 def test_open_mfdataset_surf_only_false(test_file_path):
     file_path = str(test_file_path)
     var_list = ["NO2"]
-    ds = open_mfdataset(file_path, var_list=var_list, surf_only=False)
+    ds = open_mfdataset(file_path, var_list=var_list, surf_only=False, engine="netcdf4")
     _check_dimensions(ds)
     _check_latitude_and_longitude(ds)
     _check_time(ds)
@@ -156,9 +158,10 @@ def test_open_mfdataset_surf_only_false(test_file_path):
     _check_altitude(ds)
 
 
+@cesm_xdist
 def test_hybrid_vars(test_file_path):
     file_path = str(test_file_path)
-    ds = xr.open_mfdataset(file_path)
+    ds = xr.open_mfdataset(file_path, engine="netcdf4")
     assert "hyam" in ds.variables, "hyam variable is missing. "
     assert tuple(ds["hyam"].dims) == ("lev",), "Dimensions for hyam are incorrect. "
     assert "hybm" in ds.variables, "hybm variable is missing. "
@@ -169,9 +172,10 @@ def test_hybrid_vars(test_file_path):
     assert tuple(ds["hybi"].dims) == ("ilev",), "Dimensions for hybi are incorrect. "
 
 
+@cesm_xdist
 def test_calc_pressure(test_file_path):
     file_path = str(test_file_path)
-    ds = xr.open_mfdataset(file_path)
+    ds = xr.open_mfdataset(file_path, engine="netcdf4")
     pressure = _calc_pressure(ds)
     assert tuple(pressure.dims) == (
         "time",
@@ -182,9 +186,10 @@ def test_calc_pressure(test_file_path):
     assert pressure.attrs["units"] == "Pa", "Units for pressure are incorrect. "
 
 
+@cesm_xdist
 def test_calc_pressure_i(test_file_path):
     file_path = str(test_file_path)
-    ds = xr.open_mfdataset(file_path)
+    ds = xr.open_mfdataset(file_path, engine="netcdf4")
     pressure_i = _calc_pressure_i(ds)
     assert tuple(pressure_i.dims) == (
         "time",

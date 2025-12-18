@@ -109,7 +109,7 @@ Daily Data
    22   WIND_1_5                       m/s
    23   WIND_FLAG                      X
 
-   """
+"""
 
 import inspect
 import os

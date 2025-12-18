@@ -24,7 +24,8 @@ def test_build_urls():
 
 
 def test_add_data_hourly():
-    dates = pd.date_range("2021/07/01", periods=3, freq="H")
+    dates = pd.date_range("2024/07/01", periods=18, freq="h")
+    print(dates)
 
     # Wide format (default)
     df = airnow.add_data(dates)
@@ -49,7 +50,7 @@ def test_add_data_daily():
     assert df.time.unique().size == 3
 
     # Non-wide
-    df = airnow.add_data(dates, daily=True, wide_fmt=False)
+    df = airnow.add_data(dates, daily=True, wide_fmt=False, n_procs=2)
     _check_df(df)
     assert all(col in df.columns for col in ["variable", "units", "obs"])
     assert df.time.unique().size == 3

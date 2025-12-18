@@ -72,7 +72,7 @@ Supported datasets
 * `AirNow <https://www.airnow.gov/>`_
 * `AQS <https://www.epa.gov/aqs/>`_
 * `AERONET <https://aeronet.gsfc.nasa.gov/>`_
-* `CRN <https://www.ncei.noaa.gov/access/crn/>`_
+* `CRN <https://www.ncei.noaa.gov/products/land-based-station/us-climate-reference-network>`_
 * `TOLNet <https://www-air.larc.nasa.gov/missions/TOLNet/>`_
 * `CEMS <https://www.epa.gov/emc/emc-continuous-emission-monitoring-systems/>`_
 * `IMPROVE <http://vista.cira.colostate.edu/Improve/>`_
