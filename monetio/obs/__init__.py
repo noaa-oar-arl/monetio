@@ -11,6 +11,7 @@ from . import (
     nadp,
     openaq,
     openaq_v2,
+    openaq_v3,
     pams,
 )
 
@@ -27,6 +28,7 @@ __all__ = [
     "nadp",
     "openaq",
     "openaq_v2",
+    "openaq_v3",
     "pams",
 ]
 

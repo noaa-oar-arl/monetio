@@ -1,3 +1,16 @@
+import os
+
+import pytest
+
+# TODO: Skip on CI until we can fix this with NASA.  NASA seems to be blocking requests from CI IPs.
+# This is a temporary solution until we can resolve the issue with NASA.
+# If you are running this locally, you can remove the skip decorator.
+skip_on_ci = pytest.mark.skipif(
+    os.environ.get("CI", "false").lower() == "true", reason="Skipped on CI"
+)
+
+pytestmark = skip_on_ci
+
 from pathlib import Path
 
 import numpy as np
@@ -210,7 +223,10 @@ def test_interp_with_pytspack():
     }
     assert {
         c for c in df if c.startswith("exact_wavelengths_of_aod") and c.endswith("nm_orig")
-    } == {"exact_wavelengths_of_aod(um)_340nm_orig", "exact_wavelengths_of_aod(um)_440nm_orig"}
+    } == {
+        "exact_wavelengths_of_aod(um)_340nm_orig",
+        "exact_wavelengths_of_aod(um)_440nm_orig",
+    }
 
 
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
@@ -227,7 +243,7 @@ def test_interp_daily_with_pytspack():
     [
         pd.to_datetime(["2019-09-01", "2019-09-02"]),
         pd.to_datetime(["2019-09-01", "2019-09-03"]),
-        pd.to_datetime(["2019-09-01", "2019-09-01 12:00"]),
+        pd.to_datetime(["2019-09-01 00:00", "2019-09-01 12:00"]),
     ],
     ids=[
         "one day",

@@ -38,6 +38,11 @@ def _test_ds(ds):
 
     assert tuple(ds.o3vmr.dims) == ("time", "z", "y", "x")
 
+    # Test conversion of gases to ppbv worked
+    assert ds["o3vmr"].units == "ppbv"
+
+    assert "temperature_k" in ds.data_vars
+
 
 def test_open_dataset():
     ds = raqms.open_dataset(TEST_FP)

@@ -81,7 +81,7 @@ def test_openaq_2023():
     # There are many files in this period (~ 100?)
     # Disable cap setting to test whole set of files
     # NOTE: possible to get empty df with the random URL selection
-    df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)
+    df = openaq.add_data(["2023-09-04 00:00", "2023-09-04 23:00"], n_procs=2)
 
     assert len(df) > 0
 
