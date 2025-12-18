@@ -172,7 +172,7 @@ As of writing this tutorial we will load the 2017 data as it is complete.
 Available Networks
 ^^^^^^^^^^^^^^^^^^
 
-* NCORE (https://www3.epa.gov/ttn/amtic/ncore.html)
+* NCORE (https://www.epa.gov/amtic/ncore-monitoring-network)
 * CSN (https://www.epa.gov/amtic/chemical-speciation-network-csn)
 * CASTNET (https://www.epa.gov/castnet)
 * IMPROVE (http://vista.cira.colostate.edu/Improve/)
