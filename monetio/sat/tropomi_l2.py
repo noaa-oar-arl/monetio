@@ -1,12 +1,10 @@
-""" Read TROPOMI data into MELODIES-MONET
-"""
+"""Read TROPOMI data into MELODIES-MONET"""
 
 import glob
 
 import netCDF4 as nc4
 import numpy as np
 import xarray as xr
-
 
 MILISECONDS_TO_SECONDS = 0.001
 
@@ -53,7 +51,6 @@ def _open_one_dataset(fname, variable_dict):
     # ds["time_granule"] = xr.conventions.decode_cf_variable("time_granule", time_granule.variable)
     ds["time_granule"] = _add_time_granule(time, dtime)
 
-    ds = ds.assign_coords()
     for variable in variable_dict:
         if variable not in ["pres_pa_mid", "tm5_tropopause_pressure"]:
             ds[variable] = _add_variable(variable, dso)
@@ -232,9 +229,9 @@ def _calc_pressure_levels(netcdf_tropomi, product="check"):
     surface_pressure = _add_variable("surface_pressure", netcdf_tropomi)
 
     dims = tm5_constant_a.dims
-    if "vertices" in dims or product=="no2":
+    if "vertices" in dims or product == "no2":
         return _calc_pressure_tropomi_no2(tm5_constant_a, tm5_constant_b, surface_pressure)
-    if "time" in dims or product=="hcho":
+    if "time" in dims or product == "hcho":
         return _calc_pressure_tropomi_hcho(tm5_constant_a, tm5_constant_b, surface_pressure)
     raise ValueError(f"Dims in tm5_constant_a {dims=} do not match expectations.")
 
@@ -308,7 +305,7 @@ def _calc_pressure_tropomi_hcho(tm5_constant_a, tm5_constant_b, surface_pressure
     interface_pressure[:, 0, :, :] = surface_pressure[:]
     for i in range(0, num_layers):
         interface_pressure[:, i + 1, :, :] = (
-            tm5_constant_a[0,i].values + tm5_constant_b[0, i].values * surface_pressure[:]
+            tm5_constant_a[0, i].values + tm5_constant_b[0, i].values * surface_pressure[:]
         )
     midlayer_pressure = xr.DataArray(
         data=np.zeros((num_times, num_layers, num_y, num_x), dtype=np.float64),
@@ -316,7 +313,7 @@ def _calc_pressure_tropomi_hcho(tm5_constant_a, tm5_constant_b, surface_pressure
     )
     for i in range(num_layers):
         midlayer_pressure[:, i, :, :] = (
-            interface_pressure[:, i, :, :].values + interface_pressure[:, i+1, :, :].values
+            interface_pressure[:, i, :, :].values + interface_pressure[:, i + 1, :, :].values
         ) / 2
     midlayer_pressure.attrs = {"units": "Pa", "long_name": "midlayer_pressure_in_pa"}
     return midlayer_pressure, interface_pressure
