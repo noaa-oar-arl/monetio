@@ -72,7 +72,7 @@ class ISH:
     """
 
     def __init__(self):
-        self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
+        self.history_file = "https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
         self.dates = None
         self.verbose = False
@@ -83,7 +83,7 @@ class ISH:
         setting the :attr:`history` attribute.
         If both are unset, you get the entire history file.
 
-        https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
+        https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv
 
         The constructed 'station_id' column is a combination of the USAF and WBAN columns.
         This is done since USAF and WBAN alone are not unique in the history file.
@@ -98,7 +98,15 @@ class ISH:
             dates = self.dates
 
         fname = self.history_file
-        self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
+        try:
+            self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"])
+        except Exception:
+            alt = fname.replace("www1.ncdc.noaa.gov", "www.ncei.noaa.gov")
+            if alt != fname:
+                self.history = pd.read_csv(alt, parse_dates=["BEGIN", "END"])
+                self.history_file = alt
+            else:
+                raise
         self.history.columns = [i.lower() for i in self.history.columns]
 
         if dates is not None:
@@ -146,7 +154,7 @@ class ISH:
         furls = []
         if self.verbose:
             print("Building ISH-Lite URLs...")
-        url = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-lite"
+        url = "https://www.ncei.noaa.gov/pub/data/noaa/isd-lite"
         # Get each yearly urls available from the isd-lite site
         if len(unique_years) > 1:
             all_urls = []
@@ -317,13 +325,8 @@ class ISH:
 
         if resample and not df.empty:
             print("Resampling to every " + window)
-            df = (
-                df.set_index("time")
-                .groupby("siteid")
-                .resample(window)
-                .mean(numeric_only=True)
-                .reset_index()
-            )
+            df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
+            # TODO: mean(numeric_only=True)
 
         # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
