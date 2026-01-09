@@ -1,4 +1,5 @@
 """ CMAQ File Reader """
+
 import xarray as xr
 from numpy import array, concatenate
 from pandas import Series, to_datetime
@@ -467,7 +468,7 @@ def add_lazy_rh(d):
 
 def add_lazy_nox(d):
     keys = _get_keys(d)
-    allvars = Series(["NO", "NOX"])
+    allvars = Series(["NO", "NO2"])
     index = allvars.isin(keys)
     if can_do(index):
         newkeys = allvars.loc[index]

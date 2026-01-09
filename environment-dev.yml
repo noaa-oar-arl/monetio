@@ -15,9 +15,13 @@ dependencies:
   - xarray
   #
   # optional
+  - filelock
+  - h5netcdf
+  - h5py
   - joblib
   - lxml
-  - pyhdf <0.11
+  - pyhdf!=0.11.3
+  - pyresample
   - requests
   - timezonefinder
   #
@@ -28,3 +32,4 @@ dependencies:
   - pip>=21.1
   - pip:
       - "-e ."
+      - pytest-print

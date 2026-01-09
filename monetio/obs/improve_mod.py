@@ -1,5 +1,5 @@
 import pandas as pd
-from numpy import NaN
+from numpy import nan
 
 
 class IMPROVE:
@@ -105,9 +105,9 @@ class IMPROVE:
             df.rename(columns={"siteid_x": "siteid", "state_name_x": "state_name"}, inplace=True)
 
         try:
-            df.obs.loc[df.obs < df.mdl] = NaN
+            df.obs.loc[df.obs < df.mdl] = nan
         except Exception:
-            df.obs.loc[df.obs < -900] = NaN
+            df.obs.loc[df.obs < -900] = nan
         self.df = df
         return df.copy()
 

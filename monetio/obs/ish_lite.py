@@ -8,6 +8,7 @@ in a fixed-width format free of duplicate values, sub-hourly data, and complicat
 
 --- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
 """
+
 import numpy as np
 import pandas as pd
 
@@ -167,14 +168,13 @@ class ISH:
             all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
             all_urls = f"{url}/{year}/" + all_urls
 
-        # Get the meta data
-        sites["fname"] = sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-"
-        for date in unique_years.strftime("%Y"):
-            sites["fname"] = (
-                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + date + ".gz"
+        # Construct expected URLs based on sites and year(s) requested
+        for syear in unique_years.strftime("%Y"):
+            year_fnames = (
+                sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
             )
-            for fname in sites.fname.values:
-                furls.append(f"{url}/{date[0:4]}/{fname}")
+            for fname in year_fnames:
+                furls.append(f"{url}/{syear}/{fname}")
 
         # Files needed for comparison
         url = pd.Series(furls, index=None)
@@ -185,7 +185,7 @@ class ISH:
         return final_urls
 
     def read_csv(self, fname):
-        from numpy import NaN
+        from numpy import nan
 
         columns = [
             "year",
@@ -220,7 +220,7 @@ class ISH:
         df["precip_1hr"] /= 10.0
         df["precip_6hr"] /= 10.0
         df["siteid"] = siteid
-        df = df.replace(-9999, NaN)
+        df = df.replace(-9999, nan)
         return df
 
     def aggregrate_files(self, urls, n_procs=1):
@@ -313,17 +313,18 @@ class ISH:
 
         # Narrow in time (each file contains a year)
         df = df.loc[(df.time >= self.dates.min()) & (df.time <= self.dates.max())]
-        df = df.replace(-999.9, np.NaN)
+        df = df.replace(-999.9, np.nan)
 
         if resample and not df.empty:
             print("Resampling to every " + window)
             df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
+            # TODO: mean(numeric_only=True)
 
         # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
             columns={"ctry": "country"}
         )
-        return df.drop(["station_id", "fname"], axis=1)
+        return df.drop(["station_id"], axis=1)
 
     def get_url_file_objs(self, fname):
         """Short summary.

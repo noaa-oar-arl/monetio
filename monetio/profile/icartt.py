@@ -3,12 +3,12 @@ import sys
 
 import pandas as pd
 import xarray as xr
-from numpy import NaN
+from numpy import nan
 
 
 def var_to_da(o, var_name, time):
     unit = o.units(var_name)
-    bad_val = NaN
+    bad_val = nan
     vals = o[var_name]
     name = var_name
     if "Latitude" in var_name:
@@ -341,7 +341,7 @@ class Dataset:
         # value is set to 0. The Mid-point time is required when it is not at the
         # average of Start and Stop times. For additional information see Section
         # 2.5 below.).
-        self.dataInterval = int(self.__readline()[0])
+        self.dataInterval = float(self.__readline()[0])
 
         # line 9 - Description or name of independent variable (This is the name
         # chosen for the start time. It always refers to the number of seconds UTC
@@ -422,13 +422,13 @@ class Dataset:
         self.input_fhandle.close()
 
     def __nan_miss_float(self, raw):
-        # vals = [x.replace(self.VAR[i].miss, 'NaN')  for i, x in enumerate(raw)]
-        # s = pd.Series(vals).str.replace('NaN.0','NaN')
-        # s = s.str.replace('NaN0','NaN')
+        # vals = [x.replace(self.VAR[i].miss, 'nan')  for i, x in enumerate(raw)]
+        # s = pd.Series(vals).str.replace('NaN.0','nan')
+        # s = s.str.replace('NaN0','nan')
         # s = s.str.strip().astype(float)
         # return s.values.tolist()
         # return [
-        #     float(x.replace(self.VAR[i].miss, 'NaN').replace('NaN.0','NaN').replace('NaN0','NaN').strip())
+        #     float(x.replace(self.VAR[i].miss, 'nan').replace('NaN.0','nan').replace('NaN0','nan').strip())
         #     for i, x in enumerate(raw)
         # ]
         vals = []
@@ -436,7 +436,7 @@ class Dataset:
             v = x.replace(self.VAR[i].miss, "NaN")
             if "NaN" in v:
                 v = "NaN"
-            vals.append(float(v.strip()))
+            vals.append(float(v.strip()) * self.VAR[i].scale)  # multiply with scaling factor
         return vals
 
     def read_data(self):

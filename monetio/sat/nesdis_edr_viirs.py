@@ -50,9 +50,9 @@ def read_data(fname, lat, lon, date):
     da.attrs["units"] = ""
     da.name = "VIIRS EDR AOD"
     da.attrs["long_name"] = "Aerosol Optical Depth"
-    da.attrs[
-        "source"
-    ] = "ftp://ftp.star.nesdis.noaa.gov/pub/smcd/jhuang/npp.viirs.aerosol.data/edraot550"
+    da.attrs["source"] = (
+        "ftp://ftp.star.nesdis.noaa.gov/pub/smcd/jhuang/npp.viirs.aerosol.data/edraot550"
+    )
     return da
 
 
