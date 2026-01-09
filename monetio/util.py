@@ -1,3 +1,6 @@
+from collections import namedtuple
+
+
 def nearest(items, pivot):
     return min(items, key=lambda x: abs(x - pivot))
 
@@ -376,6 +379,52 @@ def _import_required(mod_name: str):
         raise RuntimeError(
             f"importing required module '{mod_name}' failed. {_install_message(mod_name)}"
         ) from e
+
+
+_SimpleVersion = namedtuple("_SimpleVersion", ["major", "minor", "patch"])
+
+
+def _parse_version(s):
+    """Parse a version string into a ``_SimpleVersion`` tuple (major, minor, patch).
+
+    Uses ``packaging.version.parse`` if available, otherwise a simple parser.
+    """
+    try:
+        from packaging.version import parse
+    except ImportError:
+        have_packaging = False
+    else:
+        have_packaging = True
+
+    if not have_packaging:
+        parts = s.split(".")
+
+        major = int(parts[0])
+        minor = int(parts[1])
+
+        if len(parts) >= 3:
+            patch_chars = []
+            for c in parts[2]:
+                if not c.isdigit():
+                    break
+                patch_chars.append(c)
+            patch = int("".join(patch_chars))
+        else:
+            patch = 0
+    else:
+        v = parse(s)
+        major = v.major
+        minor = v.minor
+        patch = v.micro
+
+    return _SimpleVersion(major, minor, patch)
+
+
+def _get_pandas_version():
+    """Get pandas major, minor, and patch version from ``pandas.__version__``."""
+    import pandas as pd
+
+    return _parse_version(pd.__version__)
 
 
 def _try_merge_exact(left, right, *, right_name=None):

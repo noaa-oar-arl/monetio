@@ -274,7 +274,8 @@ def calc_daily_max(df, param=None, rolling_frequency=8):
 
 
 def convert_statenames_to_abv(df):
-    d = {
+    """For 'state_name' column in `df`, convert full names to 2-letter abbreviations in place."""
+    to_lower = {
         "Alabama": "AL",
         "Alaska": "AK",
         "Arizona": "AZ",
@@ -327,175 +328,413 @@ def convert_statenames_to_abv(df):
         "Wisconsin": "WI",
         "Wyoming": "WY",
     }
-    for i in d:
-        df["state_name"].loc[df.state_name.isin([i])] = d[i]
-    df["state_name"].loc[df.state_name.isin(["Canada"])] = "CC"
-    df["state_name"].loc[df.state_name.isin(["Mexico"])] = "MM"
+    for long, short in to_lower.items():
+        df.loc[df.state_name.eq(long), "state_name"] = short
+    df.loc[df.state_name.eq("Canada"), "state_name"] = "CC"
+    df.loc[df.state_name.eq("Mexico"), "state_name"] = "MM"
     return df
 
 
-def read_monitor_file(network=None, airnow=False, drop_latlon=True):
-    import os
+def read_airnow_monitor_file(date=None, *, s3=True, v2=False, include_parameters=False):
+    """Read site metadata from AirNow
+    (`files.airnowtech.org <https://files.airnowtech.org/?prefix=airnow/>`__).
+
+    Parameters
+    ----------
+    date : datetime, optional
+        Date to read (object must implement ``.strftime()``).
+        If ``None`` (default), the "today" file is read.
+    s3 : bool
+        Use S3 (default) or HTTP(S).
+    v2 : bool
+        Read the v2 format file (``Monitoring_Site_Locations_V2.dat``) for the day.
+        By default the original format file is read (``monitoring_site_locations.dat``).
+    include_parameters : bool
+        Include a 'parameters' column in the output dataframe
+        listing all parameters measured at each site as
+        string dtype, with parameters separated by semicolons (e.g. ``'O3;PM2.5'``).
+        Note that the parameter list for a given site can vary with `date`.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Site metadata dataframe, free of ``siteid`` duplicates.
+    """
+    import sys
 
     import pandas as pd
 
-    if airnow:
-        monitor_airnow_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/today/monitoring_site_locations.dat"
-        colsinuse = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
-        airnow = pd.read_csv(
-            monitor_airnow_url,
-            delimiter="|",
-            header=None,
-            usecols=colsinuse,
-            dtype={0: str},
-            encoding="ISO-8859-1",
-        )
-        airnow.columns = [
+    if v2:
+        fn = "Monitoring_Site_Locations_V2.dat"
+    else:
+        fn = "monitoring_site_locations.dat"
+
+    if s3 and sys.version_info >= (3, 7):
+        base = "s3://files.airnowtech.org/airnow/"
+    else:
+        base = "https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow/"
+
+    if date is None:
+        sub = "today/"
+    else:
+        sub = date.strftime(r"%Y/%Y%m%d/")
+
+    url = f"{base}{sub}{fn}"
+
+    if v2:
+        # Column names are included in the file's first line.
+        # |StationID|AQSID|FullAQSID
+        # |Parameter|MonitorType
+        # |SiteCode|SiteName|Status
+        # |AgencyID|AgencyName|EPARegion
+        # |Latitude|Longitude|Elevation
+        # |GMTOffset|CountryFIPS
+        # |CBSA_ID|CBSA_Name
+        # |StateAQSCode|StateAbbreviation
+        # |CountyAQSCode|CountyName
+        names = [
             "siteid",
-            "Site_Code",
-            "Site_Name",
-            "Status",
-            "Agency",
-            "Agency_Name",
-            "EPA_region",
+            "aqsid",
+            "aqsid_full",
+            "parameter",
+            "monitor_type",
+            "site_code",
+            "site_name",
+            "status",
+            "agency_id",
+            "agency_name",
+            "epa_region",
             "latitude",
             "longitude",
-            "Elevation",
-            "GMT_Offset",
-            "Country_Code",
-            "CMSA_Code",
-            "CMSA_Name",
-            "MSA_Code",
-            "MSA_Name",
-            "state_Code",
-            "state_Name",
-            "County_Code",
-            "County_Name",
-            "City_Code",
+            "elevation",
+            "gmt_offset",
+            "country_code",
+            "msa_code",
+            "msa_name",
+            "state_code",
+            "state_name",
+            "county_code",
+            "county_name",
         ]
-        airnow["airnow_flag"] = "AIRNOW"
-        airnow.columns = [i.lower() for i in airnow.columns]
-        return airnow
+        dtype = {i: str for i in range(len(names))}
+        for vn in ["latitude", "longitude", "elevation", "gmt_offset"]:
+            dtype[names.index(vn)] = float
+        df = pd.read_csv(
+            url,
+            delimiter="|",
+            header=None,
+            skiprows=1,
+            dtype=dtype,
+        )
+        df.columns = names
     else:
-        try:
-            basedir = os.path.abspath(os.path.dirname(__file__))[:-3]
-            fname = os.path.join(basedir, "data", "monitoring_site_locations.hdf")
-            if os.path.isfile(fname):
-                print("Monitor File Path: " + fname)
-                sss = pd.read_hdf(fname)
-            # monitor_drop = ['state_code', u'county_code']
-            # s.drop(monitor_drop, axis=1, inplace=True)
-        except Exception:
-            print("Monitor File Not Found... Reprocessing")
-            baseurl = "https://aqs.epa.gov/aqsweb/airdata/"
-            site_url = baseurl + "aqs_sites.zip"
-            # has network info (CSN IMPROVE etc....)
-            monitor_url = baseurl + "aqs_monitors.zip"
-            # Airnow monitor file
-            monitor_airnow_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/today/monitoring_site_locations.dat"
-            colsinuse = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
-            airnow = pd.read_csv(
-                monitor_airnow_url,
-                delimiter="|",
-                header=None,
-                usecols=colsinuse,
-                dtype={0: str},
-                encoding="ISO-8859-1",
-            )
-            airnow.columns = [
-                "siteid",
-                "Site_Code",
-                "Site_Name",
-                "Status",
-                "Agency",
-                "Agency_Name",
-                "EPA_region",
-                "latitude",
-                "longitude",
-                "Elevation",
-                "GMT_Offset",
-                "Country_Code",
-                "CMSA_Code",
-                "CMSA_Name",
-                "MSA_Code",
-                "MSA_Name",
-                "state_Code",
-                "state_Name",
-                "County_Code",
-                "County_Name",
-                "City_Code",
-            ]
-            airnow["airnow_flag"] = "AIRNOW"
-            airnow.columns = [i.lower() for i in airnow.columns]
-            # Read EPA Site file
-            site = pd.read_csv(site_url, encoding="ISO-8859-1")
-            # read epa monitor file
-            monitor = pd.read_csv(monitor_url, encoding="ISO-8859-1")
-            # make siteid column
-            site["siteid"] = (
-                site["State Code"].astype(str).str.zfill(2)
-                + site["County Code"].astype(str).str.zfill(3)
-                + site["Site Number"].astype(str).str.zfill(4)
-            )
-            monitor["siteid"] = (
-                monitor["State Code"].astype(str).str.zfill(2)
-                + monitor["County Code"].astype(str).str.zfill(3)
-                + monitor["Site Number"].astype(str).str.zfill(4)
-            )
-            site.columns = [i.replace(" ", "_") for i in site.columns]
-            s = monitor.merge(
-                site[["siteid", "Land_Use", "Location_Setting", "GMT_Offset"]],
-                on=["siteid"],
-                how="left",
-            )
-            s.columns = [i.replace(" ", "_").lower() for i in s.columns]
-            monitor_drop = [
-                "state_code",
-                "county_code",
-                "site_number",
-                "extraction_date",
-                "parameter_code",
-                "parameter_name",
-                "poc",
-                "last_sample_date",
-                "pqao",
-                "reporting_agency",
-                "exclusions",
-                "monitoring_objective",
-                "last_method_code",
-                "last_method",
-                "naaqs_primary_monitor",
-                "qa_primary_monitor",
-            ]
-            s.drop(monitor_drop, axis=1, inplace=True)
-            # drop airnow keys for merge
-            airnow_drop = [
-                "site_Code",
-                "site_Name",
-                "status",
-                "agency",
-                "agency_name",
-                "country_code",
-                "cmsa_code",
-                "state_code",
-                "county_code",
-                "city_code",
-                "latitude",
-                "longitude",
-                "gmt_offset",
-                "state_name",
-                "county_name",
-            ]
-            airnow_drop = [i.lower() for i in airnow_drop]
-            airnow.drop(airnow_drop, axis=1, inplace=True)
-            ss = pd.concat([s, airnow], ignore_index=True, sort=True)
-            sss = convert_statenames_to_abv(ss).dropna(subset=["latitude", "longitude"])
-        if network is not None:
-            sss = sss.loc[sss.networks.isin([network])].drop_duplicates(subset=["siteid"])
-        # Getting error that 'latitude' 'longitude' not contained in axis
-        drop_latlon = False
-        if drop_latlon:
-            if pd.Series(sss.keys()).isin(["latitude", "longitude"]):
-                return sss.drop(["latitude", "longitude"], axis=1).drop_duplicates()
+        # Original format.
+        # Column names are _not_ included in the file.
+        # Documentation is available at:
+        # https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/docs/MonitoringSiteFactSheet.pdf
+        # But there are more columns than in there (19):
+        # - CMSA (consolidated MSA) code and name
+        # - city code and name
+        # But note that these are usually null
+        # (maybe since they are not included in the v2 format?).
+        names = [
+            "siteid",
+            "parameter",
+            "site_code",
+            "site_name",
+            "status",
+            "agency",
+            "agency_name",
+            "epa_region",
+            "latitude",
+            "longitude",
+            "elevation",
+            "gmt_offset",
+            "country_code",
+            "cmsa_code",
+            "cmsa_name",
+            "msa_code",
+            "msa_name",
+            "state_code",
+            "state_name",
+            "county_code",
+            "county_name",
+            "city_code",
+            "city_name",
+        ]
+        dtype = {i: str for i in range(len(names))}
+        for vn in ["latitude", "longitude", "elevation", "gmt_offset"]:
+            dtype[names.index(vn)] = float
+        df = pd.read_csv(
+            url,
+            delimiter="|",
+            header=None,
+            dtype=dtype,
+            encoding="ISO-8859-1",
+        )
+        df.columns = names
+
+    if include_parameters:
+        parameters = (
+            df.groupby("siteid")
+            .parameter.unique()
+            .apply(lambda x: ";".join(sorted(x)))
+            .rename("parameters")
+        )
+        df = df.merge(parameters, on="siteid", how="left")
+
+    # fmt: off
+    df = (
+        df
+        .drop(columns=["parameter"])
+        .drop_duplicates(subset=["siteid"])
+        .reset_index(drop=True)
+    )
+    # fmt: on
+
+    return df
+
+
+def get_aqs_metadata(*, sites_file=None, monitors_file=None):
+    """Create an AQS site metadata dataframe by combining three data sources:
+
+    * sites: https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip
+    * monitors: https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip
+    * AirNow site metadata: :func:`read_airnow_monitor_file`
+      - The resulting dataframe has an ``airnow_flag`` column,
+        indicating which sites are part of AirNow.
+
+    Parameters
+    ----------
+    sites_file, monitors_file : path-like, optional
+        Paths to the AQS sites and monitors files
+        (``aqs_sites.zip`` and ``aqs_monitors.zip``;
+        defaults are the EPA website URLs above).
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
+    import pandas as pd
+
+    if sites_file is None:
+        sites_file = "https://aqs.epa.gov/aqsweb/airdata/aqs_sites.zip"
+    if monitors_file is None:
+        monitors_file = "https://aqs.epa.gov/aqsweb/airdata/aqs_monitors.zip"
+
+    # #   Column
+    # ---  ------
+    # 0   State Code
+    # 1   County Code
+    # 2   Site Number
+    # 3   Latitude
+    # 4   Longitude
+    # 5   Datum  (geo)
+    # 6   Elevation
+    # 7   Land Use  (RESIDENTIAL, AGRICULTURAL, FOREST, etc.)
+    # 8   Location Setting
+    # 9   Site Established Date
+    # 10  Site Closed Date
+    # 11  Met Site State Code
+    # 12  Met Site County Code
+    # 13  Met Site Site Number
+    # 14  Met Site Type
+    # 15  Met Site Distance
+    # 16  Met Site Direction  (N, S, etc.)
+    # 17  GMT Offset
+    # 18  Owning Agency
+    # 19  Local Site Name
+    # 20  Address
+    # 21  Zip Code
+    # 22  State Name
+    # 23  County Name
+    # 24  City Name
+    # 25  CBSA Name
+    # 26  Tribe Name
+    # 27  Extraction Date
+    sites = pd.read_csv(
+        sites_file,
+        encoding="ISO-8859-1",
+        dtype=str,
+    )
+    for vn in ["Latitude", "Longitude", "Elevation", "GMT Offset", "Met Site Distance"]:
+        sites[vn] = sites[vn].astype(float)
+    for vn in ["Extraction Date"]:
+        sites[vn] = pd.to_datetime(sites[vn], format=r"%Y-%m-%d", exact=True)
+    sites = sites.rename(columns=lambda vn: vn.replace(" ", "_").lower())
+    sites["siteid"] = sites["state_code"] + sites["county_code"] + sites["site_number"]
+    assert sites.siteid.str.len().eq(9).all()
+    assert sites.siteid.nunique() == len(sites)
+
+    #  #   Column
+    # ---  ------
+    #  0   State Code
+    #  1   County Code
+    #  2   Site Number
+    #  3   Parameter Code
+    #  4   Parameter Name
+    #  5   POC
+    #  6   Latitude
+    #  7   Longitude
+    #  8   Datum  (geo)
+    #  9   First Year of Data
+    #  10  Last Sample Date
+    #  11  Monitor Type
+    #  12  Networks
+    #  13  Reporting Agency
+    #  14  PQAO
+    #  15  Collecting Agency
+    #  16  Exclusions
+    #  17  Monitoring Objective
+    #  18  Last Method Code
+    #  19  Last Method
+    #  20  Measurement Scale  (NEIGHBORHOOD, URBAN SCALE, REGIONAL SCALE, MIDDLE SCALE, MICROSCALE)
+    #  21  Measurement Scale Definition
+    #  22  NAAQS Primary Monitor
+    #  23  QA Primary Monitor
+    #  24  Local Site Name
+    #  25  Address
+    #  26  State Name
+    #  27  County Name
+    #  28  City Name
+    #  29  CBSA Name
+    #  30  Tribe Name
+    #  31  Extraction Date
+    monitors = pd.read_csv(
+        monitors_file,
+        encoding="ISO-8859-1",
+        dtype=str,
+    )
+    for vn in ["Latitude", "Longitude"]:
+        monitors[vn] = monitors[vn].astype(float)
+    for vn in ["POC"]:
+        monitors[vn] = monitors[vn].astype(int)
+    for vn in ["First Year of Data", "Last Sample Date", "Extraction Date"]:
+        monitors[vn] = pd.to_datetime(monitors[vn], format=r"%Y-%m-%d", exact=True)
+    monitors = monitors.rename(columns=lambda vn: vn.replace(" ", "_").lower())
+    monitors["siteid"] = monitors["state_code"] + monitors["county_code"] + monitors["site_number"]
+    assert monitors.siteid.str.len().eq(9).all()
+    assert monitors.siteid.nunique() < len(monitors), "can be multiple monitors per site"
+
+    airnow = read_airnow_monitor_file(date=None, v2=False)
+    airnow["airnow_flag"] = True
+    airnow = airnow.rename(
+        columns={
+            "site_name": "local_site_name",
+            "agency_name": "reporting_agency",
+        }
+    )
+
+    site_keep = [
+        "gmt_offset",
+        "land_use",
+        "location_setting",
+        "siteid",
+    ]
+    monitor_keep = [
+        "address",
+        "cbsa_name",
+        "city_name",
+        "collecting_agency",
+        "county_name",
+        "datum",
+        "first_year_of_data",
+        "latitude",
+        "local_site_name",
+        "longitude",
+        "measurement_scale",
+        # "measurement_scale_definition",
+        "monitor_type",
+        "networks",
+        "siteid",
+        "state_name",
+        "tribe_name",
+    ]
+    # TODO: parameter code/name ? (construct combined strings like in AirNow)
+
+    # TODO: country_code ?
+    airnow_keep_in_aqs = [
+        "airnow_flag",
+        "cmsa_code",  # usually null
+        "cmsa_name",  # usually null
+        "epa_region",
+        "msa_code",
+        "msa_name",
+        "siteid",
+    ]
+    airnow_keep_new = [
+        "city_name",
+        "county_name",
+        "elevation",
+        "gmt_offset",
+        "latitude",
+        "local_site_name",  # renamed
+        "longitude",
+        "reporting_agency",  # renamed
+        "state_name",  # ~ 37% null
+    ] + airnow_keep_in_aqs
+
+    # Take desired columns and merge monitors metadata with sites metadata
+    meta = monitors[monitor_keep].merge(
+        sites[site_keep],
+        on="siteid",
+        how="left",
+    )
+
+    # Combine with AirNow metadata
+    # NOTE: ~ 45% of AirNow site IDs are also in the AQS sites file
+    is_airnow_in_aqs = airnow.siteid.isin(meta.siteid)
+    assert set(airnow_keep_in_aqs) & set(meta.columns) == {"siteid"}, "adding new cols"
+    meta = meta.merge(airnow.loc[is_airnow_in_aqs, airnow_keep_in_aqs], on="siteid", how="left")
+    meta = pd.concat(
+        [meta, airnow.loc[~is_airnow_in_aqs, airnow_keep_new]],
+        ignore_index=True,
+        sort=True,
+    )
+    meta["airnow_flag"] = meta["airnow_flag"].fillna(False)
+    meta = convert_statenames_to_abv(meta)
+
+    # Drop AQS site ID duplicates (rows per monitor/parameter at each site)
+    meta = meta.drop_duplicates(subset=["siteid"], ignore_index=True)
+
+    return meta
+
+
+def read_monitor_file(network=None, airnow=False, drop_latlon=True):
+    """
+
+    Parameters
+    ----------
+    network : str, optional
+        Subset results by AQS network (e.g. IMPROVE, CSN).
+        Only relevant if `airnow` is false.
+    airnow : bool
+        If True, read AirNow monitoring site metadata.
+        Else, read AQS monitoring site metadata.
+    drop_latlon : bool
+        Only relevant if `airnow` is false.
+    """
+    import pandas as pd
+
+    if airnow:
+        return read_airnow_monitor_file(date=None, v2=False)
+    else:
+        from pathlib import Path
+
+        data_dir = Path(__file__).parent.parent / "data"
+        assert data_dir.is_dir()
+        p = data_dir / "monitoring_site_locations.hdf"
+        if p.is_file():
+            sites = pd.read_hdf(p)
         else:
-            return sss.drop_duplicates()
+            print("Monitor File Not Found... Reprocessing")
+            sites = get_aqs_metadata()
+
+        if network is not None:
+            # FIXME: why drop site ID dupes here but not in normal results?
+            sites = sites.dropna(subset=["networks"])
+            sites = sites[sites.networks.str.contains(network)].drop_duplicates(subset=["siteid"])
+        if drop_latlon:
+            sites = sites.drop(columns=["latitude", "longitude"])
+
+        return sites.drop_duplicates().reset_index(drop=True)
