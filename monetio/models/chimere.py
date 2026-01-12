@@ -1,12 +1,7 @@
-
 import xarray as xr
 
-def open_mfdataset(
-    files,
-    var_list=None,
-    surf_only=False,
-    **kwargs
-):
+
+def open_mfdataset(files, var_list=None, surf_only=False, **kwargs):
     """Method to open Chimere model netcdf output files.
     Parameters
     ----------
@@ -21,8 +16,9 @@ def open_mfdataset(
     xarray.Dataset
         Chimere model dataset in standard format for use
         in MELODIES-MONET
-    """    
-    if not isinstance(files, list|tuple): files = [files]
+    """
+    if not isinstance(files, list | tuple):
+        files = [files]
 
     datasets = []
     for file in files:
@@ -33,22 +29,18 @@ def open_mfdataset(
     drop_data_vars = set(list(datasets[0].data_vars)) - set(var_list)
 
     for n, ds in enumerate(datasets):
-        datasets[n] = ds.drop_vars(drop_data_vars, errors = 'ignore')
+        datasets[n] = ds.drop_vars(drop_data_vars, errors="ignore")
 
-    xrds = xr.concat(datasets, 'time_counter')
+    xrds = xr.concat(datasets, "time_counter")
 
-    xrds = xrds.rename({
-        'nav_lat': 'latitude',
-        'nav_lon': 'longitude',
-        'time_counter': 'time',
-        'bottom_top': 'z'
-    })
+    xrds = xrds.rename(
+        {"nav_lat": "latitude", "nav_lon": "longitude", "time_counter": "time", "bottom_top": "z"}
+    )
 
     if surf_only:
         xrds = xrds.isel(z=0).expand_dims("z", axis=1)
 
     xrds = xrds.reset_coords()
-    xrds = xrds.set_coords(['latitude','longitude'])
+    xrds = xrds.set_coords(["latitude", "longitude"])
 
     return xrds
-
