@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from filelock import FileLock
 
-from monetio.sat._mopitt_l3_mm import get_start_time, load_variable, open_dataset
+from monetio.sat.mopitt_l3 import get_start_time, load_variable, open_dataset
 
 HERE = Path(__file__).parent
 
