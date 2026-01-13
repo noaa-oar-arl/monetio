@@ -80,7 +80,7 @@ def _fix(ds, *, surf_only, convert_to_ppb):
         ds = ds.isel(z=0).expand_dims("z")
         # Also handle any coordinate variables that depend on z
         for coord_name in list(ds.coords):
-            if 'z' in ds[coord_name].dims:
+            if "z" in ds[coord_name].dims:
                 ds = ds.assign_coords({coord_name: ds[coord_name].isel(z=0).expand_dims("z")})
 
     if convert_to_ppb:
@@ -103,13 +103,13 @@ def _fix(ds, *, surf_only, convert_to_ppb):
 
 
 def _fix_grid(ds):
-    from numpy import meshgrid
     import xarray as xr
+    from numpy import meshgrid
 
     # Store coordinate values before making changes
     lat_vals = ds.lat.values
     lon_vals = ds.lon.values
-    lev_vals = ds.lev.values if 'lev' in ds.coords else None
+    lev_vals = ds.lev.values if "lev" in ds.coords else None
 
     # Create 2-D lat/lon grid with dims ('y', 'x') and lon in [-180, 180)
     lon_vals_adj = lon_vals.copy()
@@ -120,27 +120,35 @@ def _fix_grid(ds):
     new_coords = {}
 
     # Create time coordinate (unchanged)
-    new_coords['time'] = ds.coords['time']
+    new_coords["time"] = ds.coords["time"]
 
     # Create z coordinate if lev exists
     if lev_vals is not None:
-        new_coords['z'] = ('z', lev_vals[::-1])  # Invert here to put surface first
+        new_coords["z"] = ("z", lev_vals[::-1])  # Invert here to put surface first
 
     # Create y and x coordinates
-    new_coords['y'] = ('y', lat_vals)
-    new_coords['x'] = ('x', lon_vals_adj)
+    new_coords["y"] = ("y", lat_vals)
+    new_coords["x"] = ("x", lon_vals_adj)
 
     # Create latitude and longitude 2D coordinates
-    new_coords['latitude'] = (('y', 'x'), lat_2d, {
-        'long_name': 'Latitude',
-        'units': 'degree_north',
-        'standard_name': 'latitude',
-    })
-    new_coords['longitude'] = (('y', 'x'), lon_2d, {
-        'long_name': 'Longitude',
-        'units': 'degree_east',
-        'standard_name': 'longitude',
-    })
+    new_coords["latitude"] = (
+        ("y", "x"),
+        lat_2d,
+        {
+            "long_name": "Latitude",
+            "units": "degree_north",
+            "standard_name": "latitude",
+        },
+    )
+    new_coords["longitude"] = (
+        ("y", "x"),
+        lon_2d,
+        {
+            "long_name": "Longitude",
+            "units": "degree_east",
+            "standard_name": "longitude",
+        },
+    )
 
     # Build new data variables dict
     new_data_vars = {}
@@ -151,20 +159,24 @@ def _fix_grid(ds):
         # Map old dimension names to new ones
         new_dims = []
         for dim in var.dims:
-            if dim == 'lev':
-                new_dims.append('z')
-            elif dim == 'lat':
-                new_dims.append('y')
-            elif dim == 'lon':
-                new_dims.append('x')
+            if dim == "lev":
+                new_dims.append("z")
+            elif dim == "lat":
+                new_dims.append("y")
+            elif dim == "lon":
+                new_dims.append("x")
             else:
                 new_dims.append(dim)
 
         # Get the data and reverse z dimension if it exists
         data = var.values
-        if 'lev' in var.dims:
-            z_axis = var.dims.index('lev')
-            data = data[tuple(slice(None, None, -1) if i == z_axis else slice(None) for i in range(data.ndim))]
+        if "lev" in var.dims:
+            z_axis = var.dims.index("lev")
+            data = data[
+                tuple(
+                    slice(None, None, -1) if i == z_axis else slice(None) for i in range(data.ndim)
+                )
+            ]
 
         new_data_vars[var_name] = (new_dims, data, var.attrs)
 
@@ -172,13 +184,13 @@ def _fix_grid(ds):
     ds_new = xr.Dataset(new_data_vars, coords=new_coords, attrs=ds.attrs)
 
     # Add attrs for 'z' if z coordinate exists
-    if 'z' in ds_new.coords:
-        ds_new['z'].attrs.update(
-            long_name='Nominal potential temperature of model level',
-            units='K',
+    if "z" in ds_new.coords:
+        ds_new["z"].attrs.update(
+            long_name="Nominal potential temperature of model level",
+            units="K",
             description=(
-                'In the stratosphere (beginning at lev=492), the model levels are on potential temperature surfaces. '
-                'Below lev=492, the model levels are a blend of potential temperature and sigma (terrain-following) coordinates.'
+                "In the stratosphere (beginning at lev=492), the model levels are on potential temperature surfaces. "
+                "Below lev=492, the model levels are a blend of potential temperature and sigma (terrain-following) coordinates."
             ),
         )
 

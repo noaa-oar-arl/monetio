@@ -47,9 +47,7 @@ def retrieve_test_file():
             import subprocess
 
             try:
-                subprocess.run(
-                    ["wget", "-O", str(p), url], check=True, capture_output=True
-                )
+                subprocess.run(["wget", "-O", str(p), url], check=True, capture_output=True)
                 success = True
             except Exception as e:
                 pytest.skip(

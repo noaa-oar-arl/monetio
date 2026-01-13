@@ -179,7 +179,11 @@ def _consume(endpoint, *, params=None, timeout=10, retry=5, limit=500, npages=No
             time.sleep(ratelimit_reset + 0.1 * rand())
 
         this_data = r.json()
-        found = this_data["meta"]["found"] if this_data and "meta" in this_data and "found" in this_data["meta"] else 0
+        found = (
+            this_data["meta"]["found"]
+            if this_data and "meta" in this_data and "found" in this_data["meta"]
+            else 0
+        )
         n = len(this_data["results"])
         logger.info(f"page={page} found={found!r} n={n}")
         if n == 0:

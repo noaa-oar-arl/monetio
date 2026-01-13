@@ -187,7 +187,6 @@ def add_data(dates, *, location=None, n_procs=1, errors="raise"):
     errors : {'raise', 'warn', 'skip'}
         What to do when there is an error reading a file.
     """
-    import dask
     import dask.dataframe as dd
     from dask.delayed import delayed
 
@@ -221,7 +220,7 @@ def add_data(dates, *, location=None, n_procs=1, errors="raise"):
                 return pd.DataFrame()
 
     print(f"Aggregating {len(urls)} files...")
-    dfs = [dask.delayed(func)(url) for url in urls]
+    dfs = [delayed(func)(url) for url in urls]
     dff = dd.from_delayed(dfs, verify_meta=errors == "raise")
     df = dff.compute(num_workers=n_procs).reset_index()
 
