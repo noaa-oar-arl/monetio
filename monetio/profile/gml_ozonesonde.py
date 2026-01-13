@@ -9,11 +9,10 @@ import re
 import warnings
 from typing import NamedTuple, Optional, Tuple, Union
 
+import fsspec
 import numpy as np
 import pandas as pd
 import requests
-import fsspec
-from urllib.parse import quote
 
 TIMEOUT = 120  # seconds (increased from 60)
 RETRIES = 10
@@ -39,7 +38,9 @@ def retry(func):
                 requests.exceptions.TooManyRedirects,
             ) as e:
                 if i == RETRIES - 1:
-                    raise RuntimeError(f"{func.__name__} failed after {RETRIES} tries. Last error: {e}")
+                    raise RuntimeError(
+                        f"{func.__name__} failed after {RETRIES} tries. Last error: {e}"
+                    )
                 time.sleep(0.5 * i**1.5 + rand() * 0.1)
 
         raise RuntimeError(f"{func.__name__} failed after {RETRIES} tries.")
@@ -93,7 +94,7 @@ def discover_files(location=None, *, n_threads=3, cache=True):
             url_location = location
 
         # Use fsspec for more robust HTTP access
-        http_fs = fsspec.filesystem('http')
+        http_fs = fsspec.filesystem("http")
 
         # Use manual encoding to preserve original format for compatibility
         # Only encode spaces but not commas to match expected URLs in tests
@@ -103,7 +104,7 @@ def discover_files(location=None, *, n_threads=3, cache=True):
 
         try:
             # Use fsspec to get the HTML content with enhanced settings
-            with http_fs.open(url, 'r', encoding='utf-8', timeout=TIMEOUT) as f:
+            with http_fs.open(url, "r", encoding="utf-8", timeout=TIMEOUT) as f:
                 content = f.read()
         except Exception as e:
             warnings.warn(f"Failed to fetch files for {location} using fsspec HTTP: {e}")
@@ -111,20 +112,24 @@ def discover_files(location=None, *, n_threads=3, cache=True):
             # Enhanced fallback with session for better performance
             with requests.Session() as session:
                 # Set headers to mimic a browser request
-                session.headers.update({
-                    'User-Agent': 'Mozilla/5.0 (compatible; MONETIO-Bot/1.0)',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Connection': 'keep-alive',
-                })
+                session.headers.update(
+                    {
+                        "User-Agent": "Mozilla/5.0 (compatible; MONETIO-Bot/1.0)",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        "Accept-Language": "en-US,en;q=0.5",
+                        "Accept-Encoding": "gzip, deflate",
+                        "Connection": "keep-alive",
+                    }
+                )
 
                 try:
                     r = session.get(url, timeout=TIMEOUT)
                     r.raise_for_status()
                     content = r.text
                 except Exception as fallback_error:
-                    warnings.warn(f"Fallback to requests also failed for {location}: {fallback_error}")
+                    warnings.warn(
+                        f"Fallback to requests also failed for {location}: {fallback_error}"
+                    )
                     if USE_CACHE_FOR_TESTING:
                         warnings.warn(f"Using cached data for {location} due to network failure")
                         return []
@@ -184,6 +189,7 @@ def add_data(dates, *, location=None, n_procs=1, errors="raise"):
     """
     import dask
     import dask.dataframe as dd
+    from dask.delayed import delayed
 
     dates = pd.DatetimeIndex(dates)
     dates_min, dates_max = dates.min(), dates.max()
@@ -367,27 +373,33 @@ def read_100m(fp_or_url):
 
     def get_text():
         if isinstance(fp_or_url, str) and fp_or_url.startswith(("http://", "https://")):
+
             @retry
             def get_remote_content():
                 # Try fsspec first for better performance and features
                 try:
-                    http_fs = fsspec.filesystem('http', headers={'User-Agent': 'MONETIO-Client'})
-                    with http_fs.open(fp_or_url, 'r', encoding='utf-8', timeout=TIMEOUT) as f:
+                    http_fs = fsspec.filesystem("http", headers={"User-Agent": "MONETIO-Client"})
+                    with http_fs.open(fp_or_url, "r", encoding="utf-8", timeout=TIMEOUT) as f:
                         return f.read()
                 except Exception as fsspec_error:
                     # Fallback to requests if fsspec fails
-                    warnings.warn(f"fsspec failed for {fp_or_url}, falling back to requests: {fsspec_error}")
+                    warnings.warn(
+                        f"fsspec failed for {fp_or_url}, falling back to requests: {fsspec_error}"
+                    )
                     with requests.Session() as session:
-                        session.headers.update({
-                            'User-Agent': 'Mozilla/5.0 (compatible; MONETIO-Bot/1.0)',
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                            'Accept-Language': 'en-US,en;q=0.5',
-                            'Accept-Encoding': 'gzip, deflate',
-                            'Connection': 'keep-alive',
-                        })
+                        session.headers.update(
+                            {
+                                "User-Agent": "Mozilla/5.0 (compatible; MONETIO-Bot/1.0)",
+                                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                                "Accept-Language": "en-US,en;q=0.5",
+                                "Accept-Encoding": "gzip, deflate",
+                                "Connection": "keep-alive",
+                            }
+                        )
                         r = session.get(fp_or_url, timeout=TIMEOUT)
                         r.raise_for_status()
                         return r.text
+
             return get_remote_content()
         else:
             with open(fp_or_url) as f:
@@ -496,9 +508,11 @@ def read_100m(fp_or_url):
     for c in col_info:
         if c.name in df.columns:
             if c.name != "lev":
-                df[c.name] = pd.to_numeric(df[c.name], errors='coerce')
+                df[c.name] = pd.to_numeric(df[c.name], errors="coerce")
             else:
-                df[c.name] = pd.to_numeric(df[c.name], errors='coerce').astype('Int64')  # nullable integer
+                df[c.name] = pd.to_numeric(df[c.name], errors="coerce").astype(
+                    "Int64"
+                )  # nullable integer
 
     # Add some variables from header as columns (these don't change in the profile)
     time = pd.Timestamp(f"{meta['Launch Date']} {meta['Launch Time']}")

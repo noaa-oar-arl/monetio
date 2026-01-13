@@ -19,7 +19,10 @@ def retrieve_test_file():
     p = HERE / "data" / fn
     if not p.is_file() or p.stat().st_size == 0:
         warnings.warn(f"Downloading test file {fn} for TROPOMI L2 test")
-        import requests, time
+        import time
+
+        import requests
+
         url = (
             "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/"
             f"example_observation_data/satellite/{fn}"
