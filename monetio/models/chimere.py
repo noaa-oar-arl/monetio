@@ -17,7 +17,7 @@ def open_mfdataset(files, var_list=None, surf_only=False, **kwargs):
         Chimere model dataset in standard format for use
         in MELODIES-MONET
     """
-    if not isinstance(files, list | tuple):
+    if not isinstance(files, (list, tuple)):
         files = [files]
 
     datasets = []
@@ -25,6 +25,8 @@ def open_mfdataset(files, var_list=None, surf_only=False, **kwargs):
         datasets.append(xr.open_dataset(file))
 
     # get the data_vars wanted
+    if var_list is None:
+        var_list = []
 
     drop_data_vars = set(list(datasets[0].data_vars)) - set(var_list)
 
