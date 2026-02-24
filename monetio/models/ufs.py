@@ -306,7 +306,9 @@ def open_mfdataset(
         ds_sfc = xr.open_mfdataset(fname_sfc, **kwargs)[sfc_varlist]
         ds_sfc = ds_sfc.rename({"grid_yt": "y",
             "grid_xt": "x"})
-        ds_sfc = ds_sfc.expand_dims("z", axis=1)
+        if surf_only: # Only expand into the zth dimension when surf_only is True, 
+            #so that the surface data are combined appropriately.
+            ds_sfc = ds_sfc.expand_dims("z", axis=1)
         dset = dset.merge(ds_sfc)
     
     return dset
