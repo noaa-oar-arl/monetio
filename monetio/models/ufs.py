@@ -50,7 +50,7 @@ def open_mfdataset(
         Whether to save only surface data to save on memory and computational
         cost (True) or not (False).
     fname_sfc : string or list
-        Path to the sfc file in UFS. This file contains additonal variables 
+        Path to the sfc file in UFS. This file contains additional variables 
         and diagnostics not included in the standard atm files.
     sfc_varlist : list
         List of variables from the sfc file to include in output.
