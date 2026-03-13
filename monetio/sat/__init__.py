@@ -11,6 +11,7 @@ from . import (
     omps_nadir,
     tempo_l2,
     tropomi_l2_no2,
+    omps_l2_no2_mm,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "nesdis_edr_viirs",
     "nesdis_eps_viirs",
     "nesdis_frp",
+    "omps_l2_no2_mm",
 ]
 
 __name__ = "sat"
