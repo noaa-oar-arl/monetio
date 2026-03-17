@@ -3,6 +3,7 @@ import io
 import os
 import warnings
 import zipfile
+from urllib.parse import unquote, urlparse
 
 import pandas as pd
 import requests
@@ -210,9 +211,25 @@ class AQS:
             Description of returned object.
 
         """
-        r = requests.get(url, timeout=TIMEOUT)
-        r.raise_for_status()
-        with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+        url = str(url)
+        parsed = urlparse(url)
+        is_http_url = parsed.scheme in {"http", "https"}
+
+        if is_http_url:
+            r = requests.get(url, timeout=TIMEOUT)
+            r.raise_for_status()
+            zf_ctx = zipfile.ZipFile(io.BytesIO(r.content))
+        else:
+            # Treat anything non-http(s) as a local path (including file:// URIs).
+            local_path = unquote(parsed.path) if parsed.scheme == "file" else url
+            if not os.path.isfile(local_path):
+                raise FileNotFoundError(
+                    f"AQS local file not found: {local_path}. "
+                    "Pass an existing local .zip path or an http(s) URL."
+                )
+            zf_ctx = zipfile.ZipFile(local_path)
+
+        with zf_ctx as zf:
             csv_name = next(n for n in zf.namelist() if n.endswith(".csv"))
             with zf.open(csv_name) as f:
                 if "daily" in url:
