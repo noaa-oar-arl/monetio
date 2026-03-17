@@ -474,7 +474,7 @@ class AQS:
         mlist = ["siteid"]
         self.df = pd.merge(self.df, monitors, on=mlist, how="left")
         if daily:
-            self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="H")
+            self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="h")
         if pd.Series(self.df.columns).isin(["parameter_name"]).max():
             self.df.drop("parameter_name", axis=1, inplace=True)
         return self.df  # .copy()
