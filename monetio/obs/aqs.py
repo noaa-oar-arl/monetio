@@ -417,6 +417,21 @@ class AQS:
             dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in urls]
         dff = dd.from_delayed(dfs)
         dfff = dff.compute(num_workers=n_procs)
+
+        # Some hourly data may erroneously not be on the hour
+        if not daily:
+            floored_time = dfff["time"].dt.floor("h")
+            not_on_hour = dfff["time"] != floored_time
+            if not_on_hour.sum() > 0:
+                sites_not_on_hour = sorted(dfff.loc[not_on_hour, "siteid"].unique())
+                warnings.warn(
+                    f"{not_on_hour.sum()} records are not on the hour. "
+                    "Rounding down to the nearest hour. "
+                    f"Affected sites include: {sites_not_on_hour}"
+                )
+            dfff["time_local"] = dfff["time_local"] - (dfff["time"] - floored_time)
+            dfff["time"] = floored_time
+
         dfff = dfff[dfff.time.between(dates.min(), dates.max())]
         if meta:
             return self.add_data2(dfff, daily, network)
