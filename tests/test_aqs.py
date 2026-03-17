@@ -22,6 +22,20 @@ def test_aqs_daily_long():
     assert ((t.dt.year == 2019) & (t.dt.month == 8)).all()
 
 
+def test_issue263():
+    # melodies-monet get-aqs -s 2021-01-01 -e 2021-01-31
+    dates = pd.date_range(start="2021-01-01", end="2021-01-31", freq="h")
+    df = aqs.add_data(
+        dates,
+        param=["PM2.5"],  # ["O3", "PM2.5", "PM10"]
+        network=None,
+        wide_fmt=True,
+        daily=False,
+    )
+    t = df.time
+    assert ((t.dt.year == 2021) & (t.dt.month == 1)).all()
+
+
 def test_aqs_daily_wide():
     dates = pd.date_range(start="2019-08-01", end="2019-08-31", freq="D")
     df = aqs.add_data(
