@@ -153,13 +153,11 @@ class AQS:
         """
         rcolumn = []
         for ccc in columns:
-            if ccc.strip().replace("_", " ") == "Sample Measurement":
+            newc = ccc.strip().lower().replace(" ", "_")
+            if newc == "sample_measurement":
                 newc = "obs"
-            elif ccc.strip().replace("_", " ") == "Units of Measure":
+            elif newc == "units_of_measure":
                 newc = "units"
-            else:
-                newc = ccc.strip().lower()
-                newc = newc.replace(" ", "_")
             if verbose:
                 print(ccc + " renamed " + newc)
             rcolumn.append(newc)
@@ -189,11 +187,14 @@ class AQS:
                 if "daily" in url:
                     df = pd.read_csv(
                         f,
-                        parse_dates={"time_local": ["Date Local"]},
-                        infer_datetime_format=True,
                         dtype={0: str, 1: str, 2: str},
                         encoding="ISO-8859-1",
                     )
+                    date_col = next(
+                        n for n in df.columns if n.strip().lower().replace(" ", "_") == "date_local"
+                    )
+                    df.insert(0, "time_local", pd.to_datetime(df[date_col]))
+                    df = df.drop(columns=[date_col])
                     df.columns = self.renameddcols
                     df["pollutant_standard"] = df.pollutant_standard.astype(str)
                     self.daily = True
@@ -201,15 +202,13 @@ class AQS:
                 else:
                     df = pd.read_csv(
                         f,
-                        parse_dates={
-                            "time": ["Date_GMT", "Time_GMT"],
-                            "time_local": ["Date_Local", "Time_Local"],
-                        },
-                        infer_datetime_format=True,
                         low_memory=False,
                     )
                     # print(df.columns.values)
                     df.columns = self.columns_rename(df.columns.values)
+                    df["time"] = pd.to_datetime(df["date_gmt"] + " " + df["time_gmt"])
+                    df["time_local"] = pd.to_datetime(df["date_local"] + " " + df["time_local"])
+                    df = df.drop(columns=["date_gmt", "time_gmt", "date_local"])
 
         df["siteid"] = (
             df.state_code.astype(str).str.zfill(2)

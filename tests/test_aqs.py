@@ -27,7 +27,7 @@ def test_issue263():
     dates = pd.date_range(start="2021-01-01", end="2021-01-31", freq="h")
     df = aqs.add_data(
         dates,
-        param=["PM2.5"],  # ["O3", "PM2.5", "PM10"]
+        param=["O3", "PM2.5", "PM10"],
         network=None,
         wide_fmt=True,
         daily=False,
