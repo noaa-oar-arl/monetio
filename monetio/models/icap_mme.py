@@ -31,9 +31,9 @@ including members that use MODIS and other observational total AOD in assimilati
 
 The data is 6-hourly, each file including multiple time steps (e.g. 21 or 25).
 
-Online visualizer: https://usgodae.org/metools/ensemble/
+Info: https://nrlgodae1.nrlmry.navy.mil/docs/icap-mme.html
 
-The files are loaded from: https://usgodae.org/ftp/outgoing/nrl/ICAP-MME/
+The files are loaded from: https://nrlgodae1.nrlmry.navy.mil/ftp/outgoing/nrl/ICAP-MME/
 """
 
 import pandas as pd
@@ -79,7 +79,7 @@ def build_urls(dates, filetype="MMC", data_var="dustaod550", *, verbose=True):
     fnames = []
     if verbose:
         print("Building ICAP-MME URLs...")
-    base_url = "https://usgodae.org/ftp/outgoing/nrl/ICAP-MME/"
+    base_url = "https://nrlgodae1.nrlmry.navy.mil/ftp/outgoing/nrl/ICAP-MME/"
 
     for dt in dates:
         fname = "icap_{}_{}_{}.nc".format(
