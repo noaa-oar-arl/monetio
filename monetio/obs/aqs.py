@@ -11,6 +11,7 @@ from .epa_util import read_monitor_file
 
 # this is a class to deal with aqs data
 
+TIMEOUT = 10
 RETRIES = 5
 
 
@@ -209,7 +210,7 @@ class AQS:
             Description of returned object.
 
         """
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=TIMEOUT)
         r.raise_for_status()
         with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
             csv_name = next(n for n in zf.namelist() if n.endswith(".csv"))
@@ -346,7 +347,9 @@ class AQS:
         for i in params:
             for y in years:
                 url, fname = self.build_url(i, y, daily=daily)
-                if int(requests.get(url, stream=True).headers["Content-Length"]) < 500:
+                r = requests.get(url, stream=True, timeout=TIMEOUT)
+                r.raise_for_status()
+                if int(r.headers["Content-Length"]) < 500:
                     print("File is Empty. Not Processing", url)
                 else:
                     urls.append(url)
@@ -377,7 +380,8 @@ class AQS:
             print("\n Retrieving: " + fname)
             print(url)
             print("\n")
-            r = requests.get(url)
+            r = requests.get(url, timeout=TIMEOUT)
+            r.raise_for_status()
             open(fname, "wb").write(r.content)
         else:
             print("\n File Exists: " + fname)
