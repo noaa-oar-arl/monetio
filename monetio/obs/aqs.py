@@ -11,6 +11,35 @@ from .epa_util import read_monitor_file
 
 # this is a class to deal with aqs data
 
+RETRIES = 5
+
+
+def retry(func):
+    import time
+    from functools import wraps
+    from random import random as rand
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for i in range(RETRIES):
+            try:
+                res = func(*args, **kwargs)
+                return res
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ChunkedEncodingError,  # mid-stream dropped connection
+            ) as e:
+                if i == RETRIES - 1:
+                    raise RuntimeError(
+                        f"{func.__name__} failed after {RETRIES} tries. Last error: {e}"
+                    )
+                time.sleep(0.5 * i**1.5 + rand() * 0.1)
+
+        raise RuntimeError(f"{func.__name__} failed after {RETRIES} tries.")
+
+    return wrapper
+
 
 def add_data(
     dates,
@@ -163,6 +192,7 @@ class AQS:
             rcolumn.append(newc)
         return rcolumn
 
+    @retry
     def load_aqs_file(self, url, network):
         """Short summary.
 
@@ -289,6 +319,7 @@ class AQS:
 
         return url, fname
 
+    @retry
     def build_urls(self, params, dates, daily=False):
         """Short summary.
 
@@ -323,6 +354,7 @@ class AQS:
 
         return urls, fnames
 
+    @retry
     def retrieve(self, url, fname):
         """Short summary.
 
