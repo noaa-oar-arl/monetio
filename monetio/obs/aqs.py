@@ -1,8 +1,11 @@
 import inspect
+import io
 import os
 import warnings
+import zipfile
 
 import pandas as pd
+import requests
 
 from .epa_util import read_monitor_file
 
@@ -178,30 +181,35 @@ class AQS:
             Description of returned object.
 
         """
-        if "daily" in url:
-            df = pd.read_csv(
-                url,
-                parse_dates={"time_local": ["Date Local"]},
-                infer_datetime_format=True,
-                dtype={0: str, 1: str, 2: str},
-                encoding="ISO-8859-1",
-            )
-            df.columns = self.renameddcols
-            df["pollutant_standard"] = df.pollutant_standard.astype(str)
-            self.daily = True
-            # df.rename(columns={'parameter_name':'variable'})
-        else:
-            df = pd.read_csv(
-                url,
-                parse_dates={
-                    "time": ["Date GMT", "Time GMT"],
-                    "time_local": ["Date Local", "Time Local"],
-                },
-                infer_datetime_format=True,
-                low_memory=False,
-            )
-            # print(df.columns.values)
-            df.columns = self.columns_rename(df.columns.values)
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+            csv_name = next(n for n in zf.namelist() if n.endswith(".csv"))
+            with zf.open(csv_name) as f:
+                if "daily" in url:
+                    df = pd.read_csv(
+                        f,
+                        parse_dates={"time_local": ["Date Local"]},
+                        infer_datetime_format=True,
+                        dtype={0: str, 1: str, 2: str},
+                        encoding="ISO-8859-1",
+                    )
+                    df.columns = self.renameddcols
+                    df["pollutant_standard"] = df.pollutant_standard.astype(str)
+                    self.daily = True
+                    # df.rename(columns={'parameter_name':'variable'})
+                else:
+                    df = pd.read_csv(
+                        f,
+                        parse_dates={
+                            "time": ["Date GMT", "Time GMT"],
+                            "time_local": ["Date Local", "Time Local"],
+                        },
+                        infer_datetime_format=True,
+                        low_memory=False,
+                    )
+                    # print(df.columns.values)
+                    df.columns = self.columns_rename(df.columns.values)
 
         df["siteid"] = (
             df.state_code.astype(str).str.zfill(2)
