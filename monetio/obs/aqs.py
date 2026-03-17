@@ -153,9 +153,9 @@ class AQS:
         """
         rcolumn = []
         for ccc in columns:
-            if ccc.strip() == "Sample Measurement":
+            if ccc.strip().replace("_", " ") == "Sample Measurement":
                 newc = "obs"
-            elif ccc.strip() == "Units of Measure":
+            elif ccc.strip().replace("_", " ") == "Units of Measure":
                 newc = "units"
             else:
                 newc = ccc.strip().lower()
@@ -202,8 +202,8 @@ class AQS:
                     df = pd.read_csv(
                         f,
                         parse_dates={
-                            "time": ["Date GMT", "Time GMT"],
-                            "time_local": ["Date Local", "Time Local"],
+                            "time": ["Date_GMT", "Time_GMT"],
+                            "time_local": ["Date_Local", "Time_Local"],
                         },
                         infer_datetime_format=True,
                         low_memory=False,
