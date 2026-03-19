@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from filelock import FileLock
 
-from monetio.sat._mopitt_l3_mm import get_start_time, load_variable, open_dataset
+from monetio.sat.mopitt_l3 import get_start_time, load_variable, open_dataset
 
 HERE = Path(__file__).parent
 
@@ -18,16 +18,63 @@ def retrieve_test_file():
     p = HERE / "data" / fn
     if not p.is_file():
         warnings.warn(f"Downloading test file {fn} for MOPITT L3 test")
+        import time
+
         import requests
 
-        r = requests.get(
-            "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/"
-            f"example_observation_data/satellite/{fn}",
-            stream=True,
+        url = (
+            # "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/"
+            # f"example_observation_data/satellite/{fn}"
+            "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/example_observation_data/satellite/MOP03JM-201701-L3V95.9.3.he5"
         )
-        r.raise_for_status()
-        with open(p, "wb") as f:
-            f.write(r.content)
+        max_retries = 5
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; MonetioTest/1.0; +https://github.com/noaa-oar-arl/monetio)"
+        }
+        success = False
+        for attempt in range(max_retries):
+            try:
+                r = requests.get(url, stream=True, timeout=60, headers=headers)
+                r.raise_for_status()
+                with open(p, "wb") as f:
+                    f.write(r.content)
+                success = True
+                break
+            except Exception:
+                time.sleep(2 * (attempt + 1))
+        if not success:
+            # Try wget as a fallback
+            import subprocess
+
+            try:
+                subprocess.run(["wget", "-O", str(p), url], check=True, capture_output=True)
+                success = True
+            except Exception as e:
+                pytest.skip(
+                    f"Could not download test file {fn} from CSL using requests or wget: {e}"
+                )
+
+        # Post-download: check file size and HDF5 signature
+        min_size_mb = 10
+        if p.stat().st_size < min_size_mb * 1024 * 1024:
+            pytest.skip(
+                f"Downloaded file {fn} is too small (likely incomplete): {p.stat().st_size} bytes"
+            )
+        with open(p, "rb") as f:
+            sig = f.read(8)
+        if sig != b"\x89HDF\r\n\x1a\n":
+            pytest.skip(f"Downloaded file {fn} does not have a valid HDF5 signature; got: {sig}")
+
+        # Post-download: check file size and HDF5 signature
+        min_size_mb = 10
+        if p.stat().st_size < min_size_mb * 1024 * 1024:
+            pytest.skip(
+                f"Downloaded file {fn} is too small (likely incomplete): {p.stat().st_size} bytes"
+            )
+        with open(p, "rb") as f:
+            sig = f.read(8)
+        if sig != b"\x89HDF\r\n\x1a\n":
+            pytest.skip(f"Downloaded file {fn} does not have a valid HDF5 signature; got: {sig}")
 
     return p
 

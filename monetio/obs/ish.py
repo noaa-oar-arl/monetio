@@ -118,7 +118,7 @@ class ISH:
     WIDTHS = [width for _, _, width in _VAR_INFO]
 
     def __init__(self):
-        self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
+        self.history_file = "https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
         self.df = None
         self.dates = None
@@ -207,6 +207,9 @@ class ISH:
         URL is assumed if `url_or_file` is a string that starts with ``http``.
         """
         if isinstance(url_or_file, str) and url_or_file.startswith("http"):
+            # Normalize legacy NCDC host and bad redirect paths (prevents 404 on /pub/pub/)
+            url_or_file = url_or_file.replace("www1.ncdc.noaa.gov", "www.ncei.noaa.gov")
+            url_or_file = url_or_file.replace("/pub/pub/", "/pub/")
             import gzip
             import io
 
@@ -273,7 +276,16 @@ class ISH:
             dates = self.dates
 
         fname = self.history_file
-        self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
+        try:
+            self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"])
+        except Exception:
+            # Fallback from legacy host to current NCEI host if needed
+            alt = fname.replace("www1.ncdc.noaa.gov", "www.ncei.noaa.gov")
+            if alt != fname:
+                self.history = pd.read_csv(alt, parse_dates=["BEGIN", "END"])
+                self.history_file = alt
+            else:
+                raise
         self.history.columns = [i.lower() for i in self.history.columns]
 
         if dates is not None:
@@ -497,7 +509,7 @@ class ISH:
         # fnames = []
         if self.verbose:
             print("Building ISH URLs...")
-        url = "https://www1.ncdc.noaa.gov/pub/data/noaa"
+        url = "https://www.ncei.noaa.gov/pub/data/noaa"
         # get each yearly urls available from the isd-lite site
         if len(unique_years) > 1:
             all_urls = []

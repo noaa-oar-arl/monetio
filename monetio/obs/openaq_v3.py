@@ -150,6 +150,7 @@ def _consume(endpoint, *, params=None, timeout=10, retry=5, limit=500, npages=No
         params["page"] = page
 
         tries = 0
+        r = None  # Initialize r to avoid unbound variable error
         while tries < retry:
             logger.debug(f"GET {url} params={params}")
             r = requests.get(url, params=params, headers=headers, timeout=timeout)
@@ -164,6 +165,10 @@ def _consume(endpoint, *, params=None, timeout=10, retry=5, limit=500, npages=No
                 time.sleep(ratelimit_reset + 0.1 * rand())
             else:
                 break
+
+        if r is None:
+            raise requests.RequestException("Request failed after retries")
+
         r.raise_for_status()
 
         ratelimit_remaining = int(r.headers["X-Ratelimit-Remaining"])
@@ -174,7 +179,11 @@ def _consume(endpoint, *, params=None, timeout=10, retry=5, limit=500, npages=No
             time.sleep(ratelimit_reset + 0.1 * rand())
 
         this_data = r.json()
-        found = this_data["meta"]["found"]
+        found = (
+            this_data["meta"]["found"]
+            if this_data and "meta" in this_data and "found" in this_data["meta"]
+            else 0
+        )
         n = len(this_data["results"])
         logger.info(f"page={page} found={found!r} n={n}")
         if n == 0:
