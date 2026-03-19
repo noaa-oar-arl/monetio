@@ -1,9 +1,9 @@
 """UFS-AQM File Reader"""
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from numpy import concatenate
-import pandas as pd
 from pandas import Series
 
 
@@ -22,7 +22,7 @@ def open_mfdataset(
     fname_pm25=None,
     surf_only=False,
     fname_sfc=None,
-    sfc_varlist=['aod550'],
+    sfc_varlist=["aod550"],
     **kwargs,
 ):
     # Like WRF-chem add var list that just determines whether to calculate sums or not to speed this up.
@@ -50,7 +50,7 @@ def open_mfdataset(
         Whether to save only surface data to save on memory and computational
         cost (True) or not (False).
     fname_sfc : string or list
-        Path to the sfc file in UFS. This file contains additional variables 
+        Path to the sfc file in UFS. This file contains additional variables
         and diagnostics not included in the standard atm files.
     sfc_varlist : list
         List of variables from the sfc file to include in output.
@@ -229,8 +229,10 @@ def open_mfdataset(
     dset["longitude"] = dset["longitude"].isel(time=0)
 
     # modify longitude from 0-360 to -180-180 if needed
-    dset['longitude'] = xr.where(dset['longitude'] >= 180, dset['longitude'] - 360, dset['longitude'])
-    
+    dset["longitude"] = xr.where(
+        dset["longitude"] >= 180, dset["longitude"] - 360, dset["longitude"]
+    )
+
     dset = dset.reset_coords()
     dset = dset.set_coords(["latitude", "longitude"])
 
@@ -284,16 +286,16 @@ def open_mfdataset(
         dset = add_lazy_so4_pm25(dset, dict_sum)
     if "pm25_om" in list_calc_sum:
         dset = add_lazy_om_pm25(dset, dict_sum)
-        
+
     # If time is not in pandas format, change it to pandas format
     if not isinstance(dset.indexes["time"], pd.DatetimeIndex):
         dset["time"] = dset.indexes["time"].to_datetimeindex(unsafe=True)
     # Turn off warning for now. This is just because the model is in julian time
 
     # drop time_iso variable if it exists
-    if 'time_iso' in dset.variables:
-        dest = dset.drop_vars(['time_iso'])
-    
+    if "time_iso" in dset.variables:
+        dset = dset.drop_vars(["time_iso"])
+
     # Drop extra variables that were part of sum, but are not in original var_list
     # to save memory and computational time.
     # This is only revevant if var_list is provided
@@ -304,13 +306,12 @@ def open_mfdataset(
     # Read in additional variables from the sfc file
     if fname_sfc is not None:
         ds_sfc = xr.open_mfdataset(fname_sfc, **kwargs)[sfc_varlist]
-        ds_sfc = ds_sfc.rename({"grid_yt": "y",
-            "grid_xt": "x"})
-        if surf_only: # Only expand into the zth dimension when surf_only is True, 
-            #so that the surface data are combined appropriately.
+        ds_sfc = ds_sfc.rename({"grid_yt": "y", "grid_xt": "x"})
+        if surf_only:  # Only expand into the zth dimension when surf_only is True,
+            # so that the surface data are combined appropriately.
             ds_sfc = ds_sfc.expand_dims("z", axis=1)
         dset = dset.merge(ds_sfc)
-    
+
     return dset
 
 
