@@ -3,7 +3,8 @@ import io
 import os
 import warnings
 import zipfile
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pandas as pd
 import requests
@@ -31,6 +32,7 @@ def retry(func):
                 requests.exceptions.Timeout,
                 requests.exceptions.ConnectionError,
                 requests.exceptions.ChunkedEncodingError,  # mid-stream dropped connection
+                requests.exceptions.HTTPError,  # transient server errors
             ) as e:
                 if i == RETRIES - 1:
                     raise RuntimeError(
@@ -212,7 +214,7 @@ class AQS:
 
         """
         url = str(url)
-        parsed = urlparse(url)
+        parsed = urlsplit(url)
         is_http_url = parsed.scheme in {"http", "https"}
 
         if is_http_url:
@@ -221,7 +223,12 @@ class AQS:
             zf_ctx = zipfile.ZipFile(io.BytesIO(r.content))
         else:
             # Treat anything non-http(s) as a local path (including file:// URIs).
-            local_path = unquote(parsed.path) if parsed.scheme == "file" else url
+            if parsed.scheme == "file":
+                local_path = url2pathname(parsed.path)
+                if parsed.netloc:
+                    local_path = f"//{parsed.netloc}{local_path}"
+            else:
+                local_path = url
             if not os.path.isfile(local_path):
                 raise FileNotFoundError(
                     f"AQS local file not found: {local_path}. "
@@ -230,7 +237,13 @@ class AQS:
             zf_ctx = zipfile.ZipFile(local_path)
 
         with zf_ctx as zf:
-            csv_name = next(n for n in zf.namelist() if n.endswith(".csv"))
+            csv_matches = [n for n in zf.namelist() if n.lower().endswith(".csv")]
+            if len(csv_matches) != 1:
+                raise ValueError(
+                    "Expected exactly one CSV file in AQS zip, "
+                    f"found {len(csv_matches)}: {csv_matches}"
+                )
+            csv_name = csv_matches[0]
             with zf.open(csv_name) as f:
                 if "daily" in url:
                     df = pd.read_csv(
@@ -238,9 +251,16 @@ class AQS:
                         dtype={0: str, 1: str, 2: str},
                         encoding="ISO-8859-1",
                     )
-                    date_col = next(
+                    date_local_matches = [
                         n for n in df.columns if n.strip().lower().replace(" ", "_") == "date_local"
-                    )
+                    ]
+                    if len(date_local_matches) != 1:
+                        raise ValueError(
+                            "Expected exactly one 'date_local' column in daily AQS CSV, "
+                            f"found {len(date_local_matches)}: {date_local_matches}. "
+                            f"Available columns: {list(df.columns)}"
+                        )
+                    date_col = date_local_matches[0]
                     df.insert(0, "time_local", pd.to_datetime(df[date_col]))
                     df = df.drop(columns=[date_col])
                     df.columns = self.renameddcols
@@ -364,13 +384,13 @@ class AQS:
         for i in params:
             for y in years:
                 url, fname = self.build_url(i, y, daily=daily)
-                r = requests.get(url, stream=True, timeout=TIMEOUT)
-                r.raise_for_status()
-                if int(r.headers["Content-Length"]) < 500:
-                    print("File is Empty. Not Processing", url)
-                else:
-                    urls.append(url)
-                    fnames.append(fname)
+                with requests.get(url, stream=True, timeout=TIMEOUT) as r:
+                    r.raise_for_status()
+                    if int(r.headers["Content-Length"]) < 500:
+                        print("File is Empty. Not Processing", url)
+                    else:
+                        urls.append(url)
+                        fnames.append(fname)
 
         return urls, fnames
 
@@ -397,9 +417,11 @@ class AQS:
             print("\n Retrieving: " + fname)
             print(url)
             print("\n")
-            r = requests.get(url, timeout=TIMEOUT)
+            r = requests.get(url, stream=True, timeout=TIMEOUT)
             r.raise_for_status()
-            open(fname, "wb").write(r.content)
+            with open(fname, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
         else:
             print("\n File Exists: " + fname)
 
