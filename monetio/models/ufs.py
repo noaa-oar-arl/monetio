@@ -22,7 +22,7 @@ def open_mfdataset(
     fname_pm25=None,
     surf_only=False,
     fname_sfc=None,
-    sfc_varlist=["aod550"],
+    sfc_varlist=None,
     **kwargs,
 ):
     # Like WRF-chem add var list that just determines whether to calculate sums or not to speed this up.
