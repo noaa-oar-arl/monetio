@@ -502,7 +502,7 @@ class AQS:
                 warnings.warn(
                     f"{not_on_hour.sum()} records are not on the hour. "
                     "Rounding down to the nearest hour. "
-                    f"Affected sites include: {sites_not_on_hour}"
+                    f"Affected sites include: {sites_not_on_hour}."
                 )
             dfff["time_local"] = dfff["time_local"] - (dfff["time"] - floored_time)
             dfff["time"] = floored_time
