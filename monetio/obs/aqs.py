@@ -1,12 +1,48 @@
 import inspect
+import io
 import os
 import warnings
+import zipfile
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pandas as pd
+import requests
 
 from .epa_util import read_monitor_file
 
 # this is a class to deal with aqs data
+
+TIMEOUT = 10
+RETRIES = 5
+
+
+def retry(func):
+    import time
+    from functools import wraps
+    from random import random as rand
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for i in range(RETRIES):
+            try:
+                res = func(*args, **kwargs)
+                return res
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ChunkedEncodingError,  # mid-stream dropped connection
+                requests.exceptions.HTTPError,  # transient server errors
+            ) as e:
+                if i == RETRIES - 1:
+                    raise RuntimeError(
+                        f"{func.__name__} failed after {RETRIES} tries. Last error: {e}"
+                    )
+                time.sleep(0.5 * i**1.5 + rand() * 0.1)
+
+        raise RuntimeError(f"{func.__name__} failed after {RETRIES} tries.")
+
+    return wrapper
 
 
 def add_data(
@@ -150,18 +186,17 @@ class AQS:
         """
         rcolumn = []
         for ccc in columns:
-            if ccc.strip() == "Sample Measurement":
+            newc = ccc.strip().lower().replace(" ", "_")
+            if newc == "sample_measurement":
                 newc = "obs"
-            elif ccc.strip() == "Units of Measure":
+            elif newc == "units_of_measure":
                 newc = "units"
-            else:
-                newc = ccc.strip().lower()
-                newc = newc.replace(" ", "_")
             if verbose:
                 print(ccc + " renamed " + newc)
             rcolumn.append(newc)
         return rcolumn
 
+    @retry
     def load_aqs_file(self, url, network):
         """Short summary.
 
@@ -178,30 +213,70 @@ class AQS:
             Description of returned object.
 
         """
-        if "daily" in url:
-            df = pd.read_csv(
-                url,
-                parse_dates={"time_local": ["Date Local"]},
-                infer_datetime_format=True,
-                dtype={0: str, 1: str, 2: str},
-                encoding="ISO-8859-1",
-            )
-            df.columns = self.renameddcols
-            df["pollutant_standard"] = df.pollutant_standard.astype(str)
-            self.daily = True
-            # df.rename(columns={'parameter_name':'variable'})
+        url = str(url)
+        parsed = urlsplit(url)
+        is_http_url = parsed.scheme in {"http", "https"}
+
+        if is_http_url:
+            r = requests.get(url, timeout=TIMEOUT)
+            r.raise_for_status()
+            zf_ctx = zipfile.ZipFile(io.BytesIO(r.content))
         else:
-            df = pd.read_csv(
-                url,
-                parse_dates={
-                    "time": ["Date GMT", "Time GMT"],
-                    "time_local": ["Date Local", "Time Local"],
-                },
-                infer_datetime_format=True,
-                low_memory=False,
-            )
-            # print(df.columns.values)
-            df.columns = self.columns_rename(df.columns.values)
+            # Treat anything non-http(s) as a local path (including file:// URIs).
+            if parsed.scheme == "file":
+                local_path = url2pathname(parsed.path)
+                if parsed.netloc:
+                    local_path = f"//{parsed.netloc}{local_path}"
+            else:
+                local_path = url
+            if not os.path.isfile(local_path):
+                raise FileNotFoundError(
+                    f"AQS local file not found: {local_path}. "
+                    "Pass an existing local .zip path or an http(s) URL."
+                )
+            zf_ctx = zipfile.ZipFile(local_path)
+
+        with zf_ctx as zf:
+            csv_matches = [n for n in zf.namelist() if n.lower().endswith(".csv")]
+            if len(csv_matches) != 1:
+                raise ValueError(
+                    "Expected exactly one CSV file in AQS zip, "
+                    f"found {len(csv_matches)}: {csv_matches}"
+                )
+            csv_name = csv_matches[0]
+            with zf.open(csv_name) as f:
+                if "daily" in url:
+                    df = pd.read_csv(
+                        f,
+                        dtype={0: str, 1: str, 2: str},
+                        encoding="ISO-8859-1",
+                    )
+                    date_local_matches = [
+                        n for n in df.columns if n.strip().lower().replace(" ", "_") == "date_local"
+                    ]
+                    if len(date_local_matches) != 1:
+                        raise ValueError(
+                            "Expected exactly one 'date_local' column in daily AQS CSV, "
+                            f"found {len(date_local_matches)}: {date_local_matches}. "
+                            f"Available columns: {list(df.columns)}"
+                        )
+                    date_col = date_local_matches[0]
+                    df.insert(0, "time_local", pd.to_datetime(df[date_col]))
+                    df = df.drop(columns=[date_col])
+                    df.columns = self.renameddcols
+                    df["pollutant_standard"] = df.pollutant_standard.astype(str)
+                    self.daily = True
+                    # df.rename(columns={'parameter_name':'variable'})
+                else:
+                    df = pd.read_csv(
+                        f,
+                        low_memory=False,
+                    )
+                    # print(df.columns.values)
+                    df.columns = self.columns_rename(df.columns.values)
+                    df["time"] = pd.to_datetime(df["date_gmt"] + " " + df["time_gmt"])
+                    df["time_local"] = pd.to_datetime(df["date_local"] + " " + df["time_local"])
+                    df = df.drop(columns=["date_gmt", "time_gmt", "date_local"])
 
         df["siteid"] = (
             df.state_code.astype(str).str.zfill(2)
@@ -282,6 +357,7 @@ class AQS:
 
         return url, fname
 
+    @retry
     def build_urls(self, params, dates, daily=False):
         """Short summary.
 
@@ -308,14 +384,17 @@ class AQS:
         for i in params:
             for y in years:
                 url, fname = self.build_url(i, y, daily=daily)
-                if int(requests.get(url, stream=True).headers["Content-Length"]) < 500:
-                    print("File is Empty. Not Processing", url)
-                else:
-                    urls.append(url)
-                    fnames.append(fname)
+                with requests.get(url, stream=True, timeout=TIMEOUT) as r:
+                    r.raise_for_status()
+                    if int(r.headers["Content-Length"]) < 500:
+                        print("File is Empty. Not Processing", url)
+                    else:
+                        urls.append(url)
+                        fnames.append(fname)
 
         return urls, fnames
 
+    @retry
     def retrieve(self, url, fname):
         """Short summary.
 
@@ -338,8 +417,11 @@ class AQS:
             print("\n Retrieving: " + fname)
             print(url)
             print("\n")
-            r = requests.get(url)
-            open(fname, "wb").write(r.content)
+            r = requests.get(url, stream=True, timeout=TIMEOUT)
+            r.raise_for_status()
+            with open(fname, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
         else:
             print("\n File Exists: " + fname)
 
@@ -410,6 +492,21 @@ class AQS:
             dfs = [dask.delayed(self.load_aqs_file)(i, network) for i in urls]
         dff = dd.from_delayed(dfs)
         dfff = dff.compute(num_workers=n_procs)
+
+        # Some hourly data may erroneously not be on the hour
+        if not daily:
+            floored_time = dfff["time"].dt.floor("h")
+            not_on_hour = dfff["time"] != floored_time
+            if not_on_hour.sum() > 0:
+                sites_not_on_hour = sorted(dfff.loc[not_on_hour, "siteid"].unique())
+                warnings.warn(
+                    f"{not_on_hour.sum()} records are not on the hour. "
+                    "Rounding down to the nearest hour. "
+                    f"Affected sites include: {sites_not_on_hour}."
+                )
+            dfff["time_local"] = dfff["time_local"] - (dfff["time"] - floored_time)
+            dfff["time"] = floored_time
+
         dfff = dfff[dfff.time.between(dates.min(), dates.max())]
         if meta:
             return self.add_data2(dfff, daily, network)
@@ -452,7 +549,7 @@ class AQS:
         mlist = ["siteid"]
         self.df = pd.merge(self.df, monitors, on=mlist, how="left")
         if daily:
-            self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="H")
+            self.df["time"] = self.df.time_local - pd.to_timedelta(self.df.gmt_offset, unit="h")
         if pd.Series(self.df.columns).isin(["parameter_name"]).max():
             self.df.drop("parameter_name", axis=1, inplace=True)
         return self.df  # .copy()
