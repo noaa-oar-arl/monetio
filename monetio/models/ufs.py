@@ -54,6 +54,7 @@ def open_mfdataset(
         and diagnostics not included in the standard atm files.
     sfc_varlist : list
         List of variables from the sfc file to include in output.
+        Defaults to ``['aod550']`` if not provided.
 
     Returns
     -------
