@@ -65,6 +65,9 @@ def open_mfdataset(
     # Get dictionary of summed species for the mechanism of choice.
     dict_sum = dict_species_sums(mech=mech)
 
+    if sfc_varlist is None:
+        sfc_varlist = ["aod550"]
+
     if var_list is not None:
         # Read in only a subset of variables and only do calculations if needed.
         var_list_orig = var_list.copy()  # Keep track of the original list before changes.
