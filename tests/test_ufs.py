@@ -44,7 +44,7 @@ def test_open_mfdataset(data_dir: Path, test_data: DataForTest) -> None:
     else:
         assert "alt_msl_m_full" in actual.data_vars
         # Baseline is for full level profile
-        _compare_with_baseline_(actual, ufs_data_dir / "baseline-20250514-1622.nc")
+        _compare_with_baseline_(actual, ufs_data_dir / "baseline-20260320-1622.nc")
 
 
 def test_deprecated_rrfs_cmaq_mm() -> None:
