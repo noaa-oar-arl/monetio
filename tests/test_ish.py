@@ -28,7 +28,7 @@ def test_ish_read_history():
     assert len(df) > 0
     assert {"latitude", "longitude", "begin", "end"} < set(df.columns)
     for col in ["begin", "end"]:
-        assert df[col].dtype == "datetime64[us]" if PD_GTE_3 else "datetime64[ns]"
+        assert df[col].dtype == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
         assert (df[col].dt.hour == 0).all()
 
     assert df.station_id.nunique() == len(df), "unique ID for station"

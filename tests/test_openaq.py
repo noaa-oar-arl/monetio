@@ -35,7 +35,7 @@ def test_openaq_first_date():
     assert df.latitude.isnull().sum() == 0
     assert df.longitude.isnull().sum() == 0
 
-    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert df.dtypes["averagingPeriod"] == ("timedelta64[us]" if PD_GTE_3 else "timedelta64[ns]")
     assert df.averagingPeriod.eq(pd.Timedelta("1h")).all()
 
     assert df.pm25_ugm3.gt(0).all()
@@ -73,7 +73,7 @@ def test_read(url):
     else:
         assert len(df2) == len(df)
 
-    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert df.dtypes["averagingPeriod"] == ("timedelta64[us]" if PD_GTE_3 else "timedelta64[ns]")
     assert not df.averagingPeriod.isnull().all()
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
 
@@ -90,7 +90,7 @@ def test_openaq_2023():
 
     assert (df.time.astype(str) + df.siteid).nunique() == len(df)
 
-    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert df.dtypes["averagingPeriod"] == ("timedelta64[us]" if PD_GTE_3 else "timedelta64[ns]")
     assert not df.averagingPeriod.isnull().all()
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
 
