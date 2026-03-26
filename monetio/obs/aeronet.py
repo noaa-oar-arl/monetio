@@ -426,7 +426,8 @@ class AERONET:
         df.rename(columns=str.lower, inplace=True)
         date_col, time_col = df.columns[1], df.columns[2]
         time = pd.to_datetime(df[date_col] + " " + df[time_col], format=r"%d:%m:%Y %H:%M:%S")
-        df = df.drop(columns=[date_col, time_col]).insert(1, "time", time)
+        df = df.drop(columns=[date_col, time_col])
+        df.insert(1, "time", time)
         df.rename(
             columns={
                 "aeronet_site": "siteid",
