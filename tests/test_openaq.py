@@ -1,4 +1,3 @@
-import sys
 from urllib.error import HTTPError
 
 import pandas as pd
@@ -8,9 +7,6 @@ from monetio import openaq
 from monetio.util import _get_pandas_version
 
 PD_GTE_3 = _get_pandas_version() >= (3, 0)
-
-if sys.version_info < (3, 7):
-    pytest.skip("requires Python 3.7+", allow_module_level=True)
 
 # openaq._URL_CAP_RANDOM_SAMPLE = True
 openaq._URL_CAP = 4

@@ -7,7 +7,7 @@ More info: https://gml.noaa.gov/ozwv/ozsondes/
 
 import re
 import warnings
-from typing import NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Union
 
 import fsspec
 import numpy as np
@@ -279,7 +279,7 @@ class ColInfo(NamedTuple):
     name: str
     long_name: str
     units: str
-    na_val: Optional[Union[str, Tuple[str, ...]]]
+    na_val: Optional[Union[str, tuple[str, ...]]]
 
 
 COL_INFO_L100 = [
