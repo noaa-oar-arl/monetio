@@ -273,7 +273,7 @@ class AERONET:
         "FRC",
         "LID",
         "FLX",
-        # "ALL",
+        "ALL",
         # "PFN",
         # "U27",
     )
