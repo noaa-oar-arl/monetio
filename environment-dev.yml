@@ -33,3 +33,5 @@ dependencies:
   - pytest-xdist
   #
   - pip >=21.1
+  - pip:
+      - pytest-print
