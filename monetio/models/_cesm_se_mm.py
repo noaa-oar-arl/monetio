@@ -49,8 +49,11 @@ def open_mfdataset(
         else:
             raise ValueError
     except ValueError:
-        print("""File format not recognized. Note that files should be in netcdf
-                format. Do not mix and match file types.""")
+        print(
+            "File format not recognized. "
+            "Note that files should be in netcdf format. "
+            "Do not mix and match file types."
+        )
 
     # To keep lat & lon variables in the dataset
     if "lat" not in var_list:
