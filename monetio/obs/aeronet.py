@@ -389,7 +389,7 @@ class AERONET:
         if isinstance(self.url, str) and self.url.startswith("http"):
             import requests
 
-            r = requests.get(self.url, stream=True)
+            r = requests.get(self.url, stream=True, timeout=60)
             r.raise_for_status()
             s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
         else:
