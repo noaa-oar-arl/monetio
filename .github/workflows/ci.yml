@@ -63,8 +63,10 @@ jobs:
 
       - name: Test with pytspack installed
         run: |
-          pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
-          pytest -k with_pytspack -n auto -v -ra "$AERONET_IGNORE" -W "ignore:API key length is 0:UserWarning::"
+          if [[ -z "$AERONET_IGNORE" ]]; then
+            pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
+            pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
+          fi
 
   docs:
     name: Check docs build
