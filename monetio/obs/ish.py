@@ -193,7 +193,7 @@ class ISH:
     def _decode_bytes(df):
         if df.empty:
             return df
-        bytes_cols = [col for col in df.columns if type(df[col][0]) is bytes]
+        bytes_cols = [col for col in df.columns if type(df[col].iloc[0]) is bytes]
         with pd.option_context("mode.chained_assignment", None):
             df.loc[:, bytes_cols] = df[bytes_cols].apply(
                 lambda x: x.str.decode("utf-8"),
@@ -293,8 +293,10 @@ class ISH:
             self.history = self.history.loc[index1, :]
         self.history = self.history.dropna(subset=["lat", "lon"])
 
-        self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
-        self.history.loc[:, "wban"] = self.history.wban.astype("str").str.zfill(5)
+        self.history = self.history.assign(
+            usaf=self.history.usaf.astype("str").str.zfill(6),
+            wban=self.history.wban.astype("str").str.zfill(5),
+        )
         self.history["station_id"] = self.history.usaf + self.history.wban
         self.history.rename(columns={"lat": "latitude", "lon": "longitude"}, inplace=True)
 
@@ -420,7 +422,7 @@ class ISH:
                 self.df[group_cols + list(numeric_cols)]
                 .groupby("station_id")
                 .resample(window)
-                .mean()
+                .mean(numeric_only=True)
                 .reset_index()
             )
             # Merge back with non-numeric columns (e.g., time, station_id) if needed

@@ -6,6 +6,8 @@ import pytest
 
 from monetio import openaq
 
+PD_GTE_3 = int(pd.__version__.split(".")[0]) >= 3
+
 if sys.version_info < (3, 7):
     pytest.skip("requires Python 3.7+", allow_module_level=True)
 
@@ -18,7 +20,11 @@ FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="h")[:-1]
 
 permission_error = pytest.mark.xfail(reason="private", raises=PermissionError, strict=True)
 
-forbidden_error = pytest.mark.xfail(reason="forbidden", raises=HTTPError, strict=True)  # 403
+forbidden_error = pytest.mark.xfail(
+    reason="forbidden",
+    raises=FileNotFoundError if PD_GTE_3 else HTTPError,  # 403
+    strict=True,
+)
 
 
 @permission_error

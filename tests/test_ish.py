@@ -4,6 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+PD_GTE_3 = int(pd.__version__.split(".")[0]) >= 3
+
 from monetio import ish
 
 try:
@@ -25,7 +27,7 @@ def test_ish_read_history():
     assert len(df) > 0
     assert {"latitude", "longitude", "begin", "end"} < set(df.columns)
     for col in ["begin", "end"]:
-        assert df[col].dtype == "datetime64[ns]"
+        assert df[col].dtype == "datetime64[us]" if PD_GTE_3 else "datetime64[ns]"
         assert (df[col].dt.hour == 0).all()
 
     assert df.station_id.nunique() == len(df), "unique ID for station"
@@ -122,7 +124,7 @@ def test_ish_one_site_empty(resample):
 def test_ish_resample():
     dates = pd.date_range("2020-09-01", "2020-09-02")
     site = "72224400358"  # "College Park AP"
-    freq = "3H"
+    freq = "3h"
 
     df = ish.add_data(dates, site=site, resample=True, window=freq)
 
