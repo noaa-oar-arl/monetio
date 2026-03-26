@@ -253,7 +253,8 @@ def test_interp_daily_with_pytspack():
 )
 def test_issue100(dates, request):
     df1 = aeronet.add_data(dates, n_procs=1)
-    df2 = aeronet.add_data(dates, n_procs=2)
+    with pytest.warns(UserWarning, match="Parallel processing may lead to rate-limiting"):
+        df2 = aeronet.add_data(dates, n_procs=2)
     assert len(df1) == len(df2)
     if request.node.callspec.id == "two days":
         # Sort first (can use `df1.compare(df2)` for debugging)

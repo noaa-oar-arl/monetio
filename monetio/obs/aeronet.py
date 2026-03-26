@@ -154,6 +154,13 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
+    if n_procs > 1:
+        warnings.warn(
+            "Parallel processing may lead to rate-limiting or blocking by AERONET. "
+            "Consider the default n_procs=1 if you encounter issues.",
+            stacklevel=2,
+        )
+
     requested_parallel = n_procs != 1
 
     # Split up by day
