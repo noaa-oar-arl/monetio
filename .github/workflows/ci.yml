@@ -59,7 +59,9 @@ jobs:
           fi
 
       - name: Test with pytest
-        run: pytest -n auto --dist loadgroup -v -ra "$AERONET_IGNORE" -W "ignore:Downloading test file:UserWarning::"
+        run: pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE
+          -W "ignore:Downloading test file:UserWarning::"
+          -W "ignore:API key length is 0:UserWarning::"
 
       - name: Test with pytspack installed
         run: |
