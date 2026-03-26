@@ -21,7 +21,7 @@ def add_data(
     state=None,
     site=None,
     resample=False,
-    window="H",
+    window="h",
     n_procs=1,
     verbose=False,
 ):
@@ -37,7 +37,7 @@ def add_data(
         Can use one at most of `box` and these.
     resample : bool
     window
-        Resampling window, e.g. ``'3H'``.
+        Resampling window, e.g. ``'3h'``.
     n_procs : int
         For Dask.
     verbose : bool
@@ -114,8 +114,10 @@ class ISH:
             self.history = self.history.loc[index1, :]
         self.history = self.history.dropna(subset=["lat", "lon"])
 
-        self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
-        self.history.loc[:, "wban"] = self.history.wban.astype("str").str.zfill(5)
+        self.history = self.history.assign(
+            usaf=self.history.usaf.astype("str").str.zfill(6),
+            wban=self.history.wban.astype("str").str.zfill(5),
+        )
         self.history["station_id"] = self.history.usaf + self.history.wban
         self.history.rename(columns={"lat": "latitude", "lon": "longitude"}, inplace=True)
 
@@ -211,15 +213,15 @@ class ISH:
         ]
         df = pd.read_csv(
             fname,
-            delim_whitespace=True,
+            sep=r"\s+",
             header=None,
             names=columns,
-            parse_dates={"time": [0, 1, 2, 3]},
-            infer_datetime_format=True,
         )
-        # print(fname)
+        time_vars = ["year", "month", "day", "hour"]
+        time = pd.to_datetime(df[time_vars])
+        df = df.drop(columns=time_vars)
+        df.insert(0, "time", time)
         filename = fname.split("/")[-1].split("-")
-        # print(filename)
         siteid = filename[0] + filename[1]
         df["temp"] /= 10.0
         df["dew_pt_temp"] /= 10.0
@@ -259,7 +261,7 @@ class ISH:
         state=None,
         site=None,
         resample=False,
-        window="H",
+        window="h",
         n_procs=1,
         verbose=False,
     ):
@@ -275,7 +277,7 @@ class ISH:
             Can use one at most of `box` and these.
         resample : bool
         window
-            Resampling window, e.g. ``'3H'``.
+            Resampling window, e.g. ``'3h'``.
         n_procs : int
             For Dask.
         verbose : bool
@@ -325,8 +327,13 @@ class ISH:
 
         if resample and not df.empty:
             print("Resampling to every " + window)
-            df = df.set_index("time").groupby("siteid").resample(window).mean().reset_index()
-            # TODO: mean(numeric_only=True)
+            df = (
+                df.set_index("time")
+                .groupby("siteid")
+                .resample(window)
+                .mean(numeric_only=True)
+                .reset_index()
+            )
 
         # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(

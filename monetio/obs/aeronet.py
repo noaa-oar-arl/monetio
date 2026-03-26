@@ -156,8 +156,8 @@ def add_data(
     requested_parallel = n_procs != 1
 
     # Split up by day
-    dates = pd.to_datetime(dates)
     if dates is not None:
+        dates = pd.to_datetime(dates)
         min_date = dates.min()
         max_date = dates.max()
         time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")
@@ -273,7 +273,7 @@ class AERONET:
         "FRC",
         "LID",
         "FLX",
-        # "ALL",
+        "ALL",
         # "PFN",
         # "U27",
     )
@@ -419,13 +419,15 @@ class AERONET:
             engine="python",
             header="infer",
             skiprows=skiprows,
-            parse_dates={"time": [1, 2]},
             usecols=None,
             # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
-            date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
         df.rename(columns=str.lower, inplace=True)
+        date_col, time_col = df.columns[1], df.columns[2]
+        time = pd.to_datetime(df[date_col] + " " + df[time_col], format=r"%d:%m:%Y %H:%M:%S")
+        df = df.drop(columns=[date_col, time_col])
+        df.insert(1, "time", time)
         df.rename(
             columns={
                 "aeronet_site": "siteid",
@@ -472,7 +474,7 @@ class AERONET:
         self.siteid = siteid
         if dates is None:  # get the current day
             now = datetime.utcnow()
-            self.dates = pd.date_range(start=now.date(), end=now, freq="H")
+            self.dates = pd.date_range(start=now.date(), end=now, freq="h")
         else:
             self.dates = pd.DatetimeIndex(dates)
         if product is not None:
@@ -612,5 +614,5 @@ class AERONET:
         )
 
     def set_daterange(self, begin="", end=""):
-        dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
+        dates = pd.date_range(start=begin, end=end, freq="h").values.astype("M8[s]").astype("O")
         self.dates = dates

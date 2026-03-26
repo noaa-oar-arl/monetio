@@ -214,7 +214,7 @@ Now let’s us view several time slices at once. We will average in time
 .. code:: python
 
     so2 = c.SO2[:,0,:,:] * 1000.
-    so2_resampled = so2.resample(time='8H').mean('time').sortby(['y', 'x'],ascending=True)
+    so2_resampled = so2.resample(time='8h').mean('time').sortby(['y', 'x'],ascending=True)
     p = so2_resampled.plot.contourf(col_wrap=3,col='time',x='longitude',y='latitude',robust=True,figsize=(15,10),subplot_kws={'projection': ccrs.PlateCarree()})
     extent = [so2.longitude.min(),so2.longitude.max(),so2.latitude.min(),so2.latitude.max()]
     for ax in p.axes.flat:

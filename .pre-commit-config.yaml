@@ -10,19 +10,19 @@ repos:
       - id: check-yaml
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: "v3.20.0"
+    rev: "v3.21.2"
     hooks:
       - id: pyupgrade
-        args: [--py36-plus]
+        args: [--py39-plus]
 
   - repo: https://github.com/PyCQA/isort
-    rev: "6.0.1"
+    rev: "8.0.1"
     hooks:
       - id: isort
         args: [--line-length=100]
 
   - repo: https://github.com/psf/black
-    rev: "25.1.0"
+    rev: "26.3.1"
     hooks:
       - id: black
         args: [--line-length=100]
@@ -35,7 +35,7 @@ repos:
           - --max-line-length=100
           - --ignore=E203,E402,E501,W503,E226
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v4.0.0-alpha.8"
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: "v3.8.1"
     hooks:
       - id: prettier

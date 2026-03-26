@@ -164,5 +164,5 @@ class IMPROVE:
             Description of returned object.
 
         """
-        dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
+        dates = pd.date_range(start=begin, end=end, freq="h").values.astype("M8[s]").astype("O")
         self.dates = dates

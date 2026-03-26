@@ -4,6 +4,9 @@ import pandas as pd
 import pytest
 
 import monetio.obs.openaq_v3 as openaq
+from monetio.util import _get_pandas_version
+
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
 
 if (
     os.environ.get("CI", "false").lower() not in {"false", "0"}
@@ -45,12 +48,12 @@ def test_get_parameters():
 
 
 def test_get_locations():
-    sites = openaq.get_locations()
+    sites = openaq.get_locations(timeout=30)
     assert columns_all_snake_case(sites)
     assert 10_000 <= len(sites) < 50_000
     assert sites.siteid.nunique() == len(sites)
-    assert sites.dtypes["first_time"] == "datetime64[ns]"
-    assert sites.dtypes["last_time"] == "datetime64[ns]"
+    assert sites.dtypes["first_time"] == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
+    assert sites.dtypes["last_time"] == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
     assert sites.dtypes["latitude"] == "float64"
     assert sites.dtypes["longitude"] == "float64"
     assert sites["latitude"].isnull().sum() == 0

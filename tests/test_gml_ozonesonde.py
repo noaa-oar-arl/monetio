@@ -65,7 +65,7 @@ def test_read_100m_bad_header_line():
 
 @uses_get_files
 def test_add_data():
-    dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
+    dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="h")
     df = gml_ozonesonde.add_data(dates, n_procs=2)
     assert len(df) > 0
 
@@ -80,7 +80,7 @@ def test_add_data():
 
 @uses_get_files
 def test_add_data_location_sel():
-    dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
+    dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="h")
     df = gml_ozonesonde.add_data(
         dates,
         location=["Boulder, Colorado", "South Pole, Antarctica"],
@@ -97,7 +97,7 @@ def test_add_data_location_sel():
     ["asdf", ["asdf", "blah"], ("asdf", "blah")],
 )
 def test_add_data_invalid_location(location):
-    dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="H")
+    dates = pd.date_range("2023-01-01", "2023-01-31 23:59", freq="h")
     with pytest.raises(ValueError, match="Invalid location"):
         _ = gml_ozonesonde.add_data(dates, location=location)
 
