@@ -3,15 +3,17 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python>=3.6
+  - python >=3.9
   #
   # core
-  - dask
+  - cftime
+  - dask-core
+  - fsspec
   - netcdf4
   - numpy
-  - pandas<2
+  - pandas
+  - requests
   - s3fs
-  - scipy
   - xarray
   #
   # optional
@@ -20,15 +22,14 @@ dependencies:
   - h5py
   - joblib
   - lxml
-  - pyhdf!=0.11.3
+  - pyhdf !=0.11.3
   - pyresample
-  - requests
+  - scipy
   - timezonefinder
   #
   # test
   - pytest
+  - pytest-cov
   - pytest-xdist
   #
-  - pip>=21.1
-  - pip:
-      - "-e .[dev]"
+  - pip >=21.1

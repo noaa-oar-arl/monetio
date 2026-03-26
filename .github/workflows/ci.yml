@@ -19,7 +19,17 @@ jobs:
     if: github.repository == 'noaa-oar-arl/monetio'
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        include:
+          - python-version: "3.9"
+            pandas-version: "1"
+          - python-version: "3.11"
+            pandas-version: "1"
+          - python-version: "3.11"
+            pandas-version: "2"
+          - python-version: "3.13"
+            pandas-version: "2"
+          - python-version: "3.13"
+            pandas-version: "3"
     defaults:
       run:
         shell: bash -l {0}
@@ -34,6 +44,10 @@ jobs:
           cache-environment: true
           create-args: >-
             python=${{ matrix.python-version }}
+            pandas=${{ matrix.pandas-version }}
+
+      - name: Install the package (editable)
+        run: pip install -e . --no-deps -vv
 
       - name: Test with pytest
         run: pytest -n auto --dist loadgroup -v -ra -W "ignore:Downloading test file:UserWarning::"
@@ -59,6 +73,9 @@ jobs:
         with:
           environment-file: docs/environment-docs.yml
           cache-environment: true
+
+      - name: Install the package (editable)
+        run: pip install -e . --no-deps -vv
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck

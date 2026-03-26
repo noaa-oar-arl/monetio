@@ -3,26 +3,25 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python=3.10
+  - python =3.11
   #
   # core
-  - dask
+  - cftime
+  - dask-core
+  - fsspec
   - netcdf4
   - numpy
   - pandas
+  - requests
   - s3fs
-  - scipy
   - xarray
   #
   # optional
   - joblib
-  - requests
   #
   # docs
-  - sphinx=7.*
+  - sphinx =7.*
   - sphinx-autobuild
   - sphinx_rtd_theme
   #
-  - pip>=21.1
-  - pip:
-      - "-e ../"
+  - pip >=21.1

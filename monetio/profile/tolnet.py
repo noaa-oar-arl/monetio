@@ -107,54 +107,54 @@ def tolnet_plot(dset, var="O3MR", units="ppbv", tolnet_cmap=True, **kwargs):
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    sns.set_context("notebook")
-    cmap = tolnet_colormap()
-    Fig, Ax = plt.subplots(figsize=(9, 6))
-    dsett = dset.copy()
-    dsett["z"] /= 1000.0  # put in km
-    dsett[var].attrs["units"] = units
-    if tolnet_cmap:
-        levels = [
-            0.001,
-            4,
-            8,
-            12,
-            16,
-            20,
-            24,
-            28,
-            32,
-            36,
-            40,
-            44,
-            48,
-            52,
-            56,
-            60,
-            64,
-            68,
-            72,
-            76,
-            80,
-            84,
-            88,
-            92,
-            96,
-            100,
-            125,
-            150,
-            200,
-            300,
-            600,
-        ]
-        dsett[var].plot(x="time", y="z", cmap=cmap, levels=levels, ax=Ax)
-    else:
-        dsett[var].plot(x="time", y="z", **kwargs)
-    plt.ylabel("Altitude [km]")
-    plt.xlabel("Time [UTC]")
-    sns.despine()
-    plt.tight_layout(pad=0)
-    # plt.colorbar(label="O3 [ppbv]")
+    with sns.plotting_context("notebook"):
+        cmap = tolnet_colormap()
+        _, ax = plt.subplots(figsize=(9, 6))
+        dsett = dset.copy()
+        dsett["z"] /= 1000.0  # put in km
+        dsett[var].attrs["units"] = units
+        if tolnet_cmap:
+            levels = [
+                0.001,
+                4,
+                8,
+                12,
+                16,
+                20,
+                24,
+                28,
+                32,
+                36,
+                40,
+                44,
+                48,
+                52,
+                56,
+                60,
+                64,
+                68,
+                72,
+                76,
+                80,
+                84,
+                88,
+                92,
+                96,
+                100,
+                125,
+                150,
+                200,
+                300,
+                600,
+            ]
+            dsett[var].plot(x="time", y="z", cmap=cmap, levels=levels, ax=ax)
+        else:
+            dsett[var].plot(x="time", y="z", **kwargs)
+        plt.ylabel("Altitude [km]")
+        plt.xlabel("Time [UTC]")
+        sns.despine()
+        plt.tight_layout(pad=0)
+        # plt.colorbar(label="O3 [ppbv]")
 
 
 class TOLNet:
