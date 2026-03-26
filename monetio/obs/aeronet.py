@@ -156,8 +156,8 @@ def add_data(
     requested_parallel = n_procs != 1
 
     # Split up by day
-    dates = pd.to_datetime(dates)
     if dates is not None:
+        dates = pd.to_datetime(dates)
         min_date = dates.min()
         max_date = dates.max()
         time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")

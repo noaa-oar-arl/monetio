@@ -359,9 +359,9 @@ def add_data(
     elif isinstance(parameters, str):
         parameters = [parameters]
 
-    query_dt = pd.to_timedelta(query_time_split) if len(dates) > 1 else None
-    if pd.isna(query_dt):
-        # to_timedelta(None) is None in pandas <3, but NaT in pandas 3+
+    if query_time_split is not None and len(dates) > 1:
+        query_dt = pd.to_timedelta(query_time_split)
+    else:
         query_dt = None
     date_min, date_max = dates.min(), dates.max()
     if query_dt is not None:
