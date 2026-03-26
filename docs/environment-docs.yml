@@ -11,7 +11,7 @@ dependencies:
   - fsspec
   - netcdf4
   - numpy
-  - pandas
+  - pandas =2.*
   - requests
   - s3fs
   - xarray
