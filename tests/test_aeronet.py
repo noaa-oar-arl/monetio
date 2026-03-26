@@ -149,7 +149,7 @@ def test_load_local():
 
     df = aeronet.add_local(fp)
     assert df.index.size > 0
-    assert (df.siteid == "Mauna_Loa").all(0)
+    assert (df.siteid == "Mauna_Loa").all(axis=0)
     assert df.attrs["info"].startswith("AERONET Data Download")
 
 
@@ -162,7 +162,7 @@ def test_load_local_inv():
 
     df = aeronet.add_local(fp)
     assert df.index.size > 0
-    assert (df.siteid == "Cart_Site").all(0)
+    assert (df.siteid == "Cart_Site").all(axis=0)
 
 
 def test_add_data_lunar():
