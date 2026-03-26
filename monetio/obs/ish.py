@@ -428,7 +428,6 @@ class ISH:
             # Merge back with non-numeric columns (e.g., time, station_id) if needed
             # For now, assign to self.df
             self.df = resampled
-            # TODO: mean(numeric_only=True)
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")
         self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})

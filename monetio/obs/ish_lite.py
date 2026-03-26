@@ -334,7 +334,6 @@ class ISH:
                 .mean(numeric_only=True)
                 .reset_index()
             )
-            # TODO: mean(numeric_only=True)
 
         # Add site metadata
         df = pd.merge(df, dfloc, how="left", left_on="siteid", right_on="station_id").rename(
