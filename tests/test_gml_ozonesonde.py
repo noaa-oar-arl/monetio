@@ -3,7 +3,7 @@ import pytest
 
 from monetio import gml_ozonesonde
 
-uses_get_files = pytest.mark.xdist_group(name="get-files")
+uses_get_files = pytest.mark.xdist_group(name="gml-ozonesonde-get-files")
 
 
 @uses_get_files

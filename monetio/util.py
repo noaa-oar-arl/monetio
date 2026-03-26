@@ -382,7 +382,7 @@ def _on_ci():
     """Return True if running in a CI environment."""
     import os
 
-    return os.environ.get("CI", "false").lower() in {"true", "yes", "1", ""}
+    return os.environ.get("CI", "false").lower() not in {"false", "0"}
 
 
 def _get_pandas_version():

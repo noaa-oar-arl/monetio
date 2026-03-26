@@ -1,6 +1,20 @@
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import pytest
 
+from monetio.obs import aeronet
 from monetio.util import _on_ci
+
+try:
+    import pytspack  # noqa: F401
+except ImportError:
+    has_pytspack = False
+else:
+    has_pytspack = True
+
+DATA = Path(__file__).parent / "data"
 
 # We try the tests in CI (one matrix case)
 # but realize rate limiting may occur or shared CI IPs may be/get blocked.
@@ -9,24 +23,12 @@ xfail_on_ci = pytest.mark.xfail(
     reason="AERONET access can be rate-limited on CI",
     strict=False,
 )
+web_group = pytest.mark.xdist_group(name="aeronet-web")
 
-pytestmark = xfail_on_ci
 
-from pathlib import Path
-
-import numpy as np
-import pandas as pd
-
-from monetio import aeronet
-
-DATA = Path(__file__).parent / "data"
-
-try:
-    import pytspack  # noqa: F401
-except ImportError:
-    has_pytspack = False
-else:
-    has_pytspack = True
+def web(test_func):
+    """Marker for tests that access the AERONET website."""
+    return pytest.mark.web(xfail_on_ci(web_group(test_func)))
 
 
 def test_build_url_required_param_checks():
@@ -82,17 +84,20 @@ def test_build_url_bad_prod():
     a.build_url()
 
 
+@web
 def test_valid_sites_col_rename():
     assert (
         aeronet.get_valid_sites().columns == ["siteid", "longitude", "latitude", "elevation"]
     ).all()
 
 
+@web
 def test_add_data_bad_siteid():
     with pytest.raises(ValueError, match="invalid site"):
         aeronet.add_data(siteid="Rivendell")
 
 
+@web
 def test_add_data_one_site():
     dates = pd.date_range("2021/08/01", "2021/08/03")
     df = aeronet.add_data(dates, siteid="SERC")
@@ -101,6 +106,7 @@ def test_add_data_one_site():
     assert df.attrs["info"].startswith("AERONET Data Download")
 
 
+@web
 def test_add_data_inv():
     dates = pd.date_range("2021/08/01", "2021/08/02")
 
@@ -115,6 +121,7 @@ def test_add_data_inv():
     # TODO: find a time with Level 2.0 retrievals
 
 
+@web
 @pytest.mark.parametrize("product", aeronet.AERONET._valid_prod_noninv)
 def test_add_data_all_noninv(product):
     dates = pd.date_range("2021/08/01", "2021/08/02")
@@ -124,6 +131,7 @@ def test_add_data_all_noninv(product):
     assert df.index.size > 0
 
 
+@web
 def test_add_data_valid_empty_query():
     dates = pd.date_range("2021/08/01", "2021/08/02")
     site = "Banana_River"
@@ -165,6 +173,7 @@ def test_load_local_inv():
     assert (df.siteid == "Cart_Site").all(axis=0)
 
 
+@web
 def test_add_data_lunar():
     dates = pd.date_range("2021/08/01", "2021/08/02")
     df = aeronet.add_data(dates, lunar=True, daily=True)  # only daily-average data at this time
@@ -175,6 +184,7 @@ def test_add_data_lunar():
     assert df.index.size > 0
 
 
+@web
 def test_serial_freq():
     # For MM data proc example
     dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
@@ -185,6 +195,7 @@ def test_serial_freq():
     ).all()
 
 
+@web
 @pytest.mark.skipif(has_pytspack, reason="has pytspack")
 def test_interp_without_pytspack():
     # For MM data proc example
@@ -194,6 +205,7 @@ def test_interp_without_pytspack():
         aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
 
 
+@web
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
 def test_interp_with_pytspack():
     # For MM data proc example
@@ -229,6 +241,7 @@ def test_interp_with_pytspack():
     }
 
 
+@web
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
 def test_interp_daily_with_pytspack():
     dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
@@ -238,6 +251,7 @@ def test_interp_daily_with_pytspack():
     assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
 
 
+@web
 @pytest.mark.parametrize(
     "dates",
     [
