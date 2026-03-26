@@ -2,20 +2,20 @@ import os
 
 import pytest
 
-# TODO: Skip on CI until we can fix this with NASA.  NASA seems to be blocking requests from CI IPs.
-# This is a temporary solution until we can resolve the issue with NASA.
-# If you are running this locally, you can remove the skip decorator.
-skip_on_ci = pytest.mark.skipif(
-    os.environ.get("CI", "false").lower() == "true", reason="Skipped on CI"
+# We try the tests in CI (one matrix case)
+# but realize rate limting may occur or shared CI IPs may be/get blocked.
+xfail_on_ci = pytest.mark.xfail(
+    os.environ.get("CI", "false").lower() == "true",
+    reason="AERONET access can be rate-limited on CI",
+    strict=False,
 )
 
-pytestmark = skip_on_ci
+pytestmark = xfail_on_ci
 
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from monetio import aeronet
 

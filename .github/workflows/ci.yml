@@ -50,13 +50,21 @@ jobs:
       - name: Install the package (editable)
         run: pip install -e . --no-deps -vv
 
+      - name: Set AERONET test flag
+        run: |
+          if [[ "${{ matrix.python-version }}" == "3.11" && "${{ matrix.pandas-version }}" == "2" ]]; then
+            echo "AERONET_IGNORE=" >> $GITHUB_ENV
+          else
+            echo "AERONET_IGNORE=--ignore=tests/test_aeronet.py" >> $GITHUB_ENV
+          fi
+
       - name: Test with pytest
-        run: pytest -n auto --dist loadgroup -v -ra -W "ignore:Downloading test file:UserWarning::"
+        run: pytest -n auto --dist loadgroup -v -ra "$AERONET_IGNORE" -W "ignore:Downloading test file:UserWarning::"
 
       - name: Test with pytspack installed
         run: |
           pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
-          pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
+          pytest -k with_pytspack -n auto -v -ra "$AERONET_IGNORE" -W "ignore:API key length is 0:UserWarning::"
 
   docs:
     name: Check docs build
