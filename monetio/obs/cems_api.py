@@ -47,8 +47,6 @@ import requests
 
 import monetio.obs.obs_util as obs_util
 
-# import pytz
-
 
 def test_end(endtime, current):
     # if endtime None return True
