@@ -392,9 +392,9 @@ class AERONET:
         if isinstance(self.url, str) and self.url.startswith("http"):
             import requests
 
-            r = requests.get(self.url, stream=True, timeout=60)
-            r.raise_for_status()
-            s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            with requests.get(self.url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
             time.sleep(6)  # rate limit: max 10 hits/min
         else:
             with open(self.url) as f:
