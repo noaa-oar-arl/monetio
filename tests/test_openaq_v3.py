@@ -48,7 +48,7 @@ def test_get_parameters():
 
 
 def test_get_locations():
-    sites = openaq.get_locations()
+    sites = openaq.get_locations(timeout=30)
     assert columns_all_snake_case(sites)
     assert 10_000 <= len(sites) < 50_000
     assert sites.siteid.nunique() == len(sites)
