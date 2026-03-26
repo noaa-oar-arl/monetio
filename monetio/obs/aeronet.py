@@ -431,12 +431,16 @@ class AERONET:
             time.sleep(6)  # rate limit: max 10 hits/min
         df.rename(columns=str.lower, inplace=True)
         date_col, time_col = df.columns[1], df.columns[2]
-        df.insert(
-            1,
-            "time",
-            pd.to_datetime(df[date_col] + " " + df[time_col], format=r"%d:%m:%Y %H:%M:%S"),
+        df = pd.concat(
+            [
+                df.iloc[:, :1],
+                pd.to_datetime(df[date_col] + df[time_col], format=r"%d:%m:%Y%H:%M:%S").rename(
+                    "time"
+                ),
+                df.drop(columns=[date_col, time_col]).iloc[:, 1:],
+            ],
+            axis=1,
         )
-        df = df.drop(columns=[date_col, time_col])
         df.rename(
             columns={
                 "aeronet_site": "siteid",
