@@ -17,6 +17,8 @@ jobs:
     name: Test (Py ${{ matrix.python-version }}, pd ${{ matrix.pandas-version }})
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
+    env:
+      AERONET_TEST_FILE: tests/test_aeronet.py
     strategy:
       matrix:
         include:
@@ -55,15 +57,21 @@ jobs:
           if [[ "${{ matrix.python-version }}" == "3.11" && "${{ matrix.pandas-version }}" == "2" ]]; then
             echo "AERONET_IGNORE=" >> $GITHUB_ENV
           else
-            echo "AERONET_IGNORE=--ignore=tests/test_aeronet.py" >> $GITHUB_ENV
+            echo "AERONET_IGNORE=--ignore=${AERONET_TEST_FILE}" >> $GITHUB_ENV
           fi
 
-      - name: Test with pytest
+      - name: Test with pytest (main run)
         run: pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE
           -W "ignore:Downloading test file:UserWarning::"
           -W "ignore:API key length is 0:UserWarning::"
 
-      - name: Test with pytspack installed
+      - name: Test AERONET non-web
+        run: |
+          if [[ -n "$AERONET_IGNORE" ]]; then
+            pytest -m "not web" -n auto --dist loadgroup -v -ra "$AERONET_TEST_FILE"
+          fi
+
+      - name: Test with pytspack
         run: |
           if [[ -z "$AERONET_IGNORE" ]]; then
             pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
