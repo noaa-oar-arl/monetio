@@ -194,7 +194,7 @@ def open_mfdataset(
     # These sums and conversions are quite expensive and memory intensive,
     # so add option to shrink dataset to just surface when needed
     if (not surf_only_nc) and surf_only:
-        dset = dset.isel(bottom_top=0).expand_dims("bottom_top", axis=1)
+        dset = dset.isel(bottom_top=0).expand_dims("bottom_top", axis=1).copy(deep=True)
 
     # convert all gas species to ppbv
     if convert_to_ppb:
