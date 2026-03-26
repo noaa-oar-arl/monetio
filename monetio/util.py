@@ -378,6 +378,13 @@ def _import_required(mod_name: str):
         ) from e
 
 
+def _on_ci():
+    """Return True if running in a CI environment."""
+    import os
+
+    return os.environ.get("CI", "false").lower() in {"true", "yes", "1", ""}
+
+
 def _get_pandas_version():
     """Major and minor."""
     import pandas as pd

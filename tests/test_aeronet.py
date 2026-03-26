@@ -1,11 +1,11 @@
-import os
-
 import pytest
 
+from monetio.util import _on_ci
+
 # We try the tests in CI (one matrix case)
-# but realize rate limting may occur or shared CI IPs may be/get blocked.
+# but realize rate limiting may occur or shared CI IPs may be/get blocked.
 xfail_on_ci = pytest.mark.xfail(
-    os.environ.get("CI", "false").lower() == "true",
+    _on_ci(),
     reason="AERONET access can be rate-limited on CI",
     strict=False,
 )
