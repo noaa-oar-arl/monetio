@@ -419,13 +419,14 @@ class AERONET:
             engine="python",
             header="infer",
             skiprows=skiprows,
-            parse_dates={"time": [1, 2]},
             usecols=None,
             # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
-            date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
         df.rename(columns=str.lower, inplace=True)
+        date_col, time_col = df.columns[1], df.columns[2]
+        time = pd.to_datetime(df[date_col] + " " + df[time_col], format=r"%d:%m:%Y %H:%M:%S")
+        df = df.drop(columns=[date_col, time_col]).insert(1, "time", time)
         df.rename(
             columns={
                 "aeronet_site": "siteid",
