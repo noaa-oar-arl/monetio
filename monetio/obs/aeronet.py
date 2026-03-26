@@ -437,14 +437,14 @@ class AERONET:
         if isinstance(self.url, str) and self.url.startswith("http"):
             time.sleep(6)  # rate limit: max 10 hits/min
         df.rename(columns=str.lower, inplace=True)
-        date_col, time_col = df.columns[1], df.columns[2]
         df = pd.concat(
             [
                 df.iloc[:, :1],
-                pd.to_datetime(df[date_col] + df[time_col], format=r"%d:%m:%Y%H:%M:%S").rename(
-                    "time"
-                ),
-                df.drop(columns=[date_col, time_col]).iloc[:, 1:],
+                pd.to_datetime(
+                    df.iloc[:, 1] + df.iloc[:, 2],
+                    format=r"%d:%m:%Y%H:%M:%S",
+                ).rename("time"),
+                df.iloc[:, 3:],
             ],
             axis=1,
         )
