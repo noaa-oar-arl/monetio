@@ -14,7 +14,7 @@ openaq._URL_CAP = 4
 
 # First date in the archive, just one file
 # Browse the archive at https://openaq-fetches.s3.amazonaws.com/index.html
-FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="H")[:-1]
+FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="h")[:-1]
 
 permission_error = pytest.mark.xfail(reason="private", raises=PermissionError, strict=True)
 
@@ -33,7 +33,7 @@ def test_openaq_first_date():
     assert df.longitude.isnull().sum() == 0
 
     assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
-    assert df.averagingPeriod.eq(pd.Timedelta("1H")).all()
+    assert df.averagingPeriod.eq(pd.Timedelta("1h")).all()
 
     assert df.pm25_ugm3.gt(0).all()
 

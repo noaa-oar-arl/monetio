@@ -474,7 +474,7 @@ class AERONET:
         self.siteid = siteid
         if dates is None:  # get the current day
             now = datetime.utcnow()
-            self.dates = pd.date_range(start=now.date(), end=now, freq="H")
+            self.dates = pd.date_range(start=now.date(), end=now, freq="h")
         else:
             self.dates = pd.DatetimeIndex(dates)
         if product is not None:
@@ -614,5 +614,5 @@ class AERONET:
         )
 
     def set_daterange(self, begin="", end=""):
-        dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
+        dates = pd.date_range(start=begin, end=end, freq="h").values.astype("M8[s]").astype("O")
         self.dates = dates

@@ -21,7 +21,7 @@ def add_data(
     state=None,
     site=None,
     resample=False,
-    window="H",
+    window="h",
     n_procs=1,
     verbose=False,
 ):
@@ -37,7 +37,7 @@ def add_data(
         Can use one at most of `box` and these.
     resample : bool
     window
-        Resampling window, e.g. ``'3H'``.
+        Resampling window, e.g. ``'3h'``.
     n_procs : int
         For Dask.
     verbose : bool
@@ -259,7 +259,7 @@ class ISH:
         state=None,
         site=None,
         resample=False,
-        window="H",
+        window="h",
         n_procs=1,
         verbose=False,
     ):
@@ -275,7 +275,7 @@ class ISH:
             Can use one at most of `box` and these.
         resample : bool
         window
-            Resampling window, e.g. ``'3H'``.
+            Resampling window, e.g. ``'3h'``.
         n_procs : int
             For Dask.
         verbose : bool

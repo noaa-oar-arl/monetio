@@ -479,7 +479,7 @@ class OPENAQ:
             na_locations = ["Wampanoag Laboratory"]
             df = (
                 df[
-                    (df.averagingPeriod == pd.Timedelta("1H"))
+                    (df.averagingPeriod == pd.Timedelta("1h"))
                     & ~(df.location.isin(na_locations) & (df.city == "N/A"))
                 ]
                 .pivot_table(
@@ -489,7 +489,7 @@ class OPENAQ:
                 )
                 .reset_index()
             )
-            df["averagingPeriod"] = pd.Timedelta("1H")  # TODO: could just not include
+            df["averagingPeriod"] = pd.Timedelta("1h")  # TODO: could just not include
             df = df.rename(columns={p: f"{p}_ugm3" for p in self.NON_MOLEC_PARAMS}, errors="ignore")
             df = df.rename(columns={p: f"{p}_ppm" for p in self.PPM_TO_UGM3}, errors="ignore")
 

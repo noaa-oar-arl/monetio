@@ -46,7 +46,7 @@ def test_ish_lite_one_site():
 
     assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
     assert (df.usaf + df.wban).iloc[0] == site, "correct site"
-    assert (df.time.diff().dropna() == pd.Timedelta("1H")).all(), "hourly data"
+    assert (df.time.diff().dropna() == pd.Timedelta("1h")).all(), "hourly data"
     assert len(df) == 25, "includes hour 0 on second day"
 
     assert {

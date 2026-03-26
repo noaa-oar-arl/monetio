@@ -55,7 +55,7 @@ def test_ish_one_site(download):
 
     assert (df.nunique()[["usaf", "wban"]] == 1).all(), "one site"
     assert (df.usaf + df.wban).iloc[0] == site, "correct site"
-    assert (df.time.diff().dropna() == pd.Timedelta("1H")).all(), "hourly data"
+    assert (df.time.diff().dropna() == pd.Timedelta("1h")).all(), "hourly data"
     assert len(df) == 24, "resampled from sub-hourly, so no hour 0 on second day"
 
     assert {
@@ -87,7 +87,7 @@ def test_ish_no_resample():
 
     df = ish.add_data(dates, site=site, resample=False)
 
-    assert (df.time.diff().dropna() < pd.Timedelta("1H")).all()
+    assert (df.time.diff().dropna() < pd.Timedelta("1h")).all()
     assert len(df) > 24
     assert sum(col.endswith("_quality") for col in df.columns) == 8
 

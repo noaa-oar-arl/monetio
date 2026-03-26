@@ -17,7 +17,7 @@ def add_data(
     state=None,
     site=None,
     resample=True,
-    window="H",
+    window="h",
     download=False,
     n_procs=1,
     request_timeout=10,
@@ -38,7 +38,7 @@ def add_data(
         If false, return data at original resolution, which may be sub-hourly.
         Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
     window
-        Resampling window, e.g. ``'3H'``.
+        Resampling window, e.g. ``'3h'``.
     n_procs : int
         For Dask.
     request_timeout : float
@@ -317,7 +317,7 @@ class ISH:
         state=None,
         site=None,
         resample=True,
-        window="H",
+        window="h",
         download=False,
         n_procs=1,
         request_timeout=10,
@@ -338,7 +338,7 @@ class ISH:
             If false, return data at original resolution, which may be sub-hourly.
             Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
         window
-            Resampling window, e.g. ``'3H'``.
+            Resampling window, e.g. ``'3h'``.
         n_procs : int
             For Dask.
         request_timeout : float

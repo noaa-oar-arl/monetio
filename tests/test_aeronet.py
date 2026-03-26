@@ -177,18 +177,18 @@ def test_add_data_lunar():
 
 def test_serial_freq():
     # For MM data proc example
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
-    df = aeronet.add_data(dates, freq="2H", n_procs=1)
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
+    df = aeronet.add_data(dates, freq="2h", n_procs=1)
     assert (
         pd.DatetimeIndex(sorted(df.time.unique()))
-        == pd.date_range("2019-09-01", freq="2H", periods=12)
+        == pd.date_range("2019-09-01", freq="2h", periods=12)
     ).all()
 
 
 @pytest.mark.skipif(has_pytspack, reason="has pytspack")
 def test_interp_without_pytspack():
     # For MM data proc example
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
     with pytest.raises(RuntimeError, match="You must install pytspack"):
         aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
@@ -197,7 +197,7 @@ def test_interp_without_pytspack():
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
 def test_interp_with_pytspack():
     # For MM data proc example
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
     with pytest.warns(UserWarning, match="Renaming duplicate AOD columns"):
         df = aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
@@ -231,7 +231,7 @@ def test_interp_with_pytspack():
 
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
 def test_interp_daily_with_pytspack():
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
     standard_wavelengths = np.array([0.55]) * 1000
     df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
 

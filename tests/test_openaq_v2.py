@@ -78,7 +78,7 @@ def test_get_locations():
 @xfail_httperror
 def test_get_data_near_ncwcp_sites():
     sites = SITES_NEAR_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, sites=sites)
     assert len(df) > 0
@@ -93,7 +93,7 @@ def test_get_data_near_ncwcp_sites():
 @xfail_httperror
 def test_get_data_near_ncwcp_sites_wide():
     sites = SITES_NEAR_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
 
     # with pytest.warns(UserWarning, match=r"dropping '.*' from index for wide fmt \(all null\)"):
     with check_error_code():
@@ -106,7 +106,7 @@ def test_get_data_near_ncwcp_sites_wide():
 @xfail_httperror
 def test_get_data_near_ncwcp_search_radius():
     latlon = LATLON_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, search_radius={latlon: 10_000}, threads=2)
     assert len(df) > 0
@@ -121,7 +121,7 @@ def test_get_data_near_ncwcp_search_radius():
 @xfail_httperror
 def test_get_data_near_ncwcp_sensor_type():
     latlon = LATLON_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 03:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 03:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, sensor_type="low-cost sensor", search_radius={latlon: 25_000})
     assert len(df) > 0
@@ -148,7 +148,7 @@ def test_get_data_single_dt_single_site():
 )
 def test_get_data_near_ncwcp_entity(entity):
     latlon = LATLON_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, entity=entity, search_radius={latlon: 25_000})
     assert df.empty
