@@ -69,7 +69,7 @@ def test_pandora_totcol():
     assert set(ds.coords) == {"time", "altitude_instrument", "latitude", "longitude"}
     assert ds.sizes["time"] > 1
 
-    assert (ds.time.dt.floor("d") == pd.Timestamp("20231206")).all()
+    assert (ds.time.dt.floor("D") == pd.Timestamp("20231206")).all()
 
     assert "no2_column_absorption_solar" in ds.data_vars
 

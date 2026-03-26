@@ -249,6 +249,7 @@ class AQS:
                     df = pd.read_csv(
                         f,
                         dtype={0: str, 1: str, 2: str},
+                        low_memory=False,
                         encoding="ISO-8859-1",
                     )
                     date_local_matches = [

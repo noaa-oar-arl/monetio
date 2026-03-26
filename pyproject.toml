@@ -49,6 +49,7 @@ complete = [
     "lxml",
     "pyhdf !=0.11.3",
     "pyresample",
+    "pytz",
     "scipy",
     "timezonefinder",
 ]
