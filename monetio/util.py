@@ -378,6 +378,13 @@ def _import_required(mod_name: str):
         ) from e
 
 
+def _get_pandas_version():
+    """Major and minor."""
+    import pandas as pd
+
+    return tuple(int(x) for x in pd.__version__.split(".")[:2])
+
+
 def _try_merge_exact(left, right, *, right_name=None):
     """For two ``xr.Dataset``s, try ``left.merge(right, compat="equals", join="exact")``.
     If it fails, print informative debugging messages and re-raise.

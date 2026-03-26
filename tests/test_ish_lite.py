@@ -2,8 +2,9 @@ import pandas as pd
 import pytest
 
 from monetio import ish_lite
+from monetio.util import _get_pandas_version
 
-PD_GTE_3 = int(pd.__version__.split(".")[0]) >= 3
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
 
 try:
     import requests

@@ -4,9 +4,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-PD_GTE_3 = int(pd.__version__.split(".")[0]) >= 3
-
 from monetio import ish
+from monetio.util import _get_pandas_version
+
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
 
 try:
     import requests

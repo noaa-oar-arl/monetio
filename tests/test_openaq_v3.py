@@ -4,8 +4,9 @@ import pandas as pd
 import pytest
 
 import monetio.obs.openaq_v3 as openaq
+from monetio.util import _get_pandas_version
 
-PD_GTE_3 = int(pd.__version__.split(".")[0]) >= 3
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
 
 if (
     os.environ.get("CI", "false").lower() not in {"false", "0"}
