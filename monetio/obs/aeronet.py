@@ -2,6 +2,7 @@
 AERONET
 """
 
+import time
 import warnings
 from datetime import datetime
 from functools import lru_cache
@@ -153,6 +154,13 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
+    if n_procs > 1:
+        warnings.warn(
+            "Parallel processing may lead to rate-limiting or blocking by AERONET. "
+            "Consider the default n_procs=1 if you encounter issues.",
+            stacklevel=2,
+        )
+
     requested_parallel = n_procs != 1
 
     # Split up by day
@@ -199,7 +207,9 @@ def get_valid_sites():
         df = pd.read_csv(
             "https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt",
             skiprows=1,
-        ).rename(
+        )
+        time.sleep(6)  # rate limit: max 10 hits/min
+        df = df.rename(
             columns={
                 "Site_Name": "siteid",
                 "Longitude(decimal_degrees)": "longitude",
@@ -389,9 +399,10 @@ class AERONET:
         if isinstance(self.url, str) and self.url.startswith("http"):
             import requests
 
-            r = requests.get(self.url, stream=True)
-            r.raise_for_status()
-            s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            with requests.get(self.url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            time.sleep(6)  # rate limit: max 10 hits/min
         else:
             with open(self.url) as f:
                 s = "\n".join(islice(f, n))
@@ -423,11 +434,20 @@ class AERONET:
             # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
             na_values=-999,
         )
+        if isinstance(self.url, str) and self.url.startswith("http"):
+            time.sleep(6)  # rate limit: max 10 hits/min
         df.rename(columns=str.lower, inplace=True)
-        date_col, time_col = df.columns[1], df.columns[2]
-        time = pd.to_datetime(df[date_col] + " " + df[time_col], format=r"%d:%m:%Y %H:%M:%S")
-        df = df.drop(columns=[date_col, time_col])
-        df.insert(1, "time", time)
+        df = pd.concat(
+            [
+                df.iloc[:, :1],
+                pd.to_datetime(
+                    df.iloc[:, 1] + df.iloc[:, 2],
+                    format=r"%d:%m:%Y%H:%M:%S",
+                ).rename("time"),
+                df.iloc[:, 3:],
+            ],
+            axis=1,
+        )
         df.rename(
             columns={
                 "aeronet_site": "siteid",

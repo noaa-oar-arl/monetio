@@ -218,9 +218,8 @@ class ISH:
             names=columns,
         )
         time_vars = ["year", "month", "day", "hour"]
-        time = pd.to_datetime(df[time_vars])
+        df.insert(0, "time", pd.to_datetime(df[time_vars]))
         df = df.drop(columns=time_vars)
-        df.insert(0, "time", time)
         filename = fname.split("/")[-1].split("-")
         siteid = filename[0] + filename[1]
         df["temp"] /= 10.0

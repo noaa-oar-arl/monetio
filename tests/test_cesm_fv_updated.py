@@ -11,7 +11,7 @@ from monetio.models._cesm_fv_mm import _calc_pressure, _calc_pressure_i, open_mf
 
 HERE = Path(__file__).parent
 
-cesm_xdist = pytest.mark.xdist_group(name="retrieve-files")
+cesm_xdist = pytest.mark.xdist_group(name="cesm-fv-retrieve-file")
 
 
 def retrieve_test_file():

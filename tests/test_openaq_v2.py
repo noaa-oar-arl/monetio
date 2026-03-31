@@ -6,14 +6,11 @@ import pytest
 import requests
 
 import monetio.obs.openaq_v2 as openaq
-from monetio.util import _get_pandas_version
+from monetio.util import _get_pandas_version, _on_ci
 
 PD_GTE_3 = _get_pandas_version() >= (3, 0)
 
-if (
-    os.environ.get("CI", "false").lower() not in {"false", "0"}
-    and os.environ.get("OPENAQ_API_KEY", "") == ""
-):
+if _on_ci() and os.environ.get("OPENAQ_API_KEY", "") == "":
     # PRs from forks don't get the secret
     pytest.skip("no API key", allow_module_level=True)
 

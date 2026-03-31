@@ -90,3 +90,6 @@ filterwarnings = [
     "ignore:np.find_common_type is deprecated.:DeprecationWarning::",
     "ignore:The current Dask DataFrame implementation is deprecated.:DeprecationWarning::",
 ]
+markers = [
+    "web: marks tests that require web access to run",
+]
