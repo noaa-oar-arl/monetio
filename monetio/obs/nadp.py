@@ -1,4 +1,4 @@
-""" READS NAPD DATA """
+"""READS NAPD DATA"""
 
 import pandas as pd
 from numpy import nan
@@ -181,6 +181,6 @@ class NADP:
         return df
 
     def set_daterange(self, begin="", end=""):
-        dates = pd.date_range(start=begin, end=end, freq="H")
+        dates = pd.date_range(start=begin, end=end, freq="h")
         self.dates = dates
         return dates

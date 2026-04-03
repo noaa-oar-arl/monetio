@@ -1,5 +1,16 @@
 from . import grids
-from .models import camx, cmaq, fv3chem, hysplit, hytraj, ncep_grib, pardump, prepchem, raqms
+from .models import (
+    camx,
+    chimere,
+    cmaq,
+    fv3chem,
+    hysplit,
+    hytraj,
+    ncep_grib,
+    pardump,
+    prepchem,
+    raqms,
+)
 from .obs import (
     aeronet,
     airnow,
@@ -18,7 +29,7 @@ from .obs import (
 from .profile import geoms, gml_ozonesonde, icartt, tolnet
 from .sat import goes
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "__version__",
@@ -67,6 +78,7 @@ __all__ = [
     "pardump",
     "prepchem",
     "raqms",
+    "chimere",
 ]
 
 

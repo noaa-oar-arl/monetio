@@ -17,7 +17,7 @@ def add_data(
     state=None,
     site=None,
     resample=True,
-    window="H",
+    window="h",
     download=False,
     n_procs=1,
     request_timeout=10,
@@ -38,7 +38,7 @@ def add_data(
         If false, return data at original resolution, which may be sub-hourly.
         Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
     window
-        Resampling window, e.g. ``'3H'``.
+        Resampling window, e.g. ``'3h'``.
     n_procs : int
         For Dask.
     request_timeout : float
@@ -118,7 +118,7 @@ class ISH:
     WIDTHS = [width for _, _, width in _VAR_INFO]
 
     def __init__(self):
-        self.history_file = "https://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv"
+        self.history_file = "https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv"
         self.history = None
         self.df = None
         self.dates = None
@@ -193,7 +193,7 @@ class ISH:
     def _decode_bytes(df):
         if df.empty:
             return df
-        bytes_cols = [col for col in df.columns if type(df[col][0]) is bytes]
+        bytes_cols = [col for col in df.columns if type(df[col].iloc[0]) is bytes]
         with pd.option_context("mode.chained_assignment", None):
             df.loc[:, bytes_cols] = df[bytes_cols].apply(
                 lambda x: x.str.decode("utf-8"),
@@ -207,6 +207,9 @@ class ISH:
         URL is assumed if `url_or_file` is a string that starts with ``http``.
         """
         if isinstance(url_or_file, str) and url_or_file.startswith("http"):
+            # Normalize legacy NCDC host and bad redirect paths (prevents 404 on /pub/pub/)
+            url_or_file = url_or_file.replace("www1.ncdc.noaa.gov", "www.ncei.noaa.gov")
+            url_or_file = url_or_file.replace("/pub/pub/", "/pub/")
             import gzip
             import io
 
@@ -273,7 +276,16 @@ class ISH:
             dates = self.dates
 
         fname = self.history_file
-        self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"], infer_datetime_format=True)
+        try:
+            self.history = pd.read_csv(fname, parse_dates=["BEGIN", "END"])
+        except Exception:
+            # Fallback from legacy host to current NCEI host if needed
+            alt = fname.replace("www1.ncdc.noaa.gov", "www.ncei.noaa.gov")
+            if alt != fname:
+                self.history = pd.read_csv(alt, parse_dates=["BEGIN", "END"])
+                self.history_file = alt
+            else:
+                raise
         self.history.columns = [i.lower() for i in self.history.columns]
 
         if dates is not None:
@@ -281,8 +293,10 @@ class ISH:
             self.history = self.history.loc[index1, :]
         self.history = self.history.dropna(subset=["lat", "lon"])
 
-        self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
-        self.history.loc[:, "wban"] = self.history.wban.astype("str").str.zfill(5)
+        self.history = self.history.assign(
+            usaf=self.history.usaf.astype("str").str.zfill(6),
+            wban=self.history.wban.astype("str").str.zfill(5),
+        )
         self.history["station_id"] = self.history.usaf + self.history.wban
         self.history.rename(columns={"lat": "latitude", "lon": "longitude"}, inplace=True)
 
@@ -305,7 +319,7 @@ class ISH:
         state=None,
         site=None,
         resample=True,
-        window="H",
+        window="h",
         download=False,
         n_procs=1,
         request_timeout=10,
@@ -326,7 +340,7 @@ class ISH:
             If false, return data at original resolution, which may be sub-hourly.
             Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
         window
-            Resampling window, e.g. ``'3H'``.
+            Resampling window, e.g. ``'3h'``.
         n_procs : int
             For Dask.
         request_timeout : float
@@ -400,8 +414,20 @@ class ISH:
             if verbose:
                 print("Resampling to every " + window)
             self.df.index = self.df.time
-            self.df = self.df.groupby("station_id").resample(window).mean().reset_index()
-            # TODO: mean(numeric_only=True)
+            # Only aggregate numeric columns to avoid TypeError on string columns
+            numeric_cols = self.df.select_dtypes(include=["number"]).columns
+            # Keep groupby columns in the result
+            group_cols = ["station_id"]
+            resampled = (
+                self.df[group_cols + list(numeric_cols)]
+                .groupby("station_id")
+                .resample(window)
+                .mean(numeric_only=True)
+                .reset_index()
+            )
+            # Merge back with non-numeric columns (e.g., time, station_id) if needed
+            # For now, assign to self.df
+            self.df = resampled
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")
         self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})
@@ -484,7 +510,7 @@ class ISH:
         # fnames = []
         if self.verbose:
             print("Building ISH URLs...")
-        url = "https://www1.ncdc.noaa.gov/pub/data/noaa"
+        url = "https://www.ncei.noaa.gov/pub/data/noaa"
         # get each yearly urls available from the isd-lite site
         if len(unique_years) > 1:
             all_urls = []

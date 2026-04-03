@@ -75,7 +75,13 @@ def _fix(ds, *, surf_only, convert_to_ppb):
     ds = _fix_pres(ds)
 
     if surf_only:
+        # Handle surf_only by selecting the first level and expanding dimensions
+        # Make sure all variables that depend on 'z' are handled consistently
         ds = ds.isel(z=0).expand_dims("z")
+        # Also handle any coordinate variables that depend on z
+        for coord_name in list(ds.coords):
+            if "z" in ds[coord_name].dims:
+                ds = ds.assign_coords({coord_name: ds[coord_name].isel(z=0).expand_dims("z")})
 
     if convert_to_ppb:
         for i in ds.variables:
@@ -97,51 +103,101 @@ def _fix(ds, *, surf_only, convert_to_ppb):
 
 
 def _fix_grid(ds):
+    import xarray as xr
     from numpy import meshgrid
 
+    # Store coordinate values before making changes
+    lat_vals = ds.lat.values
+    lon_vals = ds.lon.values
+    lev_vals = ds.lev.values if "lev" in ds.coords else None
+
     # Create 2-D lat/lon grid with dims ('y', 'x') and lon in [-180, 180)
-    lat = ds.lat.values
-    lon = ds.lon.values
-    lon[(lon >= 180)] -= 360
-    lon, lat = meshgrid(lon, lat)
-    ds = ds.rename_dims({"lat": "y", "lon": "x", "lev": "z"}).drop_vars(["lat", "lon"])
-    ds["longitude"] = (
+    lon_vals_adj = lon_vals.copy()
+    lon_vals_adj[(lon_vals_adj >= 180)] -= 360
+    lon_2d, lat_2d = meshgrid(lon_vals_adj, lat_vals)
+
+    # Build new coordinates dict
+    new_coords = {}
+
+    # Create time coordinate (unchanged)
+    new_coords["time"] = ds.coords["time"]
+
+    # Create z coordinate if lev exists
+    if lev_vals is not None:
+        new_coords["z"] = ("z", lev_vals[::-1])  # Invert here to put surface first
+
+    # Create y and x coordinates
+    new_coords["y"] = ("y", lat_vals)
+    new_coords["x"] = ("x", lon_vals_adj)
+
+    # Create latitude and longitude 2D coordinates
+    new_coords["latitude"] = (
         ("y", "x"),
-        lon,
-        {
-            "long_name": "Longitude",
-            "units": "degree_east",
-            "standard_name": "longitude",
-        },
-    )
-    ds["latitude"] = (
-        ("y", "x"),
-        lat,
+        lat_2d,
         {
             "long_name": "Latitude",
             "units": "degree_north",
             "standard_name": "latitude",
         },
     )
-    ds = ds.reset_coords().set_coords(["latitude", "longitude"])
-    del lon, lat
-
-    # Add attrs for 'lev'
-    # The 'lev' values are nominal and should be the same among files
-    ds["lev"].attrs.update(
-        long_name="Nominal potential temperature of model level",
-        units="K",
-        description=(
-            "In the stratosphere (beginning at lev=492), the model levels are on potential temperature surfaces. "
-            "Below lev=492, the model levels are a blend of potential temperature and sigma (terrain-following) coordinates."
-        ),
+    new_coords["longitude"] = (
+        ("y", "x"),
+        lon_2d,
+        {
+            "long_name": "Longitude",
+            "units": "degree_east",
+            "standard_name": "longitude",
+        },
     )
 
-    # Invert in z so that index 0 is closest to surface
-    # https://github.com/pydata/xarray/discussions/6695
-    ds = ds.isel(z=slice(None, None, -1))
+    # Build new data variables dict
+    new_data_vars = {}
 
-    return ds
+    for var_name in ds.data_vars:
+        var = ds[var_name]
+
+        # Map old dimension names to new ones
+        new_dims = []
+        for dim in var.dims:
+            if dim == "lev":
+                new_dims.append("z")
+            elif dim == "lat":
+                new_dims.append("y")
+            elif dim == "lon":
+                new_dims.append("x")
+            else:
+                new_dims.append(dim)
+
+        # Get the data and reverse z dimension if it exists
+        data = var.values
+        if "lev" in var.dims:
+            z_axis = var.dims.index("lev")
+            data = data[
+                tuple(
+                    slice(None, None, -1) if i == z_axis else slice(None) for i in range(data.ndim)
+                )
+            ]
+
+        new_data_vars[var_name] = (new_dims, data, var.attrs)
+
+    # Create new dataset
+    ds_new = xr.Dataset(new_data_vars, coords=new_coords, attrs=ds.attrs)
+
+    # Add attrs for 'z' if z coordinate exists
+    if "z" in ds_new.coords:
+        ds_new["z"].attrs.update(
+            long_name="Nominal potential temperature of model level",
+            units="K",
+            description=(
+                "In the stratosphere (beginning at lev=492), the model levels are on potential temperature surfaces. "
+                "Below lev=492, the model levels are a blend of potential temperature and sigma (terrain-following) coordinates."
+            ),
+        )
+
+    # Clean up
+    del lon_2d, lat_2d, lon_vals_adj
+
+    return ds_new
 
 
 def _fix_time(ds):

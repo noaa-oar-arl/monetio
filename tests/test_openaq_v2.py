@@ -6,11 +6,11 @@ import pytest
 import requests
 
 import monetio.obs.openaq_v2 as openaq
+from monetio.util import _get_pandas_version, _on_ci
 
-if (
-    os.environ.get("CI", "false").lower() not in {"false", "0"}
-    and os.environ.get("OPENAQ_API_KEY", "") == ""
-):
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
+
+if _on_ci() and os.environ.get("OPENAQ_API_KEY", "") == "":
     # PRs from forks don't get the secret
     pytest.skip("no API key", allow_module_level=True)
 
@@ -67,8 +67,8 @@ def test_get_locations():
         sites = openaq.get_locations(npages=2, limit=100)
     assert len(sites) <= 200
     assert sites.siteid.nunique() == len(sites)
-    assert sites.dtypes["firstUpdated"] == "datetime64[ns]"
-    assert sites.dtypes["lastUpdated"] == "datetime64[ns]"
+    assert sites.dtypes["firstUpdated"] == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
+    assert sites.dtypes["lastUpdated"] == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
     assert sites.dtypes["latitude"] == "float64"
     assert sites.dtypes["longitude"] == "float64"
     assert sites["latitude"].isnull().sum() == 0
@@ -78,7 +78,7 @@ def test_get_locations():
 @xfail_httperror
 def test_get_data_near_ncwcp_sites():
     sites = SITES_NEAR_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, sites=sites)
     assert len(df) > 0
@@ -93,7 +93,7 @@ def test_get_data_near_ncwcp_sites():
 @xfail_httperror
 def test_get_data_near_ncwcp_sites_wide():
     sites = SITES_NEAR_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
 
     # with pytest.warns(UserWarning, match=r"dropping '.*' from index for wide fmt \(all null\)"):
     with check_error_code():
@@ -106,7 +106,7 @@ def test_get_data_near_ncwcp_sites_wide():
 @xfail_httperror
 def test_get_data_near_ncwcp_search_radius():
     latlon = LATLON_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, search_radius={latlon: 10_000}, threads=2)
     assert len(df) > 0
@@ -121,7 +121,7 @@ def test_get_data_near_ncwcp_search_radius():
 @xfail_httperror
 def test_get_data_near_ncwcp_sensor_type():
     latlon = LATLON_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 03:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 03:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, sensor_type="low-cost sensor", search_radius={latlon: 25_000})
     assert len(df) > 0
@@ -148,7 +148,7 @@ def test_get_data_single_dt_single_site():
 )
 def test_get_data_near_ncwcp_entity(entity):
     latlon = LATLON_NCWCP
-    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1H")
+    dates = pd.date_range("2023-08-01", "2023-08-01 01:00", freq="1h")
     with check_error_code():
         df = openaq.add_data(dates, entity=entity, search_radius={latlon: 25_000})
     assert df.empty

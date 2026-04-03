@@ -109,7 +109,7 @@ Daily Data
    22   WIND_1_5                       m/s
    23   WIND_FLAG                      X
 
-   """
+"""
 
 import inspect
 import os
@@ -448,7 +448,7 @@ class CRN:
         self.df = dff.compute()
         self.df = pd.merge(self.df, monitors, how="left", on=["WBANNO", "LATITUDE", "LONGITUDE"])
         if ~self.df.columns.isin(["time"]).max():
-            self.df["time"] = self.df.time_local + pd.to_timedelta(self.df.GMT_OFFSET, unit="H")
+            self.df["time"] = self.df.time_local + pd.to_timedelta(self.df.GMT_OFFSET, unit="h")
         id_vars = self.monitor_df.columns.append(pd.Index(["time", "time_local"]))
         keys = self.df.columns[self.df.columns.isin(id_vars)]
         self.df = pd.melt(
@@ -511,7 +511,7 @@ class CRN:
             Description of returned object.
 
         """
-        dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
+        dates = pd.date_range(start=begin, end=end, freq="h").values.astype("M8[s]").astype("O")
         self.dates = dates
 
     def get_monitor_df(self):

@@ -2,6 +2,7 @@
 AERONET
 """
 
+import time
 import warnings
 from datetime import datetime
 from functools import lru_cache
@@ -10,11 +11,11 @@ import numpy as np
 import pandas as pd
 
 try:
-    from joblib import Parallel, delayed
+    import dask
 
-    has_joblib = True
+    has_dask = True
 except ImportError:
-    has_joblib = False
+    has_dask = False
 
 
 def add_local(
@@ -54,7 +55,13 @@ def add_local(
 
     # TODO: DRY wrt. class?
     if freq is not None:
-        a.df = a.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+        a.df = (
+            a.df.set_index("time")
+            .groupby("siteid")
+            .resample(freq)
+            .mean(numeric_only=True)
+            .reset_index()
+        )
 
     if detect_dust:
         a.dust_detect()
@@ -81,8 +88,8 @@ def add_data(
     interp_to_aod_values=None,
     #
     # joblib
-    n_procs=1,
-    verbose=10,
+    n_procs=1,  # TODO: remove kwarg as we moved to dask instead of joblib
+    verbose=10,  # TODO: remove kwarg as we moved to dask instead of joblib
 ):
     """Load AERONET data from the AERONET Web Service.
 
@@ -147,32 +154,39 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
+    if n_procs > 1:
+        warnings.warn(
+            "Parallel processing may lead to rate-limiting or blocking by AERONET. "
+            "Consider the default n_procs=1 if you encounter issues.",
+            stacklevel=2,
+        )
+
     requested_parallel = n_procs != 1
 
     # Split up by day
-    dates = pd.to_datetime(dates)
     if dates is not None:
+        dates = pd.to_datetime(dates)
         min_date = dates.min()
         max_date = dates.max()
         time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")
         if max_date not in time_bounds:
             time_bounds = time_bounds.append(pd.DatetimeIndex([max_date]))
 
-    if has_joblib and requested_parallel and dates is not None and len(time_bounds) > 2:
-        dfs = Parallel(n_jobs=n_procs, verbose=verbose)(
-            delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
+    if has_dask and requested_parallel and dates is not None and len(time_bounds) > 2:
+        tasks = [
+            dask.delayed(_parallel_aeronet_call)(pd.DatetimeIndex([t1, t2]), **kwargs, freq=None)
             for t1, t2 in zip(time_bounds[:-1], time_bounds[1:])
-        )
+        ]
+        dfs = dask.compute(*tasks, scheduler="processes", num_workers=n_procs)
         df = pd.concat(dfs, ignore_index=True).drop_duplicates()
         if freq is not None:
             df.index = df.time
-            df = df.groupby("siteid").resample(freq).mean().reset_index()
+            df = df.groupby("siteid").resample(freq).mean(numeric_only=True).reset_index()
         return df.reset_index(drop=True)
     else:
-        if not has_joblib and requested_parallel:
+        if not has_dask and requested_parallel:
             print(
-                "Please install joblib to use the parallel feature of monetio.aeronet. "
-                "Proceeding in serial mode..."
+                "Please install dask to use the parallel feature of monetio.aeronet. Proceeding in serial mode..."
             )
         df = a.add_data(
             dates=dates,
@@ -193,7 +207,9 @@ def get_valid_sites():
         df = pd.read_csv(
             "https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt",
             skiprows=1,
-        ).rename(
+        )
+        time.sleep(6)  # rate limit: max 10 hits/min
+        df = df.rename(
             columns={
                 "Site_Name": "siteid",
                 "Longitude(decimal_degrees)": "longitude",
@@ -267,7 +283,7 @@ class AERONET:
         "FRC",
         "LID",
         "FLX",
-        # "ALL",
+        "ALL",
         # "PFN",
         # "U27",
     )
@@ -383,9 +399,10 @@ class AERONET:
         if isinstance(self.url, str) and self.url.startswith("http"):
             import requests
 
-            r = requests.get(self.url, stream=True)
-            r.raise_for_status()
-            s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            with requests.get(self.url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            time.sleep(6)  # rate limit: max 10 hits/min
         else:
             with open(self.url) as f:
                 s = "\n".join(islice(f, n))
@@ -413,13 +430,24 @@ class AERONET:
             engine="python",
             header="infer",
             skiprows=skiprows,
-            parse_dates={"time": [1, 2]},
             usecols=None,
             # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
-            date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
+        if isinstance(self.url, str) and self.url.startswith("http"):
+            time.sleep(6)  # rate limit: max 10 hits/min
         df.rename(columns=str.lower, inplace=True)
+        df = pd.concat(
+            [
+                df.iloc[:, :1],
+                pd.to_datetime(
+                    df.iloc[:, 1] + df.iloc[:, 2],
+                    format=r"%d:%m:%Y%H:%M:%S",
+                ).rename("time"),
+                df.iloc[:, 3:],
+            ],
+            axis=1,
+        )
         df.rename(
             columns={
                 "aeronet_site": "siteid",
@@ -466,7 +494,7 @@ class AERONET:
         self.siteid = siteid
         if dates is None:  # get the current day
             now = datetime.utcnow()
-            self.dates = pd.date_range(start=now.date(), end=now, freq="H")
+            self.dates = pd.date_range(start=now.date(), end=now, freq="h")
         else:
             self.dates = pd.DatetimeIndex(dates)
         if product is not None:
@@ -497,7 +525,11 @@ class AERONET:
 
         if freq is not None:
             self.df = (
-                self.df.set_index("time").groupby("siteid").resample(freq).mean().reset_index()
+                self.df.set_index("time")
+                .groupby("siteid")
+                .resample(freq)
+                .mean(numeric_only=True)
+                .reset_index()
             )
 
         if detect_dust:
@@ -575,30 +607,6 @@ class AERONET:
                     self.df = self.df.rename(columns={ename: ename_new})
         self.df = pd.concat([self.df, out], axis=1)
 
-    # @staticmethod
-    # def _tspack_aod_interp(row, new_wv=[440.0, 470.0, 550.0, 670.0, 870.0, 1020.0, 1240.0]):
-    #     try:
-    #         import pytspack
-    #     except ImportError:
-    #         print("You must install pytspack before using this function")
-
-    #     # df_aod_nu = self._aeronet_aod_and_nu(row)
-    #     aod_columns = [aod_column for aod_column in row.index if "aod_" in aod_column]
-    #     aods = row[aod_columns]
-    #     wv = [float(aod_column.replace("aod_", "").replace("nm", "")) for aod_column in aod_columns]
-    #     a = pd.DataFrame({"aod": aods}).reset_index()
-    #     a["wv"] = wv
-    #     df_aod_nu = a.dropna()
-    #     df_aod_nu_sorted = df_aod_nu.sort_values(by="wv").dropna()
-    #     if len(df_aod_nu_sorted) < 2:
-    #         return xi * np.nan
-    #     else:
-    #         x, y, yp, sigma = pytspack.tspsi(
-    #             df_aod_nu_sorted.wv.values, df_aod_nu_sorted.aod.values
-    #         )
-    #         yi = pytspack.hval(self.new_aod_values, x, y, yp, sigma)
-    #         return yi
-
     @staticmethod
     def _aeronet_aod_and_nu(row):
         import pandas as pd
@@ -626,5 +634,5 @@ class AERONET:
         )
 
     def set_daterange(self, begin="", end=""):
-        dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
+        dates = pd.date_range(start=begin, end=end, freq="h").values.astype("M8[s]").astype("O")
         self.dates = dates

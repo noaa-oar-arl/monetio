@@ -197,7 +197,7 @@ def get_epa_location_df(df, param, site="", city="", region="", epa_region="", s
 def regulatory_resample(df, col="model", pollutant_standard=None):
     from pandas import concat, to_timedelta
 
-    df["time_local"] = df.time + to_timedelta(df.gmt_offset, unit="H")
+    df["time_local"] = df.time + to_timedelta(df.gmt_offset, unit="h")
     if df.variable.unique()[0] == "CO":
         df1 = calc_daily_max(df, rolling_frequency=1)
         df1["pollutant_standard"] = "CO 1-hour 1971"
@@ -269,7 +269,7 @@ def calc_daily_max(df, param=None, rolling_frequency=8):
         dff = k.merge(
             df.groupby("variable").get_group(param)[columnstomerge], on="siteid", how="left"
         ).drop_duplicates(subset=["siteid", "time_local"])
-    dff["time"] = dff.time_local - to_timedelta(dff.gmt_offset, unit="H")
+    dff["time"] = dff.time_local - to_timedelta(dff.gmt_offset, unit="h")
     return dff
 
 

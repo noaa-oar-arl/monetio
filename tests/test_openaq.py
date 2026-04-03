@@ -1,24 +1,27 @@
-import sys
 from urllib.error import HTTPError
 
 import pandas as pd
 import pytest
 
 from monetio import openaq
+from monetio.util import _get_pandas_version
 
-if sys.version_info < (3, 7):
-    pytest.skip("requires Python 3.7+", allow_module_level=True)
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
 
 # openaq._URL_CAP_RANDOM_SAMPLE = True
 openaq._URL_CAP = 4
 
 # First date in the archive, just one file
 # Browse the archive at https://openaq-fetches.s3.amazonaws.com/index.html
-FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="H")[:-1]
+FIRST_DAY = pd.date_range(start="2013-11-26", end="2013-11-27", freq="h")[:-1]
 
 permission_error = pytest.mark.xfail(reason="private", raises=PermissionError, strict=True)
 
-forbidden_error = pytest.mark.xfail(reason="forbidden", raises=HTTPError, strict=True)  # 403
+forbidden_error = pytest.mark.xfail(
+    reason="forbidden",
+    raises=FileNotFoundError if PD_GTE_3 else HTTPError,  # 403
+    strict=True,
+)
 
 
 @permission_error
@@ -32,8 +35,8 @@ def test_openaq_first_date():
     assert df.latitude.isnull().sum() == 0
     assert df.longitude.isnull().sum() == 0
 
-    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
-    assert df.averagingPeriod.eq(pd.Timedelta("1H")).all()
+    assert df.dtypes["averagingPeriod"] == ("timedelta64[us]" if PD_GTE_3 else "timedelta64[ns]")
+    assert df.averagingPeriod.eq(pd.Timedelta("1h")).all()
 
     assert df.pm25_ugm3.gt(0).all()
 
@@ -70,7 +73,7 @@ def test_read(url):
     else:
         assert len(df2) == len(df)
 
-    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert df.dtypes["averagingPeriod"] == ("timedelta64[us]" if PD_GTE_3 else "timedelta64[ns]")
     assert not df.averagingPeriod.isnull().all()
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
 
@@ -81,13 +84,13 @@ def test_openaq_2023():
     # There are many files in this period (~ 100?)
     # Disable cap setting to test whole set of files
     # NOTE: possible to get empty df with the random URL selection
-    df = openaq.add_data(["2023-09-04", "2023-09-04 23:00"], n_procs=2)
+    df = openaq.add_data(["2023-09-04 00:00", "2023-09-04 23:00"], n_procs=2)
 
     assert len(df) > 0
 
     assert (df.time.astype(str) + df.siteid).nunique() == len(df)
 
-    assert df.dtypes["averagingPeriod"] == "timedelta64[ns]"
+    assert df.dtypes["averagingPeriod"] == ("timedelta64[us]" if PD_GTE_3 else "timedelta64[ns]")
     assert not df.averagingPeriod.isnull().all()
     assert df.averagingPeriod.dropna().gt(pd.Timedelta(0)).all()
 

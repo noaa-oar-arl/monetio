@@ -4,9 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from monetio import aeronet
-
-DATA = Path(__file__).parent / "data"
+from monetio.obs import aeronet
+from monetio.util import _on_ci
 
 try:
     import pytspack  # noqa: F401
@@ -14,6 +13,22 @@ except ImportError:
     has_pytspack = False
 else:
     has_pytspack = True
+
+DATA = Path(__file__).parent / "data"
+
+# We try the tests in CI (one matrix case)
+# but realize rate limiting may occur or shared CI IPs may be/get blocked.
+xfail_on_ci = pytest.mark.xfail(
+    _on_ci(),
+    reason="AERONET access can be rate-limited on CI",
+    strict=False,
+)
+web_group = pytest.mark.xdist_group(name="aeronet-web")
+
+
+def web(test_func):
+    """Marker for tests that access the AERONET website."""
+    return pytest.mark.web(xfail_on_ci(web_group(test_func)))
 
 
 def test_build_url_required_param_checks():
@@ -69,17 +84,20 @@ def test_build_url_bad_prod():
     a.build_url()
 
 
+@web
 def test_valid_sites_col_rename():
     assert (
         aeronet.get_valid_sites().columns == ["siteid", "longitude", "latitude", "elevation"]
     ).all()
 
 
+@web
 def test_add_data_bad_siteid():
     with pytest.raises(ValueError, match="invalid site"):
         aeronet.add_data(siteid="Rivendell")
 
 
+@web
 def test_add_data_one_site():
     dates = pd.date_range("2021/08/01", "2021/08/03")
     df = aeronet.add_data(dates, siteid="SERC")
@@ -88,6 +106,7 @@ def test_add_data_one_site():
     assert df.attrs["info"].startswith("AERONET Data Download")
 
 
+@web
 def test_add_data_inv():
     dates = pd.date_range("2021/08/01", "2021/08/02")
 
@@ -102,6 +121,7 @@ def test_add_data_inv():
     # TODO: find a time with Level 2.0 retrievals
 
 
+@web
 @pytest.mark.parametrize("product", aeronet.AERONET._valid_prod_noninv)
 def test_add_data_all_noninv(product):
     dates = pd.date_range("2021/08/01", "2021/08/02")
@@ -111,6 +131,7 @@ def test_add_data_all_noninv(product):
     assert df.index.size > 0
 
 
+@web
 def test_add_data_valid_empty_query():
     dates = pd.date_range("2021/08/01", "2021/08/02")
     site = "Banana_River"
@@ -136,7 +157,7 @@ def test_load_local():
 
     df = aeronet.add_local(fp)
     assert df.index.size > 0
-    assert (df.siteid == "Mauna_Loa").all(0)
+    assert (df.siteid == "Mauna_Loa").all(axis=0)
     assert df.attrs["info"].startswith("AERONET Data Download")
 
 
@@ -149,9 +170,10 @@ def test_load_local_inv():
 
     df = aeronet.add_local(fp)
     assert df.index.size > 0
-    assert (df.siteid == "Cart_Site").all(0)
+    assert (df.siteid == "Cart_Site").all(axis=0)
 
 
+@web
 def test_add_data_lunar():
     dates = pd.date_range("2021/08/01", "2021/08/02")
     df = aeronet.add_data(dates, lunar=True, daily=True)  # only daily-average data at this time
@@ -162,29 +184,32 @@ def test_add_data_lunar():
     assert df.index.size > 0
 
 
+@web
 def test_serial_freq():
     # For MM data proc example
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
-    df = aeronet.add_data(dates, freq="2H", n_procs=1)
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
+    df = aeronet.add_data(dates, freq="2h", n_procs=1)
     assert (
         pd.DatetimeIndex(sorted(df.time.unique()))
-        == pd.date_range("2019-09-01", freq="2H", periods=12)
+        == pd.date_range("2019-09-01", freq="2h", periods=12)
     ).all()
 
 
+@web
 @pytest.mark.skipif(has_pytspack, reason="has pytspack")
 def test_interp_without_pytspack():
     # For MM data proc example
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
     with pytest.raises(RuntimeError, match="You must install pytspack"):
         aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
 
 
+@web
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
 def test_interp_with_pytspack():
     # For MM data proc example
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
     standard_wavelengths = np.array([0.34, 0.44, 0.55, 0.66, 0.86, 1.63, 11.1]) * 1000
     with pytest.warns(UserWarning, match="Renaming duplicate AOD columns"):
         df = aeronet.add_data(dates, n_procs=1, interp_to_aod_values=standard_wavelengths)
@@ -210,24 +235,29 @@ def test_interp_with_pytspack():
     }
     assert {
         c for c in df if c.startswith("exact_wavelengths_of_aod") and c.endswith("nm_orig")
-    } == {"exact_wavelengths_of_aod(um)_340nm_orig", "exact_wavelengths_of_aod(um)_440nm_orig"}
+    } == {
+        "exact_wavelengths_of_aod(um)_340nm_orig",
+        "exact_wavelengths_of_aod(um)_440nm_orig",
+    }
 
 
+@web
 @pytest.mark.skipif(not has_pytspack, reason="no pytspack")
 def test_interp_daily_with_pytspack():
-    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="H")
+    dates = pd.date_range(start="2019-09-01", end="2019-09-2", freq="h")
     standard_wavelengths = np.array([0.55]) * 1000
     df = aeronet.add_data(dates, daily=True, n_procs=1, interp_to_aod_values=standard_wavelengths)
 
     assert {f"aod_{int(wl)}nm" for wl in standard_wavelengths}.issubset(df.columns)
 
 
+@web
 @pytest.mark.parametrize(
     "dates",
     [
         pd.to_datetime(["2019-09-01", "2019-09-02"]),
         pd.to_datetime(["2019-09-01", "2019-09-03"]),
-        pd.to_datetime(["2019-09-01", "2019-09-01 12:00"]),
+        pd.to_datetime(["2019-09-01 00:00", "2019-09-01 12:00"]),
     ],
     ids=[
         "one day",
@@ -237,7 +267,8 @@ def test_interp_daily_with_pytspack():
 )
 def test_issue100(dates, request):
     df1 = aeronet.add_data(dates, n_procs=1)
-    df2 = aeronet.add_data(dates, n_procs=2)
+    with pytest.warns(UserWarning, match="Parallel processing may lead to rate-limiting"):
+        df2 = aeronet.add_data(dates, n_procs=2)
     assert len(df1) == len(df2)
     if request.node.callspec.id == "two days":
         # Sort first (can use `df1.compare(df2)` for debugging)

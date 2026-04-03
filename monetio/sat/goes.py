@@ -1,4 +1,4 @@
-""" this will read the goes_r data"""
+"""this will read the goes_r data"""
 
 import pandas as pd
 import xarray as xr

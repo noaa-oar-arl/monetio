@@ -31,9 +31,9 @@ including members that use MODIS and other observational total AOD in assimilati
 
 The data is 6-hourly, each file including multiple time steps (e.g. 21 or 25).
 
-Online visualizer: https://usgodae.org/metools/ensemble/
+Info: https://nrlgodae1.nrlmry.navy.mil/docs/icap-mme.html
 
-The files are loaded from: https://usgodae.org/ftp/outgoing/nrl/ICAP-MME/
+The files are loaded from: https://nrlgodae1.nrlmry.navy.mil/ftp/outgoing/nrl/ICAP-MME/
 """
 
 import pandas as pd
@@ -79,7 +79,7 @@ def build_urls(dates, filetype="MMC", data_var="dustaod550", *, verbose=True):
     fnames = []
     if verbose:
         print("Building ICAP-MME URLs...")
-    base_url = "https://usgodae.org/ftp/outgoing/nrl/ICAP-MME/"
+    base_url = "https://nrlgodae1.nrlmry.navy.mil/ftp/outgoing/nrl/ICAP-MME/"
 
     for dt in dates:
         fname = "icap_{}_{}_{}.nc".format(
@@ -98,13 +98,26 @@ def build_urls(dates, filetype="MMC", data_var="dustaod550", *, verbose=True):
 def remote_file_exists(file_url, *, verbose=True):
     import requests
 
-    r = requests.head(file_url)
+    try:
+        r = requests.head(file_url, verify=False, timeout=10, allow_redirects=True)
 
-    if r.status_code == 200:
-        return True
-    else:
+        if r.status_code == 200:
+            return True
+        elif r.status_code == 302:
+            if verbose:
+                print(f"HTTP Redirect {r.status_code} - {r.reason}")
+            return True
+        else:
+            if verbose:
+                print(f"HTTP Error {r.status_code} - {r.reason}")
+            return False
+    except requests.exceptions.SSLError:
         if verbose:
-            print(f"HTTP Error {r.status_code} - {r.reason}")
+            print(f"SSL Error for {file_url}")
+        return False
+    except requests.exceptions.RequestException as e:
+        if verbose:
+            print(f"Request Error for {file_url}: {e}")
         return False
 
 
@@ -134,17 +147,37 @@ def retrieve(url, fname, *, download=False, verbose=True):
     p = Path(fname).absolute()
 
     if not download:
-        r = requests.get(url, stream=True)
-        r.raise_for_status()
-        return BytesIO(r.content)
+        try:
+            r = requests.get(url, stream=True, verify=False, timeout=30)
+            if r.status_code == 404:
+                raise ValueError(f"File does not exist on ICAP HTTPS server: {url}")
+            r.raise_for_status()
+            return BytesIO(r.content)
+        except requests.exceptions.SSLError:
+            if verbose:
+                print(f"SSL Error for {url}")
+            raise
+        except requests.exceptions.RequestException as e:
+            if verbose:
+                print(f"Request Error for {url}: {e}")
+            raise
     else:
         if not p.is_file():
-            if verbose:
-                print(f"Downloading {url} to {p.as_posix()}")
-            r = requests.get(url, stream=True)
-            r.raise_for_status()
-            with open(p, "wb") as f:
-                f.write(r.content)
+            try:
+                if verbose:
+                    print(f"Downloading {url} to {p.as_posix()}")
+                r = requests.get(url, stream=True, verify=False, timeout=30)
+                r.raise_for_status()
+                with open(p, "wb") as f:
+                    f.write(r.content)
+            except requests.exceptions.SSLError:
+                if verbose:
+                    print(f"SSL Error for {url}")
+                raise
+            except requests.exceptions.RequestException as e:
+                if verbose:
+                    print(f"Request Error for {url}: {e}")
+                raise
         else:
             if verbose:
                 print(f"File Exists: {p.as_posix()}")

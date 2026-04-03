@@ -1,6 +1,75 @@
+[tool.flake8]
+max-line-length = 100
+ignore = [
+    "E203",  # whitespace before ':' - doesn't work well with black
+    "E402",  # module level import not at top of file
+    "E501",  # line too long - let black worry about that
+    "W503",  # line break before binary operator
+    "E226",  # missing whitespace around arithmetic operator
+]
 [build-system]
-requires = ["setuptools>=39.2.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "monetio"
+dynamic = ["version"]
+description = "The Model and Observation Evaluation Toolkit (MONET) I/O package"
+readme = "README.md"
+requires-python = ">=3.9,<4"
+license = {text = "MIT"}
+authors = [
+    {name = "Barry D. Baker", email = "barry.baker@noaa.gov"},
+]
+maintainers = [
+    {name = "Barry D. Baker", email = "barry.baker@noaa.gov"},
+]
+urls = {"Homepage" = "https://github.com/noaa-oar-arl/monetio"}
+dependencies = [
+    "cftime",
+    "dask",
+    "fsspec",
+    "netCDF4",
+    "numpy",
+    "pandas",
+    "requests",
+    "s3fs",
+    "xarray",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "monetio.__version__"}
+
+[project.optional-dependencies]
+complete = [
+    "filelock",
+    "h5netcdf",
+    "h5py",
+    "joblib",
+    "lxml",
+    "pyhdf !=0.11.3",
+    "pyresample",
+    "pytz",
+    "scipy",
+    "timezonefinder",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+    "filelock"
+]
+dev = [
+    "monetio[test]",
+    "black",
+    "isort"
+]
+
+
+[tool.setuptools]
+packages = ["monetio", "monetio.models", "monetio.obs", "monetio.profile", "monetio.sat"]
+package-data = {"monetio" = ["data/*.csv", "data/*.tsv", "data/*.txt", "data/*.png"]}
+
 
 [tool.black]
 line-length = 100
@@ -20,4 +89,7 @@ filterwarnings = [
     "ignore:The default dtype for empty Series will be 'object' instead of 'float64' in a future version. Specify a dtype explicitly to silence this warning.:FutureWarning::",
     "ignore:np.find_common_type is deprecated.:DeprecationWarning::",
     "ignore:The current Dask DataFrame implementation is deprecated.:DeprecationWarning::",
+]
+markers = [
+    "web: marks tests that require web access to run",
 ]

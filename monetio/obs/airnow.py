@@ -51,7 +51,7 @@ def build_urls(dates, *, daily=False):
     if daily:
         dates = dates.floor("D").unique()
     else:  # hourly
-        dates = dates.floor("H").unique()
+        dates = dates.floor("h").unique()
 
     urls = []
     fnames = []
@@ -106,10 +106,9 @@ def read_csv(fn):
             fn,
             delimiter="|",
             header=None,
-            error_bad_lines=False,
-            warn_bad_lines=True,
             encoding="ISO-8859-1",
-        )  # TODO: `error_bad_lines` is deprecated from v1.3
+            on_bad_lines="warn",  # Use 'warn' to log bad lines, or 'skip' to silently skip
+        )
     except Exception:
         dft = pd.DataFrame(columns=hourly_cols)
         # TODO: warning message or error instead?
@@ -209,7 +208,7 @@ def aggregate_files(dates=dates, *, download=False, n_procs=1, daily=False, bad_
         df["time"] = pd.to_datetime(
             df.date + " " + df.time, format=r"%m/%d/%y %H:%M", exact=True
         )  # TODO: move to read_csv? (and some of this other stuff too?)
-        df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="H")
+        df["time_local"] = df.time + pd.to_timedelta(df.utcoffset, unit="h")
     df.drop(["date"], axis=1, inplace=True)
 
     print("    Adding in Meta-data")
@@ -266,6 +265,7 @@ def add_data(dates, *, download=False, wide_fmt=True, n_procs=1, daily=False, ba
         daily=daily,
         bad_utcoffset=bad_utcoffset,
     )
+    print(df)
     if wide_fmt:
         df = (
             long_to_wide(df)

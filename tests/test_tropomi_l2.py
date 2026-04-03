@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from filelock import FileLock
 
-from monetio.sat._tropomi_l2_no2_mm import open_dataset, read_trpdataset
+from monetio.sat.tropomi_l2_no2 import open_dataset, read_trpdataset
 
 HERE = Path(__file__).parent
 
@@ -17,18 +17,32 @@ def retrieve_test_file():
 
     # Download to tests/data if not already present
     p = HERE / "data" / fn
-    if not p.is_file():
+    if not p.is_file() or p.stat().st_size == 0:
         warnings.warn(f"Downloading test file {fn} for TROPOMI L2 test")
+        import time
+
         import requests
 
-        r = requests.get(
+        url = (
             "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/"
-            f"example_observation_data/satellite/{fn}",
-            stream=True,
+            f"example_observation_data/satellite/{fn}"
         )
-        r.raise_for_status()
-        with open(p, "wb") as f:
-            f.write(r.content)
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                r = requests.get(url, stream=True, timeout=60)
+                r.raise_for_status()
+                with open(p, "wb") as f:
+                    f.write(r.content)
+
+                # Verify the file was downloaded properly
+                if p.stat().st_size == 0:
+                    raise requests.RequestException("Downloaded file is empty")
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    pytest.skip(f"Could not download test file {fn} from CSL: {e}")
+                time.sleep(2 * (attempt + 1))
 
     return p
 

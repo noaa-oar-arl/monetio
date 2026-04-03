@@ -45,9 +45,6 @@ import numpy as np
 import pandas as pd
 import requests
 
-# import pytz
-import seaborn as sns
-
 import monetio.obs.obs_util as obs_util
 
 
@@ -904,7 +901,6 @@ class Emissions:
 
         df = self.df.copy()
         temp1 = df[df["date"].dt.year != 1700]
-        sns.set()
         for unit in df["unit"].unique():
             temp = temp1[temp1["unit"] == unit]
             temp = temp[temp["SO2MODC"].isin(["01", "02", "03", "04"])]

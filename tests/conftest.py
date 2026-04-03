@@ -1,12 +1,13 @@
-import os
 from pathlib import Path
 
 import pytest
 
+from monetio.util import _on_ci
+
 
 @pytest.fixture(scope="session")
 def is_ci():
-    return os.environ.get("CI", "false").lower() in {"true", "yes", "1", ""}
+    return _on_ci()
 
 
 @pytest.fixture

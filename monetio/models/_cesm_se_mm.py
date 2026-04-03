@@ -1,4 +1,4 @@
-""" CESM File Reader """
+"""CESM File Reader"""
 
 import xarray as xr
 
@@ -9,7 +9,7 @@ def open_mfdataset(
     convert_to_ppb=True,
     var_list=["O3", "NO", "NO2", "lat", "lon"],
     scrip_file="",
-    **kwargs
+    **kwargs,
 ):
     """Method to open multiple (or single) CESM SE netcdf files.
        This method extends the xarray.open_mfdataset functionality
@@ -50,8 +50,9 @@ def open_mfdataset(
             raise ValueError
     except ValueError:
         print(
-            """File format not recognized. Note that files should be in netcdf
-                format. Do not mix and match file types."""
+            "File format not recognized. "
+            "Note that files should be in netcdf format. "
+            "Do not mix and match file types."
         )
 
     # To keep lat & lon variables in the dataset

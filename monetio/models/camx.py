@@ -1,4 +1,4 @@
-""" CAMx File Reader """
+"""CAMx File Reader"""
 
 import xarray as xr
 from numpy import array, concatenate
