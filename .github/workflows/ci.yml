@@ -68,7 +68,8 @@ jobs:
           fi
 
       - name: Test with pytest (main run)
-        run: pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE $OPENAQ_IGNORE
+        run: >-
+          pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE $OPENAQ_IGNORE
           -W "ignore:Downloading test file:UserWarning::"
           -W "ignore:API key length is 0:UserWarning::"
 
