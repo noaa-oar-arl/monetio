@@ -47,6 +47,49 @@ def test_open_mfdataset(data_dir: Path, test_data: DataForTest) -> None:
         _compare_with_baseline_(actual, ufs_data_dir / "baseline-20260320-1622.nc")
 
 
+def test_open_mfdataset_lat_lon_grid_xt_yt(data_dir: Path, tmp_path: Path) -> None:
+    """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt (1-D dim coords)."""
+    ufs_data_dir = data_dir / "ufs"
+    fnames = sorted(ufs_data_dir.glob("aqm.t12z.dyn.f*.nc"))
+
+    # Copy files to tmp_path with grid_xt/grid_yt coords dropped and lat/lon renamed to grid_xt/grid_yt
+    out_paths = []
+    for fname in fnames:
+        with xr.open_dataset(fname) as ds:
+            ds_mod = ds.drop_vars(["grid_xt", "grid_yt"]).rename_vars(
+                {"lon": "grid_xt", "lat": "grid_yt"}
+            )
+        out = tmp_path / fname.name
+        ds_mod.to_netcdf(out)
+        out_paths.append(out)
+
+    actual = open_mfdataset(str(tmp_path / "aqm.t12z.dyn.f*.nc"), surf_only=True)
+
+    assert "latitude" in actual.coords
+    assert "longitude" in actual.coords
+
+
+def test_open_mfdataset_grid_xt_yt_dim_coords_only(data_dir: Path, tmp_path: Path) -> None:
+    """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt (1-D dim coords)."""
+    ufs_data_dir = data_dir / "ufs"
+    fnames = sorted(ufs_data_dir.glob("aqm.t12z.dyn.f*.nc"))
+
+    # Copy files to tmp_path with lat/lon dropped
+    out_paths = []
+    for fname in fnames:
+        with xr.open_dataset(fname) as ds:
+            assert ds["grid_xt"].ndim == ds["grid_yt"].ndim == 1
+            ds_mod = ds.drop_vars(["lat", "lon"])
+        out = tmp_path / fname.name
+        ds_mod.to_netcdf(out)
+        out_paths.append(out)
+
+    actual = open_mfdataset(str(tmp_path / "aqm.t12z.dyn.f*.nc"), surf_only=True)
+
+    assert "latitude" in actual.coords
+    assert "longitude" in actual.coords
+
+
 def test_deprecated_rrfs_cmaq_mm() -> None:
     from monetio.models._rrfs_cmaq_mm import open_mfdataset  # noqa: F401
 

@@ -14,6 +14,53 @@ def can_do(index):
         return False
 
 
+def _latlon2d(ds):
+    """Sometimes lat/lon are missing (named grid_xt/yt).
+    In this case we want to rename those vars.
+    If grid_xt/yt vars are missing too (only dims present),
+    we raise an error.
+    """
+    if {"lat", "lon"} <= set(ds.variables):
+        pass
+    elif {"grid_xt", "grid_yt"} <= set(ds.variables):
+        if ds["grid_xt"].ndim == ds["grid_yt"].ndim == 1:
+            # We have the dim coords. Create 2-D lat/lon from these.
+            lon = ds["grid_xt"].data
+            lat = ds["grid_yt"].data
+            lon2d, lat2d = np.meshgrid(lon, lat)
+            ds = ds.assign(
+                lon=(
+                    ("grid_yt", "grid_xt"),
+                    lon2d,
+                    {"units": "degrees_E", "long_name": "T-cell longitude"},
+                ),
+                lat=(
+                    ("grid_yt", "grid_xt"),
+                    lat2d,
+                    {"units": "degrees_N", "long_name": "T-cell latitude"},
+                ),
+            )
+        elif ds["grid_xt"].ndim == ds["grid_yt"].ndim == 2:
+            # We probably have 2-D lat/lon vars with wrong names. Just rename.
+            ds = ds.rename_vars({"grid_xt": "lon", "grid_yt": "lat"})
+            ds = ds.assign(
+                grid_xt=ds["lon"].data[0, :],
+                grid_yt=ds["lat"].data[:, 0],
+            )
+        else:
+            raise ValueError(
+                "Unexpected grid_xt, grid_yt dimensions. "
+                "Expected consistent 1-D or 2-D, but got "
+                f"{ds['grid_xt'].ndim}-D and {ds['grid_yt'].ndim}-D."
+            )
+    else:
+        raise ValueError(
+            "Missing latitude and longitude variables. "
+            "Expected either 'lat'/'lon' or 'grid_xt'/'grid_yt'."
+        )
+    return ds
+
+
 def open_mfdataset(
     fname,
     convert_to_ppb=True,
@@ -158,10 +205,12 @@ def open_mfdataset(
                 var_list.remove(pm25_var)
 
         # open the dataset using xarray
-        dset = xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs)[var_list]
+        dset = _latlon2d(xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs))[
+            var_list
+        ]
     else:
         # Read in all variables and do all calculations.
-        dset = xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs)
+        dset = _latlon2d(xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs))
         list_calc_sum = [
             "PM25",
             "PM10",
@@ -229,8 +278,10 @@ def open_mfdataset(
     dset = dset.reset_index(
         ["x", "y", "z", "z_i"], drop=True
     )  # For now drop z_i no variables use it.
-    dset["latitude"] = dset["latitude"].isel(time=0)
-    dset["longitude"] = dset["longitude"].isel(time=0)
+    if "time" in dset["longitude"].dims:
+        dset["latitude"] = dset["latitude"].isel(time=0)
+    if "time" in dset["longitude"].dims:
+        dset["longitude"] = dset["longitude"].isel(time=0)
 
     # modify longitude from 0-360 to -180-180 if needed
     dset["longitude"] = xr.where(
