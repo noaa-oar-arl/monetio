@@ -19,6 +19,7 @@ jobs:
     if: github.repository == 'noaa-oar-arl/monetio'
     env:
       AERONET_TEST_FILE: tests/test_aeronet.py
+      OPENAQ_WEB_API_TEST_FILES: tests/test_openaq_v2.py tests/test_openaq_v3.py
     strategy:
       matrix:
         include:
@@ -52,16 +53,23 @@ jobs:
       - name: Install the package (editable)
         run: pip install -e . --no-deps -vv
 
-      - name: Set AERONET test flag
+      - name: Set test flags
         run: |
           if [[ "${{ matrix.python-version }}" == "3.11" && "${{ matrix.pandas-version }}" == "2" ]]; then
             echo "AERONET_IGNORE=" >> $GITHUB_ENV
+            echo "OPENAQ_IGNORE=" >> $GITHUB_ENV
           else
             echo "AERONET_IGNORE=--ignore=${AERONET_TEST_FILE}" >> $GITHUB_ENV
+            OPENAQ_IGNORE_ARGS=""
+            for f in $OPENAQ_WEB_API_TEST_FILES; do
+              OPENAQ_IGNORE_ARGS="$OPENAQ_IGNORE_ARGS --ignore=$f"
+            done
+            echo "OPENAQ_IGNORE=${OPENAQ_IGNORE_ARGS}" >> $GITHUB_ENV
           fi
 
       - name: Test with pytest (main run)
-        run: pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE
+        run: >-
+          pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE $OPENAQ_IGNORE
           -W "ignore:Downloading test file:UserWarning::"
           -W "ignore:API key length is 0:UserWarning::"
 
