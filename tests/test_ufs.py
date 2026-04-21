@@ -50,7 +50,8 @@ def test_open_mfdataset(data_dir: Path, test_data: DataForTest) -> None:
 def test_open_mfdataset_lat_lon_grid_xt_yt(data_dir: Path, tmp_path: Path) -> None:
     """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt (1-D dim coords)."""
     ufs_data_dir = data_dir / "ufs"
-    fnames = sorted(ufs_data_dir.glob("aqm.t12z.dyn.f*.nc"))
+    patt = "aqm.t12z.dyn.f*.nc"
+    fnames = sorted(ufs_data_dir.glob(patt))
 
     # Copy files to tmp_path with grid_xt/grid_yt coords dropped and lat/lon renamed to grid_xt/grid_yt
     out_paths = []
@@ -63,16 +64,25 @@ def test_open_mfdataset_lat_lon_grid_xt_yt(data_dir: Path, tmp_path: Path) -> No
         ds_mod.to_netcdf(out)
         out_paths.append(out)
 
-    actual = open_mfdataset(str(tmp_path / "aqm.t12z.dyn.f*.nc"), surf_only=True)
+    actual = open_mfdataset(str(tmp_path / patt), surf_only=True)
 
     assert "latitude" in actual.coords
     assert "longitude" in actual.coords
+    assert actual["latitude"].ndim == actual["longitude"].ndim == 2
+
+    orig = open_mfdataset(str(ufs_data_dir / patt), surf_only=True)
+    assert sorted(actual.dims) == sorted(orig.dims)
+    assert actual.sizes == orig.sizes
+
+    assert actual["latitude"].equals(orig["latitude"])
+    assert actual["longitude"].equals(orig["longitude"])
 
 
 def test_open_mfdataset_grid_xt_yt_dim_coords_only(data_dir: Path, tmp_path: Path) -> None:
     """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt (1-D dim coords)."""
     ufs_data_dir = data_dir / "ufs"
-    fnames = sorted(ufs_data_dir.glob("aqm.t12z.dyn.f*.nc"))
+    patt = "aqm.t12z.dyn.f*.nc"
+    fnames = sorted(ufs_data_dir.glob(patt))
 
     # Copy files to tmp_path with lat/lon dropped
     out_paths = []
@@ -84,10 +94,19 @@ def test_open_mfdataset_grid_xt_yt_dim_coords_only(data_dir: Path, tmp_path: Pat
         ds_mod.to_netcdf(out)
         out_paths.append(out)
 
-    actual = open_mfdataset(str(tmp_path / "aqm.t12z.dyn.f*.nc"), surf_only=True)
+    actual = open_mfdataset(str(tmp_path / patt), surf_only=True)
 
     assert "latitude" in actual.coords
     assert "longitude" in actual.coords
+
+    assert actual["latitude"].ndim == actual["longitude"].ndim == 2
+
+    orig = open_mfdataset(str(ufs_data_dir / patt), surf_only=True)
+    assert sorted(actual.dims) == sorted(orig.dims)
+    assert actual.sizes == orig.sizes
+
+    assert not actual["latitude"].equals(orig["latitude"]), "new based on rotated"
+    assert not actual["longitude"].equals(orig["longitude"]), "new based on rotated"
 
 
 def test_deprecated_rrfs_cmaq_mm() -> None:
