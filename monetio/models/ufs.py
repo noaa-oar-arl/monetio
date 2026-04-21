@@ -231,7 +231,9 @@ def open_mfdataset(
         from ..util import _try_merge_exact
 
         # Add the processed pm2.5 species.
-        dset_pm25 = xr.open_mfdataset(fname_pm25, concat_dim="time", combine="nested", **kwargs)
+        dset_pm25 = _latlon2d(
+            xr.open_mfdataset(fname_pm25, concat_dim="time", combine="nested", **kwargs)
+        )
         dset_pm25 = dset_pm25.drop(
             labels=["lat", "lon", "pfull"]
         )  # Drop duplicate variables so can merge.
@@ -360,7 +362,7 @@ def open_mfdataset(
 
     # Read in additional variables from the sfc file
     if fname_sfc is not None:
-        ds_sfc = xr.open_mfdataset(fname_sfc, **kwargs)[sfc_varlist]
+        ds_sfc = _latlon2d(xr.open_mfdataset(fname_sfc, **kwargs))[sfc_varlist]
         ds_sfc = ds_sfc.rename({"grid_yt": "y", "grid_xt": "x"})
         if surf_only:  # Only expand into the zth dimension when surf_only is True,
             # so that the surface data are combined appropriately.
