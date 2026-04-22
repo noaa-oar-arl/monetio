@@ -14,11 +14,19 @@ def can_do(index):
         return False
 
 
-def _latlon2d(ds):
+def _ensure_latlon2d(ds):
     """Sometimes lat/lon are missing (named grid_yt/grid_xt).
     In this case we want to rename those vars.
     If grid_yt/grid_xt vars are missing too (only dims present),
     we raise an error.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+
+    Returns
+    -------
+    xarray.Dataset
     """
     if {"lat", "lon"} <= set(ds.variables):
         pass
@@ -43,6 +51,8 @@ def _latlon2d(ds):
         elif ds["grid_xt"].ndim == ds["grid_yt"].ndim == 2:
             # We probably have 2-D lat/lon vars with wrong names. Just rename.
             ds = ds.rename_vars({"grid_xt": "lon", "grid_yt": "lat"})
+            # grid_xt/grid_yt dim coords need placeholder values temporarily;
+            # they will be dropped later (renamed to x/y and reset_index'd).
             ds = ds.assign(
                 grid_xt=ds["lon"].data[0, :],
                 grid_yt=ds["lat"].data[:, 0],
@@ -205,12 +215,14 @@ def open_mfdataset(
                 var_list.remove(pm25_var)
 
         # open the dataset using xarray
-        dset = _latlon2d(xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs))[
-            var_list
-        ]
+        dset = _ensure_latlon2d(
+            xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs)
+        )[var_list]
     else:
         # Read in all variables and do all calculations.
-        dset = _latlon2d(xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs))
+        dset = _ensure_latlon2d(
+            xr.open_mfdataset(fname, concat_dim="time", combine="nested", **kwargs)
+        )
         list_calc_sum = [
             "PM25",
             "PM10",
@@ -231,7 +243,7 @@ def open_mfdataset(
         from ..util import _try_merge_exact
 
         # Add the processed pm2.5 species.
-        dset_pm25 = _latlon2d(
+        dset_pm25 = _ensure_latlon2d(
             xr.open_mfdataset(fname_pm25, concat_dim="time", combine="nested", **kwargs)
         )
         dset_pm25 = dset_pm25.drop(
@@ -280,7 +292,7 @@ def open_mfdataset(
     dset = dset.reset_index(
         ["x", "y", "z", "z_i"], drop=True
     )  # For now drop z_i no variables use it.
-    if "time" in dset["longitude"].dims:
+    if "time" in dset["latitude"].dims:
         dset["latitude"] = dset["latitude"].isel(time=0)
     if "time" in dset["longitude"].dims:
         dset["longitude"] = dset["longitude"].isel(time=0)
@@ -362,7 +374,7 @@ def open_mfdataset(
 
     # Read in additional variables from the sfc file
     if fname_sfc is not None:
-        ds_sfc = _latlon2d(xr.open_mfdataset(fname_sfc, **kwargs))[sfc_varlist]
+        ds_sfc = _ensure_latlon2d(xr.open_mfdataset(fname_sfc, **kwargs))[sfc_varlist]
         ds_sfc = ds_sfc.rename({"grid_yt": "y", "grid_xt": "x"})
         if surf_only:  # Only expand into the zth dimension when surf_only is True,
             # so that the surface data are combined appropriately.

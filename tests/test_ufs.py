@@ -8,6 +8,8 @@ import xarray as xr
 
 from monetio.models.ufs import open_mfdataset
 
+AQM_DYN_FILENAME_PATTERN = "aqm.t12z.dyn.f*.nc"
+
 
 @dataclass
 class DataForTest:
@@ -26,7 +28,9 @@ class DataForTest:
 )
 def test_open_mfdataset(data_dir: Path, test_data: DataForTest) -> None:
     ufs_data_dir = data_dir / "ufs"
-    actual = open_mfdataset(str(ufs_data_dir / "aqm.t12z.dyn.f*.nc"), surf_only=test_data.surf_only)
+    actual = open_mfdataset(
+        str(ufs_data_dir / AQM_DYN_FILENAME_PATTERN), surf_only=test_data.surf_only
+    )
 
     for var in actual.data_vars.values():
         shape_dict = {dim: actual.sizes[dim] for dim in var.dims}
@@ -48,13 +52,11 @@ def test_open_mfdataset(data_dir: Path, test_data: DataForTest) -> None:
 
 
 def test_open_mfdataset_lat_lon_grid_xt_yt(data_dir: Path, tmp_path: Path) -> None:
-    """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt (1-D dim coords)."""
+    """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt."""
     ufs_data_dir = data_dir / "ufs"
-    patt = "aqm.t12z.dyn.f*.nc"
-    fnames = sorted(ufs_data_dir.glob(patt))
+    fnames = sorted(ufs_data_dir.glob(AQM_DYN_FILENAME_PATTERN))
 
     # Copy files to tmp_path with grid_xt/grid_yt coords dropped and lat/lon renamed to grid_xt/grid_yt
-    out_paths = []
     for fname in fnames:
         with xr.open_dataset(fname) as ds:
             ds_mod = ds.drop_vars(["grid_xt", "grid_yt"]).rename_vars(
@@ -62,15 +64,14 @@ def test_open_mfdataset_lat_lon_grid_xt_yt(data_dir: Path, tmp_path: Path) -> No
             )
         out = tmp_path / fname.name
         ds_mod.to_netcdf(out)
-        out_paths.append(out)
 
-    actual = open_mfdataset(str(tmp_path / patt), surf_only=True)
+    actual = open_mfdataset(str(tmp_path / AQM_DYN_FILENAME_PATTERN), surf_only=True)
 
     assert "latitude" in actual.coords
     assert "longitude" in actual.coords
     assert actual["latitude"].ndim == actual["longitude"].ndim == 2
 
-    orig = open_mfdataset(str(ufs_data_dir / patt), surf_only=True)
+    orig = open_mfdataset(str(ufs_data_dir / AQM_DYN_FILENAME_PATTERN), surf_only=True)
     assert sorted(actual.dims) == sorted(orig.dims)
     assert actual.sizes == orig.sizes
 
@@ -79,34 +80,33 @@ def test_open_mfdataset_lat_lon_grid_xt_yt(data_dir: Path, tmp_path: Path) -> No
 
 
 def test_open_mfdataset_grid_xt_yt_dim_coords_only(data_dir: Path, tmp_path: Path) -> None:
-    """Test that open_mfdataset works when lat/lon are named grid_xt/grid_yt (1-D dim coords)."""
+    """Test that open_mfdataset works when lat/lon are missing but we have grid_xt/grid_yt (1-D dim coords)."""
     ufs_data_dir = data_dir / "ufs"
-    patt = "aqm.t12z.dyn.f*.nc"
-    fnames = sorted(ufs_data_dir.glob(patt))
+    fnames = sorted(ufs_data_dir.glob(AQM_DYN_FILENAME_PATTERN))
 
     # Copy files to tmp_path with lat/lon dropped
-    out_paths = []
     for fname in fnames:
         with xr.open_dataset(fname) as ds:
             assert ds["grid_xt"].ndim == ds["grid_yt"].ndim == 1
             ds_mod = ds.drop_vars(["lat", "lon"])
         out = tmp_path / fname.name
         ds_mod.to_netcdf(out)
-        out_paths.append(out)
 
-    actual = open_mfdataset(str(tmp_path / patt), surf_only=True)
+    actual = open_mfdataset(str(tmp_path / AQM_DYN_FILENAME_PATTERN), surf_only=True)
 
     assert "latitude" in actual.coords
     assert "longitude" in actual.coords
 
     assert actual["latitude"].ndim == actual["longitude"].ndim == 2
 
-    orig = open_mfdataset(str(ufs_data_dir / patt), surf_only=True)
+    orig = open_mfdataset(str(ufs_data_dir / AQM_DYN_FILENAME_PATTERN), surf_only=True)
     assert sorted(actual.dims) == sorted(orig.dims)
     assert actual.sizes == orig.sizes
 
-    assert not actual["latitude"].equals(orig["latitude"]), "new based on rotated"
-    assert not actual["longitude"].equals(orig["longitude"]), "new based on rotated"
+    # The reconstructed lat/lon (meshgrid of 1-D rotated dim coords) differ from the
+    # original curvilinear lat/lon, which vary in both spatial dimensions.
+    assert not actual["latitude"].equals(orig["latitude"])
+    assert not actual["longitude"].equals(orig["longitude"])
 
 
 def test_deprecated_rrfs_cmaq_mm() -> None:
