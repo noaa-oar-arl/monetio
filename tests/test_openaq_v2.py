@@ -37,6 +37,8 @@ xfail_httperror = pytest.mark.xfail(
     strict=True,
 )
 
+web_api = pytest.mark.xdist_group(name="openaq-web-api")
+
 
 @contextmanager
 def check_error_code():
@@ -50,6 +52,7 @@ def check_error_code():
         raise AssertionError(f"expected HTTP Error {should_raise}") from e
 
 
+@web_api
 @xfail_httperror
 def test_get_parameters():
     with check_error_code():
@@ -61,6 +64,7 @@ def test_get_parameters():
     assert "o3" in params.name.values
 
 
+@web_api
 @xfail_httperror
 def test_get_locations():
     with check_error_code():
@@ -75,6 +79,7 @@ def test_get_locations():
     assert sites["longitude"].isnull().sum() == 0
 
 
+@web_api
 @xfail_httperror
 def test_get_data_near_ncwcp_sites():
     sites = SITES_NEAR_NCWCP
@@ -90,6 +95,7 @@ def test_get_data_near_ncwcp_sites():
     assert not df.value.isna().all() and not df.value.lt(0).any()
 
 
+@web_api
 @xfail_httperror
 def test_get_data_near_ncwcp_sites_wide():
     sites = SITES_NEAR_NCWCP
@@ -103,6 +109,7 @@ def test_get_data_near_ncwcp_sites_wide():
     assert not {"parameter", "value", "unit"} <= set(df.columns)
 
 
+@web_api
 @xfail_httperror
 def test_get_data_near_ncwcp_search_radius():
     latlon = LATLON_NCWCP
@@ -118,6 +125,7 @@ def test_get_data_near_ncwcp_search_radius():
     assert df.entity.eq("Governmental Organization").all()
 
 
+@web_api
 @xfail_httperror
 def test_get_data_near_ncwcp_sensor_type():
     latlon = LATLON_NCWCP
@@ -128,6 +136,7 @@ def test_get_data_near_ncwcp_sensor_type():
     assert df.sensor_type.eq("low-cost sensor").all()
 
 
+@web_api
 @xfail_httperror
 def test_get_data_single_dt_single_site():
     site = 843
@@ -137,6 +146,7 @@ def test_get_data_single_dt_single_site():
     assert len(df) == 1
 
 
+@web_api
 @xfail_httperror
 @pytest.mark.parametrize(
     "entity",

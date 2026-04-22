@@ -29,6 +29,8 @@ SITES_NEAR_NCWCP = [
     843,
 ]
 
+pytestmark = pytest.mark.xdist_group(name="openaq-web-api")
+
 
 def columns_all_snake_case(df):
     return all(df.columns.str.fullmatch(r"[a-z_]+"))
