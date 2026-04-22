@@ -15,9 +15,9 @@ def can_do(index):
 
 
 def _latlon2d(ds):
-    """Sometimes lat/lon are missing (named grid_xt/yt).
+    """Sometimes lat/lon are missing (named grid_yt/grid_xt).
     In this case we want to rename those vars.
-    If grid_xt/yt vars are missing too (only dims present),
+    If grid_yt/grid_xt vars are missing too (only dims present),
     we raise an error.
     """
     if {"lat", "lon"} <= set(ds.variables):
@@ -56,7 +56,7 @@ def _latlon2d(ds):
     else:
         raise ValueError(
             "Missing latitude and longitude variables. "
-            "Expected either 'lat'/'lon' or 'grid_xt'/'grid_yt'."
+            "Expected either 'lat'/'lon' or 'grid_yt'/'grid_xt'."
         )
     return ds
 
