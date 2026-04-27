@@ -625,7 +625,10 @@ def add_data(
         warnings.warn("ignoring tz for daily data")
         dates = dates.tz_localize(None)
 
-    query_dt = pd.to_timedelta(query_time_split) if len(dates) > 1 else None
+    if query_time_split is not None and len(dates) > 1:
+        query_dt = pd.to_timedelta(query_time_split)
+    else:
+        query_dt = None
     date_min, date_max = dates.min(), dates.max()
     if query_dt is not None:
         if query_dt <= pd.Timedelta(0):

@@ -4,7 +4,7 @@ Installation
 Required dependencies
 ---------------------
 
-- Python 3.6+
+- Python 3.9+
 - `numpy <https://numpy.org/>`__ (1.11 or later)
 - `pandas <https://pandas.pydata.org/>`__ (0.18.0 or later)
 - `xarray <https://xarray.pydata.org/>`__ (0.10 or later)

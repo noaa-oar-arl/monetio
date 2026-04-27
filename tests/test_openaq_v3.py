@@ -4,11 +4,11 @@ import pandas as pd
 import pytest
 
 import monetio.obs.openaq_v3 as openaq
+from monetio.util import _get_pandas_version, _on_ci
 
-if (
-    os.environ.get("CI", "false").lower() not in {"false", "0"}
-    and os.environ.get("OPENAQ_API_KEY", "") == ""
-):
+PD_GTE_3 = _get_pandas_version() >= (3, 0)
+
+if _on_ci() and os.environ.get("OPENAQ_API_KEY", "") == "":
     # PRs from forks don't get the secret
     pytest.skip("no API key", allow_module_level=True)
 
@@ -29,6 +29,8 @@ SITES_NEAR_NCWCP = [
     843,
 ]
 
+pytestmark = pytest.mark.xdist_group(name="openaq-web-api")
+
 
 def columns_all_snake_case(df):
     return all(df.columns.str.fullmatch(r"[a-z_]+"))
@@ -45,12 +47,12 @@ def test_get_parameters():
 
 
 def test_get_locations():
-    sites = openaq.get_locations()
+    sites = openaq.get_locations(timeout=30)
     assert columns_all_snake_case(sites)
     assert 10_000 <= len(sites) < 50_000
     assert sites.siteid.nunique() == len(sites)
-    assert sites.dtypes["first_time"] == "datetime64[ns]"
-    assert sites.dtypes["last_time"] == "datetime64[ns]"
+    assert sites.dtypes["first_time"] == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
+    assert sites.dtypes["last_time"] == ("datetime64[us]" if PD_GTE_3 else "datetime64[ns]")
     assert sites.dtypes["latitude"] == "float64"
     assert sites.dtypes["longitude"] == "float64"
     assert sites["latitude"].isnull().sum() == 0

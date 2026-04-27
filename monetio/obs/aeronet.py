@@ -2,6 +2,7 @@
 AERONET
 """
 
+import time
 import warnings
 from datetime import datetime
 from functools import lru_cache
@@ -153,11 +154,18 @@ def add_data(
         interp_to_aod_values=interp_to_aod_values,
     )
 
+    if n_procs > 1:
+        warnings.warn(
+            "Parallel processing may lead to rate-limiting or blocking by AERONET. "
+            "Consider the default n_procs=1 if you encounter issues.",
+            stacklevel=2,
+        )
+
     requested_parallel = n_procs != 1
 
     # Split up by day
-    dates = pd.to_datetime(dates)
     if dates is not None:
+        dates = pd.to_datetime(dates)
         min_date = dates.min()
         max_date = dates.max()
         time_bounds = pd.date_range(start=min_date, end=max_date, freq="D")
@@ -199,7 +207,9 @@ def get_valid_sites():
         df = pd.read_csv(
             "https://aeronet.gsfc.nasa.gov/aeronet_locations_v3.txt",
             skiprows=1,
-        ).rename(
+        )
+        time.sleep(6)  # rate limit: max 10 hits/min
+        df = df.rename(
             columns={
                 "Site_Name": "siteid",
                 "Longitude(decimal_degrees)": "longitude",
@@ -273,7 +283,7 @@ class AERONET:
         "FRC",
         "LID",
         "FLX",
-        # "ALL",
+        "ALL",
         # "PFN",
         # "U27",
     )
@@ -389,9 +399,10 @@ class AERONET:
         if isinstance(self.url, str) and self.url.startswith("http"):
             import requests
 
-            r = requests.get(self.url, stream=True)
-            r.raise_for_status()
-            s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            with requests.get(self.url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                s = "\n".join(islice(r.iter_lines(decode_unicode=True), n))
+            time.sleep(6)  # rate limit: max 10 hits/min
         else:
             with open(self.url) as f:
                 s = "\n".join(islice(f, n))
@@ -419,13 +430,24 @@ class AERONET:
             engine="python",
             header="infer",
             skiprows=skiprows,
-            parse_dates={"time": [1, 2]},
             usecols=None,
             # ^ SDA header is missing one column (80 vs 81 in data) and we lose one making 'time'
-            date_parser=lambda x: datetime.strptime(x, r"%d:%m:%Y %H:%M:%S"),
             na_values=-999,
         )
+        if isinstance(self.url, str) and self.url.startswith("http"):
+            time.sleep(6)  # rate limit: max 10 hits/min
         df.rename(columns=str.lower, inplace=True)
+        df = pd.concat(
+            [
+                df.iloc[:, :1],
+                pd.to_datetime(
+                    df.iloc[:, 1] + df.iloc[:, 2],
+                    format=r"%d:%m:%Y%H:%M:%S",
+                ).rename("time"),
+                df.iloc[:, 3:],
+            ],
+            axis=1,
+        )
         df.rename(
             columns={
                 "aeronet_site": "siteid",
@@ -472,7 +494,7 @@ class AERONET:
         self.siteid = siteid
         if dates is None:  # get the current day
             now = datetime.utcnow()
-            self.dates = pd.date_range(start=now.date(), end=now, freq="H")
+            self.dates = pd.date_range(start=now.date(), end=now, freq="h")
         else:
             self.dates = pd.DatetimeIndex(dates)
         if product is not None:
@@ -612,5 +634,5 @@ class AERONET:
         )
 
     def set_daterange(self, begin="", end=""):
-        dates = pd.date_range(start=begin, end=end, freq="H").values.astype("M8[s]").astype("O")
+        dates = pd.date_range(start=begin, end=end, freq="h").values.astype("M8[s]").astype("O")
         self.dates = dates

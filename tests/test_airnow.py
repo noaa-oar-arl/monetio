@@ -10,7 +10,7 @@ def _check_df(df):
 
 
 def test_build_urls():
-    dates = pd.date_range("2021/01/01", "2021/01/05", freq="H")
+    dates = pd.date_range("2021/01/01", "2021/01/05", freq="h")
 
     # Hourly
     urls, fnames = airnow.build_urls(dates)

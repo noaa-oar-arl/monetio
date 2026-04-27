@@ -22,8 +22,8 @@ def chimere_test_file():
 def _test_ds(xrds, var_list: list[str] = []):
     assert isinstance(xrds, xr.Dataset)
     assert all(coord in xrds.coords for coord in ["longitude", "latitude"])
-    assert all(dim in list(xrds.dims.keys()) for dim in ["time", "z", "x", "y"])
-    assert all(var in list(xrds.data_vars.keys()) for var in var_list)
+    assert all(dim in xrds.dims for dim in ["time", "z", "x", "y"])
+    assert all(var in xrds.data_vars for var in var_list)
 
 
 def test_openmfdataset_chimere(chimere_test_file):
