@@ -108,6 +108,7 @@ def test_open_mfdataset_grid_xt_yt_dim_coords_only(data_dir: Path, tmp_path: Pat
     assert not actual["latitude"].equals(orig["latitude"])
     assert not actual["longitude"].equals(orig["longitude"])
 
+
 def _compare_with_baseline_(actual: xr.Dataset, baseline_path: Path) -> None:
     import numpy as np
 
