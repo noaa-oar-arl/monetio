@@ -1,7 +1,10 @@
 """CAMx File Reader"""
 
+import warnings
+
+# from numpy import array, concatenate
+import numpy as np
 import xarray as xr
-from numpy import array, concatenate
 from pandas import Series, to_datetime
 
 from ..grids import get_ioapi_pyresample_area_def, grid_from_dataset
@@ -14,28 +17,70 @@ def can_do(index):
         return False
 
 
-def open_dataset(fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicates=False):
-    """Method to open CMAQ IOAPI netcdf files.
+def open_mfdataset(
+    fname,
+    fname_met_3D=None,
+    fname_met_2D=None,
+    landuse_file=None,
+    earth_radius=6370000,
+    convert_to_ppb=True,
+    drop_duplicates=False,
+    var_list=["O3"],
+    surf_only=True,
+    **kwargs,
+):
+    """Method to open CAMx IOAPI netcdf files.
 
     Parameters
     ----------
     fname : string or list
         fname is the path to the file or files.  It will accept hot keys in
         strings as well.
+    fname_met: string, list or None
+        If string or list, fname_met is used for the meteorological variables
     earth_radius : float
         The earth radius used for the map projection
     convert_to_ppb : boolean
         If true the units of the gas species will be converted to ppbV
+    var_list: list
+        List of variables to include in output. MELODIES-MONET only reads in
+        variables need to plot in order to save on memory and simulation cost
+        especially for vertical data
+    surf_only: boolean
+        Whether to save only surface data to save on memory and computational
+        cost (True) or not (False)
 
     Returns
     -------
     xarray.DataSet
-
-
+        CAM-X model dataset in standard format for use in MELODIES-MONET
     """
 
-    # open the dataset using xarray
-    dset = xr.open_dataset(fname, engine="pseudonetcdf", backend_kwargs={"format": "uamiv"})
+    file_keywords = _choose_xarray_engine_and_keywords(fname)
+    dset = xr.open_mfdataset(**file_keywords)
+    if surf_only:
+        dset = dset.isel(LAY=[0])
+
+    if not surf_only:
+        if fname_met_3D is not None:
+            file_keywords = _choose_xarray_engine_and_keywords(fname_met_3D)
+            with xr.open_mfdataset(**file_keywords) as dset_met:
+                dset = add_met_data_3D(dset, dset_met)
+            if "alt_agl_m_mid" in dset.variables:
+                var_list = var_list + ["alt_agl_m_mid"]
+            if "dz_m" in dset.variables:
+                var_list = var_list + ["dz_m"]
+            if "pres_pa_mid" in dset.variables:
+                var_list = var_list + ["pres_pa_mid"]
+            if "temperature_k" in dset.variables:
+                var_list = var_list + ["temperature_k"]
+        else:
+            warnings.warn("Filename for meteorological input not provided. Adding only altitude.")
+        if (landuse_file is not None) and ("alt_agl_m_mid" in dset.variables):
+            file_keywords = _choose_xarray_engine_and_keywords(landuse_file)
+            with xr.open_dataset(**file_keywords) as dset_lu:
+                if ("topo" in dset_lu.variables) or ("TOPO_M" in dset_lu.variables):
+                    dset["alt_msl_m_mid"] = _calc_midlayer_height_msl(dset, dset_lu)
 
     # get the grid information
     grid = grid_from_dataset(dset, earth_radius=earth_radius)
@@ -50,11 +95,16 @@ def open_dataset(fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicat
     dset = dset.assign_attrs(area=area_def)
 
     # add lazy diagnostic variables
-    dset = add_lazy_pm25(dset)
-    dset = add_lazy_pm10(dset)
-    dset = add_lazy_pm_course(dset)
-    dset = add_lazy_noy(dset)
-    dset = add_lazy_nox(dset)
+    if "PM25" in var_list:
+        dset = add_lazy_pm25(dset)
+    if "PM10" in var_list:
+        dset = add_lazy_pm10(dset)
+    if "PM_COURSE" in var_list:
+        dset = add_lazy_pm_course(dset)
+    if "NOy" in var_list:
+        dset = add_lazy_noy(dset)
+    if "NOx" in var_list:
+        dset = add_lazy_nox(dset)
 
     # get the times
     dset = _get_times(dset)
@@ -68,115 +118,17 @@ def open_dataset(fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicat
     # rename dimensions
     dset = dset.rename({"COL": "x", "ROW": "y", "LAY": "z"})
 
-    return dset
+    dset = dset[var_list]
 
-
-def open_mfdataset(fname, earth_radius=6370000, convert_to_ppb=True, drop_duplicates=False):
-    """Method to open CMAQ IOAPI netcdf files.
-
-    Parameters
-    ----------
-    fname : string or list
-        fname is the path to the file or files.  It will accept hot keys in
-        strings as well.
-    earth_radius : float
-        The earth radius used for the map projection
-    convert_to_ppb : boolean
-        If true the units of the gas species will be converted to ppbV
-
-    Returns
-    -------
-    xarray.DataSet
-
-
-    """
-
-    # open the dataset using xarray
-    dset = xr.open_mfdataset(fname, engine="pseudonetcdf", backend_kwargs={"format": "uamiv"})
-
-    # get the grid information
-    grid = grid_from_dataset(dset, earth_radius=earth_radius)
-    area_def = get_ioapi_pyresample_area_def(dset, grid)
-    # assign attributes for dataset and all DataArrays
-    dset = dset.assign_attrs({"proj4_srs": grid})
-    for i in dset.variables:
-        dset[i] = dset[i].assign_attrs({"proj4_srs": grid})
-        for j in dset[i].attrs:
-            dset[i].attrs[j] = dset[i].attrs[j].strip()
-        dset[i] = dset[i].assign_attrs({"area": area_def})
-    dset = dset.assign_attrs(area=area_def)
-
-    # add lazy diagnostic variables
-    dset = add_lazy_pm25(dset)
-    dset = add_lazy_pm10(dset)
-    dset = add_lazy_pm_course(dset)
-    dset = add_lazy_noy(dset)
-    dset = add_lazy_nox(dset)
-
-    # get the times
-    dset = _get_times(dset)
-
-    # get the lat lon
-    dset = _get_latlon(dset)
-
-    # get Predefined mapping tables for observations
-    dset = _predefined_mapping_tables(dset)
-
-    # rename dimensions
-    dset = dset.rename({"COL": "x", "ROW": "y", "LAY": "z"})
-
-    return dset
-
-
-def open_files(fname, earth_radius=6370000):
-    """Short summary.
-
-    Parameters
-    ----------
-    fname : type
-        Description of parameter `fname`.
-    earth_radius : type
-        Description of parameter `earth_radius`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-    # open the dataset using xarray
-    dset = xr.open_mfdataset(fname, engine="pseudonetcdf", backend_kwargs={"format": "uamiv"})
-
-    # get the grid information
-    grid = grid_from_dataset(dset, earth_radius=earth_radius)
-    area_def = get_ioapi_pyresample_area_def(dset, grid)
-    # assign attributes for dataset and all DataArrays
-    dset = dset.assign_attrs({"proj4_srs": grid})
-    for i in dset.variables:
-        dset[i] = dset[i].assign_attrs({"proj4_srs": grid})
-        for j in dset[i].attrs:
-            dset[i].attrs[j] = dset[i].attrs[j].strip()
-        dset[i] = dset[i].assign_attrs({"area": area_def})
-    dset = dset.assign_attrs(area=area_def)
-
-    # add lazy diagnostic variables
-    dset = add_lazy_pm25(dset)
-    dset = add_lazy_pm10(dset)
-    dset = add_lazy_pm_course(dset)
-    dset = add_lazy_noy(dset)
-    dset = add_lazy_nox(dset)
-
-    # get the times
-    dset = _get_times(dset)
-
-    # get the lat lon
-    dset = _get_latlon(dset)
-
-    # get Predefined mapping tables for observations
-    dset = _predefined_mapping_tables(dset)
-
-    # rename dimensions
-    dset = dset.rename({"COL": "x", "ROW": "y", "LAY": "z"})
+    if convert_to_ppb:
+        for varname in dset.variables:
+            if "units" in dset[varname].attrs:
+                if "mol/mol" in dset[varname].attrs["units"]:
+                    dset[varname][:] *= 1e09
+                    dset[varname].attrs["units"] = "ppbv"
+                elif "ppm" in dset[varname].attrs["units"]:
+                    dset[varname][:] *= 1e03
+                    dset[varname].attrs["units"] = "ppbv"
 
     return dset
 
@@ -217,18 +169,95 @@ def _get_latlon(dset):
     return dset
 
 
+def add_met_data_3D(d_chem, d_met):
+    """Adds 3D meteorological data
+
+    Parameters
+    ----------
+    d_chem: xarray.Dataset
+        Dataset with the CAM-X output
+    d_met: xarrray.Dataset
+        Dataset with the CAM-X 3D meteorological input
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing all of the added parameters
+    """
+    if d_chem.sizes["LAY"] != d_met.sizes["LAY"]:
+        raise IndexError(
+            "Different layer number in meteorological and chemical datasets."
+            + " Maybe one of the is 2D?"
+        )
+
+    # d_met has a final TSTEP not present in d_chem
+    d_met = d_met.isel(TSTEP=slice(0, len(d_met.TSTEP) - 1))
+    if "pressure" in d_met.variables:
+        d_chem["pres_pa_mid"] = d_met["pressure"] * 100
+    elif "PRESS_MB" in d_met.variables:
+        d_chem["pres_pa_mid"] = d_met["PRESS_MB"] * 100
+    else:
+        warnings.warn("No pressure variable found. PRESS_MB and pressure were tested.")
+
+    if "press_pa_mid" in d_chem.variables:
+        d_chem["pres_pa_mid"].attrs = {
+            "units": "Pa",
+            "long_name": "pressure",
+            "var_desc": "pressure",
+        }
+    if ("z" in d_met.variables) or ("ZGRID_M" in d_met.variables):
+        d_chem["alt_agl_m_mid"], d_chem["dz_m"] = _calc_midlayer_height_agl(d_met)
+    else:
+        warnings.warn("No altitude AGL was found.")
+
+    if "temperature" in d_met.variables:
+        d_chem["temperature_k"] = d_met["temperature"]
+    elif "TEMP_K" in d_met.variables:
+        d_chem["temperature_k"] = d_met["TEMP_K"]
+    else:
+        warnings.warn("No temperature variable found. TEMP_K and temperature were tested.")
+    if "temperature_k" in d_chem.variables:
+        d_chem["temperature_k"].attrs["var_desc"] = "Temperature of layer in K."
+
+    return d_chem
+
+
+# TODO: Add the possibility of adding just 2D meteorological variables
+#       Not done right now because of missing toy data to test
+#
+# def add_met_data_2D(d_chem, d_met, surfpres_only=False):
+#     """Adds 2D meteorological data
+#
+#     Parameters
+#     ----------
+#     d_chem: xarray.Dataset
+#         Dataset with the CAM-X output.
+#     d_met: xarray.Dataset
+#         Dataset with the CAM-X 2D meteorological input.
+#     surfpres_only: boolean
+#         Whether to only return the surface pressure.
+#         Useful when the temperature is included in the 3D data.
+#
+#     Returns
+#     -------
+#     xarray.Dataset
+#         Dataset containing all of the added parameters.
+#
+#     """
+
+
 def add_lazy_pm25(d):
     """Short summary.
 
     Parameters
     ----------
-    d : type
-        Description of parameter `d`.
+    d : xarray.Dataset
+
 
     Returns
     -------
-    type
-        Description of returned object.
+    d: xarray
+        including PM2.5
 
     """
     keys = Series([i for i in d.variables])
@@ -244,8 +273,21 @@ def add_lazy_pm25(d):
 
 
 def add_lazy_pm10(d):
+    """Short summary.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+
+
+    Returns
+    -------
+    d: xarray
+        including PM10
+
+    """
     keys = Series([i for i in d.variables])
-    allvars = Series(concatenate([fine, coarse]))
+    allvars = Series(np.concatenate([fine, coarse]))
     if "PM_TOT" in keys:
         d["PM10"] = d["PM_TOT"].chunk()
     else:
@@ -260,6 +302,19 @@ def add_lazy_pm10(d):
 
 
 def add_lazy_pm_course(d):
+    """Short summary.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+
+
+    Returns
+    -------
+    d: xarray
+        including Course Mode Partilate Matter
+
+    """
     keys = Series([i for i in d.variables])
     allvars = Series(coarse)
     index = allvars.isin(keys)
@@ -273,6 +328,19 @@ def add_lazy_pm_course(d):
 
 
 def add_lazy_clf(d):
+    """Short summary.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+
+
+    Returns
+    -------
+    d: xarray
+        including CLF
+
+    """
     keys = Series([i for i in d.variables])
     allvars = Series(["ACLI", "ACLJ", "ACLK"])
     weights = Series([1, 1, 0.2])
@@ -286,6 +354,19 @@ def add_lazy_clf(d):
 
 
 def add_lazy_noy(d):
+    """Short summary.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+
+
+    Returns
+    -------
+    d: xarray
+        including NOy
+
+    """
     keys = Series([i for i in d.variables])
     allvars = Series(noy_gas)
     index = allvars.isin(keys)
@@ -297,6 +378,19 @@ def add_lazy_noy(d):
 
 
 def add_lazy_nox(d):
+    """Short summary.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+
+
+    Returns
+    -------
+    d: xarray
+        including NOx
+
+    """
     keys = Series([i for i in d.variables])
     allvars = Series(["NO", "NOX"])
     index = allvars.isin(keys)
@@ -308,6 +402,19 @@ def add_lazy_nox(d):
 
 
 def add_multiple_lazy(dset, variables, weights=None):
+    """Short summary.
+
+    Parameters
+    ----------
+    d : xarray.Dataset
+
+
+    Returns
+    -------
+    xarray.Dataset
+        including multiple variables
+
+    """
     from numpy import ones
 
     if weights is None:
@@ -316,6 +423,79 @@ def add_multiple_lazy(dset, variables, weights=None):
     for i, j in zip(variables[1:], weights[1:]):
         new = new + dset[i].chunk() * j
     return new
+
+
+def _calc_midlayer_height_agl(dset):
+    """Calculates the midlayer height
+
+    Parameters
+    ----------
+    dset : xarray.Dataset
+        Should include variables 'z' with dims [TSTEP, LAY, ROW, COL]
+        and topo with dims [ROW, COL]
+
+    Returns
+    ------
+    xarray.DataArray
+        DataArray with the midlayer height above ground level
+    """
+
+    if "z" in dset.variables:
+        height = "z"
+    elif "ZGRID_M" in dset.variables:
+        height = "ZGRID_M"
+    else:
+        raise "No height variable found, but _calc_midlayer_height_agl was called."
+    mid_layer_height = np.array(dset[height])  # height in the layer upper interface of each layer
+    layer_height_agl = dset[height]
+    layer_height_agl.attrs["long_name"] = "Height AGL at top"
+    layer_height_agl.attrs["var_desc"] = "Layer height above ground level at top"
+    mid_layer_height[:, 1:, :, :] = (
+        mid_layer_height[:, :-1, :, :] + mid_layer_height[:, 1:, :, :]
+    ) / 2
+    mid_layer_height[0, 0, :, :] = mid_layer_height[0, 0, :, :] / 2
+    alt_agl_m_mid = xr.zeros_like(dset[height])
+    alt_agl_m_mid[:, :, :, :] = mid_layer_height
+    alt_agl_m_mid.attrs["var_desc"] = "Layer height above ground level at midpoint"
+    alt_agl_m_mid.attrs["long_name"] = "Height AGL at midpoint"
+
+    dz_m = xr.zeros_like(layer_height_agl)
+    dz_m[:, 0, :, :] = layer_height_agl[:, 0, :, :].values
+    dz_m[:, 1:, :, :] = layer_height_agl[:, 1:, :, :].values - layer_height_agl[:, :-1, :, :].values
+    dz_m.attrs["long_name"] = "dz in meters"
+    dz_m.attrs["var_desc"] = "Layer thickness in meters"
+    return alt_agl_m_mid, dz_m
+
+
+def _calc_midlayer_height_msl(dset, dset_lu):
+    """Calculates the midlayer height
+
+    Parameters
+    ----------
+    dset : xarray.Dataset
+        Should include variables 'z' with dims [TSTEP, LAY, ROW, COL]
+        and topo with dims [ROW, COL]
+
+    Returns
+    ------
+    xarray.DataArray
+        DataArray with the midlayer height above sea level
+    """
+
+    nlayers = len(dset["LAY"])
+    ntsteps = len(dset["TSTEP"])
+    if "alt_agl_m_mid" in dset.keys():
+        alt_agl_m_mid = dset["alt_agl_m_mid"]
+    else:
+        alt_agl_m_mid, _ = _calc_midlayer_height_agl(dset)
+    if "topo" in dset_lu:
+        topo = "topo"
+    else:
+        topo = "TOPO_M"
+    alt_msl_m_mid = dset["alt_agl_m_mid"] + np.tile(dset[topo].values, (ntsteps, nlayers, 1, 1))
+    alt_msl_m_mid.attrs = alt_agl_m_mid.attrs
+    alt_msl_m_mid.attrs["var_desc"] = "Layer height above sea level"
+    return alt_msl_m_mid
 
 
 def _predefined_mapping_tables(dset):
@@ -428,15 +608,41 @@ def _predefined_mapping_tables(dset):
     return dset
 
 
+def _choose_xarray_engine_and_keywords(fname):
+    """Chooses xarray engine and keywords to open
+    model data
+    fname: str or list
+        List of files that need to be opened
+    """
+    netcdf_file_extensions = ("nc", "nc4", "nc3", "cdf", "cdf5", "ncf")
+    # open the dataset using xarray
+
+    if isinstance(fname, np.ndarray) or isinstance(fname, list):
+        check_extension = fname[0]
+    else:
+        check_extension = fname
+
+    if check_extension.split(".")[-1] in netcdf_file_extensions:
+        keywords = {"paths": fname, "engine": "netcdf4"}
+    else:
+        keywords = {
+            "paths": fname,
+            "engine": "pseudonetcdf",
+            "backend_kwargs": {"format": "uamiv"},
+        }
+    keywords["combine"] = "nested"
+    keywords["concat_dim"] = "TSTEP"
+    return keywords
+
+
 # Arrays for different gasses and pm groupings
-coarse = array(["CPRM", "CCRS"])
-fine = array(
+coarse = np.array(["CPRM", "CCRS"])
+fine = np.array(
     [
         "NA",
         "PSO4",
         "PNO3",
         "PNH4",
-        "PH2O",
         "PCL",
         "PEC",
         "FPRM",
@@ -447,7 +653,7 @@ fine = array(
         "SOA4",
     ]
 )
-noy_gas = array(
+noy_gas = np.array(
     [
         "NO",
         "NO2",
@@ -466,4 +672,4 @@ noy_gas = array(
         "OPAN",
     ]
 )
-poc = array(["SOA1", "SOA2", "SOA3", "SOA4"])
+poc = np.array(["SOA1", "SOA2", "SOA3", "SOA4"])
