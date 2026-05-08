@@ -623,7 +623,7 @@ def add_lazy_nox(d):
 
     """
     keys = _get_keys(d)
-    allvars = Series(["NO", "NOX"])
+    allvars = Series(["NO", "NO2"])
     index = allvars.isin(keys)
     if can_do(index):
         newkeys = allvars.loc[index]
