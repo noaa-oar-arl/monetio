@@ -81,7 +81,7 @@ def _parse_file_to_df(file_path):
     global_attrs = {
         "history": f"{dt.datetime.now()}: created from _read_pandora_files, pandora_pgn.py"
     }
-    headers = {}
+    col_descs = {}
     data_start_line = None
 
     with open(file_path, encoding="latin-1") as f:
@@ -96,15 +96,15 @@ def _parse_file_to_df(file_path):
                 attr_name, value = line_stripped.split(":", 1)
                 global_attrs[attr_name] = _parse_metadata(value)
             elif count_line_dividers == 1:  # Column descriptions
-                key, metadata = line_stripped.split(":", 1)
-                headers[key] = metadata
+                key, desc = line_stripped.split(":", 1)
+                col_descs[key] = desc
         else:
             raise ValueError("File ended before data section was reached")
 
     # Number of standard (non-optional) columns is the count of "Column N" header keys.
     # Some files have additional variable-length trailing fields per row described by
     # "From Column N" in the headers; we ignore those.
-    n_cols = sum(1 for k in headers if k.startswith("Column "))
+    n_cols = sum(1 for k in col_descs if k.startswith("Column "))
 
     df = pd.read_csv(
         file_path,
@@ -119,7 +119,7 @@ def _parse_file_to_df(file_path):
     df[0] = pd.to_datetime(df[0], format="ISO8601").dt.tz_localize(None)
     df.iloc[:, 1:] = df.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
     df.attrs["_global_attrs"] = global_attrs
-    df.attrs["_headers"] = headers
+    df.attrs["_col_descs"] = col_descs
 
     return df
 
@@ -156,7 +156,7 @@ def _df_to_ds(df):
         Dataset formatted for MELODIES-MONET.
     """
     global_attrs = df.attrs["_global_attrs"]
-    headers = df.attrs["_headers"]
+    col_descs = df.attrs["_col_descs"]
     width = len(str(len(df.columns)))
 
     ds = _rename_and_format(df).to_xarray().expand_dims("x", axis=1)
@@ -167,7 +167,7 @@ def _df_to_ds(df):
     ds.attrs = global_attrs
     standard_col_names = set()
     optional_keys = None
-    for k, desc in headers.items():
+    for k, desc in col_descs.items():
         if k.startswith("From Column"):
             optional_keys = desc
         elif k.startswith("Column "):
