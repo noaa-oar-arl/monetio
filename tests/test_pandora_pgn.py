@@ -12,46 +12,53 @@ from monetio import pandora_pgn
 
 HERE = Path(__file__).parent
 
+URL_PATHS = [
+    "BoulderCO-NCAR/Pandora204s1/L2/Pandora204s1_BoulderCO-NCAR_L2_rfuh5p1-8.txt",
+    "BoulderCO-NCAR/Pandora204s1/L2/Pandora204s1_BoulderCO-NCAR_L2_rfus5p1-8.txt",
+    "BoulderCO/Pandora57s1/L2/Pandora57s1_BoulderCO_L2_rfuh5p1-8.txt",
+    "BoulderCO/Pandora57s1/L2/Pandora57s1_BoulderCO_L2_rfus5p1-8.txt",
+]
 
-def retrieve_test_file(fn, loc_online="BoulderCO-NCAR/Pandora204s1/L2"):
+
+def retrieve_test_file(url_path):
+    fn = url_path.split("/")[-1]
     p = HERE / "data" / fn
-
     if not p.is_file():
         warnings.warn(f"Downloading test file {fn} for Pandora PGN test")
-
         import requests
 
         r = requests.get(
-            f"https://data.ovh.pandonia-global-network.org/{loc_online}/{fn}",
+            f"https://data.ovh.pandonia-global-network.org/{url_path}",
             stream=True,
         )
         r.raise_for_status()
         with open(p, "wb") as f:
             f.write(r.content)
-        print("p:", p)
     return p
 
 
 @pytest.fixture(scope="module")
-def test_file_path(tmp_path_factory, worker_id, fn):
+def pandora_test_files(tmp_path_factory, worker_id):
     if worker_id == "master":
         # Not executing with multiple workers;
         # let pytest's fixture caching do its job
-        return retrieve_test_file(fn)
+        return [retrieve_test_file(url_path) for url_path in URL_PATHS]
 
     # Get the temp directory shared by all workers
     root_tmp_dir = tmp_path_factory.getbasetemp().parent
 
     # Copy to the shared test location
-    p_test = root_tmp_dir / "tempo_l2_test.nc"
+    p_tests = []
+    for url_path in URL_PATHS:
+        fn = url_path.split("/")[-1]
+        p_test = root_tmp_dir / fn
+        with FileLock(p_test.as_posix() + ".lock"):
+            if not p_test.is_file():
+                p = retrieve_test_file(url_path)
+                shutil.copy(p, p_test)
+        p_tests.append(p_test)
 
-    with FileLock(p_test.as_posix() + ".lock"):
-        if p_test.is_file():
-            return p_test
-        else:
-            p = retrieve_test_file(fn)
-            shutil.copy(p, p_test)
-            return p_test
+    return p_tests
 
 
 def is_valid_xarray(data):
@@ -114,28 +121,19 @@ def test_merge_global_attrs():
     assert merged.attrs["mock1"] == ["mock_my_data_ds1", "mock_my_data_ds2"]
 
 
-def test_read_pandora_file():
-    fn_with_extra_cols = "Pandora204s1_BoulderCO-NCAR_L2_rfuh5p1-8.txt"
-    fn_without_extra_cols = "Pandora204s1_BoulderCO-NCAR_L2_rfus5p1-8.txt"
-    files = [fn_with_extra_cols, fn_without_extra_cols]
-    for f in files:
-        file_path = retrieve_test_file(f)
+def test_read_pandora_file(pandora_test_files):
+    # indices 0 and 1: BoulderCO-NCAR files with and without extra columns
+    for file_path in pandora_test_files[:2]:
         file = pandora_pgn._read_pandora_file(file_path)
         is_valid_xarray(file)
 
 
-def test_open_mfdataset():
-    fn_with_extracols = [
-        ["Pandora204s1_BoulderCO-NCAR_L2_rfuh5p1-8.txt", "BoulderCO-NCAR/Pandora204s1/L2"],
-        ["Pandora57s1_BoulderCO_L2_rfuh5p1-8.txt", "BoulderCO/Pandora57s1/L2"],
-    ]
-    fn_without_extracols = [
-        ["Pandora204s1_BoulderCO-NCAR_L2_rfus5p1-8.txt", "BoulderCO-NCAR/Pandora204s1/L2"],
-        ["Pandora57s1_BoulderCO_L2_rfus5p1-8.txt", "BoulderCO/Pandora57s1/L2"],
-    ]
-    file_paths = [retrieve_test_file(*fn) for fn in fn_with_extracols]
-    data_with_extracols = pandora_pgn.open_mfdataset(file_paths)
+def test_open_mfdataset(pandora_test_files):
+    # indices 0, 2: rfuh5p1-8 (extra columns) from two different sites
+    data_with_extracols = pandora_pgn.open_mfdataset([pandora_test_files[0], pandora_test_files[2]])
     is_valid_xarray(data_with_extracols)
-    file_paths = [retrieve_test_file(*fn) for fn in fn_without_extracols]
-    data_without_extracols = pandora_pgn.open_mfdataset(file_paths)
+    # indices 1, 3: rfus5p1-8 (standard columns) from two different sites
+    data_without_extracols = pandora_pgn.open_mfdataset(
+        [pandora_test_files[1], pandora_test_files[3]]
+    )
     is_valid_xarray(data_without_extracols)
