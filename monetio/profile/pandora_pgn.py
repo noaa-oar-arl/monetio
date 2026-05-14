@@ -70,46 +70,88 @@ def _rename_and_format(df):
     return df2.to_xarray().expand_dims("x", axis=1)
 
 
-def _read_pandora_file(file_path):
-    """Reads in a Pandora data file and formats it correctly as a xr.Dataset
+def _parse_file_to_df(file_path):
+    """Parse a Pandora PGN file to a DataFrame.
+
+    Only the header lines are read in Python; the data section is passed
+    directly to the pandas C parser via :func:`pandas.read_csv`.
+
+    Global metadata and column-header descriptions are stored in
+    ``df.attrs`` under ``"_global_attrs"`` and ``"_headers"`` respectively.
 
     Parameters
     ----------
-    file_path : str
-        String with the path to a single Pandora PGN text file
+    file_path : str or Path
+        Path to a single Pandora PGN text file.
+
+    Returns
+    -------
+    pd.DataFrame
+        Column 0 contains parsed datetimes; remaining columns are float.
+    """
+    count_line_dividers = 0
+    global_attrs = {
+        "history": f"{dt.datetime.now()}: created from _read_pandora_files, pandora_pgn.py"
+    }
+    headers = {}
+    data_start_line = None
+
+    with open(file_path, encoding="latin-1") as f:
+        for line_num, line in enumerate(f):
+            line_stripped = line.rstrip()
+            if line_stripped.startswith("-----------"):
+                count_line_dividers += 1
+                if count_line_dividers == 2:
+                    data_start_line = line_num + 1
+                    break
+            elif count_line_dividers == 0:
+                attr_name, value = line_stripped.split(":", 1)
+                global_attrs[attr_name] = _parse_metadata(value)
+            elif count_line_dividers == 1:
+                key, metadata = line_stripped.split(":", 1)
+                headers[key] = metadata
+        else:
+            raise ValueError("File ended before data section was reached")
+
+    # Number of standard (non-optional) columns is the count of "Column N" header keys.
+    # Some files have additional variable-length trailing fields per row described by
+    # "From Column N" in the headers; we ignore those.
+    n_cols = sum(1 for k in headers if k.startswith("Column "))
+
+    df = pd.read_csv(
+        file_path,
+        engine="c",
+        sep=" ",
+        header=None,
+        usecols=range(n_cols),
+        skiprows=data_start_line,
+        encoding="latin-1",
+    )
+
+    df[0] = pd.to_datetime(df[0], format="ISO8601").dt.tz_localize(None)
+    df.iloc[:, 1:] = df.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
+    df.attrs["_global_attrs"] = global_attrs
+    df.attrs["_headers"] = headers
+
+    return df
+
+
+def _df_to_ds(df):
+    """Convert a parsed Pandora DataFrame to an :class:`xr.Dataset`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        As returned by :func:`_parse_file_to_df`.
 
     Returns
     -------
     xr.Dataset
-        Dataset from single file formatted for MELODIES-MONET
+        Dataset formatted for MELODIES-MONET.
     """
-    count_line_dividers = 0
-    headers = {}
-    global_attrs = {
-        "history": f"{dt.datetime.now()}: created from _read_pandora_files, pandora_pgn.py"
-    }
-    data_collection = []
-    with open(file_path, encoding="latin-1") as f:
-        for line in f:
-            line_stripped = line.rstrip()
-            if line_stripped.startswith("-----------"):
-                count_line_dividers += 1
-            elif count_line_dividers == 0:
-                attr_name, value = tuple(line_stripped.split(":"))
-                value = _parse_metadata(value)
-                global_attrs[attr_name] = value
-            elif count_line_dividers == 1:
-                key, metadata = tuple(line_stripped.split(":"))
-                headers[key] = metadata
-            elif count_line_dividers == 2:
-                data_collection.append(line_stripped.split())
-    _df = pd.DataFrame(data_collection)
-    times = pd.to_datetime(_df[0], format="ISO8601").dt.tz_localize(None)
-    # errors = corece turns non valid strings into NaN
-    measurements = _df.loc[:, _df.columns != 0].apply(
-        pd.to_numeric, errors="coerce", downcast="float"
-    )
-    df = pd.concat([times, measurements], axis=1)
+    global_attrs = df.attrs["_global_attrs"]
+    headers = df.attrs["_headers"]
+
     data = _rename_and_format(df)
     data["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
     data["latitude"].attrs["units"] = "degrees_north"
@@ -130,6 +172,22 @@ def _read_pandora_file(file_path):
     data["siteid"] = (("x",), [data.attrs["Short location name"]])
     data = data.assign_coords({"longitude": data["longitude"], "latitude": data["latitude"]})
     return data
+
+
+def _read_pandora_file(file_path):
+    """Read a Pandora PGN file as an :class:`xr.Dataset`.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to a single Pandora PGN text file.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset from single file formatted for MELODIES-MONET.
+    """
+    return _df_to_ds(_parse_file_to_df(file_path))
 
 
 def _merge_global_attrs(ds1, ds2, merged):
