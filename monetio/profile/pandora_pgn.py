@@ -58,19 +58,27 @@ def _rename_and_format(df):
     return df2
 
 
-def _parse_file_to_df(file_path):
+def _parse_file_to_df(file_path, include_optional_cols=False):
     """Parse a Pandora PGN file to a DataFrame.
 
     Only the header lines are read in Python; the data section is passed
-    directly to the pandas C parser via :func:`pandas.read_csv`.
+    to :func:`pandas.read_csv`.
 
     Global metadata and column-header descriptions are stored in
-    ``df.attrs`` under ``"_global_attrs"`` and ``"_headers"`` respectively.
+    ``df.attrs`` under ``"_global_attrs"`` and ``"_col_descs"`` respectively.
 
     Parameters
     ----------
     file_path : str or Path
         Path to a single Pandora PGN text file.
+    include_optional_cols : bool, optional
+        If True, include the optional higher-layer results described by
+        ``"From Column N"`` in the file header. These are variable-length
+        trailing fields giving per-layer top height and partial column amount
+        for each retrieved profile level (stride defined in the
+        ``"From Column N"`` description). Requires the slower Python CSV
+        engine; rows with fewer layers are NaN-padded to the longest row.
+        Default False.
 
     Returns
     -------
@@ -101,20 +109,32 @@ def _parse_file_to_df(file_path):
         else:
             raise ValueError("File ended before data section was reached")
 
-    # Number of standard (non-optional) columns is the count of "Column N" header keys.
-    # Some files have additional variable-length trailing fields per row described by
-    # "From Column N" in the headers; we ignore those.
+    # Number of standard columns is the count of "Column N" header keys.
+    # Some files also have optional higher-layer results described by
+    # "From Column N", e.g. giving per-layer top height and partial column amount.
     n_cols = sum(1 for k in col_descs if k.startswith("Column "))
 
-    df = pd.read_csv(
-        file_path,
-        engine="c",
-        sep=" ",
-        header=None,
-        usecols=range(n_cols),
-        skiprows=data_start_line,
-        encoding="latin-1",
-    )
+    if include_optional_cols:
+        # Python engine handles ragged rows: shorter rows are NaN-padded to the longest.
+        df = pd.read_csv(
+            file_path,
+            engine="python",
+            sep=r"\s+",
+            header=None,
+            skiprows=data_start_line,
+            encoding="latin-1",
+        )
+    else:
+        # Faster C engine requires a consistent column count, so only read the standard columns.
+        df = pd.read_csv(
+            file_path,
+            engine="c",
+            sep=" ",
+            header=None,
+            usecols=range(n_cols),
+            skiprows=data_start_line,
+            encoding="latin-1",
+        )
 
     df[0] = pd.to_datetime(df[0], format="ISO8601").dt.tz_localize(None)
     df.iloc[:, 1:] = df.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
@@ -124,22 +144,31 @@ def _parse_file_to_df(file_path):
     return df
 
 
-def read_txt(file_path):
+def read_txt(file_path, include_optional_cols=False):
     """Parse a Pandora PGN text file to a :class:`pandas.DataFrame`.
 
     Parameters
     ----------
     file_path : str or Path
         Path to a single Pandora PGN text file.
+    include_optional_cols : bool, optional
+        If True, include the optional higher-layer results described by
+        ``"From Column N"`` in the file header. These give per-layer top
+        height and partial column amount for each retrieved profile level,
+        with the number of columns per layer defined in the
+        ``"From Column N"`` description. Requires the slower Python CSV
+        engine. Default False.
 
     Returns
     -------
     pd.DataFrame
         Columns named ``col01``, ``col02``, etc. with ``time`` as the index.
         Global metadata and column-header descriptions are in ``df.attrs``
-        under ``"_global_attrs"`` and ``"_headers"``.
+        under ``"_global_attrs"`` and ``"_col_descs"``.
     """
-    return _rename_and_format(_parse_file_to_df(file_path))
+    return _rename_and_format(
+        _parse_file_to_df(file_path, include_optional_cols=include_optional_cols)
+    )
 
 
 def _df_to_ds(df):
