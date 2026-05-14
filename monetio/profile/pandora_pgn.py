@@ -227,25 +227,25 @@ def _merge_global_attrs(ds1, ds2, merged):
         merged.attrs[k] = list([ds1.attrs.get(k, "")]) + list([ds2.attrs.get(k, "")])
 
 
-def open_mfdataset(path):
+def open_mfdataset(file_path):
     """Opens multiple Pandora PGN files and combines them to
     MELODIES-MONET compatible format.
 
     Parameters
     ----------
-    path: str
-        String containing the paths
+    file_path : str or list
+        Path(s) to Pandora PGN text file(s).
 
     Returns
     -------
     xr.Dataset
         Formatted dataset. Should work for MELODIES-MONET.
     """
-    if isinstance(path, str):
-        files = sorted(glob(path))
-    if isinstance(path, list):
+    if isinstance(file_path, str):
+        files = sorted(glob(file_path))
+    if isinstance(file_path, list):
         files = []
-        for file in path:
+        for file in file_path:
             files = files + list(glob(str(file)))
         files = sorted(files)
     ds = open_dataset(files[0])
