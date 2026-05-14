@@ -35,7 +35,7 @@ def _parse_metadata(value):
 
 
 def _rename_and_format(df):
-    """Renames each variable with a zero-padded column number and adds the x dimension.
+    """Rename columns to zero-padded names and set time as the index.
 
     Column 0 becomes the time index; remaining columns are named ``col01``,
     ``col02``, etc., with zero-padding width determined by the total column count.
@@ -47,14 +47,15 @@ def _rename_and_format(df):
 
     Returns
     -------
-    xr.Dataset
-        Dataset with the renamed data.
+    pd.DataFrame
+        Renamed dataframe with time as the index.
     """
     n = len(df.columns)
     width = len(str(n))
     rename_map = {0: "time", **{i: f"col{i:0{width}d}" for i in range(1, n)}}
     df2 = df.rename(columns=rename_map).set_index("time")
-    return df2.to_xarray().expand_dims("x", axis=1)
+    df2.attrs = df.attrs
+    return df2
 
 
 def _parse_file_to_df(file_path):
@@ -91,10 +92,10 @@ def _parse_file_to_df(file_path):
                 if count_line_dividers == 2:
                     data_start_line = line_num + 1
                     break
-            elif count_line_dividers == 0:
+            elif count_line_dividers == 0:  # File metadata
                 attr_name, value = line_stripped.split(":", 1)
                 global_attrs[attr_name] = _parse_metadata(value)
-            elif count_line_dividers == 1:
+            elif count_line_dividers == 1:  # Column descriptions
                 key, metadata = line_stripped.split(":", 1)
                 headers[key] = metadata
         else:
@@ -123,6 +124,24 @@ def _parse_file_to_df(file_path):
     return df
 
 
+def read_txt(file_path):
+    """Parse a Pandora PGN text file to a :class:`pandas.DataFrame`.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to a single Pandora PGN text file.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns named ``col01``, ``col02``, etc. with ``time`` as the index.
+        Global metadata and column-header descriptions are in ``df.attrs``
+        under ``"_global_attrs"`` and ``"_headers"``.
+    """
+    return _rename_and_format(_parse_file_to_df(file_path))
+
+
 def _df_to_ds(df):
     """Convert a parsed Pandora DataFrame to an :class:`xr.Dataset`.
 
@@ -138,14 +157,14 @@ def _df_to_ds(df):
     """
     global_attrs = df.attrs["_global_attrs"]
     headers = df.attrs["_headers"]
-
     width = len(str(len(df.columns)))
-    data = _rename_and_format(df)
-    data["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
-    data["latitude"].attrs["units"] = "degrees_north"
-    data["longitude"] = (("x",), [global_attrs["Location longitude [deg]"]])
-    data["longitude"].attrs["units"] = "degrees_east"
-    data.attrs = global_attrs
+
+    ds = _rename_and_format(df).to_xarray().expand_dims("x", axis=1)
+    ds["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
+    ds["latitude"].attrs["units"] = "degrees_north"
+    ds["longitude"] = (("x",), [global_attrs["Location longitude [deg]"]])
+    ds["longitude"].attrs["units"] = "degrees_east"
+    ds.attrs = global_attrs
     standard_col_names = set()
     optional_keys = None
     for k, desc in headers.items():
@@ -155,18 +174,18 @@ def _df_to_ds(df):
             col_num = int(k.split()[1])
             col_name = f"col{col_num:0{width}d}"
             standard_col_names.add(col_name)
-            if col_name in data:
-                data[col_name].attrs["description"] = desc
-    non_shared_keys = list(set(data.keys()) - standard_col_names - {"latitude", "longitude"})
+            if col_name in ds:
+                ds[col_name].attrs["description"] = desc
+    non_shared_keys = list(set(ds.keys()) - standard_col_names - {"latitude", "longitude"})
     if non_shared_keys and optional_keys is not None:
         for k in non_shared_keys:
-            data[k].attrs["description"] = optional_keys
-    data["siteid"] = (("x",), [data.attrs["Short location name"]])
-    data = data.assign_coords({"longitude": data["longitude"], "latitude": data["latitude"]})
-    return data
+            ds[k].attrs["description"] = optional_keys
+    ds["siteid"] = (("x",), [ds.attrs["Short location name"]])
+    ds = ds.assign_coords({"longitude": ds["longitude"], "latitude": ds["latitude"]})
+    return ds
 
 
-def _read_pandora_file(file_path):
+def open_dataset(file_path):
     """Read a Pandora PGN file as an :class:`xr.Dataset`.
 
     Parameters
@@ -225,10 +244,10 @@ def open_mfdataset(path):
         for file in path:
             files = files + list(glob(str(file)))
         files = sorted(files)
-    ds = _read_pandora_file(files[0])
+    ds = open_dataset(files[0])
     if len(files) > 1:
         for f in files[1:]:
-            ds2 = _read_pandora_file(f)
+            ds2 = open_dataset(f)
             if ds.attrs["Data file version"] != ds2.attrs["Data file version"]:
                 raise Exception("Different data file versions, cannot concatenate")
             if ds.attrs["Short location name"] != ds2.attrs["Short location name"]:

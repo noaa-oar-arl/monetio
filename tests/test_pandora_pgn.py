@@ -96,14 +96,13 @@ def test_parse_metadata():
 def test_rename_and_format():
     df = pd.DataFrame(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     renamed = pandora_pgn._rename_and_format(df)
-    assert isinstance(renamed, xr.Dataset)
-    assert set(renamed.dims) == {"time", "x"}
-    assert "time" in renamed
+    assert isinstance(renamed, pd.DataFrame)
+    assert renamed.index.name == "time"
     # Column 1 becomes the time index; remaining columns use zero-padded names.
     # With 3 columns, width=1, so names are col1, col2.
-    assert "Column 1" not in renamed
-    assert "col1" in renamed
-    assert "col2" in renamed
+    assert "Column 1" not in renamed.columns
+    assert "col1" in renamed.columns
+    assert "col2" in renamed.columns
 
 
 def test_merge_global_attrs():
@@ -122,10 +121,10 @@ def test_merge_global_attrs():
     assert merged.attrs["mock1"] == ["mock_my_data_ds1", "mock_my_data_ds2"]
 
 
-def test_read_pandora_file(pandora_test_files):
+def test_open_dataset(pandora_test_files):
     # indices 0 and 1: BoulderCO-NCAR files with and without extra columns
     for file_path in pandora_test_files[:2]:
-        file = pandora_pgn._read_pandora_file(file_path)
+        file = pandora_pgn.open_dataset(file_path)
         is_valid_xarray(file)
 
 
