@@ -79,7 +79,7 @@ def _parse_file_to_df(file_path):
     """
     count_line_dividers = 0
     global_attrs = {
-        "history": f"{dt.datetime.now()}: created from _read_pandora_files, pandora_pgn.py"
+        "history": f"{dt.datetime.now(dt.timezone.utc).isoformat()}: created from monetio pandora_pgn.py"
     }
     col_descs = {}
     data_start_line = None
@@ -198,7 +198,11 @@ def open_dataset(file_path):
     xr.Dataset
         Dataset from single file formatted for MELODIES-MONET.
     """
-    return _df_to_ds(_parse_file_to_df(file_path))
+    ds = _df_to_ds(_parse_file_to_df(file_path))
+    ds.attrs["history"] = (
+        f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_dataset from monetio pandora_pgn.py"
+    )
+    return ds
 
 
 def _merge_global_attrs(ds1, ds2, merged):
@@ -255,7 +259,8 @@ def open_mfdataset(path):
             else:
                 ds = xr.concat([ds, ds2], dim="time")
             _merge_global_attrs(ds, ds2, ds)
-        ds.attrs["history"] = [
-            f"{dt.datetime.now()}: open_mfdataset from pandora_pgn.py "
-        ] + ds.attrs["history"]
+        ds.attrs["history"] = (
+            f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_mfdataset from monetio pandora_pgn.py"
+            f"\n{ds.attrs['history']}"
+        )
     return ds
