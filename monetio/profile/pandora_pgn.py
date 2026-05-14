@@ -34,39 +34,26 @@ def _parse_metadata(value):
         return value.lstrip().rstrip()
 
 
-def _name_columns(index_number):
-    """Creates the names for columns.
-
-    Parameters
-    ----------
-    index_number : int
-        Number originally from the df index
-
-    Returns
-    -------
-    str
-        str as Column {index_number + 1}
-    """
-    return f"Column {index_number + 1}"
-
-
 def _rename_and_format(df):
-    """Renames each variable with the column number, following the convention of PGN files.
-    It formats the data as an xarray.Dataset and adds the x dimension
+    """Renames each variable with a zero-padded column number and adds the x dimension.
+
+    Column 0 becomes the time index; remaining columns are named ``col01``,
+    ``col02``, etc., with zero-padding width determined by the total column count.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Dataframe with columns to rename
+        Dataframe with integer column labels (0, 1, 2, ...).
 
     Returns
     -------
     xr.Dataset
-        Dataset with the renamed data
+        Dataset with the renamed data.
     """
-    df2 = df.rename(_name_columns, axis="columns")
-    df2 = df2.rename(columns={"Column 1": "time"})
-    df2 = df2.set_index("time")
+    n = len(df.columns)
+    width = len(str(n))
+    rename_map = {0: "time", **{i: f"col{i:0{width}d}" for i in range(1, n)}}
+    df2 = df.rename(columns=rename_map).set_index("time")
     return df2.to_xarray().expand_dims("x", axis=1)
 
 
@@ -152,21 +139,26 @@ def _df_to_ds(df):
     global_attrs = df.attrs["_global_attrs"]
     headers = df.attrs["_headers"]
 
+    width = len(str(len(df.columns)))
     data = _rename_and_format(df)
     data["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
     data["latitude"].attrs["units"] = "degrees_north"
     data["longitude"] = (("x",), [global_attrs["Location longitude [deg]"]])
     data["longitude"].attrs["units"] = "degrees_east"
     data.attrs = global_attrs
-    for k in headers:
-        if k in data:
-            data[k].attrs["description"] = headers[k]
-        elif k.startswith("From Column"):
-            optional_keys = headers[k]
-    non_shared_keys = list(set(data.keys()) - set(headers.keys()))
-    non_shared_keys.remove("latitude")
-    non_shared_keys.remove("longitude")
-    if len(non_shared_keys) > 0:
+    standard_col_names = set()
+    optional_keys = None
+    for k, desc in headers.items():
+        if k.startswith("From Column"):
+            optional_keys = desc
+        elif k.startswith("Column "):
+            col_num = int(k.split()[1])
+            col_name = f"col{col_num:0{width}d}"
+            standard_col_names.add(col_name)
+            if col_name in data:
+                data[col_name].attrs["description"] = desc
+    non_shared_keys = list(set(data.keys()) - standard_col_names - {"latitude", "longitude"})
+    if non_shared_keys and optional_keys is not None:
         for k in non_shared_keys:
             data[k].attrs["description"] = optional_keys
     data["siteid"] = (("x",), [data.attrs["Short location name"]])

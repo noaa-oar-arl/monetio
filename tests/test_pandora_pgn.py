@@ -99,10 +99,11 @@ def test_rename_and_format():
     assert isinstance(renamed, xr.Dataset)
     assert set(renamed.dims) == {"time", "x"}
     assert "time" in renamed
-    # Column 1 should have been renamed to time
+    # Column 1 becomes the time index; remaining columns use zero-padded names.
+    # With 3 columns, width=1, so names are col1, col2.
     assert "Column 1" not in renamed
-    assert "Column 2" in renamed
-    assert "Column 3" in renamed
+    assert "col1" in renamed
+    assert "col2" in renamed
 
 
 def test_merge_global_attrs():
