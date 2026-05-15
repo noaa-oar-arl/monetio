@@ -182,7 +182,7 @@ def _df_to_ds(df):
     Returns
     -------
     xr.Dataset
-        Dataset formatted for MELODIES-MONET.
+        Dataset formatted for MELODIES MONET.
     """
     global_attrs = df.attrs["_global_attrs"]
     col_descs = df.attrs["_col_descs"]
@@ -246,7 +246,7 @@ def open_dataset(file_path):
     Returns
     -------
     xr.Dataset
-        Dataset from single file formatted for MELODIES-MONET.
+        Dataset from single file formatted for MELODIES MONET.
     """
     ds = _df_to_ds(_parse_file_to_df(file_path))
     ds.attrs["history"] = (
@@ -279,7 +279,7 @@ def _merge_global_attrs(ds1, ds2, merged):
 
 def open_mfdataset(file_path):
     """Opens multiple Pandora PGN files and combines them to
-    MELODIES-MONET compatible format.
+    MELODIES MONET compatible format.
 
     Parameters
     ----------
@@ -289,7 +289,7 @@ def open_mfdataset(file_path):
     Returns
     -------
     xr.Dataset
-        Formatted dataset. Should work for MELODIES-MONET.
+        Formatted dataset. Should work for MELODIES MONET.
     """
     if isinstance(file_path, str):
         files = sorted(glob(file_path))
