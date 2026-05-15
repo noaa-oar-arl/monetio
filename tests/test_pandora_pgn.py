@@ -61,22 +61,22 @@ def pandora_test_files(tmp_path_factory, worker_id):
     return p_tests
 
 
-def is_valid_xarray(data):
-    assert isinstance(data, xr.Dataset)
-    assert {"latitude", "longitude", "time"}.issubset(set(data.coords))
-    assert np.all((-90 <= data["latitude"]) & (data["latitude"] <= 90))
-    assert np.all((-180 <= data["longitude"]) & (data["longitude"] <= 180))
-    assert np.issubdtype(data["time"].dtype, np.datetime64)
-    assert set(data.dims) == {"time", "x"}
-    assert data["siteid"].dims == ("x",)
+def is_valid_xarray(ds):
+    assert isinstance(ds, xr.Dataset)
+    assert {"latitude", "longitude", "time"}.issubset(set(ds.coords))
+    assert np.all((-90 <= ds["latitude"]) & (ds["latitude"] <= 90))
+    assert np.all((-180 <= ds["longitude"]) & (ds["longitude"] <= 180))
+    assert np.issubdtype(ds["time"].dtype, np.datetime64)
+    assert set(ds.dims) <= {"time", "x", "z"}
+    assert ds["siteid"].dims == ("x",)
 
     # Assert dimensions over every variable except for siteid
-    data_vars_col = list(data.data_vars)
+    data_vars_col = list(ds.data_vars)
     data_vars_col.remove("siteid")
-
     for v in data_vars_col:
-        assert data[v].dims == ("time", "x")
-        assert np.issubdtype(data[v].dtype, np.number)
+        assert ds[v].dims == ("time", "x") or ds[v].dims == ("time", "x", "z")
+        assert np.issubdtype(ds[v].dtype, np.number)
+        assert ds[v].attrs.keys() == {"description"}
 
 
 def test_parse_metadata():
@@ -127,10 +127,31 @@ def test_open_dataset(pandora_test_files, tmp_path):
     for file_path in pandora_test_files[:2]:
         ds = pandora_pgn.open_dataset(file_path)
         is_valid_xarray(ds)
+        assert set(ds.dims) == {"time", "x"}
+
+        # Test saving to nc (and roundtrip)
         p = tmp_path / file_path.name
         ds.to_netcdf(p)
         ds2 = xr.open_dataset(p)
         xr.testing.assert_identical(ds, ds2)
+
+
+def test_open_dataset_profiles(pandora_test_files):
+    patt = "rfuh"
+    n = 0
+    for file_path in pandora_test_files:
+        if patt in file_path.name:
+            ds = pandora_pgn.open_dataset(file_path, layers=True)
+            is_valid_xarray(ds)
+            assert set(ds.dims) == {"time", "x", "z"}
+            layer_vars = [k for k in ds.data_vars if ds[k].dims == ("time", "x", "z")]
+            assert len(layer_vars) > 0
+            for v in layer_vars:
+                desc = ds[v].attrs["description"]
+                assert "layer" in desc and "layer 1" not in desc, "generalized"
+            n += 1
+    if n == 0:
+        raise AssertionError(f"Expected at least one {patt} file")
 
 
 def test_open_mfdataset(pandora_test_files):

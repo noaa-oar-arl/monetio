@@ -1,6 +1,8 @@
 import datetime as dt
+import re
 from glob import glob
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 
@@ -76,8 +78,8 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
         ``"From Column N"`` in the file header. These are variable-length
         trailing fields giving per-layer top height and partial column amount
         for each retrieved profile level (stride defined in the
-        ``"From Column N"`` description). Requires the slower Python CSV
-        engine; rows with fewer layers are NaN-padded to the longest row.
+        ``"From Column N"`` description). Uses a high-memory line-by-line read
+        so that ragged rows (varying layer counts) are NaN-padded correctly.
         Default False.
 
     Returns
@@ -115,15 +117,17 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
     n_cols = sum(1 for k in col_descs if k.startswith("Column "))
 
     if include_optional_cols:
-        # Python engine handles ragged rows: shorter rows are NaN-padded to the longest.
-        df = pd.read_csv(
-            file_path,
-            engine="python",
-            sep=r"\s+",
-            header=None,
-            skiprows=data_start_line,
-            encoding="latin-1",
-        )
+        # Read lines manually so ragged rows (varying layer counts) are handled:
+        # pd.DataFrame from a list of lists NaN-pads shorter rows automatically.
+        rows = []
+        with open(file_path, encoding="latin-1") as f:
+            for i, line in enumerate(f):
+                if i >= data_start_line:
+                    rows.append(line.split())
+        raw = pd.DataFrame(rows)
+        time = pd.to_datetime(raw[0], format="ISO8601").dt.tz_localize(None)
+        numeric = raw.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
+        df = pd.concat([time, numeric], axis=1)
     else:
         # Faster C engine requires a consistent column count, so only read the standard columns.
         df = pd.read_csv(
@@ -135,9 +139,9 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
             skiprows=data_start_line,
             encoding="latin-1",
         )
+        df[0] = pd.to_datetime(df[0], format="ISO8601").dt.tz_localize(None)
+        # Note C engine auto-detects numeric types
 
-    df[0] = pd.to_datetime(df[0], format="ISO8601").dt.tz_localize(None)
-    df.iloc[:, 1:] = df.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
     df.attrs["_global_attrs"] = global_attrs
     df.attrs["_col_descs"] = col_descs
 
@@ -235,20 +239,96 @@ def _df_to_ds(df):
     return ds
 
 
-def open_dataset(file_path):
+def _add_layer_data(ds, df_extra, col_descs):
+    """Promote layer columns to ``(time, x, z)`` variables spanning all layers.
+
+    Layer 1 data is already loaded in ``ds`` as ``(time, x)`` variables.
+    This function replaces those variables with ``(time, x, z)`` ones where
+    ``z=0`` is layer 1 and ``z=1, 2, ...`` are the optional higher layers from
+    ``df_extra``.  Variable names and descriptions follow the file header
+    (e.g. ``col53``, ``col54`` for the HCHO 2-column-per-layer product).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset built from the standard columns by :func:`_df_to_ds`.
+    df_extra : pd.DataFrame
+        Trailing optional columns beyond the standard ``n_cols``
+        (positional indexing, i.e. the result of ``df_full.iloc[:, n_cols:]``).
+    col_descs : dict
+        Column description mapping from ``df.attrs["_col_descs"]``.
+
+    Returns
+    -------
+    xr.Dataset
+        ``ds`` with the layer-1 ``(time, x)`` variables replaced by
+        ``(time, x, z)`` variables covering all retrieved layers.
+    """
+    from_col_key = next((k for k in col_descs if k.startswith("From Column")), None)
+    if from_col_key is None or df_extra.shape[1] == 0:
+        return ds
+
+    from_col_num = int(from_col_key.split()[2])  # "From Column 55" → 55
+    m = re.search(r"(\d+) columns? per layer", col_descs[from_col_key])
+    if m is None:
+        return ds
+    stride = int(m.group(1))
+
+    n_cols = sum(1 for k in col_descs if k.startswith("Column "))
+    width = len(str(n_cols))
+
+    # Layer 1 occupies the `stride` standard columns immediately before "From Column N"
+    layer1_col_nums = range(from_col_num - stride, from_col_num)  # e.g. [53, 54]
+    max_extra_layers = df_extra.shape[1] // stride  # number of optional (layer 2+) layers
+
+    for pos, col_num in enumerate(layer1_col_nums):
+        col_name = f"col{col_num:0{width}d}"
+
+        # Layer 1: already in ds as (time, x)
+        layer1 = ds[col_name].values  # (time, x=1)
+
+        # Layers 2+: every `stride`-th column starting at position `pos`
+        extra_indices = list(range(pos, max_extra_layers * stride, stride))
+        extra = df_extra.iloc[:, extra_indices].to_numpy()  # (time, max_extra_layers)
+
+        # Concatenate along the new z axis: (time, x=1, total_layers)
+        all_layers = np.concatenate([layer1[:, :, np.newaxis], extra[:, np.newaxis, :]], axis=2)
+
+        desc = re.sub(r" layer 1\b", " layer", col_descs.get(f"Column {col_num}", ""))
+        ds[col_name] = (("time", "x", "z"), all_layers, {"description": desc})
+
+    return ds
+
+
+def open_dataset(file_path, layers=False):
     """Read a Pandora PGN file as an :class:`xr.Dataset`.
 
     Parameters
     ----------
     file_path : str or Path
         Path to a single Pandora PGN text file.
+    layers : bool, optional
+        If True, also parse the optional higher-layer results (profile data)
+        and include them as ``layer_col1``, ``layer_col2``, ... variables
+        with a ``z`` (layer) dimension. Requires the slower Python CSV engine.
+        Default False.
 
     Returns
     -------
     xr.Dataset
         Dataset from single file formatted for MELODIES MONET.
+        If ``layers=True``, includes a ``z`` dimension for profile levels.
     """
-    ds = _df_to_ds(_parse_file_to_df(file_path))
+    if layers:
+        df_full = _parse_file_to_df(file_path, include_optional_cols=True)
+        col_descs = df_full.attrs["_col_descs"]
+        n_cols = sum(1 for k in col_descs if k.startswith("Column "))
+        df_std = df_full.iloc[:, :n_cols].copy()
+        df_std.attrs = df_full.attrs.copy()
+        ds = _df_to_ds(df_std)
+        ds = _add_layer_data(ds, df_full.iloc[:, n_cols:], col_descs)
+    else:
+        ds = _df_to_ds(_parse_file_to_df(file_path))
     ds.attrs["history"] = (
         f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_dataset from monetio pandora_pgn.py"
     )
