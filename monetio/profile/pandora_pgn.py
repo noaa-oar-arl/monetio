@@ -29,7 +29,7 @@ def _parse_metadata(value):
     except ValueError:
         pass
     try:
-        return pd.to_datetime(value, format="ISO8601").to_datetime64()
+        return pd.to_datetime(value, format="ISO8601")
     except ValueError:
         return value.lstrip().rstrip()
 
@@ -52,7 +52,7 @@ def _rename_and_format(df):
     """
     n = len(df.columns)
     width = len(str(n))
-    rename_map = {0: "time", **{i: f"col{i:0{width}d}" for i in range(1, n)}}
+    rename_map = {0: "time", **{i: f"col{i+1:0{width}d}" for i in range(1, n)}}
     df2 = df.rename(columns=rename_map).set_index("time")
     df2.attrs = df.attrs
     return df2
@@ -189,10 +189,21 @@ def _df_to_ds(df):
     width = len(str(len(df.columns)))
 
     ds = _rename_and_format(df).to_xarray().expand_dims("x", axis=1)
-    ds["latitude"] = (("x",), [global_attrs["Location latitude [deg]"]])
-    ds["latitude"].attrs["units"] = "degrees_north"
-    ds["longitude"] = (("x",), [global_attrs["Location longitude [deg]"]])
-    ds["longitude"].attrs["units"] = "degrees_east"
+    ds["latitude"] = (
+        ("x",),
+        [global_attrs["Location latitude [deg]"]],
+        {"long_name": "latitude", "units": "degrees_north"},
+    )
+    ds["longitude"] = (
+        ("x",),
+        [global_attrs["Location longitude [deg]"]],
+        {"long_name": "longitude", "units": "degrees_east"},
+    )
+    ds["altitude"] = (
+        ("x",),
+        [float(global_attrs["Location altitude [m]"])],
+        {"long_name": "altitude", "units": "m"},
+    )
     ds.attrs = global_attrs
     standard_col_names = set()
     optional_keys = None
@@ -205,12 +216,22 @@ def _df_to_ds(df):
             standard_col_names.add(col_name)
             if col_name in ds:
                 ds[col_name].attrs["description"] = desc
-    non_shared_keys = list(set(ds.keys()) - standard_col_names - {"latitude", "longitude"})
+    non_shared_keys = list(
+        set(ds.keys()) - standard_col_names - {"latitude", "longitude", "altitude"}
+    )
     if non_shared_keys and optional_keys is not None:
         for k in non_shared_keys:
             ds[k].attrs["description"] = optional_keys
-    ds["siteid"] = (("x",), [ds.attrs["Short location name"]])
-    ds = ds.assign_coords({"longitude": ds["longitude"], "latitude": ds["latitude"]})
+    ds["siteid"] = (
+        ("x",),
+        [ds.attrs["Short location name"]],
+        {"long_name": "site ID"},
+    )
+    ds = ds.set_coords(["latitude", "longitude", "altitude"])
+    for k, v in ds.attrs.items():
+        # Convert to string so we can save as nc
+        if isinstance(v, pd.Timestamp):
+            ds.attrs[k] = v.isoformat()
     return ds
 
 
