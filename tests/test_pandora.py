@@ -211,4 +211,4 @@ def test_get_location_files_empty():
 
 def test_get_location_files_invalid_prod():
     with pytest.raises(RuntimeError, match="Got HTTP error 422"):
-        _ = pandora.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod="asdf")
+        _ = pandora.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), prod="asdf")
