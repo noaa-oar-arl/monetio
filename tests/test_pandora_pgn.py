@@ -95,6 +95,7 @@ def test_parse_metadata():
 
 def test_rename_and_format():
     df = pd.DataFrame(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    df.attrs["_col_descs"] = {"Column 1": "time", "Column 2": "fizz", "Column 3": "buzz"}
     renamed = pandora_pgn._rename_and_format(df)
     assert isinstance(renamed, pd.DataFrame)
     assert renamed.index.name == "time"
