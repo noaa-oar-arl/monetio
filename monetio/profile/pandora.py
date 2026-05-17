@@ -563,7 +563,7 @@ def open_dataset(file_path, *, layers=False):
 
 def _merge_global_attrs(ds1, ds2, merged):
     """Merges global attributes of two datasets as a list and adds
-    them to the merged dataset inplace
+    them to the merged dataset in place.
 
     Parameters
     ----------
@@ -572,15 +572,30 @@ def _merge_global_attrs(ds1, ds2, merged):
     ds2 : xr.Dataset
         Second dataset
     merged : xr.Dataset
-        merged Dataset, the global attributes will be assigned as
-        lists of ds1.attrs + ds2.attrs
+        Merged dataset.
+        The global attributes will be lists, incorporating the *values* from both *ds1* and *ds2*,
+        for attr keys in *merged*.
 
     Returns
     -------
     None
     """
+    # Note that this method assumes all datasets have the same set of global attrs,
+    # but this _should_ be the case (though maybe some variation with BlickP software version).
+    # It won't work as expected for non-scalar global attrs,
+    # but in a given single file, all attr values _should_ be scalars.
     for k in merged.attrs:
-        merged.attrs[k] = list([ds1.attrs.get(k, "")]) + list([ds2.attrs.get(k, "")])
+        v1 = ds1.attrs.get(k, "")
+        if isinstance(v1, list):
+            lst = v1[:]
+        else:
+            lst = [v1]
+        v2 = ds2.attrs.get(k, "")
+        if isinstance(v2, list):
+            lst.extend(v2)
+        else:
+            lst.append(v2)
+        merged.attrs[k] = lst
 
 
 def open_mfdataset(file_path, *, layers=False):
