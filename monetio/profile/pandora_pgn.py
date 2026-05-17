@@ -30,7 +30,7 @@ def get_locations():
     return pd.DataFrame(r.json())
 
 
-def get_location_files(location, dates, *, level="L2", code=None):
+def get_location_files(location, dates, *, level="L2", prod=None):
     """Return available PGN file metadata for a location and date range.
 
     Traverses the four-level API hierarchy:
@@ -47,8 +47,9 @@ def get_location_files(location, dates, *, level="L2", code=None):
     level : str, optional
         Data level. One of ``"L0"``, ``"L1"``, ``"L2Fit"``, ``"L2"``,
         ``"L2Geoms"``. Default ``"L2"``.
-    code : str, optional
-        Product code filter (e.g. ``"rnvs3"``). Default: no filter.
+    prod : str, optional
+        Product code filter (e.g. ``"rnvs3"``).
+        Default: no filter (all products returned).
 
     Returns
     -------
@@ -90,8 +91,8 @@ def get_location_files(location, dates, *, level="L2", code=None):
 
             # Step 4: files for the requested processing level and date range
             params = {"start": start, "end": end}
-            if code is not None:
-                params["code"] = code
+            if prod is not None:
+                params["code"] = prod
             r = requests.get(
                 f"{_BASE_URL}/files/{location}/{pan_id}/{spectrometer}/{level}",
                 params=params,
@@ -108,6 +109,11 @@ def get_location_files(location, dates, *, level="L2", code=None):
                     stacklevel=2,
                 )
                 continue
+            elif r.status_code == 422 and r.json().get("detail") is not None:  # unprocessable
+                # API returns 422 for invalid query, e.g. unexpected product code
+                # Most likely a user error, but not necessarily
+                msg = r.json()["detail"]
+                raise RuntimeError(f"Got HTTP error 422 (unprocessable): {msg}")
             r.raise_for_status()
             for file_info in r.json():
                 rows.append(
@@ -121,6 +127,63 @@ def get_location_files(location, dates, *, level="L2", code=None):
                 )
 
     return pd.DataFrame(rows)
+
+
+def download(dates, *, location=None, prod="rfuh5"):
+    """Download PGN files for a location and date range.
+
+    You can also use the data access portal to find and download the data you want:
+    https://downloader.pandonia-global-network.org/
+
+    Parameters
+    ----------
+    dates : datetime-like or array-like of datetime-like
+        One date or an array; min and max are used as the inclusive time bounds
+        (``start`` / ``end``) passed to the API.
+    location : str or list of str, optional
+        Location short name as returned by :func:`get_locations`,
+        e.g. ``"Innsbruck"``.
+        Default: all locations.
+    prod : str or list of str, optional
+        Product code filter (e.g. ``"rnvs3"``). Default: ``"rfuh5"``.
+
+    Returns
+    -------
+    list of Path
+        Paths to the downloaded files.
+    """
+    from itertools import product
+
+    import requests
+
+    if location is None:
+        locations = get_locations().name
+    elif isinstance(location, str):
+        locations = [location]
+    else:  # assume iterable of strings
+        locations = location
+
+    if isinstance(prod, str):
+        prods = [prod]
+    else:  # assume iterable of strings
+        prods = prod
+
+    paths = []
+    for location, prod in product(locations, prods):
+        files_df = get_location_files(location, dates, prod=prod)
+        for row in files_df.itertuples():
+            fn = row.filename
+            url = f"{_BASE_URL}/download/{fn}"
+            print(f"Downloading {fn}... ", end="", flush=True)
+            r = requests.get(url, headers=_HEADERS, stream=True)
+            r.raise_for_status()
+            with open(fn, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("done")
+            paths.append(fn)
+
+    return paths
 
 
 def _parse_metadata(value):

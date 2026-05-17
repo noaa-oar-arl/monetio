@@ -179,7 +179,7 @@ def test_get_locations():
 
 
 def test_get_location_files():
-    df = pandora_pgn.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), code=None)
+    df = pandora_pgn.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), prod=None)
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert "filename" in df.columns
@@ -191,6 +191,11 @@ def test_get_location_files():
 
 def test_get_location_files_empty():
     with pytest.warns(UserWarning, match="No files found for BoulderCO"):
-        df = pandora_pgn.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), code=None)
+        df = pandora_pgn.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod=None)
     assert isinstance(df, pd.DataFrame)
     assert df.empty
+
+
+def test_get_location_files_invalid_prod():
+    with pytest.raises(RuntimeError, match="Got HTTP error 422"):
+        _ = pandora_pgn.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod="asdf")
