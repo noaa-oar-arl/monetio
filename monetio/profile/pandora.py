@@ -240,8 +240,9 @@ def _parse_metadata(value):
 def _rename_and_format(df):
     """Rename columns to zero-padded names and set time as the index.
 
-    Column 0 becomes the time index; remaining columns are named ``col01``,
-    ``col02``, etc., with zero-padding width determined by the standard column
+    DataFrame column 0 ("Column 1" in the text file header) becomes the time index.
+    Remaining standard columns are named ``col02``, ``col03``, etc.,
+    with zero-padding width determined by the standard column
     count from *col_descs*.
 
     If the DataFrame has more columns than the standard count (i.e. optional
@@ -312,7 +313,7 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
     Returns
     -------
     pd.DataFrame
-        Column 0 contains parsed datetimes; remaining columns are float.
+        Column 0 contains parsed datetimes; remaining columns are numeric.
     """
     count_line_dividers = 0
     global_attrs = {
@@ -399,7 +400,7 @@ def read_txt(file_path, include_optional_cols=False):
     Returns
     -------
     pd.DataFrame
-        Columns named ``col01``, ``col02``, etc. with ``time`` as the index.
+        Columns named ``col02``, ``col03``, etc. with ``time`` as the index.
         Global metadata and column-header descriptions are in ``df.attrs``
         under ``"_global_attrs"`` and ``"_col_descs"``.
     """
