@@ -167,9 +167,11 @@ def test_open_mfdataset(pandora_test_files):
     files = [pandora_test_files[0], pandora_test_files[2]]
     ds_std = pandora.open_mfdataset(files)
     assert_is_valid_xarray(ds_std)
+    assert ds_std.attrs["history"].count("open_mfdataset") == 1
 
     ds_lay = pandora.open_mfdataset(files, layers=True)
     assert_is_valid_xarray(ds_lay)
+    assert ds_lay.attrs["history"].count("open_mfdataset") == 1
     assert ds_lay.sizes["z"] > 1, "multiple layers"
     assert ds_std.data_vars.keys() == ds_lay.data_vars.keys(), "same variables"
 
@@ -177,6 +179,12 @@ def test_open_mfdataset(pandora_test_files):
     files = [pandora_test_files[1], pandora_test_files[3]]
     ds_std = pandora.open_mfdataset(files)
     assert_is_valid_xarray(ds_std)
+    assert ds_std.attrs["history"].count("open_mfdataset") == 1
+
+
+def test_open_mfdataset_no_files():
+    with pytest.raises(ValueError, match=r"No files found from input asdf\*\.txt"):
+        _ = pandora.open_mfdataset("asdf*.txt")
 
 
 def test_get_locations():

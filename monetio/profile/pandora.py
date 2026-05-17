@@ -581,6 +581,7 @@ def open_mfdataset(file_path, *, layers=False):
     ----------
     file_path : str or list
         Path(s) to Pandora BlickP text file(s).
+        Glob string(s) will be expanded.
     layers : bool, optional
         Passed to :func:`open_dataset`. If True, include optional higher-layer
         results as ``(time, x, z)`` variables. Default False.
@@ -597,6 +598,8 @@ def open_mfdataset(file_path, *, layers=False):
         for file in file_path:
             files = files + list(glob(str(file)))
         files = sorted(files)
+    if not files:
+        raise ValueError(f"No files found from input {file_path}")
     ds = open_dataset(files[0], layers=layers)
     if len(files) > 1:
         for f in files[1:]:
