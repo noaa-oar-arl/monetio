@@ -163,7 +163,7 @@ def download(dates, *, location=None, prod="rfuh5"):
 
     Returns
     -------
-    list of Path
+    list of str
         Paths to the downloaded files.
     """
     from itertools import product
@@ -593,7 +593,7 @@ def open_mfdataset(file_path, *, layers=False):
     """
     if isinstance(file_path, str):
         files = sorted(glob(file_path))
-    if isinstance(file_path, list):
+    elif isinstance(file_path, list):
         files = []
         for file in file_path:
             files = files + list(glob(str(file)))
