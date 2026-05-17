@@ -124,9 +124,16 @@ def test_merge_global_attrs():
         data_vars={"temp": (("x",), temp2)},
         attrs={"mock1": "mock_my_data_ds2", "mock2": "mock_again_ds2", "only_2": "only_ds2"},
     )
+    ds3 = xr.Dataset(
+        data_vars={"temp": (("x",), temp2)},
+        attrs={"mock1": "mock_my_data_ds3", "mock2": "mock_again_ds3", "only_3": "only_ds3"},
+    )
     merged = xr.concat([ds1, ds2], dim="x")
     pandora._merge_global_attrs(ds1, ds2, merged)
     assert merged.attrs["mock1"] == ["mock_my_data_ds1", "mock_my_data_ds2"]
+    merged = xr.concat([merged, ds3], dim="x")
+    pandora._merge_global_attrs(merged, ds3, merged)
+    assert merged.attrs["mock1"] == ["mock_my_data_ds1", "mock_my_data_ds2", "mock_my_data_ds3"]
 
 
 def test_open_dataset(pandora_test_files, tmp_path):
