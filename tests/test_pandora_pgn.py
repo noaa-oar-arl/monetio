@@ -61,7 +61,7 @@ def pandora_test_files(tmp_path_factory, worker_id):
     return p_tests
 
 
-def is_valid_xarray(ds):
+def assert_is_valid_xarray(ds):
     assert isinstance(ds, xr.Dataset)
     assert {"latitude", "longitude", "time"}.issubset(set(ds.coords))
     assert np.all((-90 <= ds["latitude"]) & (ds["latitude"] <= 90))
@@ -127,7 +127,7 @@ def test_open_dataset(pandora_test_files, tmp_path):
     # indices 0 and 1: BoulderCO-NCAR files with and without extra columns
     for file_path in pandora_test_files[:2]:
         ds = pandora_pgn.open_dataset(file_path)
-        is_valid_xarray(ds)
+        assert_is_valid_xarray(ds)
         assert set(ds.dims) == {"time", "x"}
 
         # Test saving to nc (and roundtrip)
@@ -143,8 +143,9 @@ def test_open_dataset_profiles(pandora_test_files):
     for file_path in pandora_test_files:
         if patt in file_path.name:
             ds = pandora_pgn.open_dataset(file_path, layers=True)
-            is_valid_xarray(ds)
+            assert_is_valid_xarray(ds)
             assert set(ds.dims) == {"time", "x", "z"}
+            assert ds.sizes["z"] > 1, "multiple layers"
             layer_vars = [k for k in ds.data_vars if ds[k].dims == ("time", "x", "z")]
             assert len(layer_vars) > 0
             for v in layer_vars:
@@ -157,13 +158,19 @@ def test_open_dataset_profiles(pandora_test_files):
 
 def test_open_mfdataset(pandora_test_files):
     # indices 0, 2: rfuh5p1-8 (extra columns) from two different sites
-    data_with_extracols = pandora_pgn.open_mfdataset([pandora_test_files[0], pandora_test_files[2]])
-    is_valid_xarray(data_with_extracols)
+    files = [pandora_test_files[0], pandora_test_files[2]]
+    ds_std = pandora_pgn.open_mfdataset(files)
+    assert_is_valid_xarray(ds_std)
+
+    ds_lay = pandora_pgn.open_mfdataset(files, layers=True)
+    assert_is_valid_xarray(ds_lay)
+    assert ds_lay.sizes["z"] > 1, "multiple layers"
+    assert ds_std.data_vars.keys() == ds_lay.data_vars.keys(), "same variables"
+
     # indices 1, 3: rfus5p1-8 (standard columns) from two different sites
-    data_without_extracols = pandora_pgn.open_mfdataset(
-        [pandora_test_files[1], pandora_test_files[3]]
-    )
-    is_valid_xarray(data_without_extracols)
+    files = [pandora_test_files[1], pandora_test_files[3]]
+    ds_std = pandora_pgn.open_mfdataset(files)
+    assert_is_valid_xarray(ds_std)
 
 
 def test_get_locations():

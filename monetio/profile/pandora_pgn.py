@@ -590,8 +590,8 @@ def open_mfdataset(file_path, *, layers=False):
             if ds.attrs["Data file version"] != ds2.attrs["Data file version"]:
                 raise ValueError("Different data products and/or versions, cannot concatenate")
             if ds.attrs["Short location name"] != ds2.attrs["Short location name"]:
-                ds = xr.concat([ds, ds2], dim="x")
-            else:
+                ds = xr.concat([ds, ds2], dim="x", join="outer")
+            else:  # assume same location but different times
                 ds = xr.concat([ds, ds2], dim="time")
             _merge_global_attrs(ds, ds2, ds)
         ds.attrs["history"] = (
