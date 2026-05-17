@@ -25,6 +25,7 @@ _BASE_URL = "https://api.pandonia-global-network.org/v1"
 
 
 _HEADERS = {"User-Agent": "monetio"}
+TIMEOUT = 10  # seconds
 
 
 def get_locations():
@@ -38,7 +39,7 @@ def get_locations():
     """
     import requests
 
-    r = requests.get(f"{_BASE_URL}/files/locations", headers=_HEADERS)
+    r = requests.get(f"{_BASE_URL}/files/locations", headers=_HEADERS, timeout=TIMEOUT)
     r.raise_for_status()
 
     return pd.DataFrame(r.json())
@@ -82,21 +83,27 @@ def get_location_files(location, dates, *, level="L2", prod=None):
     end = dates.max().isoformat()
 
     # Step 1: instruments at the location
-    r = requests.get(f"{_BASE_URL}/files/{location}", headers=_HEADERS)
+    r = requests.get(f"{_BASE_URL}/files/{location}", headers=_HEADERS, timeout=TIMEOUT)
     r.raise_for_status()
     instruments = [d["pan_id"] for d in r.json()]
 
     rows = []
     for pan_id in instruments:
         # Step 2: spectrometers for this instrument
-        r = requests.get(f"{_BASE_URL}/files/{location}/{pan_id}", headers=_HEADERS)
+        r = requests.get(
+            f"{_BASE_URL}/files/{location}/{pan_id}",
+            headers=_HEADERS,
+            timeout=TIMEOUT,
+        )
         r.raise_for_status()
         spectrometers = [str(d["spectrometer"]) for d in r.json()]
 
         for spectrometer in spectrometers:
             # Step 3: check which processing levels are available for this spectrometer
             r = requests.get(
-                f"{_BASE_URL}/files/{location}/{pan_id}/{spectrometer}", headers=_HEADERS
+                f"{_BASE_URL}/files/{location}/{pan_id}/{spectrometer}",
+                headers=_HEADERS,
+                timeout=TIMEOUT,
             )
             r.raise_for_status()
             available_levels = [d["level"] for d in r.json()]
@@ -111,6 +118,7 @@ def get_location_files(location, dates, *, level="L2", prod=None):
                 f"{_BASE_URL}/files/{location}/{pan_id}/{spectrometer}/{level}",
                 params=params,
                 headers=_HEADERS,
+                timeout=TIMEOUT,
             )
             if (
                 r.status_code == 404
@@ -189,7 +197,7 @@ def download(dates, *, location=None, prod="rfuh5"):
             fn = row.filename
             url = f"{_BASE_URL}/download/{fn}"
             print(f"Downloading {fn}... ", end="", flush=True)
-            r = requests.get(url, headers=_HEADERS, stream=True)
+            r = requests.get(url, headers=_HEADERS, stream=True, timeout=TIMEOUT)
             r.raise_for_status()
             with open(fn, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
