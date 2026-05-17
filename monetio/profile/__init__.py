@@ -1,5 +1,5 @@
-from . import geoms, gml_ozonesonde, icartt, pandora_pgn, tolnet
+from . import geoms, gml_ozonesonde, icartt, pandora, tolnet
 
-__all__ = ["tolnet", "icartt", "geoms", "gml_ozonesonde", "pandora_pgn"]
+__all__ = ["tolnet", "icartt", "geoms", "gml_ozonesonde", "pandora"]
 
 __name__ = "profile"

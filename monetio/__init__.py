@@ -26,7 +26,7 @@ from .obs import (
     openaq_v3,
     pams,
 )
-from .profile import geoms, gml_ozonesonde, icartt, pandora_pgn, tolnet
+from .profile import geoms, gml_ozonesonde, icartt, pandora, tolnet
 from .sat import goes
 
 __version__ = "0.3.2"
@@ -62,7 +62,7 @@ __all__ = [
     "geoms",
     "gml_ozonesonde",
     "icartt",
-    "pandora_pgn",
+    "pandora",
     "tolnet",
     #
     # satellite obs

@@ -308,7 +308,7 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
     """
     count_line_dividers = 0
     global_attrs = {
-        "history": f"{dt.datetime.now(dt.timezone.utc).isoformat()}: created from monetio pandora_pgn.py"
+        "history": f"{dt.datetime.now(dt.timezone.utc).isoformat()}: created from monetio pandora.py"
     }
     col_descs = {}
     data_start_line = None
@@ -546,7 +546,7 @@ def open_dataset(file_path, *, layers=False):
     """
     ds = _df_to_ds(_parse_file_to_df(file_path, include_optional_cols=layers))
     ds.attrs["history"] = (
-        f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_dataset from monetio pandora_pgn.py"
+        f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_dataset from monetio pandora.py"
     )
     return ds
 
@@ -609,7 +609,7 @@ def open_mfdataset(file_path, *, layers=False):
                 ds = xr.concat([ds, ds2], dim="time")
             _merge_global_attrs(ds, ds2, ds)
         ds.attrs["history"] = (
-            f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_mfdataset from monetio pandora_pgn.py"
+            f"{dt.datetime.now(dt.timezone.utc).isoformat()}: open_mfdataset from monetio pandora.py"
             f"\n{ds.attrs['history']}"
         )
     return ds

@@ -8,7 +8,7 @@ import pytest
 import xarray as xr
 from filelock import FileLock
 
-from monetio import pandora_pgn
+from monetio import pandora
 
 HERE = Path(__file__).parent
 
@@ -80,23 +80,23 @@ def assert_is_valid_xarray(ds):
 
 
 def test_parse_metadata():
-    assert isinstance(pandora_pgn._parse_metadata("1"), int)
-    assert isinstance(pandora_pgn._parse_metadata("1."), float)
-    assert isinstance(pandora_pgn._parse_metadata("1.1"), float)
-    assert isinstance(pandora_pgn._parse_metadata("Mock string"), str)
-    assert pandora_pgn._parse_metadata(" Mock") == "Mock"
-    assert pandora_pgn._parse_metadata("string ") == "string"
-    assert pandora_pgn._parse_metadata(" Mock string ") == "Mock string"
-    assert pandora_pgn._parse_metadata("") == ""
-    assert pandora_pgn._parse_metadata(" ") == ""
-    assert pandora_pgn._parse_metadata("     ") == ""
-    assert isinstance(pandora_pgn._parse_metadata("2019-01-23T00:01:03"), pd.Timestamp)
+    assert isinstance(pandora._parse_metadata("1"), int)
+    assert isinstance(pandora._parse_metadata("1."), float)
+    assert isinstance(pandora._parse_metadata("1.1"), float)
+    assert isinstance(pandora._parse_metadata("Mock string"), str)
+    assert pandora._parse_metadata(" Mock") == "Mock"
+    assert pandora._parse_metadata("string ") == "string"
+    assert pandora._parse_metadata(" Mock string ") == "Mock string"
+    assert pandora._parse_metadata("") == ""
+    assert pandora._parse_metadata(" ") == ""
+    assert pandora._parse_metadata("     ") == ""
+    assert isinstance(pandora._parse_metadata("2019-01-23T00:01:03"), pd.Timestamp)
 
 
 def test_rename_and_format():
     df = pd.DataFrame(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     df.attrs["_col_descs"] = {"Column 1": "time", "Column 2": "fizz", "Column 3": "buzz"}
-    renamed = pandora_pgn._rename_and_format(df)
+    renamed = pandora._rename_and_format(df)
     assert isinstance(renamed, pd.DataFrame)
     assert renamed.index.name == "time"
     # "Column 1" becomes the time index; remaining columns use zero-padded names,
@@ -119,14 +119,14 @@ def test_merge_global_attrs():
         attrs={"mock1": "mock_my_data_ds2", "mock2": "mock_again_ds2", "only_2": "only_ds2"},
     )
     merged = xr.concat([ds1, ds2], dim="x")
-    pandora_pgn._merge_global_attrs(ds1, ds2, merged)
+    pandora._merge_global_attrs(ds1, ds2, merged)
     assert merged.attrs["mock1"] == ["mock_my_data_ds1", "mock_my_data_ds2"]
 
 
 def test_open_dataset(pandora_test_files, tmp_path):
     # indices 0 and 1: BoulderCO-NCAR files with and without extra columns
     for file_path in pandora_test_files[:2]:
-        ds = pandora_pgn.open_dataset(file_path)
+        ds = pandora.open_dataset(file_path)
         assert_is_valid_xarray(ds)
         assert set(ds.dims) == {"time", "x"}
 
@@ -142,7 +142,7 @@ def test_open_dataset_profiles(pandora_test_files):
     n = 0
     for file_path in pandora_test_files:
         if patt in file_path.name:
-            ds = pandora_pgn.open_dataset(file_path, layers=True)
+            ds = pandora.open_dataset(file_path, layers=True)
             assert_is_valid_xarray(ds)
             assert set(ds.dims) == {"time", "x", "z"}
             assert ds.sizes["z"] > 1, "multiple layers"
@@ -159,22 +159,22 @@ def test_open_dataset_profiles(pandora_test_files):
 def test_open_mfdataset(pandora_test_files):
     # indices 0, 2: rfuh5p1-8 (extra columns) from two different sites
     files = [pandora_test_files[0], pandora_test_files[2]]
-    ds_std = pandora_pgn.open_mfdataset(files)
+    ds_std = pandora.open_mfdataset(files)
     assert_is_valid_xarray(ds_std)
 
-    ds_lay = pandora_pgn.open_mfdataset(files, layers=True)
+    ds_lay = pandora.open_mfdataset(files, layers=True)
     assert_is_valid_xarray(ds_lay)
     assert ds_lay.sizes["z"] > 1, "multiple layers"
     assert ds_std.data_vars.keys() == ds_lay.data_vars.keys(), "same variables"
 
     # indices 1, 3: rfus5p1-8 (standard columns) from two different sites
     files = [pandora_test_files[1], pandora_test_files[3]]
-    ds_std = pandora_pgn.open_mfdataset(files)
+    ds_std = pandora.open_mfdataset(files)
     assert_is_valid_xarray(ds_std)
 
 
 def test_get_locations():
-    df = pandora_pgn.get_locations()
+    df = pandora.get_locations()
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert {"name", "long_name", "lat", "lon", "alt", "aliases"}.issubset(df.columns)
@@ -186,7 +186,7 @@ def test_get_locations():
 
 
 def test_get_location_files():
-    df = pandora_pgn.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), prod=None)
+    df = pandora.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), prod=None)
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert "filename" in df.columns
@@ -198,11 +198,11 @@ def test_get_location_files():
 
 def test_get_location_files_empty():
     with pytest.warns(UserWarning, match="No files found for BoulderCO"):
-        df = pandora_pgn.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod=None)
+        df = pandora.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod=None)
     assert isinstance(df, pd.DataFrame)
     assert df.empty
 
 
 def test_get_location_files_invalid_prod():
     with pytest.raises(RuntimeError, match="Got HTTP error 422"):
-        _ = pandora_pgn.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod="asdf")
+        _ = pandora.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), prod="asdf")
