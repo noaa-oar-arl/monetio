@@ -1,3 +1,17 @@
+"""
+Read Pandora BlickP-format text files.
+
+The BlickP file format is produced by Pandora instruments.
+Data may be obtained
+through the PGN (Pandonia Global Network) data portal (https://downloader.pandonia-global-network.org/),
+or the data tree (https://data.hetzner.pandonia-global-network.org/),
+or directly from instrument PIs, etc.
+
+This module also includes some functions that use the PGN web API
+(https://api.pandonia-global-network.org/docs)
+to help discover available files.
+"""
+
 import datetime as dt
 import re
 import warnings
@@ -266,10 +280,10 @@ def _rename_and_format(df):
 
 
 def _parse_file_to_df(file_path, include_optional_cols=False):
-    """Parse a Pandora PGN file to a DataFrame.
+    """Parse a Pandora BlickP file to a DataFrame.
 
     Only the header lines are read in Python; the data section is passed
-    to :func:`pandas.read_csv`.
+    to :func:`pd.read_csv`.
 
     Global metadata and column-header descriptions are stored in
     ``df.attrs`` under ``"_global_attrs"`` and ``"_col_descs"`` respectively.
@@ -277,7 +291,7 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
     Parameters
     ----------
     file_path : str or Path
-        Path to a single Pandora PGN text file.
+        Path to a single Pandora BlickP text file.
     include_optional_cols : bool, optional
         If True, include the optional higher-layer results described by
         ``"From Column N"`` in the file header. These are variable-length
@@ -359,12 +373,12 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
 
 
 def read_txt(file_path, include_optional_cols=False):
-    """Parse a Pandora PGN text file to a :class:`pandas.DataFrame`.
+    """Open a Pandora BlickP text file as a :class:`pd.DataFrame`.
 
     Parameters
     ----------
     file_path : str or Path
-        Path to a single Pandora PGN text file.
+        Path to a single Pandora BlickP text file.
     include_optional_cols : bool, optional
         If True, include the optional higher-layer results described by
         ``"From Column N"`` in the file header. These give per-layer top
@@ -511,12 +525,12 @@ def _maybe_add_layer_dim(ds):
 
 
 def open_dataset(file_path, *, layers=False):
-    """Read a Pandora PGN file as an :class:`xr.Dataset`.
+    """Open a Pandora BlickP file as an :class:`xr.Dataset`.
 
     Parameters
     ----------
     file_path : str or Path
-        Path to a single Pandora PGN text file.
+        Path to a single Pandora BlickP text file.
     layers : bool, optional
         If True, also parse the optional higher-layer results (profile data).
         Layer variables are merged into ``(time, x, z)`` arrays where ``z=0``
@@ -560,13 +574,13 @@ def _merge_global_attrs(ds1, ds2, merged):
 
 
 def open_mfdataset(file_path, *, layers=False):
-    """Opens multiple Pandora PGN files and combines them to
+    """Open multiple Pandora BlickP files and combine them to
     MELODIES MONET compatible format.
 
     Parameters
     ----------
     file_path : str or list
-        Path(s) to Pandora PGN text file(s).
+        Path(s) to Pandora BlickP text file(s).
     layers : bool, optional
         Passed to :func:`open_dataset`. If True, include optional higher-layer
         results as ``(time, x, z)`` variables. Default False.
