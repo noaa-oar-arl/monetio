@@ -9,6 +9,12 @@ import xarray as xr
 from filelock import FileLock
 
 from monetio import pandora
+from monetio.util import _get_pandas_version
+
+PD_GTE_2 = _get_pandas_version() >= (2, 0)
+
+if not PD_GTE_2:
+    pytest.skip("needs pandas 2+", allow_module_level=True)
 
 HERE = Path(__file__).parent
 
