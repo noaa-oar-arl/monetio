@@ -57,8 +57,9 @@ def open_mfdataset(
             raise ValueError
     except ValueError:
         print(
-            """File format not recognized. Note that files should be in netcdf
-                format. Do not mix and match file types."""
+            "File format not recognized. "
+            "Note that files should be in netcdf format. "
+            "Do not mix and match file types."
         )
 
     #############################

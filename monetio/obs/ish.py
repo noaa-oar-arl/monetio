@@ -17,7 +17,7 @@ def add_data(
     state=None,
     site=None,
     resample=True,
-    window="H",
+    window="h",
     download=False,
     n_procs=1,
     request_timeout=10,
@@ -38,7 +38,7 @@ def add_data(
         If false, return data at original resolution, which may be sub-hourly.
         Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
     window
-        Resampling window, e.g. ``'3H'``.
+        Resampling window, e.g. ``'3h'``.
     n_procs : int
         For Dask.
     request_timeout : float
@@ -193,7 +193,7 @@ class ISH:
     def _decode_bytes(df):
         if df.empty:
             return df
-        bytes_cols = [col for col in df.columns if type(df[col][0]) is bytes]
+        bytes_cols = [col for col in df.columns if type(df[col].iloc[0]) is bytes]
         with pd.option_context("mode.chained_assignment", None):
             df.loc[:, bytes_cols] = df[bytes_cols].apply(
                 lambda x: x.str.decode("utf-8"),
@@ -293,8 +293,10 @@ class ISH:
             self.history = self.history.loc[index1, :]
         self.history = self.history.dropna(subset=["lat", "lon"])
 
-        self.history.loc[:, "usaf"] = self.history.usaf.astype("str").str.zfill(6)
-        self.history.loc[:, "wban"] = self.history.wban.astype("str").str.zfill(5)
+        self.history = self.history.assign(
+            usaf=self.history.usaf.astype("str").str.zfill(6),
+            wban=self.history.wban.astype("str").str.zfill(5),
+        )
         self.history["station_id"] = self.history.usaf + self.history.wban
         self.history.rename(columns={"lat": "latitude", "lon": "longitude"}, inplace=True)
 
@@ -317,7 +319,7 @@ class ISH:
         state=None,
         site=None,
         resample=True,
-        window="H",
+        window="h",
         download=False,
         n_procs=1,
         request_timeout=10,
@@ -338,7 +340,7 @@ class ISH:
             If false, return data at original resolution, which may be sub-hourly.
             Use ``resample=False`` if you want to obtain the full set of columns, including quality flags.
         window
-            Resampling window, e.g. ``'3H'``.
+            Resampling window, e.g. ``'3h'``.
         n_procs : int
             For Dask.
         request_timeout : float
@@ -420,13 +422,12 @@ class ISH:
                 self.df[group_cols + list(numeric_cols)]
                 .groupby("station_id")
                 .resample(window)
-                .mean()
+                .mean(numeric_only=True)
                 .reset_index()
             )
             # Merge back with non-numeric columns (e.g., time, station_id) if needed
             # For now, assign to self.df
             self.df = resampled
-            # TODO: mean(numeric_only=True)
 
         self.df = self.df.merge(dfloc, on="station_id", how="left")
         self.df = self.df.rename(columns={"station_id": "siteid", "ctry": "country"})

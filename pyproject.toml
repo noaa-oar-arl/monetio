@@ -16,7 +16,7 @@ name = "monetio"
 dynamic = ["version"]
 description = "The Model and Observation Evaluation Toolkit (MONET) I/O package"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9,<4"
 license = {text = "MIT"}
 authors = [
     {name = "Barry D. Baker", email = "barry.baker@noaa.gov"},
@@ -26,40 +26,43 @@ maintainers = [
 ]
 urls = {"Homepage" = "https://github.com/noaa-oar-arl/monetio"}
 dependencies = [
+    "cftime",
     "dask",
+    "fsspec",
     "netCDF4",
+    "numpy",
     "pandas",
-    "s3fs",
-    "scipy",
-    "xarray",
     "requests",
-    "h5netcdf",
-    "h5py",
-    "lxml",
-    "pyhdf!=0.11.3",
-    "timezonefinder",
-    "pyarrow"
+    "s3fs",
+    "xarray",
 ]
 
 [tool.setuptools.dynamic]
 version = {attr = "monetio.__version__"}
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-cov",
-    "pytest-print",
-    "pytest-xdist",
+complete = [
     "filelock",
-    "black",
-    "isort"
+    "h5netcdf",
+    "h5py",
+    "joblib",
+    "lxml",
+    "pyhdf !=0.11.3",
+    "pyresample",
+    "pytz",
+    "scipy",
+    "timezonefinder",
 ]
-
 test = [
     "pytest",
     "pytest-cov",
     "pytest-xdist",
     "filelock"
+]
+dev = [
+    "monetio[test]",
+    "black",
+    "isort"
 ]
 
 
@@ -86,4 +89,7 @@ filterwarnings = [
     "ignore:The default dtype for empty Series will be 'object' instead of 'float64' in a future version. Specify a dtype explicitly to silence this warning.:FutureWarning::",
     "ignore:np.find_common_type is deprecated.:DeprecationWarning::",
     "ignore:The current Dask DataFrame implementation is deprecated.:DeprecationWarning::",
+]
+markers = [
+    "web: marks tests that require web access to run",
 ]

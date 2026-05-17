@@ -14,12 +14,26 @@ env:
 
 jobs:
   test:
-    name: Test (Py ${{ matrix.python-version }})
+    name: Test (Py ${{ matrix.python-version }}, pd ${{ matrix.pandas-version }})
     runs-on: ubuntu-latest
     if: github.repository == 'noaa-oar-arl/monetio'
+    env:
+      AERONET_TEST_FILE: tests/test_aeronet.py
+      OPENAQ_WEB_API_TEST_FILES: tests/test_openaq_v2.py tests/test_openaq_v3.py
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        include:
+          - python-version: "3.9"
+            pandas-version: "1"
+          - python-version: "3.11"
+            pandas-version: "1"
+          - python-version: "3.11"
+            pandas-version: "2"
+          - python-version: "3.13"
+            pandas-version: "2"
+          - python-version: "3.13"
+            pandas-version: "3"
+      fail-fast: false
     defaults:
       run:
         shell: bash -l {0}
@@ -28,20 +42,49 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Python (micromamba)
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: environment-dev.yml
           cache-environment: true
           create-args: >-
             python=${{ matrix.python-version }}
+            pandas=${{ matrix.pandas-version }}
 
-      - name: Test with pytest
-        run: pytest -n auto --dist loadgroup -v -ra -W "ignore:Downloading test file:UserWarning::"
+      - name: Install the package (editable)
+        run: pip install -e . --no-deps -vv
 
-      - name: Test with pytspack installed
+      - name: Set test flags
         run: |
-          pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
-          pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
+          if [[ "${{ matrix.python-version }}" == "3.11" && "${{ matrix.pandas-version }}" == "2" ]]; then
+            echo "AERONET_IGNORE=" >> $GITHUB_ENV
+            echo "OPENAQ_IGNORE=" >> $GITHUB_ENV
+          else
+            echo "AERONET_IGNORE=--ignore=${AERONET_TEST_FILE}" >> $GITHUB_ENV
+            OPENAQ_IGNORE_ARGS=""
+            for f in $OPENAQ_WEB_API_TEST_FILES; do
+              OPENAQ_IGNORE_ARGS="$OPENAQ_IGNORE_ARGS --ignore=$f"
+            done
+            echo "OPENAQ_IGNORE=${OPENAQ_IGNORE_ARGS}" >> $GITHUB_ENV
+          fi
+
+      - name: Test with pytest (main run)
+        run: >-
+          pytest -n auto --dist loadgroup -v -ra $AERONET_IGNORE $OPENAQ_IGNORE
+          -W "ignore:Downloading test file:UserWarning::"
+          -W "ignore:API key length is 0:UserWarning::"
+
+      - name: Test AERONET non-web
+        run: |
+          if [[ -n "$AERONET_IGNORE" ]]; then
+            pytest -m "not web" -n auto --dist loadgroup -v -ra "$AERONET_TEST_FILE"
+          fi
+
+      - name: Test with pytspack
+        run: |
+          if [[ -z "$AERONET_IGNORE" ]]; then
+            pip install https://github.com/noaa-oar-arl/pytspack/archive/master.zip
+            pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
+          fi
 
   docs:
     name: Check docs build
@@ -55,10 +98,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Python (micromamba)
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: docs/environment-docs.yml
           cache-environment: true
+
+      - name: Install the package (editable)
+        run: pip install -e . --no-deps -vv
 
       - name: linkcheck
         run: sphinx-build -b linkcheck docs docs/_build/linkcheck

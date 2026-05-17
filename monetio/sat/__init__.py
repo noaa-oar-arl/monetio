@@ -10,6 +10,7 @@ from . import (
     omps_l3,
     omps_nadir,
     tempo_l2,
+    tropomi_l2,
     tropomi_l2_no2,
 )
 
@@ -20,6 +21,7 @@ __all__ = [
     "omps_l3",
     "omps_nadir",
     "tempo_l2",
+    "tropomi_l2",
     "tropomi_l2_no2",
     "goes",
     "modis_ornl",

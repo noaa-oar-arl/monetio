@@ -41,7 +41,7 @@ Now we need to set the dates. We want hourly data so lets set the hourly flag
 
 .. code::   python
 
-    dates = pd.date_range(start='2018-05-01', end='2018-05-05', freq='H')
+    dates = pd.date_range(start='2018-05-01', end='2018-05-05', freq='h')
 
 Now a simple one stop command to return the pandas :py:class:`~pandas.DataFrame`
 of the aggregated data on the given dates.  MONET reads the hourly data from AirNow.
@@ -111,7 +111,7 @@ We will first load a single variable and then add multiple later on.
 .. code::  python
 
   #first determine the dates
-  dates = pd.date_range(start='2018-01-01', end='2018-12-31', freq='H')
+  dates = pd.date_range(start='2018-01-01', end='2018-12-31', freq='h')
   # load the data
   df = aqs.add_data(dates, param=['OZONE'])
 
@@ -166,7 +166,7 @@ As of writing this tutorial we will load the 2017 data as it is complete.
 
 .. code::   python
 
-    dates = pd.date_range(start='2017-01-01', end='2018-01-01', freq='H')
+    dates = pd.date_range(start='2017-01-01', end='2018-01-01', freq='h')
     df = aqs.add_data(dates,param=['SPEC'], network='CSN', daily=True )
 
 Available Networks
@@ -237,7 +237,7 @@ First we need to create a datetime array
 
 .. code::   python
 
-  dates = pd.date_range(start='2017-09-25',end='2017-09-26',freq='H')
+  dates = pd.date_range(start='2017-09-25',end='2017-09-26',freq='h')
 
 Now lets assume that we want to read the Aerosol Optical Depth Level 1.5 data that is
 cloud-screened and quality controlled.
