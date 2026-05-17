@@ -164,3 +164,33 @@ def test_open_mfdataset(pandora_test_files):
         [pandora_test_files[1], pandora_test_files[3]]
     )
     is_valid_xarray(data_without_extracols)
+
+
+def test_get_locations():
+    df = pandora_pgn.get_locations()
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty
+    assert {"name", "long_name", "lat", "lon", "alt", "aliases"}.issubset(df.columns)
+    assert df["lat"].between(-90, 90, inclusive="both").all()
+    assert df["lon"].between(-180, 180, inclusive="left").all()
+    assert df["name"].str.len().gt(0).all()
+    assert "BoulderCO" in df["name"].values
+    assert "BoulderCO-NCAR" in df["name"].values
+
+
+def test_get_location_files():
+    df = pandora_pgn.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), code=None)
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty
+    assert "filename" in df.columns
+    assert df["filename"].str.len().gt(0).all()
+    assert (df["location"] == "BoulderCO").all()
+    assert df["pan_id"].notna().all()
+    assert df["spectrometer"].isin(["1", "2"]).all()
+
+
+def test_get_location_files_empty():
+    with pytest.warns(UserWarning, match="No files found for BoulderCO"):
+        df = pandora_pgn.get_location_files("BoulderCO", ("1900-01-01", "1900-01-31"), code=None)
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty

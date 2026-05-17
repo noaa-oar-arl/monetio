@@ -7,6 +7,121 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+_BASE_URL = "https://api.pandonia-global-network.org/v1"
+
+
+_HEADERS = {"User-Agent": "monetio"}
+
+
+def get_locations():
+    """Return all available PGN locations from the web API.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per location with columns
+        ``name``, ``long_name``, ``lat``, ``lon``, ``alt``, and ``aliases``.
+    """
+    import requests
+
+    r = requests.get(f"{_BASE_URL}/files/locations", headers=_HEADERS)
+    r.raise_for_status()
+
+    return pd.DataFrame(r.json())
+
+
+def get_location_files(location, dates, *, level="L2", code=None):
+    """Return available PGN file metadata for a location and date range.
+
+    Traverses the four-level API hierarchy:
+    location → instruments (pan_id) → spectrometers → files.
+
+    Parameters
+    ----------
+    location : str
+        Location short name as returned by :func:`get_locations`,
+        e.g. ``"Innsbruck"``.
+    dates : datetime-like or array-like of datetime-like
+        One date or an array; min and max are used as the inclusive time bounds
+        (``start`` / ``end``) passed to the API.
+    level : str, optional
+        Data level. One of ``"L0"``, ``"L1"``, ``"L2Fit"``, ``"L2"``,
+        ``"L2Geoms"``. Default ``"L2"``.
+    code : str, optional
+        Product code filter (e.g. ``"rnvs3"``). Default: no filter.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per file. Columns include ``filename``, ``size``,
+        ``created_time``, ``modified_time``, ``metadata_date``,
+        ``metadata_code``, ``pan_id``, ``spectrometer``, ``location``, and ``level``.
+        Empty DataFrame if no files are found.
+    """
+    import requests
+
+    dates = pd.to_datetime(dates)
+    if pd.api.types.is_scalar(dates):
+        dates = pd.DatetimeIndex([dates])
+    start = dates.min().isoformat()
+    end = dates.max().isoformat()
+
+    # Step 1: instruments at the location
+    r = requests.get(f"{_BASE_URL}/files/{location}", headers=_HEADERS)
+    r.raise_for_status()
+    instruments = [d["pan_id"] for d in r.json()]
+
+    rows = []
+    for pan_id in instruments:
+        # Step 2: spectrometers for this instrument
+        r = requests.get(f"{_BASE_URL}/files/{location}/{pan_id}", headers=_HEADERS)
+        r.raise_for_status()
+        spectrometers = [str(d["spectrometer"]) for d in r.json()]
+
+        for spectrometer in spectrometers:
+            # Step 3: check which processing levels are available for this spectrometer
+            r = requests.get(
+                f"{_BASE_URL}/files/{location}/{pan_id}/{spectrometer}", headers=_HEADERS
+            )
+            r.raise_for_status()
+            available_levels = [d["level"] for d in r.json()]
+            if level not in available_levels:
+                continue
+
+            # Step 4: files for the requested processing level and date range
+            params = {"start": start, "end": end}
+            if code is not None:
+                params["code"] = code
+            r = requests.get(
+                f"{_BASE_URL}/files/{location}/{pan_id}/{spectrometer}/{level}",
+                params=params,
+                headers=_HEADERS,
+            )
+            if (
+                r.status_code == 404
+                and r.json().get("detail") == "No files found for the specified parameters"
+            ):
+                # API returns 404 instead of empty dataset when no files match
+                warnings.warn(
+                    f"No files found for {location}/{pan_id}/{spectrometer}/{level} "
+                    f"in the specified date range ({start} to {end}).",
+                    stacklevel=2,
+                )
+                continue
+            r.raise_for_status()
+            for file_info in r.json():
+                rows.append(
+                    {
+                        **file_info,
+                        "location": location,
+                        "pan_id": pan_id,
+                        "spectrometer": spectrometer,
+                        "level": level,
+                    }
+                )
+
+    return pd.DataFrame(rows)
+
 
 def _parse_metadata(value):
     """Parse metadata to possible values.
