@@ -59,11 +59,6 @@ def _rename_and_format(df):
     pd.DataFrame
         Renamed dataframe with time as the index.
     """
-    if "_col_descs" not in df.attrs:
-        raise ValueError(
-            "col_descs not provided and df.attrs does not contain '_col_descs'. "
-            "Pass a DataFrame returned by _parse_file_to_df(), or supply col_descs explicitly."
-        )
     col_descs = df.attrs["_col_descs"]
     n = len(df.columns)
     n_std = sum(k.startswith("Column ") for k in col_descs)
@@ -247,23 +242,21 @@ def _df_to_ds(df):
         {"long_name": "altitude", "units": "m"},
     )
     ds.attrs = global_attrs
-    standard_col_names = set()
-    optional_keys = None
+    std_cols = set()
+    optional_desc = None
     for k, desc in col_descs.items():
         if k.startswith("From Column"):
-            optional_keys = desc
+            optional_desc = desc
         elif k.startswith("Column "):
             col_num = int(k.split()[1])
             col_name = f"col{col_num:0{width}d}"
-            standard_col_names.add(col_name)
+            std_cols.add(col_name)
             if col_name in ds:
                 ds[col_name].attrs["description"] = desc
-    non_shared_keys = list(
-        set(ds.keys()) - standard_col_names - {"latitude", "longitude", "altitude"}
-    )
-    if non_shared_keys and optional_keys is not None:
-        for k in non_shared_keys:
-            ds[k].attrs["description"] = optional_keys
+    lay_cols = sorted(set(ds.keys()) - std_cols - {"latitude", "longitude", "altitude"})
+    if lay_cols and optional_desc is not None:
+        for k in lay_cols:
+            ds[k].attrs["description"] = optional_desc
 
     ds = _maybe_add_layer_dim(ds)
 
@@ -417,7 +410,7 @@ def open_mfdataset(file_path, *, layers=False):
         for f in files[1:]:
             ds2 = open_dataset(f, layers=layers)
             if ds.attrs["Data file version"] != ds2.attrs["Data file version"]:
-                raise Exception("Different data products and/or versions, cannot concatenate")
+                raise ValueError("Different data products and/or versions, cannot concatenate")
             if ds.attrs["Short location name"] != ds2.attrs["Short location name"]:
                 ds = xr.concat([ds, ds2], dim="x")
             else:
