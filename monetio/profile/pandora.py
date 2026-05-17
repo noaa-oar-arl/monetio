@@ -347,6 +347,7 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
             "No standard columns found in col_descs; including all columns.",
             stacklevel=2,
         )
+        include_optional_cols = True
 
     if include_optional_cols:
         # Read lines manually so ragged rows (varying layer counts) are handled:
