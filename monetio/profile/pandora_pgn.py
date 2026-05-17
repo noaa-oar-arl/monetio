@@ -383,7 +383,7 @@ def open_mfdataset(file_path):
         for f in files[1:]:
             ds2 = open_dataset(f)
             if ds.attrs["Data file version"] != ds2.attrs["Data file version"]:
-                raise Exception("Different data file versions, cannot concatenate")
+                raise Exception("Different data products and/or versions, cannot concatenate")
             if ds.attrs["Short location name"] != ds2.attrs["Short location name"]:
                 ds = xr.concat([ds, ds2], dim="x")
             else:
