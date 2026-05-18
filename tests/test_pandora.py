@@ -1,3 +1,4 @@
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -24,10 +25,19 @@ URL_PATHS = [
     "BoulderCO/Pandora57s1/L2/Pandora57s1_BoulderCO_L2_rfuh5p1-8.txt",
     "BoulderCO/Pandora57s1/L2/Pandora57s1_BoulderCO_L2_rfus5p1-8.txt",
 ]
+YEAR = 2024
+# These files are updated as new data is added,
+# so we limit the number of data lines to a past year
+# for test consistency and to speed up tests.
+
+
+def _year_stamped_name(url_path: str, year: int = YEAR) -> str:
+    base = Path(url_path.split("/")[-1])
+    return f"{base.stem}_{year}{base.suffix}"
 
 
 def retrieve_test_file(url_path):
-    fn = url_path.split("/")[-1]
+    fn = _year_stamped_name(url_path)
     p = HERE / "data" / fn
     if not p.is_file():
         warnings.warn(f"Downloading test file {fn} for Pandora PGN test")
@@ -39,7 +49,16 @@ def retrieve_test_file(url_path):
         )
         r.raise_for_status()
         with open(p, "wb") as f:
-            f.write(r.content)
+            for line in r.iter_lines():
+                m = re.match(rb"^[0-9]{4}[0-9]{2}[0-9]{2}", line)
+                if m is None:  # header
+                    f.write(line + b"\n")
+                    continue
+                else:  # data
+                    year = int(m.group()[:4])
+                    if year != YEAR:
+                        continue
+                    f.write(line + b"\n")
     return p
 
 
@@ -56,7 +75,7 @@ def pandora_test_files(tmp_path_factory, worker_id):
     # Copy to the shared test location
     p_tests = []
     for url_path in URL_PATHS:
-        fn = url_path.split("/")[-1]
+        fn = _year_stamped_name(url_path)
         p_test = root_tmp_dir / fn
         with FileLock(p_test.as_posix() + ".lock"):
             if not p_test.is_file():
@@ -75,6 +94,7 @@ def assert_is_valid_xarray(ds):
     assert np.issubdtype(ds["time"].dtype, np.datetime64)
     assert set(ds.dims) <= {"time", "x", "z"}
     assert ds["siteid"].dims == ("x",)
+    assert (ds["time"].dt.year == YEAR).all()
 
     # Assert dimensions over every variable except for siteid
     data_vars_col = list(ds.data_vars)
