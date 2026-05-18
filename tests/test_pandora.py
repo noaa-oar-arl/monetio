@@ -100,7 +100,7 @@ def assert_is_valid_xarray(ds):
     data_vars_col = list(ds.data_vars)
     data_vars_col.remove("siteid")
     for v in data_vars_col:
-        assert ds[v].dims == ("time", "x") or ds[v].dims == ("time", "x", "z")
+        assert ds[v].dims == ("time", "x") or ds[v].dims == ("time", "z", "x")
         assert np.issubdtype(ds[v].dtype, np.number)
         assert ds[v].attrs.keys() == {"description"}
 
@@ -177,9 +177,9 @@ def test_open_dataset_profiles(pandora_test_files):
         if patt in file_path.name:
             ds = pandora.open_dataset(file_path, layers=True)
             assert_is_valid_xarray(ds)
-            assert set(ds.dims) == {"time", "x", "z"}
+            assert set(ds.dims) == {"time", "z", "x"}
             assert ds.sizes["z"] > 1, "multiple layers"
-            layer_vars = [k for k in ds.data_vars if ds[k].dims == ("time", "x", "z")]
+            layer_vars = [k for k in ds.data_vars if ds[k].dims == ("time", "z", "x")]
             assert len(layer_vars) > 0
             for v in layer_vars:
                 desc = ds[v].attrs["description"]

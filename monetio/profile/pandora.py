@@ -526,10 +526,10 @@ def _maybe_add_layer_dim(ds):
             lay_vars_to_drop.append(lay_name)
             layer_arrays.append(ds[lay_name].values)
 
-        # Stack along a new z axis: (time, x=1, total_layers)
-        all_layers = np.stack(layer_arrays, axis=2)
+        # Stack along a new z axis: (time, total_layers, x=1)
+        all_layers = np.stack(layer_arrays, axis=1)
         desc = re.sub(r" layer 1\b", " layer", ds[base_col].attrs.get("description", ""))
-        ds[base_col] = (("time", "x", "z"), all_layers, {"description": desc})
+        ds[base_col] = (("time", "z", "x"), all_layers, {"description": desc})
 
     return ds.drop_vars(lay_vars_to_drop)
 
