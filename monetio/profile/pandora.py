@@ -335,7 +335,7 @@ def _parse_file_to_df(file_path, include_optional_cols=False):
                 global_attrs[attr_name] = _parse_metadata(value)
             elif count_line_dividers == 1:  # Column descriptions
                 key, desc = line_stripped.split(":", 1)
-                col_descs[key] = desc
+                col_descs[key] = desc.strip()
         else:
             raise ValueError("File ended before data section was reached")
 
