@@ -188,8 +188,8 @@ def test_open_dataset_profiles(pandora_test_files):
             # Check z is increasing in the expected direction.
             # The issue is that it can be NaN or negative
             # (-6 is a deliberate flag for no profile,
-            # but other negatives values are present,
-            # including clearly spurious values, like -31.36)
+            # but other negative values are present,
+            # including clearly spurious values, like -31.36).
             ztop = ds[layer_vars[0]]
             assert ztop.attrs["description"].startswith("Top height of formaldehyde layer [km], ")
             ztop = ztop.where(ztop > -0.5)  # allow below MSL a bit
