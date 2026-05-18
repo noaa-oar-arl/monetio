@@ -184,6 +184,22 @@ def test_open_dataset_profiles(pandora_test_files):
             for v in layer_vars:
                 desc = ds[v].attrs["description"]
                 assert "layer" in desc and "layer 1" not in desc, "generalized"
+
+            # Check z is increasing in the expected direction.
+            # The issue is that it can be NaN or negative
+            # (-6 is a deliberate flag for no profile,
+            # but other negatives values are present,
+            # including clearly spurious values, like -31.36)
+            ztop = ds[layer_vars[0]]
+            assert ztop.attrs["description"].startswith("Top height of formaldehyde layer [km], ")
+            ztop = ztop.where(ztop > -0.5)  # allow below MSL a bit
+            ztop_im1 = ztop.shift(z=1).isel(z=slice(1, None))
+            ztop_i = ztop.isel(z=slice(1, None))
+            dz = ztop_i - ztop_im1
+            assert dz.notnull().any(), "not all null"
+            assert (dz == 0).any(), "some adjacent layers have the same ztop"
+            assert not (dz < 0).any(), "ztop should be increasing with layer"
+
             n += 1
     if n == 0:
         raise AssertionError(f"Expected at least one {patt} file")
