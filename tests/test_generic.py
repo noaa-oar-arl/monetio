@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
 from monetio.models.generic import open_dataset, open_mfdataset
@@ -182,3 +183,67 @@ def test_open_mfdataset_surf_only(tmp_path):
 
     assert ds.sizes["z"] == 1
     assert set(ds.dims) == {"time", "z", "y", "x"}
+
+
+def test_open_dataset_required_dim_missing_old_and_new_raises(tmp_path):
+    path = tmp_path / "test_required_dim_missing.nc"
+    _make_ds(nz=2).to_netcdf(path)
+
+    kwargs = _OPEN_KWARGS_Z.copy()
+    kwargs["time_dim"] = "not_a_dim"
+
+    with pytest.raises(ValueError, match="Dimension not_a_dim not found"):
+        _ = open_dataset(path, **kwargs)
+
+
+def test_open_dataset_dim_missing_old_new_exists_warns(tmp_path):
+    path = tmp_path / "test_dim_new_exists_warn.nc"
+    _make_ds(nz=2).rename_dims({"tim": "time"}).to_netcdf(path)
+
+    with pytest.warns(UserWarning, match="Dimension time already exists"):
+        ds = open_dataset(path, **_OPEN_KWARGS_Z)
+
+    assert set(ds.dims) == {"time", "z", "y", "x"}
+
+
+def test_open_dataset_required_dim_old_none_and_new_missing_raises(tmp_path):
+    path = tmp_path / "test_required_dim_none.nc"
+    _make_ds(nz=2).to_netcdf(path)
+
+    kwargs = _OPEN_KWARGS_Z.copy()
+    kwargs["time_dim"] = None
+
+    with pytest.raises(ValueError, match="Dimension to rename was not provided"):
+        _ = open_dataset(path, **kwargs)
+
+
+def test_open_dataset_required_var_missing_old_and_new_raises(tmp_path):
+    path = tmp_path / "test_required_var_missing.nc"
+    _make_ds(nz=2).to_netcdf(path)
+
+    kwargs = _OPEN_KWARGS_Z.copy()
+    kwargs["lon_var"] = "not_a_var"
+
+    with pytest.raises(ValueError, match="Variable not_a_var not found"):
+        _ = open_dataset(path, **kwargs)
+
+
+def test_open_dataset_var_missing_old_new_exists_warns(tmp_path):
+    path = tmp_path / "test_var_new_exists_warn.nc"
+    _make_ds(nz=2).rename_vars({"lon": "longitude"}).to_netcdf(path)
+
+    with pytest.warns(UserWarning, match="Variable longitude already exists"):
+        ds = open_dataset(path, **_OPEN_KWARGS_Z)
+
+    assert "longitude" in ds.coords
+
+
+def test_open_dataset_required_var_old_none_and_new_missing_raises(tmp_path):
+    path = tmp_path / "test_required_var_none.nc"
+    _make_ds(nz=2).to_netcdf(path)
+
+    kwargs = _OPEN_KWARGS_Z.copy()
+    kwargs["time_var"] = None
+
+    with pytest.raises(ValueError, match="Variable to rename was not provided"):
+        _ = open_dataset(path, **kwargs)
