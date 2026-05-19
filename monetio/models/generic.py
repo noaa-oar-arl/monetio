@@ -224,7 +224,7 @@ def open_mfdataset(
     surf_only=False,
     surf_lev=0,
     #
-    **kwargs,
+    **kwargs,  # e.g. combine='nested', concat_dim=<time_dim>
 ):
     """Open multiple datasets."""
     raw = xr.open_mfdataset(paths, **kwargs)
