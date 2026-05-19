@@ -11,72 +11,109 @@ import pandas as pd
 import xarray as xr
 
 
-def _maybe_rename_dim(ds, old, new):
+def _maybe_rename_dim(ds, old, new, *, required=False):
+    s_dims = ", ".join(f"{dim} ({size})" for dim, size in ds.sizes.items())
     if old is None:
-        return ds
+        if new in ds.dims or not required:
+            return ds
+        else:
+            raise ValueError(
+                "Dimension to rename was not provided, "
+                f"and {new} is not in the Dataset dimensions ({s_dims})."
+            )
     else:
         if old in ds.dims:
             if new != old:  # otherwise ValueError: dim already exists
                 return ds.rename_dims({old: new})
+            else:
+                return ds
         else:
-            s_dims = ", ".join(f"{dim} ({size})" for dim, size in ds.sizes.items())
-            warnings.warn(
-                f"Dimension {old} not found in Dataset, cannot rename to {new}. "
-                f"Available dimensions: {s_dims}",
-                stacklevel=3,
-            )
-            return ds
+            if new in ds.dims:
+                warnings.warn(
+                    f"Dimension {new} already exists in Dataset, cannot rename {old} to {new}.",
+                    stacklevel=3,
+                )
+                return ds
+            else:
+                msg = (
+                    f"Dimension {old} not found in Dataset, cannot rename to {new}. "
+                    f"Available dimensions: {s_dims}"
+                )
+                if required:
+                    raise ValueError(msg)
+                else:
+                    warnings.warn(msg, stacklevel=3)
+                    return ds
 
 
-def _maybe_rename_var(ds, old, new):
+def _maybe_rename_var(ds, old, new, *, required=False):
+    s_vars = ", ".join(sorted(ds.variables))
     if old is None:
-        return ds
+        if new in ds.variables or not required:
+            return ds
+        else:
+            raise ValueError(
+                "Variable to rename was not provided, "
+                f"and {new} is not in the Dataset variables ({s_vars})."
+            )
     else:
         if old in ds.variables:
-            # Note: no error if new == old
-            return ds.rename_vars({old: new})
+            return ds.rename_vars({old: new})  # Note: no error if new == old
         else:
-            s_vars = ", ".join(sorted(ds.variables))
-            warnings.warn(
-                f"Variable {old} not found in Dataset, cannot rename to {new}. "
-                f"Available variables: {s_vars}",
-                stacklevel=3,
-            )
-            return ds
+            if new in ds.variables:
+                warnings.warn(
+                    f"Variable {new} already exists in Dataset, cannot rename {old} to {new}.",
+                    stacklevel=3,
+                )
+                return ds
+            else:
+                msg = (
+                    f"Variable {old} not found in Dataset, cannot rename to {new}. "
+                    f"Available variables: {s_vars}"
+                )
+                if required:
+                    raise ValueError(msg)
+                else:
+                    warnings.warn(msg, stacklevel=3)
+                    return ds
 
 
 def _monetify(
     ds,
     *,
-    x_dim="lon",
-    y_dim="lat",
-    z_dim=None,
-    time_dim="time",
-    lon_var="lon",
-    lat_var="lat",
-    pres_var=None,
+    x_dim=None,  # e.g. 'lon'
+    y_dim=None,  # e.g. 'lat'
+    z_dim=None,  # e.g. 'lev'
+    time_dim=None,  # e.g. 'time'
+    lon_var=None,  # e.g. 'lon'
+    lat_var=None,  # e.g. 'lat'
+    pres_var=None,  # e.g. 'pfull'
     hgt_var=None,
-    time_var="time",
+    time_var=None,  # e.g. 'time'
     attrs=None,
 ):
     """Convert a dataset to MONET format by renaming dimensions and variables."""
 
+    # If time is a dim coord, take name if not passed
+    if time_dim is not None and time_var is None and time_dim in ds.coords:
+        time_var = time_dim
+
     # Rename dims
-    ds = _maybe_rename_dim(ds, x_dim, "x")
-    ds = _maybe_rename_dim(ds, y_dim, "y")
+    ds = _maybe_rename_dim(ds, x_dim, "x", required=True)
+    ds = _maybe_rename_dim(ds, y_dim, "y", required=True)
     ds = _maybe_rename_dim(ds, z_dim, "z")
-    ds = _maybe_rename_dim(ds, time_dim, "time")
+    ds = _maybe_rename_dim(ds, time_dim, "time", required=True)
 
     # Rename spatial coord vars
-    ds = _maybe_rename_var(ds, lon_var, "longitude")
-    ds = _maybe_rename_var(ds, lat_var, "latitude")
+    ds = _maybe_rename_var(ds, lon_var, "longitude", required=True)
+    ds = _maybe_rename_var(ds, lat_var, "latitude", required=True)
     ds = _maybe_rename_var(ds, pres_var, "pres_pa_mid")
     ds = _maybe_rename_var(ds, hgt_var, "alt_agl_m_mid")
+    ds = _maybe_rename_var(ds, time_var, "time", required=True)
 
     # If time is not in pandas format, change it to pandas format
-    if not isinstance(ds.indexes[time_var], pd.DatetimeIndex):
-        ds = ds.assign({time_var: ds.indexes[time_var].to_datetimeindex(unsafe=True)})
-    ds = _maybe_rename_var(ds, time_var, "time")
+    if not isinstance(ds.indexes["time"], pd.DatetimeIndex):
+        ds = ds.assign({"time": ds.indexes["time"].to_datetimeindex(unsafe=True)})
 
     # Ensure coords are set
     ds = ds.set_coords(["time", "latitude", "longitude"])  # required coords
