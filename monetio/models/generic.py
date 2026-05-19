@@ -123,7 +123,7 @@ def _monetify(
     if lat.ndim == 1 and lon.ndim == 1:
         lon_2d, lat_2d = xr.broadcast(lon, lat)
         ds = ds.assign(latitude=lat_2d, longitude=lon_2d)
-    elif lat.ndim == 2 or lon.ndim == 2:
+    elif lat.ndim == 2 and lon.ndim == 2:
         pass
     else:
         raise ValueError(
@@ -138,6 +138,10 @@ def _monetify(
     if "alt_agl_m_mid" in ds.variables:
         ds = ds.set_coords("alt_agl_m_mid")
 
+    # Put z dim in if not there
+    if "z" not in ds.dims:
+        ds = ds.expand_dims("z")
+
     # Ensure correct dim order
     ds = ds.transpose("time", "z", "y", "x", missing_dims="ignore")
 
@@ -145,4 +149,91 @@ def _monetify(
     if attrs is not None:
         ds.attrs.update(attrs)
 
+    return ds
+
+
+def _maybe_select_surface(ds, surf_only, surf_lev=0):
+    if not surf_only or "z" not in ds.dims or ds.sizes["z"] == 1:
+        return ds
+
+    iz = int(surf_lev)
+
+    return (
+        ds.isel({"z": iz}).expand_dims("z").transpose("time", "z", "y", "x", missing_dims="ignore")
+    )
+
+
+def open_dataset(
+    path,
+    *,
+    x_dim=None,
+    y_dim=None,
+    z_dim=None,
+    time_dim=None,
+    lon_var=None,
+    lat_var=None,
+    pres_var=None,
+    hgt_var=None,
+    time_var=None,
+    attrs=None,
+    #
+    surf_only=False,
+    surf_lev=0,
+    #
+    **kwargs,
+):
+    """Open a dataset."""
+    raw = xr.open_dataset(path, **kwargs)
+    ds = _monetify(
+        raw,
+        x_dim=x_dim,
+        y_dim=y_dim,
+        z_dim=z_dim,
+        time_dim=time_dim,
+        lon_var=lon_var,
+        lat_var=lat_var,
+        pres_var=pres_var,
+        hgt_var=hgt_var,
+        time_var=time_var,
+        attrs=attrs,
+    )
+    ds = _maybe_select_surface(ds, surf_only, surf_lev=surf_lev)
+    return ds
+
+
+def open_mfdataset(
+    paths,
+    *,
+    x_dim=None,
+    y_dim=None,
+    z_dim=None,
+    time_dim=None,
+    lon_var=None,
+    lat_var=None,
+    pres_var=None,
+    hgt_var=None,
+    time_var=None,
+    attrs=None,
+    #
+    surf_only=False,
+    surf_lev=0,
+    #
+    **kwargs,
+):
+    """Open multiple datasets."""
+    raw = xr.open_mfdataset(paths, **kwargs)
+    ds = _monetify(
+        raw,
+        x_dim=x_dim,
+        y_dim=y_dim,
+        z_dim=z_dim,
+        time_dim=time_dim,
+        lon_var=lon_var,
+        lat_var=lat_var,
+        pres_var=pres_var,
+        hgt_var=hgt_var,
+        time_var=time_var,
+        attrs=attrs,
+    )
+    ds = _maybe_select_surface(ds, surf_only, surf_lev=surf_lev)
     return ds
