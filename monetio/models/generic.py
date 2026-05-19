@@ -115,6 +115,22 @@ def _monetify(
     if not isinstance(ds.indexes["time"], pd.DatetimeIndex):
         ds = ds.assign({"time": ds.indexes["time"].to_datetimeindex(unsafe=True)})
 
+    # Convert longitude from assumed [0, 360) to [-180, 180) if needed
+    ds["longitude"] = xr.where(ds["longitude"] >= 180, ds["longitude"] - 360, ds["longitude"])
+
+    # If lat and lon are 1-D convert to 2-D
+    lat, lon = ds["latitude"], ds["longitude"]
+    if lat.ndim == 1 and lon.ndim == 1:
+        lon_2d, lat_2d = xr.broadcast(lon, lat)
+        ds = ds.assign(latitude=lat_2d, longitude=lon_2d)
+    elif lat.ndim == 2 or lon.ndim == 2:
+        pass
+    else:
+        raise ValueError(
+            f"Latitude and longitude must be either 1-D or 2-D. "
+            f"Got latitude with shape {lat.shape} and longitude with shape {lon.shape}."
+        )
+
     # Ensure coords are set
     ds = ds.set_coords(["time", "latitude", "longitude"])  # required coords
     if "pres_pa_mid" in ds.variables:
@@ -122,11 +138,8 @@ def _monetify(
     if "alt_agl_m_mid" in ds.variables:
         ds = ds.set_coords("alt_agl_m_mid")
 
-    # Convert longitude from assumed [0, 360) to [-180, 180) if needed
-    ds["longitude"] = xr.where(ds["longitude"] >= 180, ds["longitude"] - 360, ds["longitude"])
-
     # Ensure correct dim order
-    ds = ds.transpose("time", "z", "y", "x")
+    ds = ds.transpose("time", "z", "y", "x", missing_dims="ignore")
 
     # Add dataset-level attributes if provided (e.g. cen_lon, cen_lat)
     if attrs is not None:
