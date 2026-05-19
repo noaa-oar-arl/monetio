@@ -111,6 +111,12 @@ def _monetify(
     ds = _maybe_rename_var(ds, hgt_var, "alt_agl_m_mid")
     ds = _maybe_rename_var(ds, time_var, "time", required=True)
 
+    # If time is not an index, make it so
+    if "time" not in ds.coords:
+        ds = ds.set_coords("time")  # must be coord to be index
+    if "time" not in ds.indexes:
+        ds = ds.set_xindex("time")
+
     # If time is not in pandas format, change it to pandas format
     if not isinstance(ds.indexes["time"], pd.DatetimeIndex):
         ds = ds.assign({"time": ds.indexes["time"].to_datetimeindex(unsafe=True)})
