@@ -169,6 +169,27 @@ def _maybe_select_surface(ds, surf_only, surf_lev=0):
     )
 
 
+def _maybe_select_vars(ds, var_list):
+    if var_list is None:
+        return ds
+
+    s_vars = ", ".join(sorted(ds.variables))
+    filtered_var_list = []
+    for vn in var_list:
+        if vn in ds.coords:
+            continue
+        elif vn in ds.data_vars:
+            filtered_var_list.append(vn)
+        else:
+            warnings.warn(
+                f"Variable {vn} not found in Dataset, cannot select it. "
+                f"Available variables: {s_vars}",
+                stacklevel=3,
+            )
+
+    return ds[filtered_var_list]
+
+
 def open_dataset(
     path,
     *,
@@ -185,6 +206,7 @@ def open_dataset(
     #
     surf_only=False,
     surf_lev=0,
+    var_list=None,
     #
     **kwargs,
 ):
@@ -204,6 +226,7 @@ def open_dataset(
         attrs=attrs,
     )
     ds = _maybe_select_surface(ds, surf_only, surf_lev=surf_lev)
+    ds = _maybe_select_vars(ds, var_list)
     return ds
 
 
@@ -223,6 +246,7 @@ def open_mfdataset(
     #
     surf_only=False,
     surf_lev=0,
+    var_list=None,
     #
     **kwargs,  # e.g. combine='nested', concat_dim=<time_dim>
 ):
@@ -242,4 +266,5 @@ def open_mfdataset(
         attrs=attrs,
     )
     ds = _maybe_select_surface(ds, surf_only, surf_lev=surf_lev)
+    ds = _maybe_select_vars(ds, var_list)
     return ds

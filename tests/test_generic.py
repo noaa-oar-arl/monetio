@@ -31,7 +31,7 @@ def _make_ds(*, nz=None):
         dims = dims_2d
         data = np.arange(nt * ny * nx, dtype=float).reshape(nt, ny, nx)
 
-    return xr.Dataset({"field": (dims, data)}, coords=coords)
+    return xr.Dataset({"var1": (dims, data), "var2": (dims, data * 2)}, coords=coords)
 
 
 _OPEN_KWARGS = dict(
@@ -115,10 +115,11 @@ def test_open_dataset_surf_only_default_lev(tmp_path):
 
     assert ds_surf.sizes["z"] == 1
     assert set(ds_surf.dims) == set(ds_full.dims)
-    np.testing.assert_array_equal(
-        ds_surf["field"].isel(z=0).values,
-        ds_full["field"].isel(z=0).values,
-    )
+    for vn in ds_surf.data_vars:
+        np.testing.assert_array_equal(
+            ds_surf[vn].isel(z=0).values,
+            ds_full[vn].isel(z=0).values,
+        )
 
 
 def test_open_dataset_surf_only_explicit_lev(tmp_path):
@@ -132,10 +133,11 @@ def test_open_dataset_surf_only_explicit_lev(tmp_path):
     ds_surf = open_dataset(path, **_OPEN_KWARGS_Z, surf_only=True, surf_lev=surf_lev)
 
     assert ds_surf.sizes["z"] == 1
-    np.testing.assert_array_equal(
-        ds_surf["field"].isel(z=0).values,
-        ds_full["field"].isel(z=surf_lev).values,
-    )
+    for vn in ds_surf.data_vars:
+        np.testing.assert_array_equal(
+            ds_surf[vn].isel(z=0).values,
+            ds_full[vn].isel(z=surf_lev).values,
+        )
 
 
 def test_open_dataset_surf_only_false_unchanged(tmp_path):
@@ -183,6 +185,22 @@ def test_open_mfdataset_surf_only(tmp_path):
 
     assert ds.sizes["z"] == 1
     assert set(ds.dims) == {"time", "z", "y", "x"}
+
+
+@pytest.mark.parametrize(
+    "func",
+    [open_dataset, open_mfdataset],
+)
+def test_var_list(func, tmp_path):
+    path = tmp_path / "test_var_list_missing_warn.nc"
+    raw = _make_ds(nz=3)
+    raw.to_netcdf(path)
+
+    with pytest.warns(UserWarning, match="Variable not_here not found"):
+        ds = func(path, **_OPEN_KWARGS_Z, var_list=["var1", "not_here"])
+
+    assert set(raw.data_vars) == {"var1", "var2"}
+    assert set(ds.data_vars) == {"var1"}
 
 
 def test_open_dataset_required_dim_missing_old_and_new_raises(tmp_path):
