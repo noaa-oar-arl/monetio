@@ -17,6 +17,7 @@ from . import (
     prepchem,
     raqms,
     ufs,
+    ufschem_omps_no2_mm,
 )
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "prepchem",
     "raqms",
     "ufs",
+    "ufschem_omps_no2_mm",
 ]
 
 __name__ = "models"
