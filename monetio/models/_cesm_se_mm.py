@@ -1,8 +1,9 @@
 """CESM File Reader"""
 
 import xarray as xr
-
+import uxarray as ux
 # integrate uxarray here
+# conda install -c conda-forge uxarray
 
 def open_mfdataset(
     fname,
@@ -10,7 +11,8 @@ def open_mfdataset(
     convert_to_ppb=True,
     var_list=["O3", "NO", "NO2", "lat", "lon"],
     scrip_file="",
-    **kwargs,
+    grid_file=None,
+    **kwargs
 ):
     """Method to open multiple (or single) CESM SE netcdf files.
        This method extends the xarray.open_mfdataset functionality
@@ -45,16 +47,24 @@ def open_mfdataset(
 
     # open the dataset using xarray
     try:
-        if netcdf:
+        if grid_file is not None:
+                print("Opening unstructured grid with UXArray...")
+                #uxds = ux.open_dataset(grid_file, fname, **kwargs)
+                #dset_load = uxds
+                dset_load = ux.open_mfdataset(grid_file, fname, **kwargs)
+            # may need ux.open_dataset later 
+        elif netcdf: 
+            print("Opening Xarray...")
             dset_load = xr.open_mfdataset(fname, **kwargs)
         else:
-            raise ValueError
-    except ValueError:
-        print(
-            "File format not recognized. "
+            raise ValueError("File format not recognized. "
             "Note that files should be in netcdf format. "
-            "Do not mix and match file types."
-        )
+            "Do not mix and match file types.")
+    
+    except Exception as e:
+        print("ERROR while opening dataset:")
+        print(repr(e))
+        raise
 
     # To keep lat & lon variables in the dataset
     if "lat" not in var_list:
@@ -70,6 +80,7 @@ def open_mfdataset(
     dset = dset_load.get(var_list)
     # rename altitude variable to z for monet use
     dset = dset.rename({"lev": "z"})
+    
     # re-order so surface is associated with the first vertical index
     dset = dset.sortby("z", ascending=False)
     # ===========================
