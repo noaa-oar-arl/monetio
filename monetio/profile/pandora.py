@@ -22,8 +22,6 @@ import pandas as pd
 import xarray as xr
 
 _BASE_URL = "https://api.pandonia-global-network.org/v1"
-
-
 _HEADERS = {"User-Agent": "monetio"}
 TIMEOUT = 10  # seconds
 
