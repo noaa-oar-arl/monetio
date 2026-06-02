@@ -92,6 +92,7 @@ def open_omps_l2_no2(files: str | list[str],control_dict: dict | None = None) ->
 
             # Pull arrays
             utc_ccsda_a = geo.variables["UTC_CCSDA_A"][:]      # (time, xtrack) strings
+            utc_hour_1 = [t[11:13] for t in utc_ccsda_a]
             lat = geo.variables["Latitude"][:]                # (time, xtrack)
             lon = geo.variables["Longitude"][:]               # (time, xtrack)
             ground_qf = geo.variables["GroundPixelQualityFlags"][:]      # (time, xtrack) strings
@@ -144,6 +145,7 @@ def open_omps_l2_no2(files: str | list[str],control_dict: dict | None = None) ->
                 PressureLevel=(("time", "xtrack", "edge"), pres_hpa),
                 NO2_ShapeFactor=(("time", "xtrack", "layer"), shp_prior),
                 AveragingKernel=(("time", "xtrack", "layer"), ak),
+                utc_hour = (("time"),utc_hour_1),
                 # keep original DU column too (optional but handy)
                 no2_totalcolumn_DU=(("time", "xtrack"), col_no2_total_du.astype("float64")),
                 no2_tropocolumn_DU=(("time", "xtrack"), col_no2_tropo_du.astype("float64")),

@@ -33,7 +33,9 @@ def open_ufschem_no2(files: str | list[str], keep_layers: bool = True) -> xr.Dat
     dp = ds["dpres"].values        # Pa
     ps = ds["pressfc"].values      # Pa
     no2_ppm = ds["no2"].values     # ppm
-
+    
+    time_utc_1_1 = ds["time"].dt.hour.values
+    
     # Pressure at interfaces (Pa)
     preslev = ak[None, :, None, None] + bk[None, :, None, None] * ps[:, None, :, :]
 
@@ -94,13 +96,14 @@ def open_ufschem_no2(files: str | list[str], keep_layers: bool = True) -> xr.Dat
     tropopause_pressure="150 hPa",
     )
 
-
-
+    
+    time_dim = ds["time"].dims[0]
 
     out = xr.Dataset(
         data_vars={"no2_totalcolumn_model": no2_total,
             "no2_tropocolumn_model": no2_trop,
-            "no2_stratcolumn_model": no2_strat,},
+            "no2_stratcolumn_model": no2_strat,
+            "time_utc_hour": (time_dim, ds["time"].dt.hour.values),},
         coords=dict(
             time=ds["time"],
             latitude=(ds["lat"].dims, ds["lat"].values),
