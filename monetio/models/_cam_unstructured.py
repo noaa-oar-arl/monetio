@@ -1,4 +1,9 @@
-"""CESM File Reader"""
+"""
+
+Generic unstructured model grid reader. Takes the CESM_SE reader and generalizes for the ability to read
+MPAS 
+
+"""
 
 import xarray as xr
 import uxarray as ux
@@ -10,9 +15,16 @@ def open_mfdataset(
     earth_radius=6370000,
     convert_to_ppb=True,
     var_list=["O3", "NO", "NO2", "lat", "lon"],
-    scrip_file= None,
+    scrip_file=None,
+    mesh_file=None,
     **kwargs):
-    """Method to open multiple (or single) CESM SE netcdf files.
+    """
+
+    Generic unstrucutred CAM reader - supports cesm-se and mpas
+
+    uxarray auto detects the grid geometry either from a scrip file (CESM-SE) of the native MESH file (MPAS)
+    
+    Method to open multiple (or single) CESM SE netcdf files.
        This method extends the xarray.open_mfdataset functionality
        It is the main method called by the driver. Other functions defined
        in this file are internally called by open_mfdataset and are proceeded
@@ -43,28 +55,13 @@ def open_mfdataset(
     # check that the files are netcdf format
     names, netcdf = _ensure_mfdataset_filenames(fname)
 
-    if scrip_file is None:
+    # Grid geometry: SCRIP (CESM-SE) or MPAS mesh/init file. Either is fine.
+    ux_grid_path = scrip_file or mesh_file
+    if ux_grid_path is None:
         raise ValueError(
-            "CESM-SE requires a scrip_file (set 'scrip_file:' in your YAML).")
-    ux_grid_path = scrip_file
-        
-    # open the dataset using xarray
-    # try:
-    #     if ux_grid_path:
-    #         print(f"Opening unstructured grid with UXArray: {ux_grid_path}")
-    #         dset_load = ux.open_mfdataset(ux_grid_path, fname, **kwargs)
-    #     elif netcdf:
-    #         print("Opening Xarray...")
-    #         dset_load = xr.open_mfdataset(fname, **kwargs)
-    #     else:
-    #         raise ValueError(
-    #             "File format not recognized. Files should be in netcdf format; "
-    #             "do not mix file types."
-    #         )
-    # except Exception as e:
-    #     print("ERROR while opening dataset:")
-    #     print(repr(e))
-    #     raise
+            "Unstructured reader requires a grid file: set 'scrip_file:' "
+            "(SCRIP, e.g. CESM-SE) or 'mesh_file:' (MPAS init) in your YAML."
+        )
 
     try:
         print(f"Opening unstructured grid with UXArray: {ux_grid_path}")
@@ -74,47 +71,58 @@ def open_mfdataset(
         print(repr(e))
         raise
 
-    # To keep lat & lon variables in the dataset
-    if "lat" not in var_list:
-        var_list.append("lat")
-    if "lon" not in var_list:
-        var_list.append("lon")
-    if "lev" not in var_list:
-        var_list.append("lev")
+    for _c in ("lat", "lon", "lev"):
+        if _c not in var_list:
+            var_list.append(_c)
 
     # variables for cesm-se specific derivations
-    _cesm_se_var = []
+    _src_vars = []
     
     # Always request the source variables needed for standardized derivations
     # Filtered against what's actually present, so a missing one just
     # skips the corresponding derivation
     
-    for _v in ("hyam", "hybm", "PS", "P0", "T", "PDELDRY"):
+    for _v in ("hyam", "hybm", "PS", "P0", "T", "PDELDRY", "PMID"):
         if _v not in var_list:
             var_list.append(_v)
-            _cesm_se_var.append(_v)
+            _src_vars.append(_v)
 
     # filter to vars present and then warn about vars missing rather than generic rename error
-    _requested = list(var_list)
-    _present = [v for v in _requested if v in dset_load.variables]
-    _missing = [v for v in _requested if v not in dset_load.variables]
-
+    _present = [v for v in var_list if v in dset_load.variables]
+    _missing = [v for v in var_list if v not in dset_load.variables]
     if _missing:
         print(
-            f"CESM-SE: requested variables not found in {names[0]!r}: "
-            f"{_missing}. Continuing with what's available: {_present}."
+            f"unstructured reader: requested vars not in {names[0]!r}: "
+            f"{_missing}. Continuing with: {_present}."
         )
     dset = dset_load[_present]
 
-    # ===========================
-    # Process the loaded data
-    # extract variables of choice
-    #dset = dset_load.get(var_list)
-    # rename altitude variable to z for monet use
+    # vertical: detect height (MPAS zeta, m) v. pressure hybrid in CESM
+
+    ####### NOTE for MPAS height / zeta in m increases upwards
+
+    _lev_attrs = dset["lev"].attrs if "lev" in dset.variables else {}
+    _lev_units = str(_lev_attrs.get("units", "")).strip().lower()
+    _lev_long = str(_lev_attrs.get("long_name", "")).lower()
+    _is_height = (
+        _lev_units in ("m", "meter", "meters")
+        or "zeta" in _lev_long
+        or "height" in _lev_long)
+        
     dset = dset.rename({"lev": "z"})
     
     # re-order so surface is associated with the first vertical index
-    dset = dset.sortby("z", ascending=False)
+    dset = dset.sortby("z", ascending=_is_height)
+
+    # longitude/latitude can come out broadcast across time when multiple
+    # files are concatenated via xr.open_mfdataset. Each time slice has
+    # identical values; collapse to 1-D so downstream consumers (esp.
+    # back_to_modgrid sampling) get a proper coord.
+    for _c in ("longitude", "latitude", "lat", "lon"):
+        if _c in dset.variables and dset[_c].ndim > 1:
+            _col_dims = [d for d in dset[_c].dims if d in ("ncol", "n_face", "n_node")]
+            _col_dim = _col_dims[0] if _col_dims else dset[_c].dims[-1]
+            dset[_c] = dset[_c].isel({d: 0 for d in dset[_c].dims if d != _col_dim})
     # ===========================
 
     # Derive MM-standardized variables from CESM-SE native fields.
@@ -122,14 +130,18 @@ def open_mfdataset(
     
     # pres_pa_mid: hybrid sigma-pressure midpoint (Pa)
     #   P = hyam*P0 + hybm*PS    (standard CAM hybrid coords)
-    if "pres_pa_mid" not in dset.variables and {"hyam", "hybm", "PS"} <= set(dset.variables):
-        _P0 = float(dset["P0"].values) if "P0" in dset.variables else 100000.0
-        dset["pres_pa_mid"] = dset["hyam"] * _P0 + dset["hybm"] * dset["PS"]
-        dset["pres_pa_mid"].attrs.update({
-            "units": "Pa",
-            "long_name": "Pressure at mid-level",
-            "description": "hyam*P0 + hybm*PS",
-        })
+    if "pres_pa_mid" not in dset.variables:
+        if "PMID" in dset.variables:
+            dset["pres_pa_mid"] = dset["PMID"]
+            dset["pres_pa_mid"].attrs.update(
+                {"units": "Pa", "long_name": "Pressure at mid-level",
+                 "description": "PMID (provided)"})
+        elif {"hyam", "hybm", "PS"} <= set(dset.variables):
+            _P0 = float(dset["P0"].values) if "P0" in dset.variables else 100000.0
+            dset["pres_pa_mid"] = dset["hyam"] * _P0 + dset["hybm"] * dset["PS"]
+            dset["pres_pa_mid"].attrs.update(
+                {"units": "Pa", "long_name": "Pressure at mid-level",
+                 "description": "hyam*P0 + hybm*PS"})
     
     # temperature_k
     if "temperature_k" not in dset.variables and "T" in dset.variables:
@@ -140,24 +152,19 @@ def open_mfdataset(
     #   dz = PDELDRY * Rd * T / (P_mid * g)
     if (
         "dz_m" not in dset.variables
-        and "PDELDRY" in dset.variables
-        and "pres_pa_mid" in dset.variables
-        and "temperature_k" in dset.variables
+        and {"PDELDRY", "pres_pa_mid", "temperature_k"} <= set(dset.variables)
     ):
-        _Rd = 287.04   # J/(kg*K), dry air
-        _g = 9.80665   # m/s^2
+        _Rd, _g = 287.04, 9.80665
         dset["dz_m"] = (
             dset["PDELDRY"] * _Rd * dset["temperature_k"]
             / (dset["pres_pa_mid"] * _g)
         )
-        dset["dz_m"].attrs.update({
-            "units": "m",
-            "long_name": "Layer thickness",
-            "description": "PDELDRY * Rd * T / (P_mid * g)",
-        })
+        dset["dz_m"].attrs.update(
+            {"units": "m", "long_name": "Layer thickness",
+             "description": "PDELDRY * Rd * T / (P_mid * g)"})
 
     # once derivations are complete, dont keep in returned dataset
-    for _v in _cesm_se_var:
+    for _v in _src_vars:
         if _v in dset.variables:
             dset = dset.drop_vars(_v)
 
@@ -165,6 +172,8 @@ def open_mfdataset(
     dset.attrs["mio_has_unstructured_grid"] = True
     if scrip_file:
         dset.attrs["mio_scrip_file"] = scrip_file
+    if mesh_file:
+        dset.attrs["mio_mesh_file"] = mesh_file
 
     # convert units
     if convert_to_ppb:
@@ -179,8 +188,6 @@ def open_mfdataset(
                     dset[i] *= 1e09
                     dset[i].attrs["units"] = r"$\mu g m^{-3}$"
 
-    # dset_scrip = xr.open_dataset( scrip_file )
-    # return dset, dset_scrip
     return dset
 
 
