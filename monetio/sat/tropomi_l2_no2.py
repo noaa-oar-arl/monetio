@@ -6,6 +6,7 @@ http://www.tropomi.eu
 https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-5p
 """
 
+# move to make this only specific to a wrf-chem apiori call
 import logging
 import os
 import sys

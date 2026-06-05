@@ -1,4 +1,10 @@
-"""Read TROPOMI data into MELODIES-MONET"""
+"""Read TROPOMI data into MELODIES-MONET
+
+TROPOspheric Monitoring Instrument (TROPOMI) instrument.
+
+http://www.tropomi.eu
+https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-5p
+"""
 
 import glob
 import warnings
@@ -8,7 +14,6 @@ import numpy as np
 import xarray as xr
 
 MILISECONDS_TO_SECONDS = 0.001
-
 
 def _open_one_dataset(fname, variable_dict):
     """Opens only one dataset
