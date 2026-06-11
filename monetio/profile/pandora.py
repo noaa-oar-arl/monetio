@@ -219,9 +219,10 @@ def download(dates, *, location=None, prod="rfuh5", bulk=False):
             if files_df.empty:
                 continue
             start, end = _dates_to_iso_period(dates)
-            (pan_id,) = files_df.pan_id.unique()
-            spectrometers = sorted(files_df.spectrometer.unique())
-            for spectrometer in spectrometers:
+            # A given location can have multiple unique pan_id/spectrometer combinations
+            # `pan_id` is _usually_ unique to a location
+            instrus = files_df[["pan_id", "spectrometer"]].drop_duplicates()
+            for pan_id, spectrometer in instrus.itertuples(index=False):
                 params = {
                     "pan_id": pan_id,
                     "spectrometer": spectrometer,
