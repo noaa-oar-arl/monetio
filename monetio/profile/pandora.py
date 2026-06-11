@@ -221,8 +221,15 @@ def download(dates, *, location=None, prod="rfuh5", bulk=False):
             start, end = _dates_to_iso_period(dates)
             # A given location can have multiple unique pan_id/spectrometer combinations
             # `pan_id` is _usually_ unique to a location
-            instrus = files_df[["pan_id", "spectrometer"]].drop_duplicates()
-            for pan_id, spectrometer in instrus.itertuples(index=False):
+            location_prod_cases = files_df[
+                [
+                    "pan_id",
+                    "spectrometer",
+                    "blickp_version",
+                ]
+            ].drop_duplicates()
+            # TODO: could remove cases with versions other than the latest?
+            for pan_id, spectrometer, blickp_version in location_prod_cases.itertuples(index=False):
                 params = {
                     "pan_id": pan_id,
                     "spectrometer": spectrometer,
@@ -230,10 +237,11 @@ def download(dates, *, location=None, prod="rfuh5", bulk=False):
                     "code": prod,
                     "start_datetime": start,
                     "end_datetime": end,
+                    "blickp_version": blickp_version,
                 }
                 url = f"{_BASE_URL}/download/bulk_l2"
                 print(
-                    f"Requesting bulk download for {pan_id}s{spectrometer}_{location} {prod} "
+                    f"Requesting bulk download for {pan_id}s{spectrometer}_{location} {prod}{blickp_version} "
                     f"from {start} to {end}... ",
                     end="",
                     flush=True,
@@ -259,7 +267,7 @@ def download(dates, *, location=None, prod="rfuh5", bulk=False):
                 # example: Pandora106s1_Innsbruck_L2_rfuh5p1-8_j4grTgUhHfXeOlnsuevy.txt
                 start_date = start[:10].replace("-", "")
                 end_date = end[:10].replace("-", "")
-                fn = f"Pandora{pan_id}s{spectrometer}_{location}_L2_{prod}_{start_date}_{end_date}.txt"
+                fn = f"Pandora{pan_id}s{spectrometer}_{location}_L2_{prod}{blickp_version}_{start_date}_{end_date}.txt"
                 print("downloading... ", end="", flush=True)
                 with open(fn, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
