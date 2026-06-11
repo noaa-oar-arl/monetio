@@ -258,7 +258,7 @@ def download(dates, *, location=None, prod="rfuh5", bulk=False):
                 # example: Pandora106s1_Innsbruck_L2_rfuh5p1-8_j4grTgUhHfXeOlnsuevy.txt
                 start_date = start[:10].replace("-", "")
                 end_date = end[:10].replace("-", "")
-                fn = f"Pandora_{location}_L2_{prod}p1-8_{start_date}_{end_date}.zip"
+                fn = f"Pandora_{location}_L2_{prod}p1-8_{start_date}_{end_date}.txt"
                 print("downloading... ", end="", flush=True)
                 with open(fn, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
