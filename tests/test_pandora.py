@@ -260,6 +260,17 @@ def test_get_location_files_empty():
     assert df.empty
 
 
+def test_get_location_files_empty2():
+    # 404 but a different message
+    # https://api.pandonia-global-network.org/v1/files/Izana/209/2/L2?start=2023-06-01T00%3A00%3A00&end=2023-08-31T23%3A59%3A00&code=rnvh3
+    # {"detail":"No vector found for the specified filter pan_id=209, spectrometer=2, location=Izana and blickp_version=p1-8"}
+    with pytest.warns(UserWarning, match="No files found for Izana"):
+        df = pandora.get_location_files("Izana", ("2023-06-01", "2023-08-31"), prod="rnvh3")
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty, "s1 does have data"
+    assert df.spectrometer.eq("1").all(), "all s1"
+
+
 def test_get_location_files_invalid_prod():
     with pytest.raises(RuntimeError, match="Got HTTP error 422"):
         _ = pandora.get_location_files("BoulderCO", ("2024-07-01", "2024-07-31"), prod="asdf")

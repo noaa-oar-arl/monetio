@@ -43,6 +43,21 @@ def get_locations():
     return pd.DataFrame(r.json())
 
 
+def _dates_to_iso_period(dates):
+    """
+    Returns
+    -------
+    tuple of str
+        ``(start, end)`` in ISO format, covering the min and max of the input dates.
+    """
+    dates = pd.to_datetime(dates)
+    if pd.api.types.is_scalar(dates):
+        dates = pd.DatetimeIndex([dates])
+    start = dates.min().isoformat()
+    end = dates.max().isoformat()
+    return (start, end)
+
+
 def get_location_files(location, dates, *, level="L2", prod=None):
     """Return available PGN file metadata for a location and date range.
 
@@ -74,11 +89,7 @@ def get_location_files(location, dates, *, level="L2", prod=None):
     """
     import requests
 
-    dates = pd.to_datetime(dates)
-    if pd.api.types.is_scalar(dates):
-        dates = pd.DatetimeIndex([dates])
-    start = dates.min().isoformat()
-    end = dates.max().isoformat()
+    start, end = _dates_to_iso_period(dates)
 
     # Step 1: instruments at the location
     r = requests.get(f"{_BASE_URL}/files/{location}", headers=_HEADERS, timeout=TIMEOUT)
@@ -118,9 +129,9 @@ def get_location_files(location, dates, *, level="L2", prod=None):
                 headers=_HEADERS,
                 timeout=TIMEOUT,
             )
-            if (
-                r.status_code == 404
-                and r.json().get("detail") == "No files found for the specified parameters"
+            if r.status_code == 404 and (
+                r.json().get("detail", "").startswith("No files found for the specified parameters")
+                or r.json().get("detail", "").startswith("No vector found for the specified filter")
             ):
                 # API returns 404 instead of empty dataset when no files match
                 warnings.warn(
@@ -149,7 +160,7 @@ def get_location_files(location, dates, *, level="L2", prod=None):
     return pd.DataFrame(rows)
 
 
-def download(dates, *, location=None, prod="rfuh5"):
+def download(dates, *, location=None, prod="rfuh5", bulk=False):
     """Download PGN files for a location and date range.
 
     You can also use the data access portal to find and download the data you want:
@@ -166,6 +177,9 @@ def download(dates, *, location=None, prod="rfuh5"):
         Default: all locations.
     prod : str or list of str, optional
         Product code filter (e.g. ``"rnvs3"``). Default: ``"rfuh5"``.
+    bulk : bool, optional
+        Use the bulk download endpoint to get one file per spectrometer per product
+        instead of downloading individual official files.
 
     Returns
     -------
@@ -191,17 +205,67 @@ def download(dates, *, location=None, prod="rfuh5"):
     paths = []
     for location, prod in product(locations, prods):
         files_df = get_location_files(location, dates, prod=prod)
-        for row in files_df.itertuples():
-            fn = row.filename
-            url = f"{_BASE_URL}/download/{fn}"
-            print(f"Downloading {fn}... ", end="", flush=True)
-            r = requests.get(url, headers=_HEADERS, stream=True, timeout=TIMEOUT)
-            r.raise_for_status()
-            with open(fn, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("done")
-            paths.append(fn)
+        if bulk:
+            if files_df.empty:
+                continue
+            start, end = _dates_to_iso_period(dates)
+            (pan_id,) = files_df.pan_id.unique()
+            spectrometers = sorted(files_df.spectrometer.unique())
+            for spectrometer in spectrometers:
+                params = {
+                    "pan_id": pan_id,
+                    "spectrometer": spectrometer,
+                    "location": location,
+                    "code": prod,
+                    "start_datetime": start,
+                    "end_datetime": end,
+                }
+                url = f"{_BASE_URL}/download/bulk_l2"
+                print(
+                    f"Requesting bulk download for {pan_id}s{spectrometer}_{location} {prod} "
+                    f"from {start} to {end}... ",
+                    end="",
+                    flush=True,
+                )
+                r = requests.get(url, params=params, headers=_HEADERS, stream=True, timeout=TIMEOUT)
+                if r.status_code == 404 and (
+                    r.json()
+                    .get("detail", "")
+                    .startswith("No vector found for the specified filter")
+                    or r.json()
+                    .get("detail", "")
+                    .startswith("No parquet files found for the given parameters")
+                ):
+                    print()
+                    warnings.warn(
+                        f"Bulk download data not available for {location}/{pan_id}/{spectrometer} {prod} "
+                        f"for the specified date range {start} to {end}.",
+                        stacklevel=2,
+                    )
+                    continue
+                r.raise_for_status()
+                # fn = r.headers.get("Content-Disposition").split("filename=")[1]
+                # example: Pandora106s1_Innsbruck_L2_rfuh5p1-8_j4grTgUhHfXeOlnsuevy.txt
+                start_date = start[:10].replace("-", "")
+                end_date = end[:10].replace("-", "")
+                fn = f"Pandora_{location}_L2_{prod}p1-8_{start_date}_{end_date}.zip"
+                with open(fn, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                print("done")
+                paths.append(fn)
+        else:
+            for row in files_df.itertuples():
+                fn = row.filename
+                url = f"{_BASE_URL}/download/{fn}"
+                print(f"Downloading {fn}... ", end="", flush=True)
+                r = requests.get(url, headers=_HEADERS, stream=True, timeout=TIMEOUT)
+                r.raise_for_status()
+                with open(fn, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                print("done")
+                paths.append(fn)
 
     return paths
 
