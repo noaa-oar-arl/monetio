@@ -146,16 +146,26 @@ def get_location_files(location, dates, *, level="L2", prod=None):
                 msg = r.json()["detail"]
                 raise RuntimeError(f"Got HTTP error 422 (unprocessable): {msg}")
             r.raise_for_status()
+
+            # Store file metadata
+            req_info = {
+                "location": location,
+                "pan_id": pan_id,
+                "spectrometer": spectrometer,
+                "level": level,
+            }
             for file_info in r.json():
-                rows.append(
-                    {
-                        **file_info,
-                        "location": location,
-                        "pan_id": pan_id,
-                        "spectrometer": spectrometer,
-                        "level": level,
-                    }
-                )
+                row = {}
+                for k, v in file_info.items():
+                    if k.startswith("metadata_"):
+                        k_use = k[len("metadata_") :]
+                    else:
+                        k_use = k
+                    if k_use in req_info:
+                        continue
+                    row[k_use] = v
+                row.update(req_info)
+                rows.append(row)
 
     return pd.DataFrame(rows)
 
