@@ -66,9 +66,10 @@ def open_mfdataset(
     # For CMAQ, times are not in file to concatenate on for different forecast periods,
     # so need to read in one file at a time, calc times, and then merge together.
     if concatenate_forecasts:
+        if isinstance(fname, str):
+            fname = [fname]
         dset_list = []
         for file_n in fname:
-            # open the dataset using xarray
             dset = xr.open_mfdataset(file_n, **kwargs)
             # get the times
             dset = _get_times(dset, drop_duplicates=drop_duplicates)

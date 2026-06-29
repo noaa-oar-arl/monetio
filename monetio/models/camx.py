@@ -199,7 +199,7 @@ def add_met_data_3D(d_chem, d_met):
     else:
         warnings.warn("No pressure variable found. PRESS_MB and pressure were tested.")
 
-    if "press_pa_mid" in d_chem.variables:
+    if "pres_pa_mid" in d_chem.variables:
         d_chem["pres_pa_mid"].attrs = {
             "units": "Pa",
             "long_name": "pressure",
@@ -445,7 +445,7 @@ def _calc_midlayer_height_agl(dset):
     elif "ZGRID_M" in dset.variables:
         height = "ZGRID_M"
     else:
-        raise "No height variable found, but _calc_midlayer_height_agl was called."
+        raise ValueError("No height variable found, but _calc_midlayer_height_agl was called.")
     mid_layer_height = np.array(dset[height])  # height in the layer upper interface of each layer
     layer_height_agl = dset[height]
     layer_height_agl.attrs["long_name"] = "Height AGL at top"
