@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from filelock import FileLock
 
-from monetio.models._cesm_fv_mm import open_mfdataset
+from monetio.models.cesm_fv import open_mfdataset
 
 HERE = Path(__file__).parent
 
