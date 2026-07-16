@@ -103,6 +103,14 @@ class ISHLiteReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str | None = None,
         box: list[float] | None = None,
         country: str | None = None,
@@ -124,6 +132,22 @@ class ISHLiteReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         box : List[float], optional
@@ -169,6 +193,9 @@ class ISHLiteReader(PointReader):
 
         if files is None and dates is not None:
             dates = pd.to_datetime(dates)
+            # Ensure dates is always a DatetimeIndex, not a single Timestamp
+            if not hasattr(dates, "__len__"):
+                dates = pd.DatetimeIndex([dates])
             if ish.history is None:
                 ish.read_ish_history(dates=dates)
             dfloc_urls = ish.history.copy()
@@ -193,13 +220,28 @@ class ISHLiteReader(PointReader):
             raise ValueError("Must provide either 'files' or 'dates'.")
 
         # Use driver directly
-        df = self.driver.open(files, read_method=read_ish_lite_file, lazy=lazy, **kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_ish_lite_file,
+            lazy=lazy,
+            **kwargs,
+        )
 
         # Filtering by date if requested
         if dates is not None:
             dates = pd.to_datetime(dates)
             # Use exclusive upper bound to match unit test expectations in legacy
-            df = df.loc[(df.time >= dates.min()) & (df.time < dates.max())]
+            # For single-date queries, include the full day (min == max otherwise)
+            _end = dates.max() + pd.Timedelta(days=1) if len(dates) == 1 else dates.max()
+            df = df.loc[(df.time >= dates.min()) & (df.time < _end)]
 
         # Merge with metadata
         if ish.history is None:
@@ -209,11 +251,17 @@ class ISHLiteReader(PointReader):
 
         df = self.harmonize(df)
 
+        # Rename temperature to standard name for model-obs pairing
+        if "temp" in df.columns:
+            df = df.rename(columns={"temp": "t2m"})
+
         if as_xarray:
             from ..util import ds_to_2d
 
             # We first convert to 1D UGRID
-            ds = self.to_xarray(df, expand2d=False, **kwargs)
+            # Filter out expand2d from kwargs to avoid double-passing it
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=False, **to_xr_kwargs)
 
             # Metadata variables to preserve
             meta_coords = [
@@ -240,6 +288,8 @@ class ISHLiteReader(PointReader):
                     if c in ds.coords or c in ds.data_vars:
                         val = ds[c]
                         if "time" in val.dims:
+                            if val.sizes["time"] == 0:
+                                continue
                             val = val.isel(time=0, drop=True)
                         metadata[c] = val
 
@@ -318,8 +368,6 @@ def add_data(
     n_procs: int = 1,
     verbose: bool = False,
     source: str | None = None,
-    as_xarray: bool = True,
-    lazy: bool = False,
     **kwargs,
 ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
     """
@@ -347,10 +395,6 @@ def add_data(
         Verbose output, by default False.
     source : str, optional
         Data source: 'ncdc' or 'aws', by default 'aws'.
-    as_xarray : bool, optional
-        Return xarray.Dataset, by default True.
-    lazy : bool, optional
-        Return dask-backed object, by default False.
     **kwargs : dict
         Additional arguments.
 
@@ -375,7 +419,5 @@ def add_data(
         n_procs=n_procs,
         verbose=verbose,
         source=source,
-        as_xarray=as_xarray,
-        lazy=lazy,
         **kwargs,
     )

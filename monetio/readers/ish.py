@@ -149,6 +149,11 @@ class ISH:
 
         self.history.columns = [i.lower() for i in self.history.columns]
         if dates is not None:
+            # Ensure dates is a DatetimeIndex (not a single Timestamp)
+            if not hasattr(dates, "__len__"):
+                dates = pd.DatetimeIndex([dates])
+            elif not isinstance(dates, pd.DatetimeIndex):
+                dates = pd.DatetimeIndex(dates)
             index1 = (self.history.end >= dates.min()) & (self.history.begin <= dates.max())
             self.history = self.history.loc[index1, :]
         self.history = self.history.dropna(subset=["lat", "lon"])
@@ -361,6 +366,14 @@ class ISHReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str | None = None,
         box: list[float] | None = None,
         country: str | None = None,
@@ -383,6 +396,22 @@ class ISHReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         box : List[float], optional
@@ -460,7 +489,20 @@ class ISHReader(PointReader):
             files = ish.get_url_file_objs(files)
 
         # Use driver directly to avoid extra harmonize calls that might clash
-        df = self.driver.open(files, read_method=read_ish_file, lazy=lazy, **kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_ish_file,
+            lazy=lazy,
+            **kwargs,
+        )
 
         # Filtering by date if requested
         if dates is not None:
@@ -483,7 +525,9 @@ class ISHReader(PointReader):
             from ..util import ds_to_2d
 
             # We first convert to 1D
-            ds = self.to_xarray(df, expand2d=False, **kwargs)
+            # Filter out expand2d from kwargs to avoid double-passing it
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=False, **to_xr_kwargs)
 
             # Metadata variables to preserve
             meta_coords = [

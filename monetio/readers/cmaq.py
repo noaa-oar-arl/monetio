@@ -34,6 +34,14 @@ class CMAQReader(GriddedReader):
         earth_radius: float = 6370000,
         convert_to_ppb: bool = True,
         drop_duplicates: bool = False,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         **kwargs: Any,
     ) -> xr.Dataset:
         """
@@ -42,13 +50,29 @@ class CMAQReader(GriddedReader):
         Parameters
         ----------
         files : Union[str, List[str]]
-            File path, list of paths, or glob pattern.
+            File path(s), URL(s), or glob pattern.
         earth_radius : float, optional
             Earth radius in meters, by default 6370000.
         convert_to_ppb : bool, optional
             Convert gas species from ppmV to ppbV, by default True.
         drop_duplicates : bool, optional
             Drop duplicate time steps within each file, by default False.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr, by default False.
+        virtualizarr_file : str or None, optional
+            Path to the VirtualiZarr file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5').
+        virtualizarr_backend : str, optional
+            VirtualiZarr backend, by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         **kwargs : Any
             Additional arguments passed to xarray.open_mfdataset or the driver.
 
@@ -64,7 +88,6 @@ class CMAQReader(GriddedReader):
                 earth_radius=earth_radius,
                 convert_to_ppb=convert_to_ppb,
             )
-
         # 2. Open the dataset using standard xarray (via XarrayDriver)
         if "combine" not in kwargs:
             kwargs["combine"] = "nested"
@@ -75,7 +98,18 @@ class CMAQReader(GriddedReader):
             # Actually, preprocess runs BEFORE concatenation.
             kwargs["concat_dim"] = "time"
 
-        ds = self.driver.open(files, **kwargs)
+        ds = super().open_dataset(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # 3. Finalize
         if drop_duplicates:

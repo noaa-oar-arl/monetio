@@ -67,6 +67,37 @@ class BaseReader(abc.ABC):
         return ds
 
 
+def _ensure_time_dimension(ds: xr.Dataset) -> xr.Dataset:
+    """Ensure ``time`` is represented as a dimension when possible."""
+    if not isinstance(ds, xr.Dataset):
+        return ds
+
+    if "time" in ds.dims:
+        return ds
+
+    if "time" in ds.coords:
+        time_dims = ds["time"].dims
+
+        # Promote scalar time to a singleton dimension.
+        if len(time_dims) == 0:
+            ds = ds.expand_dims("time")
+            return ds
+
+        # If time is a 1D coordinate attached to another dimension, swap dimensions.
+        if len(time_dims) == 1 and time_dims[0] in ds.dims:
+            try:
+                ds = ds.swap_dims({time_dims[0]: "time"})
+            except Exception:
+                pass
+            return ds
+
+    if "time" in ds.variables and "time" not in ds.coords:
+        ds = ds.set_coords("time")
+        return _ensure_time_dimension(ds)
+
+    return ds
+
+
 class GriddedReader(BaseReader):
     """
     Base class for gridded data (Models, Satellites) that utilizes XarrayDriver.
@@ -80,8 +111,11 @@ class GriddedReader(BaseReader):
         files: str | list[str],
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
         virtualizarr_backend: str = "kerchunk",
         icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
         use_dask: bool = False,
         **kwargs,
     ) -> xr.Dataset:
@@ -96,9 +130,15 @@ class GriddedReader(BaseReader):
             Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
         virtualizarr_file : str or None, optional
             Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
         virtualizarr_backend : str, optional
             Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
         icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk for VirtualiZarr references, by default False.
+        icechunk_url : str or None, optional
             Path to the Icechunk repository, by default None.
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
@@ -114,12 +154,25 @@ class GriddedReader(BaseReader):
             files,
             use_virtualizarr=use_virtualizarr,
             virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
             virtualizarr_backend=virtualizarr_backend,
             icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
             use_dask=use_dask,
             **kwargs,
         )
-        return self.harmonize(ds)
+        ds = self.harmonize(ds)
+        ds = _ensure_time_dimension(ds)
+        return ds
+
+    def to_kerchunk(self, files: str | list[str], virtualizarr_file: str | None = None, **kwargs):
+        """Generate Kerchunk references for the given files."""
+        return self.driver.to_kerchunk(files, virtualizarr_file=virtualizarr_file, **kwargs)
+
+    def to_icechunk(self, files: str | list[str], icechunk_url: str, **kwargs):
+        """Generate Icechunk references for the given files."""
+        return self.driver.to_icechunk(files, icechunk_url=icechunk_url, **kwargs)
 
 
 class PointReader(BaseReader):
@@ -138,13 +191,18 @@ class PointReader(BaseReader):
         # VirtualiZarr kwargs accepted but silently ignored for PointReaders
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
         virtualizarr_backend: str = "kerchunk",
         icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
         # Standard PointReader kwargs
         read_method: str = "read_csv",
         as_xarray: bool = True,
         lazy: bool = False,
+        use_dask: bool = False,
         meta: pd.DataFrame | pd.Series | dict | tuple | None = None,
+        expand2d: bool = True,
         **kwargs,
     ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
         """
@@ -158,9 +216,15 @@ class PointReader(BaseReader):
             Accepted but ignored for PointReaders (VirtualiZarr only applies to gridded data).
         virtualizarr_file : str or None, optional
             Accepted but ignored for PointReaders.
+        virtualizarr_parser : str or None, optional
+            Accepted but ignored for PointReaders.
         virtualizarr_backend : str, optional
             Accepted but ignored for PointReaders.
         icechunk_repo : str or None, optional
+            Accepted but ignored for PointReaders.
+        use_icechunk : bool, optional
+            Accepted but ignored for PointReaders.
+        icechunk_url : str or None, optional
             Accepted but ignored for PointReaders.
         read_method : str, optional
             The pandas/dask reading method to use, by default "read_csv".
@@ -168,6 +232,8 @@ class PointReader(BaseReader):
             If True, return an xarray.Dataset, by default True.
         lazy : bool, optional
             If True, return a dask-backed object, by default False.
+        use_dask : bool, optional
+            Alias for `lazy`, by default False.
         meta : pd.DataFrame, pd.Series, dict, or tuple, optional
             Dask metadata to use for lazy loading, by default None.
         **kwargs : dict
@@ -178,9 +244,13 @@ class PointReader(BaseReader):
         Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded dataset.
         """
-        # VirtualiZarr kwargs (use_virtualizarr, virtualizarr_file,
-        # virtualizarr_backend, icechunk_repo) are silently discarded here
-        # and NOT forwarded to PandasDriver.
+        # Handle 'use_dask' as an alias for 'lazy'
+        if use_dask:
+            lazy = True
+
+        # VirtualiZarr kwargs (use_virtualizarr, virtualizarr_file, virtualizarr_parser,
+        # virtualizarr_backend, icechunk_repo, use_icechunk, icechunk_url)
+        # are silently discarded here and NOT forwarded to PandasDriver.
         df = self.driver.open(files, read_method=read_method, lazy=lazy, meta=meta, **kwargs)
 
         df = self.harmonize(df)
@@ -189,7 +259,7 @@ class PointReader(BaseReader):
         df = force_object_strings(df)
 
         if as_xarray:
-            return self.to_xarray(df, **kwargs)
+            return self.to_xarray(df, expand2d=expand2d, **kwargs)
 
         return df
 
@@ -218,16 +288,19 @@ class PointReader(BaseReader):
         return super().harmonize(df)
 
     def to_xarray(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], expand2d: bool = True, **kwargs
+        self,
+        obj: Union[pd.DataFrame, "dd.DataFrame", xr.Dataset],
+        expand2d: bool = True,
+        **kwargs,
     ) -> xr.Dataset:
         """
-        Convert the DataFrame to an xarray Dataset in UGRID convention.
+        Convert a DataFrame or Dataset to an xarray Dataset in UGRID convention.
         By default, returns a 2D dataset (time, node) if expand2d=True.
 
         Parameters
         ----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            Input dataframe.
+        obj : Union[pd.DataFrame, dd.DataFrame, xr.Dataset]
+            Input dataframe or unstructured dataset.
         expand2d : bool, optional
             Whether to expand to 2D (time, node) structure, by default True.
         **kwargs : dict
@@ -238,46 +311,66 @@ class PointReader(BaseReader):
         xr.Dataset
             The dataset in UGRID convention.
         """
-        # 1. Identify backend
-        try:
-            import dask.dataframe as dd
-
-            is_dask = isinstance(df, dd.DataFrame)
-        except ImportError:
-            is_dask = False
-
-        # 2. Prepare DataFrame (ensure time and siteid are columns)
-        if is_dask:
-            temp_df = df
+        # 1. Handle Dataset Input (Optimization to avoid round-trip)
+        if isinstance(obj, xr.Dataset):
+            ds = obj
+            # Ensure dimension is 'node'
+            if "node" not in ds.dims:
+                # Find the primary dimension (should be 1D)
+                potential_dims = [d for d in ds.dims if d not in ["time", "siteid"]]
+                if potential_dims:
+                    ds = ds.rename({potential_dims[0]: "node"})
         else:
-            temp_df = df.copy()
-
-        for name in ["time", "siteid"]:
+            df = obj
+            # 2. Identify backend
             try:
-                names = temp_df.index.names
-            except AttributeError:
-                names = [temp_df.index.name]
+                import dask.dataframe as dd
 
-            if name in names:
-                temp_df = temp_df.reset_index()
+                is_dask = isinstance(df, dd.DataFrame)
+            except ImportError:
+                is_dask = False
 
-        # 3. Handle Backends
-        # Consistently force object strings for both backends to avoid nullable string issues.
-        temp_df = force_object_strings(temp_df)
+            # 3. Prepare DataFrame (ensure time and siteid are columns)
+            if is_dask:
+                temp_df = df
+            else:
+                temp_df = df.copy()
 
-        if is_dask:
-            # 3a. Lazy Path
-            ds = xr.Dataset()
-            # Exception to "No Hidden Computes": lengths=True is required by Xarray
-            # to determine dimension sizes for the Dataset structure.
-            for col in temp_df.columns:
-                ds[col] = (("node",), temp_df[col].to_dask_array(lengths=True))
-        else:
-            # 3b. Eager Path
-            # Consistently use 1D for both Eager and Lazy by default.
-            ds = temp_df.reset_index(drop=True).to_xarray()
-            if "index" in ds.dims:
-                ds = ds.rename({"index": "node"})
+            # Drop 'index' if it exists to avoid conflicts during conversion
+            if "index" in temp_df.columns:
+                temp_df = temp_df.drop(columns="index")
+
+            for name in ["time", "siteid"]:
+                try:
+                    names = temp_df.index.names
+                except AttributeError:
+                    names = [temp_df.index.name]
+
+                if name in names:
+                    temp_df = temp_df.reset_index()
+
+            # 4. Handle Backends
+            # Consistently force object strings for both backends to avoid nullable string issues.
+            temp_df = force_object_strings(temp_df)
+
+            if is_dask:
+                # 4a. Lazy Path
+                # Exception to "No Hidden Computes": lengths=True is often required by Xarray
+                # to determine dimension sizes for the Dataset structure.
+                # For dask-expr collections, this may trigger a small compute.
+                ds = xr.Dataset()
+                for col in temp_df.columns:
+                    if col == "node" and "node" in ds.dims:
+                        continue
+                    ds[col] = (("node",), temp_df[col].to_dask_array(lengths=True))
+            else:
+                # 4b. Eager Path
+                # Consistently use 1D for both Eager and Lazy by default.
+                ds = temp_df.reset_index(drop=True).to_xarray()
+                if "index" in ds.dims:
+                    if "node" in ds.variables or "node" in ds.dims:
+                        ds = ds.drop_vars("node", errors="ignore")
+                    ds = ds.rename({"index": "node"})
 
         # Set standard coordinates
         coords = [
@@ -330,10 +423,10 @@ class PointReader(BaseReader):
                 if "node" in ds[var].dims:
                     ds[var].attrs.update({"mesh": "mesh", "location": "node"})
 
-        # Copy attributes from DataFrame if they exist (e.g. history).
+        # Copy attributes from input object if they exist (e.g. history).
         # Dask DataFrames don't support .attrs the same way as pandas, so
         # we guard with getattr to avoid AttributeError.
-        df_attrs = getattr(df, "attrs", {}) or {}
+        df_attrs = getattr(obj, "attrs", {}) or {}
         for k, v in df_attrs.items():
             if k not in ds.attrs:
                 ds.attrs[k] = v
@@ -348,6 +441,8 @@ class PointReader(BaseReader):
 
         # Update history
         ds = update_history(ds, "Converted to xarray Dataset with UGRID convention.")
+
+        ds = _ensure_time_dimension(ds)
 
         return ds
 
@@ -630,15 +725,15 @@ def _add_ioapi_latlon(ds: xr.Dataset, proj4_srs: str) -> xr.Dataset:
     yda = xr.DataArray(y, dims=y_dim)
 
     # 3. Backend-Agnostic Chunking
-    # Proactively check for Dask-backed data variables
-    is_dask = len(ds.chunks) > 0 or any(hasattr(ds[v].data, "dask") for v in ds.data_vars)
-
-    if is_dask:
-        # Use existing chunks or default to 'auto'
-        x_chunks = ds.chunks.get(x_dim, "auto")
-        y_chunks = ds.chunks.get(y_dim, "auto")
-        xda = xda.chunk({x_dim: x_chunks})
-        yda = yda.chunk({y_dim: y_chunks})
+    if ds.chunks:
+        # Match coordinate chunking to data variables to maintain laziness.
+        # We avoid hardcoded 'auto' and instead respect existing dataset chunks.
+        x_chunks = {d: ds.chunks[d] for d in xda.dims if d in ds.chunks}
+        y_chunks = {d: ds.chunks[d] for d in yda.dims if d in ds.chunks}
+        if x_chunks:
+            xda = xda.chunk(x_chunks)
+        if y_chunks:
+            yda = yda.chunk(y_chunks)
 
     # Broadcast to 2D
     yv, xv = xr.broadcast(yda, xda)

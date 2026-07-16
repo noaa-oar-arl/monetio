@@ -30,7 +30,7 @@ def combine_dataset(flist, taglist=None, renumber=False, verbose=False):
         files=flist,
         taglist=taglist,
         renumber=renumber,
-        as_xarray=False,
+        as_xarray=True,
     )
 
 
@@ -51,4 +51,4 @@ def open_dataset(filename):
     pandas.DataFrame
         DataFrame with all trajectory information
     """
-    return HYTRAJReader().open_dataset(files=filename, as_xarray=False)
+    return HYTRAJReader().open_dataset(files=filename, as_xarray=True)

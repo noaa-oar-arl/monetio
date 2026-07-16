@@ -26,6 +26,14 @@ class IMPROVEReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         add_meta: bool = False,
         delimiter: str = "\t",
         as_xarray: bool = True,
@@ -40,6 +48,22 @@ class IMPROVEReader(PointReader):
         ----------
         files : Union[str, List[str]]
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         add_meta : bool, optional
             Whether to add site metadata, by default False.
         delimiter : str, optional
@@ -72,6 +96,14 @@ class IMPROVEReader(PointReader):
 
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=lazy,
@@ -164,7 +196,9 @@ def read_improve_file(fname: str, delimiter: str = "\t", **kwargs: Any) -> pd.Da
     # Determine storage options if S3
     storage_options = kwargs.get("storage_options")
     if fname.startswith("s3://") and storage_options is None:
-        storage_options = {"anon": True}
+        from .drivers import get_default_storage_options
+
+        storage_options = get_default_storage_options(fname)
 
     # Find the data section
     skiprows = 0

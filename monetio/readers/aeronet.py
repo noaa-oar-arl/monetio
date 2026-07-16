@@ -28,6 +28,14 @@ class AERONETReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str | None = None,
         product: str = "AOD15",
         inv_type: str | None = None,
@@ -54,6 +62,22 @@ class AERONETReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         product : str, optional
@@ -188,6 +212,14 @@ class AERONETReader(PointReader):
 
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=use_dask,
@@ -1210,4 +1242,4 @@ class AERONET:
 def _parallel_aeronet_call(**kwargs):
     """Legacy parallel call."""
     # This remains for backward compatibility
-    return AERONETReader().open_dataset(as_xarray=False, **kwargs)
+    return AERONETReader().open_dataset(**kwargs)

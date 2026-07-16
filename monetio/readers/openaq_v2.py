@@ -564,7 +564,10 @@ class OpenAQV2Reader(PointReader):
         return df
 
     def to_xarray(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], wide_fmt: bool = True, **kwargs: Any
+        self,
+        df: Union[pd.DataFrame, "dd.DataFrame"],
+        expand2d: bool = True,
+        **kwargs: Any,
     ) -> xr.Dataset:
         """
         Convert to xarray and rename variables for consistency.
@@ -583,6 +586,8 @@ class OpenAQV2Reader(PointReader):
         xr.Dataset
             The loaded dataset.
         """
+        # OpenAQ v2 uses wide_fmt as an alias for expand2d
+        wide_fmt = kwargs.get("wide_fmt", expand2d)
         ds = super().to_xarray(df, expand2d=wide_fmt, **kwargs)
 
         if wide_fmt:

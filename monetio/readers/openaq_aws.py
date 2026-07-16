@@ -32,6 +32,14 @@ class OpenAQAWSReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str = None,
         siteid: str | list[str] = None,
         country: str | list[str] = None,
@@ -49,6 +57,22 @@ class OpenAQAWSReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         siteid : Union[str, List[str]], optional
@@ -124,6 +148,14 @@ class OpenAQAWSReader(PointReader):
         # We pass wide_fmt=False here and handle it in to_xarray to maintain laziness.
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=lazy,
@@ -132,7 +164,9 @@ class OpenAQAWSReader(PointReader):
 
         if as_xarray:
             # Defer wide_fmt expansion to to_xarray (via ds_to_2d) to keep it lazy.
-            ds = self.to_xarray(df, expand2d=wide_fmt, **kwargs)
+            # Filter out expand2d from kwargs if present to avoid double-passing
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=wide_fmt, **to_xr_kwargs)
 
             # Update history
             ds = update_history(ds, "Read OpenAQ AWS archive data.")
@@ -209,7 +243,10 @@ class OpenAQAWSReader(PointReader):
         return super().harmonize(df)
 
     def to_xarray(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], expand2d: bool = True, **kwargs
+        self,
+        df: Union[pd.DataFrame, "dd.DataFrame"],
+        expand2d: bool = True,
+        **kwargs,
     ) -> xr.Dataset:
         """
         Convert to Xarray with consistent naming for OpenAQ variables.
@@ -349,11 +386,9 @@ def _to_datetime_index(dates, **kwargs):
 
 def get_paths(dates, *, siteid=None, country=None, provider=None):
     """Get site-day paths, searching independently by location ID, country, and provider."""
-    from ..util import _import_required
+    from .drivers import FileUtility
 
-    s3fs = _import_required("s3fs")
-
-    fs = s3fs.S3FileSystem(anon=True)
+    fs = FileUtility.get_fs("s3://openaq-data-archive")
 
     dates = _to_datetime_index(dates)
     location_ids = _maybe_to_list(siteid)
@@ -418,11 +453,9 @@ def get_paths(dates, *, siteid=None, country=None, provider=None):
 
 def get_providers():
     """Get OpenAQ data providers by searching the bucket paths."""
-    from ..util import _import_required
+    from .drivers import FileUtility
 
-    s3fs = _import_required("s3fs")
-
-    fs = s3fs.S3FileSystem(anon=True)
+    fs = FileUtility.get_fs("s3://openaq-data-archive")
     paths = fs.glob("openaq-data-archive/records/csv.gz/provider=*", maxdepth=1)
     providers = [p.split("=")[1] for p in paths]
     return providers
@@ -430,11 +463,9 @@ def get_providers():
 
 def get_provider_countries(provider):
     """Get countries for a given provider."""
-    from ..util import _import_required
+    from .drivers import FileUtility
 
-    s3fs = _import_required("s3fs")
-
-    fs = s3fs.S3FileSystem(anon=True)
+    fs = FileUtility.get_fs("s3://openaq-data-archive")
     glb = f"openaq-data-archive/records/csv.gz/provider={provider.lower()}/country=*"
     paths = fs.glob(glb, maxdepth=1)
     countries = [p.split("=")[2] for p in paths]
@@ -445,11 +476,9 @@ def get_locations(*, provider=None, country=None):
     """Get location IDs corresponding to provider(s) and/or country(ies)."""
     import re
 
-    from ..util import _import_required
+    from .drivers import FileUtility
 
-    s3fs = _import_required("s3fs")
-
-    fs = s3fs.S3FileSystem(anon=True)
+    fs = FileUtility.get_fs("s3://openaq-data-archive")
     country = _maybe_to_list(country)
     if provider is None:
         providers = get_providers()
@@ -549,6 +578,5 @@ def add_data(
         provider=provider,
         find_paths=find_paths,
         wide_fmt=wide_fmt,
-        as_xarray=False,  # Return DataFrame by default for add_data legacy
         **kwargs,
     )

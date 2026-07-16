@@ -24,6 +24,8 @@ dependencies:
   - pyproj
   - requests
   - timezonefinder
+  - cubed-xarray
+
   #
   # virtualizarr
   - virtualizarr>=1.0

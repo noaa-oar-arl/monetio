@@ -97,7 +97,9 @@ class TestSelectStore:
         files = ["s3://my-bucket/data/file1.nc", "s3://my-bucket/data/file2.nc"]
         registry, result_files = _select_store(files, {"anon": True})
 
-        self.MockS3Store.assert_called_once_with("my-bucket", config={"skip_signature": "true"})
+        self.MockS3Store.assert_called_once_with(
+            "my-bucket", config={"skip_signature": "true", "region": "us-east-1"}
+        )
         self.MockRegistry.return_value.register.assert_called_once_with(
             "s3://my-bucket", self.MockS3Store.return_value
         )

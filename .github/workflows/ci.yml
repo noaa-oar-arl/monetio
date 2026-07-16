@@ -29,6 +29,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12", "3.13"]
+        exclude:
+          # TODO: Investigate and re-enable Python 3.11 on Windows once SSL/network issues are resolved.
+          - os: windows-latest
+            python-version: "3.11"
 
     # This default shell configuration is critical for Windows compatibility
     # with micromamba. It ensures Git Bash is used and the env is activated.
@@ -87,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5

@@ -190,6 +190,14 @@ class SOLRADReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: datetime | list[datetime] | pd.DatetimeIndex | None = None,
         sites: list[str] | None = None,
         as_xarray: bool = True,
@@ -203,6 +211,22 @@ class SOLRADReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File paths or URLs. If None, uses `dates` and `sites` to discover files.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[datetime, List[datetime], pd.DatetimeIndex], optional
             Dates to retrieve if `files` is None.
         sites : List[str], optional
@@ -238,7 +262,20 @@ class SOLRADReader(PointReader):
         }
 
         # We use read_solrad as the custom read_method
-        df = self.driver.open(files, read_method=read_solrad, lazy=lazy, **driver_kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_solrad,
+            lazy=lazy,
+            **driver_kwargs,
+        )
 
         # Post-processing: Harmonize column names
         df = self._postprocess(df)

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .base import GriddedReader, register_reader
+from .base import GriddedReader, _ensure_time_dimension, register_reader
 from .sat_utils import update_history
 
 try:
@@ -91,6 +91,7 @@ class MODISORNLReader(GriddedReader):
 
         # Update history
         ds = update_history(ds, f"Read MODIS ORNL {product} {band} data.")
+        ds = _ensure_time_dimension(ds)
 
         return ds
 

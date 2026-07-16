@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .base import GriddedReader, register_reader
+from .base import GriddedReader, _ensure_time_dimension, register_reader
 from .drivers import FileUtility
 from .sat_utils import update_history
 
@@ -21,6 +21,14 @@ class GEOMSReader(GriddedReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         rename_all: bool = True,
         squeeze: bool = True,
         **kwargs: Any,
@@ -32,6 +40,22 @@ class GEOMSReader(GriddedReader):
         ----------
         files : Union[str, List[str]]
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         rename_all : bool, optional
             Whether to rename all variables to lowercase/standard names, by default True.
         squeeze : bool, optional
@@ -70,6 +94,7 @@ class GEOMSReader(GriddedReader):
 
         # Update history
         ds = update_history(ds, "Read GEOMS data.")
+        ds = _ensure_time_dimension(ds)
 
         return ds
 

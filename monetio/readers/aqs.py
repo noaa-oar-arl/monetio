@@ -1,30 +1,29 @@
 """AQS Reader"""
 
+import concurrent.futures
 import logging
+import os
 import warnings
 from datetime import datetime
-from functools import partial
 from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
+import requests
 import xarray as xr
 
-if TYPE_CHECKING:
-    import dask.dataframe as dd
-
-from monetio.util import force_object_strings
-
+from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .epa_utils import add_monitor_metadata, standardize_epa_units
 from .sat_utils import update_history
+
+if TYPE_CHECKING:
+    import dask.dataframe as dd
 
 logger = logging.getLogger(__name__)
 
 #: Mapping from AQS numeric parameter codes to short variable names used
 #: throughout monetio (e.g. ``88101 -> "PM2.5"``, ``44201 -> "OZONE"``).
-#: Extracted as a module-level constant so it is built once rather than
-#: recreated on every call to :meth:`AQS.get_species`.
 AQS_PARAMETER_CODES: dict[int, str] = {
     88101: "PM2.5",
     88502: "PM2.5",
@@ -106,16 +105,295 @@ AQS_PARAMETER_CODES: dict[int, str] = {
     62103: "DP",
 }
 
-#: String-keyed version of :data:`AQS_PARAMETER_CODES`, used for mapping
-#: against ``parameter_code`` columns that have been cast to ``str``.
+#: String-keyed version of :data:`AQS_PARAMETER_CODES`
 _AQS_PARAMETER_CODES_STR: dict[str, str] = {str(k): v for k, v in AQS_PARAMETER_CODES.items()}
+
+#: Base URL for AQS data retrieval
+AQS_BASE_URL = "https://aqs.epa.gov/aqsweb/airdata/"
+
+#: Renamed columns for AQS daily data
+AQS_DAILY_COLUMNS = [
+    "time",
+    "state_code",
+    "county_code",
+    "site_num",
+    "parameter_code",
+    "poc",
+    "latitude",
+    "longitude",
+    "datum",
+    "parameter_name",
+    "sample_duration",
+    "pollutant_standard",
+    "units",
+    "event_type",
+    "observation_count",
+    "observation_percent",
+    "obs",
+    "1st_max_value",
+    "1st_max_hour",
+    "aqi",
+    "method_code",
+    "method_name",
+    "local_site_name",
+    "address",
+    "state_name",
+    "county_name",
+    "city_name",
+    "msa_name",
+    "date_of_last_change",
+]
+
+
+def _get_param_list(param: str | list[str] | None) -> list[str]:
+    """Get list of parameters to retrieve."""
+    if param is None:
+        return [
+            "SPEC",
+            "PM10",
+            "PM2.5",
+            "PM2.5_FRM",
+            "CO",
+            "OZONE",
+            "SO2",
+            "VOC",
+            "NONOXNOY",
+            "WIND",
+            "TEMP",
+            "RHDP",
+        ]
+    elif isinstance(param, str):
+        return [param]
+    return param
+
+
+def columns_rename(columns: list[str]) -> list[str]:
+    """
+    Rename AQS columns to standard names.
+
+    Parameters
+    ----------
+    columns : list[str]
+        Original column names.
+
+    Returns
+    -------
+    list[str]
+        Standardized column names.
+    """
+    rcolumn = []
+    for ccc in columns:
+        ccc_clean = ccc.strip()
+        if ccc_clean == "Sample Measurement":
+            newc = "obs"
+        elif ccc_clean == "Units of Measure":
+            newc = "units"
+        else:
+            newc = ccc_clean.lower().replace(" ", "_")
+        rcolumn.append(newc)
+    return rcolumn
+
+
+def get_species(
+    df: Union[pd.DataFrame, "dd.DataFrame"], voc: bool = False
+) -> Union[pd.DataFrame, "dd.DataFrame"]:
+    """
+    Map AQS parameter codes to short variable names.
+
+    Parameters
+    ----------
+    df : Union[pd.DataFrame, dd.DataFrame]
+        Input dataframe.
+    voc : bool, optional
+        Whether the data is VOC data, by default False.
+
+    Returns
+    -------
+    Union[pd.DataFrame, dd.DataFrame]
+        Dataframe with 'variable' column added.
+    """
+    if voc:
+        df["variable"] = df.parameter_name.str.upper()
+        return df
+
+    if "variable" not in df.columns:
+        df["variable"] = ""
+
+    pcode_as_str = df["parameter_code"].astype(str)
+    df["variable"] = pcode_as_str.map(_AQS_PARAMETER_CODES_STR)
+
+    # Handle missing mappings for eager data only to avoid compute
+    if not hasattr(df, "compute") and "variable" in df.columns:
+        missing = df.loc[
+            df["variable"].isna(), ["parameter_name", "parameter_code"]
+        ].drop_duplicates()
+        if not missing.empty:
+            _tbl = missing.to_string(index=False)
+            warnings.warn(f"Short names not available for these variables:\n{_tbl}")
+
+    df["variable"] = df["variable"].fillna(df.parameter_name)
+
+    # Update history
+    df = update_history(df, "Mapped parameter codes to short variable names.")
+
+    return df
+
+
+def load_aqs_file(url: str) -> pd.DataFrame:
+    """
+    Load a single AQS file.
+
+    Parameters
+    ----------
+    url : str
+        URL or local path to the AQS file.
+
+    Returns
+    -------
+    pd.DataFrame
+        The loaded AQS data.
+    """
+    if "daily" in url:
+        df = pd.read_csv(
+            url,
+            dtype={0: str, 1: str, 2: str},
+            encoding="ISO-8859-1",
+        )
+        if "Date Local" in df.columns:
+            df["time_local"] = pd.to_datetime(df["Date Local"])
+            df.drop(["Date Local"], axis=1, inplace=True)
+
+        cols = df.columns.tolist()
+        if "time_local" in cols:
+            cols.insert(0, cols.pop(cols.index("time_local")))
+            df = df[cols]
+
+        if len(df.columns) == len(AQS_DAILY_COLUMNS):
+            df.columns = AQS_DAILY_COLUMNS
+    else:
+        df = pd.read_csv(
+            url,
+            low_memory=False,
+            encoding="ISO-8859-1",
+        )
+        if "Date GMT" in df.columns and "Time GMT" in df.columns:
+            df["time"] = pd.to_datetime(df["Date GMT"] + " " + df["Time GMT"])
+        if "Date Local" in df.columns and "Time Local" in df.columns:
+            df["time_local"] = pd.to_datetime(df["Date Local"] + " " + df["Time Local"])
+
+        df.columns = columns_rename(df.columns.tolist())
+        df = df.loc[:, ~df.columns.duplicated()]
+
+    # Vectorized siteid construction
+    df["siteid"] = (
+        df.state_code.astype(str).str.zfill(2)
+        + df.county_code.astype(str).str.zfill(3)
+        + df.site_num.astype(str).str.zfill(4)
+    )
+
+    df.drop(["state_name", "county_name"], axis=1, inplace=True, errors="ignore")
+    df.columns = [i.lower() for i in df.columns]
+
+    if "daily" not in url:
+        df.drop(["datum", "qualifier"], axis=1, inplace=True, errors="ignore")
+
+    voc = "VOC" in url
+    df = get_species(df, voc=voc)
+    df = standardize_epa_units(df)
+    df = force_object_strings(df)
+
+    return df.drop(columns="date_of_last_change", errors="ignore")
+
+
+def build_url(param: str, year: str, daily: bool = False) -> tuple[str, str]:
+    """Build URL and filename for AQS data."""
+    beginning = f"{AQS_BASE_URL}{'daily_' if daily else 'hourly_'}"
+    fname_prefix = "daily_" if daily else "hourly_"
+
+    p = param.upper()
+    mapping = {
+        "OZONE": "44201_",
+        "O3": "44201_",
+        "PM2.5": "88101_",
+        "PM2.5_FRM": "88502_",
+        "PM10": "81102_",
+        "SO2": "42401_",
+        "NO2": "42602_",
+        "CO": "42101_",
+        "NONOXNOY": "NONOxNOy_",
+        "VOC": "VOCS_",
+        "SPEC": "SPEC_",
+        "PM10SPEC": "PM10SPEC_",
+        "WIND": "WIND_",
+        "TEMP": "TEMP_",
+        "RHDP": "RH_DP_",
+        "WS": "WIND_",
+        "WDIR": "WIND_",
+    }
+    code = mapping.get(p, p + "_")
+
+    fname = f"{fname_prefix}{code}{year}.zip"
+    url = f"{AQS_BASE_URL}{fname}"
+    return url, fname
+
+
+def build_urls(
+    params: list[str],
+    dates: pd.DatetimeIndex | list[datetime] | datetime | str,
+    daily: bool = False,
+) -> tuple[list[str], list[str]]:
+    """Build and validate URLs for AQS data."""
+    years = pd.DatetimeIndex(np.atleast_1d(pd.to_datetime(dates))).year.unique().astype(str)
+    urls = []
+    fnames = []
+
+    def check_url(p_y):
+        p, y = p_y
+        url, fname = build_url(p, y, daily=daily)
+        try:
+            with requests.get(url, stream=True, timeout=10) as r:
+                if r.status_code == 200:
+                    content_length = int(r.headers.get("Content-Length", 0))
+                    if content_length > 500:
+                        return url, fname
+        except Exception:
+            pass
+        return None
+
+    to_check = [(p, y) for p in params for y in years]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(check_url, to_check))
+
+    for res in results:
+        if res:
+            urls.append(res[0])
+            fnames.append(res[1])
+
+    return urls, fnames
+
+
+class AQS:
+    """Deprecated helper class for AQS data retrieval."""
+
+    pass
 
 
 @register_reader("aqs")
 class AQSReader(PointReader):
+    """Reader for EPA AQS data."""
+
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str | None = None,
         param: str | list[str] | None = None,
         daily: bool = False,
@@ -123,7 +401,6 @@ class AQSReader(PointReader):
         download: bool = False,
         local: bool = False,
         wide_fmt: bool = True,
-        n_procs: int = 1,
         meta: bool = False,
         as_xarray: bool = True,
         lazy: bool = False,
@@ -136,10 +413,26 @@ class AQSReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr, by default False.
+        virtualizarr_file : str or None, optional
+            Path to VirtualiZarr reference file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use.
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references, by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to Icechunk repository.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to Icechunk repository.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         param : Union[str, List[str]], optional
-            Parameter(s) to retrieve (e.g., 'OZONE', 'PM2.5'), by default None.
+            Parameter(s) to retrieve, by default None.
         daily : bool, optional
             Whether to load daily data, by default False.
         network : str, optional
@@ -150,8 +443,6 @@ class AQSReader(PointReader):
             Whether to load from local files, by default False.
         wide_fmt : bool, optional
             Whether to return data in wide format, by default True.
-        n_procs : int, optional
-            Number of processors for dask compute, by default 1.
         meta : bool, optional
             Whether to add site metadata, by default False.
         as_xarray : bool, optional
@@ -163,52 +454,57 @@ class AQSReader(PointReader):
 
         Returns
         -------
-        Union[pd.DataFrame, xr.Dataset]
+        Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded AQS data.
 
         Examples
         --------
         >>> from monetio.readers.aqs import AQSReader
-        >>> # Load OZONE data for a specific date
         >>> ds = AQSReader().open_dataset(dates='2023-06-01', param='OZONE')
-        >>> # Load daily PM2.5 data lazily
-        >>> ds_lazy = AQSReader().open_dataset(dates='2023-01-01', param='PM2.5', daily=True, lazy=True)
         """
-        a = AQS()
-
         if files is None:
             if dates is None:
                 raise ValueError("Must provide either 'files' or 'dates'.")
 
-            # Build URLs
-            params = a._get_param_list(param)
-            urls, fnames = a.build_urls(params, dates, daily=daily)
+            params = _get_param_list(param)
+            urls, fnames = build_urls(params, dates, daily=daily)
 
             if not urls:
                 return pd.DataFrame()
 
             if download:
                 for url, fname in zip(urls, fnames):
-                    a.retrieve(url, fname)
+                    if not os.path.isfile(fname):
+                        r = requests.get(url)
+                        with open(fname, "wb") as f:
+                            f.write(r.content)
                 files = fnames
             elif local:
                 files = fnames
             else:
                 files = urls
 
-        # Use PandasDriver via base class
-        # Pass a partial of load_aqs_file as the read_method
-        read_func = partial(a.load_aqs_file, network=network)
+        # Clean kwargs for driver
+        driver_kwargs = kwargs.copy()
+        driver_kwargs.pop("n_procs", None)
 
         df = super().open_dataset(
             files,
-            read_method=read_func,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=load_aqs_file,
             as_xarray=False,
             lazy=lazy,
-            **kwargs,
+            **driver_kwargs,
         )
 
-        # Handle empty case without triggering compute on Dask
+        # Handle empty case
         try:
             import dask.dataframe as dd
 
@@ -223,311 +519,19 @@ class AQSReader(PointReader):
             if df.empty:
                 return df
 
-        # Filter dates
+        # Filter dates backend-agnostically
         if dates is not None:
             dates_idx = pd.DatetimeIndex(np.atleast_1d(pd.to_datetime(dates)))
-            # Backend agnostic filter
             df = df[df.time.between(dates_idx.min(), dates_idx.max())]
 
         if meta:
-            df = a.add_metadata(df, daily=daily, network=network)
-
-        # Restore harmonize call to ensure data quality
-        df = self.harmonize(df)
-
-        # Handle eager compute for Dask-backed objects if requested
-        if not lazy and is_dask and not isinstance(df, pd.DataFrame):
-            df = df.compute(num_workers=n_procs)
+            df = add_monitor_metadata(df, daily=daily, network=network)
 
         if as_xarray:
-            ds = self.to_xarray(df, expand2d=wide_fmt, wide_fmt=wide_fmt, **kwargs)
-            # Update history
+            # Filter out expand2d from kwargs if present to avoid double-passing
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=wide_fmt, wide_fmt=wide_fmt, **to_xr_kwargs)
             ds = update_history(ds, "Read AQS data.")
-
             return ds
-
-        return df
-
-
-class AQS:
-    """Helper class for AQS data retrieval and processing."""
-
-    def __init__(self):
-        self.baseurl = "https://aqs.epa.gov/aqsweb/airdata/"
-        self.renameddcols = [
-            "time",
-            "state_code",
-            "county_code",
-            "site_num",
-            "parameter_code",
-            "poc",
-            "latitude",
-            "longitude",
-            "datum",
-            "parameter_name",
-            "sample_duration",
-            "pollutant_standard",
-            "units",
-            "event_type",
-            "observation_count",
-            "observation_percent",
-            "obs",
-            "1st_max_value",
-            "1st_max_hour",
-            "aqi",
-            "method_code",
-            "method_name",
-            "local_site_name",
-            "address",
-            "state_name",
-            "county_name",
-            "city_name",
-            "msa_name",
-            "date_of_last_change",
-        ]
-
-    def _get_param_list(self, param: str | list[str] | None) -> list[str]:
-        if param is None:
-            return [
-                "SPEC",
-                "PM10",
-                "PM2.5",
-                "PM2.5_FRM",
-                "CO",
-                "OZONE",
-                "SO2",
-                "VOC",
-                "NONOXNOY",
-                "WIND",
-                "TEMP",
-                "RHDP",
-            ]
-        elif isinstance(param, str):
-            return [param]
-        return param
-
-    def columns_rename(self, columns: list[str], verbose: bool = False) -> list[str]:
-        """Rename AQS columns to standard names."""
-        rcolumn = []
-        for ccc in columns:
-            ccc_clean = ccc.strip()
-            if ccc_clean == "Sample Measurement":
-                newc = "obs"
-            elif ccc_clean == "Units of Measure":
-                newc = "units"
-            else:
-                newc = ccc_clean.lower().replace(" ", "_")
-            if verbose:
-                logger.debug(f"{ccc} renamed {newc}")
-            rcolumn.append(newc)
-        return rcolumn
-
-    def load_aqs_file(self, url: str, network: str | None = None) -> pd.DataFrame:
-        """
-        Load a single AQS file.
-
-        Parameters
-        ----------
-        url : str
-            URL or local path to the AQS file.
-        network : str, optional
-            Network to filter, by default None.
-
-        Returns
-        -------
-        pd.DataFrame
-            The loaded AQS data.
-
-        Examples
-        --------
-        >>> a = AQS()
-        >>> df = a.load_aqs_file("https://aqs.epa.gov/aqsweb/airdata/hourly_44201_2023.zip")
-        """
-        if "daily" in url:
-            df = pd.read_csv(
-                url,
-                dtype={0: str, 1: str, 2: str},
-                encoding="ISO-8859-1",
-            )
-            # Find column for time_local
-            if "Date Local" in df.columns:
-                df["time_local"] = pd.to_datetime(df["Date Local"])
-                df.drop(["Date Local"], axis=1, inplace=True)
-
-            # Reorder columns to match renameddcols (first column is time_local)
-            cols = df.columns.tolist()
-            if "time_local" in cols:
-                cols.insert(0, cols.pop(cols.index("time_local")))
-                df = df[cols]
-
-            if len(df.columns) == len(self.renameddcols):
-                df.columns = self.renameddcols
-
-            df["pollutant_standard"] = df.get("pollutant_standard", pd.Series(dtype=str)).astype(
-                str
-            )
-        else:
-            df = pd.read_csv(
-                url,
-                low_memory=False,
-                encoding="ISO-8859-1",
-            )
-            # Vectorized Time construction
-            if "Date GMT" in df.columns and "Time GMT" in df.columns:
-                df["time"] = pd.to_datetime(df["Date GMT"] + " " + df["Time GMT"])
-            if "Date Local" in df.columns and "Time Local" in df.columns:
-                df["time_local"] = pd.to_datetime(df["Date Local"] + " " + df["Time Local"])
-
-            df.columns = self.columns_rename(df.columns.tolist())
-            # Remove duplicate time_local if it was created from 'Time Local'
-            df = df.loc[:, ~df.columns.duplicated()]
-
-        # Vectorized siteid construction
-        df["siteid"] = (
-            df.state_code.astype(str).str.zfill(2)
-            + df.county_code.astype(str).str.zfill(3)
-            + df.site_num.astype(str).str.zfill(4)
-        )
-        df.drop(["state_name", "county_name"], axis=1, inplace=True, errors="ignore")
-        df.columns = [i.lower() for i in df.columns]
-        if "daily" not in url:
-            df.drop(["datum", "qualifier"], axis=1, inplace=True, errors="ignore")
-        voc = "VOC" in url
-        df = self.get_species(df, voc=voc)
-        df = standardize_epa_units(df)
-        df = force_object_strings(df)
-        return df.drop(columns="date_of_last_change", errors="ignore")
-
-    def build_url(self, param: str, year: str, daily: bool = False) -> tuple:
-        """Build URL and filename for a given parameter and year."""
-        if daily:
-            beginning = self.baseurl + "daily_"
-            fname_prefix = "daily_"
-        else:
-            beginning = self.baseurl + "hourly_"
-            fname_prefix = "hourly_"
-
-        p = param.upper()
-        mapping = {
-            "OZONE": "44201_",
-            "O3": "44201_",
-            "PM2.5": "88101_",
-            "PM2.5_FRM": "88502_",
-            "PM10": "81102_",
-            "SO2": "42401_",
-            "NO2": "42602_",
-            "CO": "42101_",
-            "NONOXNOY": "NONOxNOy_",
-            "VOC": "VOCS_",
-            "SPEC": "SPEC_",
-            "PM10SPEC": "PM10SPEC_",
-            "WIND": "WIND_",
-            "TEMP": "TEMP_",
-            "RHDP": "RH_DP_",
-            "WS": "WIND_",
-            "WDIR": "WIND_",
-        }
-        code = mapping.get(p, p + "_")
-
-        url = f"{beginning}{code}{year}.zip"
-        fname = f"{fname_prefix}{code}{year}.zip"
-        return url, fname
-
-    def build_urls(self, params: list[str], dates, daily: bool = False) -> tuple:
-        """Build multiple URLs for given parameters and dates in parallel."""
-        import concurrent.futures
-
-        import requests
-
-        years = pd.DatetimeIndex(np.atleast_1d(pd.to_datetime(dates))).year.unique().astype(str)
-        urls = []
-        fnames = []
-
-        def check_url(p_y):
-            p, y = p_y
-            url, fname = self.build_url(p, y, daily=daily)
-            try:
-                # Use GET with stream=True as a head-like request
-                with requests.get(url, stream=True, timeout=10) as r:
-                    if r.status_code == 200:
-                        content_length = int(r.headers.get("Content-Length", 0))
-                        if content_length > 500:
-                            return url, fname
-                        else:
-                            logger.info(f"File is Empty. Not Processing {url}")
-            except Exception:
-                pass
-            return None
-
-        # Prepare list of (param, year) pairs
-        to_check = [(p, y) for p in params for y in years]
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            results = list(executor.map(check_url, to_check))
-
-        for res in results:
-            if res:
-                urls.append(res[0])
-                fnames.append(res[1])
-
-        return urls, fnames
-
-    def retrieve(self, url: str, fname: str):
-        """Retrieve a file from a URL."""
-        import os
-
-        import requests
-
-        if not os.path.isfile(fname):
-            logger.info(f"Retrieving: {fname} from {url}")
-            r = requests.get(url)
-            with open(fname, "wb") as f:
-                f.write(r.content)
-        else:
-            logger.info(f"File Exists: {fname}")
-
-    def add_metadata(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], daily: bool = False, network: str = None
-    ) -> Union[pd.DataFrame, "dd.DataFrame"]:
-        """Add site metadata and adjust time for daily data."""
-        df = add_monitor_metadata(df, network=network, daily=daily)
-
-        if "parameter_name" in df.columns:
-            df = df.drop(columns="parameter_name")
-
-        return df
-
-    def get_species(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], voc: bool = False
-    ) -> Union[pd.DataFrame, "dd.DataFrame"]:
-        """Map parameter codes to short variable names.
-
-        Uses the module-level :data:`AQS_PARAMETER_CODES` mapping (and its
-        string-keyed counterpart :data:`_AQS_PARAMETER_CODES_STR`) so the
-        lookup table is built once at import time rather than on every call.
-        """
-        if voc:
-            df["variable"] = df.parameter_name.str.upper()
-            return df
-
-        if "variable" not in df.columns:
-            df["variable"] = ""
-
-        pcode_as_str = df["parameter_code"].astype(str)
-        df["variable"] = pcode_as_str.map(_AQS_PARAMETER_CODES_STR)
-
-        # Handle missing mappings
-        if "variable" in df.columns:
-            # For the warning, we check if any are missing.
-            # To stay lazy, we only do this if df is not a dask dataframe.
-            if not hasattr(df, "compute"):
-                missing = df.loc[
-                    df["variable"].isna(), ["parameter_name", "parameter_code"]
-                ].drop_duplicates()
-                if not missing.empty:
-                    _tbl = missing.to_string(index=False)
-                    warnings.warn(f"Short names not available for these variables:\n{_tbl}")
-
-        df["variable"] = df["variable"].fillna(df["parameter_name"])
 
         return df

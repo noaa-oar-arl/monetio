@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from .base import GriddedReader, _scientific_hygiene, register_reader
+from .base import GriddedReader, _ensure_time_dimension, _scientific_hygiene, register_reader
 from .sat_utils import update_history
 
 
@@ -15,14 +15,42 @@ class NCEPGribReader(GriddedReader):
     Reader for NCEP GRIB files.
     """
 
-    def open_dataset(self, files: str | list[str], **kwargs: Any) -> xr.Dataset:
+    def open_dataset(
+        self,
+        files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
+        **kwargs: Any,
+    ) -> xr.Dataset:
         """
         Reads NCEP GRIB files.
 
         Parameters
         ----------
         files : Union[str, List[str]]
-            File path, list of paths, or glob pattern.
+            File path(s), URL(s), or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'grib2'), by default None.
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk for VirtualiZarr references, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         **kwargs : Any
             Additional arguments passed to xarray.open_mfdataset or the driver.
 
@@ -35,13 +63,11 @@ class NCEPGribReader(GriddedReader):
         --------
         >>> from monetio.readers.ncep_grib import NCEPGribReader
         >>> reader = NCEPGribReader()
-        >>> ds = reader.open_dataset("gfs.*.grib2", engine="pynio")
+        >>> ds = reader.open_dataset("gfs.*.grib2", engine="grib2io")
         """
-        # Ensure we have engine='pynio' if not specified
-        # Note: pynio is often used for these files but might be hard to install.
+        # Default to grib2io engine
         if "engine" not in kwargs:
-            kwargs["engine"] = "pynio"
-
+            kwargs["engine"] = "grib2io"
         # Also supports open_mfdataset logic
         if "concat_dim" not in kwargs:
             kwargs["concat_dim"] = "time"
@@ -49,10 +75,22 @@ class NCEPGribReader(GriddedReader):
         if "preprocess" not in kwargs:
             kwargs["preprocess"] = ncep_grib_preprocess
 
-        ds = self.driver.open(files, **kwargs)
+        ds = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="grib2",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # Update history
         ds = update_history(ds, "Read NCEP GRIB data.")
+        ds = _ensure_time_dimension(ds)
 
         return ds
 
@@ -93,6 +131,18 @@ def ncep_grib_preprocess(ds: xr.Dataset) -> xr.Dataset:
         if to_coord:
             ds = ds.set_coords(to_coord)
 
+    # Normalize valid_time -> time for GRIB interoperability.
+    if "valid_time" in ds.coords or "valid_time" in ds.dims:
+        if "time" in ds.coords or "time" in ds.dims or "time" in ds.variables:
+            if "valid_time" in ds.variables:
+                ds = ds.drop_vars("valid_time")
+        else:
+            if "valid_time" in ds.coords and "valid_time" not in ds.dims:
+                valid_time_dims = ds["valid_time"].dims
+                if len(valid_time_dims) == 1 and valid_time_dims[0] in ds.dims:
+                    ds = ds.swap_dims({valid_time_dims[0]: "valid_time"})
+            ds = ds.rename({"valid_time": "time"})
+
     # 2. Generate 2D Latitude and Longitude lazily
     if "latitude" in ds.coords and "longitude" in ds.coords:
         # Check if they are 1D
@@ -100,26 +150,15 @@ def ncep_grib_preprocess(ds: xr.Dataset) -> xr.Dataset:
             lat_dim = ds.latitude.dims[0]
             lon_dim = ds.longitude.dims[0]
 
-            # Extract data and attributes to create new DataArrays for broadcast.
-            # This avoids alignment issues when re-assigning to the dataset.
-            lon_data = ds.longitude.data
-            lat_data = ds.latitude.data
+            # Create new DataArrays for broadcast to avoid alignment issues.
+            # We preserve existing laziness (NumPy or Dask) without manual wrapping.
+            lon1d = xr.DataArray(ds.longitude.data, dims="x", attrs=ds.longitude.attrs)
+            lat1d = xr.DataArray(ds.latitude.data, dims="y", attrs=ds.latitude.attrs)
 
-            # If the dataset is chunked but coordinates are not, wrap them in dask
-            # to maintain laziness throughout the broadcast.
             if ds.chunks:
-                try:
-                    import dask.array as da
-
-                    if not hasattr(lon_data, "dask"):
-                        lon_data = da.from_array(lon_data, chunks=ds.chunks.get(lon_dim, -1))
-                    if not hasattr(lat_data, "dask"):
-                        lat_data = da.from_array(lat_data, chunks=ds.chunks.get(lat_dim, -1))
-                except ImportError:
-                    pass
-
-            lon1d = xr.DataArray(lon_data, dims="x", attrs=ds.longitude.attrs)
-            lat1d = xr.DataArray(lat_data, dims="y", attrs=ds.latitude.attrs)
+                # Align coordinate chunking with dataset chunks to maintain laziness.
+                lon1d = lon1d.chunk({d: ds.chunks[d] for d in lon1d.dims if d in ds.chunks})
+                lat1d = lat1d.chunk({d: ds.chunks[d] for d in lat1d.dims if d in ds.chunks})
 
             # Broadcast to 2D
             # xr.broadcast will handle both NumPy and Dask lazily

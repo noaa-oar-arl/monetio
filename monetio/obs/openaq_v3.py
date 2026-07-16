@@ -514,7 +514,7 @@ def add_data(
     sensor_type=None,
     sensor_ids=None,
     query_time_split=None,
-    wide_fmt=False,  # FIXME: probably want to default to True
+    wide_fmt=True,
     **kwargs,
 ):
     """Get OpenAQ API v3 data, including low-cost sensors.
@@ -594,10 +594,9 @@ def add_data(
         parameters = [parameters]
 
     if all([raw is None, hourly is None, daily is None]):
-        # Default to raw
-        # FIXME: probably want hourly to be the default
-        raw = True
-        hourly = False
+        # Default to hourly
+        raw = False
+        hourly = True
         daily = False
     else:
         # User specified one (or more)

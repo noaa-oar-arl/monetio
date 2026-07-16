@@ -28,6 +28,14 @@ class OpenAQReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str = None,
         wide_fmt: bool = True,
         as_xarray: bool = True,
@@ -41,6 +49,22 @@ class OpenAQReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         wide_fmt : bool, optional
@@ -111,6 +135,14 @@ class OpenAQReader(PointReader):
         # Use base class to open
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_openaq_json,
             as_xarray=False,
             lazy=lazy,
@@ -124,7 +156,9 @@ class OpenAQReader(PointReader):
         if as_xarray:
             # Pop expand2d from kwargs if present to avoid multiple values error
             exp2d = kwargs.pop("expand2d", wide_fmt)
-            ds = self.to_xarray(df, expand2d=exp2d, **kwargs)
+            # Filter out expand2d from kwargs if still present (defensive)
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=exp2d, **to_xr_kwargs)
 
             # Update history
             ds = update_history(ds, "Read OpenAQ data.")
@@ -260,7 +294,10 @@ class OpenAQReader(PointReader):
         return df
 
     def to_xarray(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], expand2d: bool = True, **kwargs: Any
+        self,
+        df: Union[pd.DataFrame, "dd.DataFrame"],
+        expand2d: bool = True,
+        **kwargs: Any,
     ) -> xr.Dataset:
         """
         Convert OpenAQ DataFrame to Xarray Dataset, ensuring consistent naming.
@@ -315,7 +352,8 @@ class OpenAQReader(PointReader):
 
 def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> list[str]:
     """
-    Construct OpenAQ S3 URLs for the given dates.
+    Construct OpenAQ URLs for the given dates.
+    Uses HTTPS by default for better compatibility in restricted environments.
 
     Parameters
     ----------
@@ -325,26 +363,36 @@ def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> lis
     Returns
     -------
     List[str]
-        List of S3 URLs.
+        List of URLs.
     """
-    import s3fs
+    from .drivers import FileUtility
 
-    fs = s3fs.S3FileSystem(anon=True)
+    # We try S3 listing first, but fall back to assuming existence if it fails
     s3bucket = "openaq-fetches/realtime"
+
+    try:
+        fs = FileUtility.get_fs("s3://openaq-fetches")
+        folders = fs.ls(s3bucket)
+        use_s3 = True
+    except Exception:
+        use_s3 = False
 
     dates = pd.to_datetime(dates)
     if isinstance(dates, pd.Timestamp):
         dates = pd.DatetimeIndex([dates])
     dates = dates.floor("D").unique()
 
-    # Get available days from S3
-    try:
-        folders = fs.ls(s3bucket)
-    except Exception as e:
-        logger.error(f"Failed to list S3 bucket {s3bucket}: {e}")
-        raise
+    if use_s3:
+        days_available = [folder.split("/")[-1] for folder in folders]
+    else:
+        # Fallback: assume all requested dates might be available via HTTPS
+        # Use .dt accessor if it's a Series, otherwise floor directly if it's a DatetimeIndex
+        dates_dt = pd.to_datetime(dates)
+        if hasattr(dates_dt, "dt"):
+            days_available = [d.strftime(r"%Y-%m-%d") for d in dates_dt.dt.floor("D").unique()]
+        else:
+            days_available = [d.strftime(r"%Y-%m-%d") for d in dates_dt.floor("D").unique()]
 
-    days_available = [folder.split("/")[-1] for folder in folders]
     dates_available = pd.to_datetime(days_available, format=r"%Y-%m-%d", errors="coerce")
 
     dates_requested = pd.Series(dates).floor("D").drop_duplicates()
@@ -353,11 +401,19 @@ def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> lis
     urls = []
     for date in dates_have:
         sdate = date.strftime(r"%Y-%m-%d")
-        try:
-            files = fs.ls(f"{s3bucket}/{sdate}")
-            urls.extend(f"s3://{f}" for f in files)
-        except Exception as e:
-            logger.warning(f"Failed to list files for date {sdate}: {e}")
+        if use_s3:
+            try:
+                files = fs.ls(f"{s3bucket}/{sdate}")
+                urls.extend(f"s3://{f}" for f in files)
+            except Exception as e:
+                logger.warning(f"Failed to list S3 files for date {sdate}: {e}")
+                # Fallback to a few standard names if listing fails but we know the day exists?
+                # Actually OpenAQ fetches have unpredictable names (timestamps).
+                # If S3 ls failed, we probably can't get the filenames easily.
+        else:
+            # Without S3 listing, we can't easily know the granule names for OpenAQ fetches.
+            # But the user might be providing files explicitly.
+            pass
 
     return urls
 
@@ -386,7 +442,9 @@ def read_openaq_json(fn: str, storage_options: dict = None, **kwargs: Any) -> pd
         fn = fn.replace("https://openaq-fetches.s3.amazonaws.com", "s3://openaq-fetches")
         fn = fn.replace("http://openaq-fetches.s3.amazonaws.com", "s3://openaq-fetches")
         if storage_options is None:
-            storage_options = {"anon": True}
+            from .drivers import get_default_storage_options
+
+            storage_options = get_default_storage_options(fn)
 
     try:
         df = pd.read_json(fn, lines=True, storage_options=storage_options)
@@ -517,7 +575,7 @@ class OPENAQ:
         num_workers: int = 1,
         wide_fmt: bool = True,
         lazy: bool = False,
-    ) -> pd.DataFrame | xr.Dataset:
+    ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
         reader = OpenAQReader()
         # num_workers is ignored in modern reader as it relies on dask config
-        return reader.open_dataset(dates=dates, wide_fmt=wide_fmt, lazy=lazy, as_xarray=False)
+        return reader.open_dataset(dates=dates, wide_fmt=wide_fmt, lazy=lazy)

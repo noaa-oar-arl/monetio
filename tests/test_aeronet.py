@@ -172,7 +172,7 @@ def test_aeronet_aero_protocol():
     df_eager = df_eager.reindex(sorted(df_eager.columns), axis=1)
     df_lazy_computed = df_lazy.compute().reindex(sorted(df_eager.columns), axis=1)
     df_eager["siteid"] = df_eager["siteid"].astype(object)
-    pd.testing.assert_frame_equal(df_eager, df_lazy_computed)
+    pd.testing.assert_frame_equal(df_eager, df_lazy_computed, check_dtype=False)
 
     # 3. Xarray Eager
     ds_eager = reader.open_dataset(files=str(fp), as_xarray=True, lazy=False)

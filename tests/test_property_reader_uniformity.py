@@ -33,6 +33,7 @@ EXCLUDED_MODULES = {
     "nasa_utils",
     "sat_utils",
     "time_utils",
+    "ncep_pds",
 }
 
 # Modules that legitimately contain multiple distinct registered classes

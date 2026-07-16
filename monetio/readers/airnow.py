@@ -26,6 +26,14 @@ class AirNowReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str = None,
         download: bool = False,
         wide_fmt: bool = True,
@@ -43,6 +51,22 @@ class AirNowReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         download : bool, optional
@@ -84,9 +108,11 @@ class AirNowReader(PointReader):
             raise ValueError("Must provide either 'files' or 'dates'.")
 
         # Define per-file preprocessing
-        storage_options = kwargs.get("storage_options", {})
+        storage_options = kwargs.get("storage_options")
         if not storage_options and any(str(f).startswith("s3://") for f in files):
-            storage_options = {"anon": True}
+            from .drivers import get_default_storage_options
+
+            storage_options = get_default_storage_options(str(files[0]))
 
         read_func = partial(read_airnow_csv, daily=daily, storage_options=storage_options)
 
@@ -95,6 +121,14 @@ class AirNowReader(PointReader):
         # during the DataFrame stage.
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=lazy,
@@ -112,7 +146,9 @@ class AirNowReader(PointReader):
             df = df.compute(num_workers=n_procs)
 
         if as_xarray:
-            ds = self.to_xarray(df, expand2d=wide_fmt, **kwargs)
+            # Filter out expand2d from kwargs if present to avoid double-passing
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=wide_fmt, **to_xr_kwargs)
 
             # Ensure history from _post_process and harmonize is there
             # even if lost in DataFrame stage (Dask doesn't support .attrs)
@@ -343,8 +379,8 @@ def build_urls(
 
     urls = []
     fnames = []
-    # Use S3 bucket directly
-    base_url = "s3://files.airnowtech.org/airnow/"
+    # Use HTTPS by default as S3 access can be restricted or require region config
+    base_url = "https://files.airnowtech.org/airnow/"
     for dt in dates:
         if daily:
             fname = "daily_data.dat"

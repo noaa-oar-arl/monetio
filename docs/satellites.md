@@ -36,6 +36,14 @@ National Environmental Satellite, Data, and Information Service (NESDIS) Visible
 - **Source ID**: `nesdis_viirs_jrr` (or `viirs_jrr`): Joint Polar Satellite System (JPSS) Risk Reduction (JRR).
 - **Source ID**: `nesdis_frp`: Fire Radiative Power (FRP).
 
+#### NESDIS VIIRS JRR Usage
+
+```python
+import monetio as mio
+# Load SNPP AOD from S3
+ds = mio.load("nesdis_viirs_jrr", dates='2024-01-01', satellite='snpp', product='AOD')
+```
+
 ### OMPS
 
 Ozone Mapping and Profiler Suite.
@@ -60,8 +68,32 @@ Geostationary Operational Environmental Satellite.
 
 - **Source ID**: `goes`
 
+### GEMS
+
+Geostationary Environment Monitoring Spectrometer (South Korea).
+
+- **Source ID**: `gems`
+
+### Sentinel-4
+
+ESA Geostationary air quality constellation component (Europe).
+
+- **Source ID**: `sentinel4`
+
 ### MOPITT
 
 Measurements Of Pollution In The Troposphere.
 
 - **Source ID**: `mopitt`
+
+### CALIPSO / CALIOP
+
+Cloud-Aerosol Lidar and Infrared Pathfinder Satellite Observations.
+
+- **Source ID**: `calipso`
+
+### EarthCARE
+
+ESA/JAXA Earth Cloud, Aerosol and Radiation Explorer.
+
+- **Source ID**: `earthcare`

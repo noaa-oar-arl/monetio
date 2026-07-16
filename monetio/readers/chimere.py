@@ -5,7 +5,7 @@ from typing import Any
 
 import xarray as xr
 
-from .base import GriddedReader, _scientific_hygiene, register_reader
+from .base import GriddedReader, _ensure_time_dimension, _scientific_hygiene, register_reader
 from .sat_utils import update_history
 
 
@@ -22,8 +22,11 @@ class ChimereReader(GriddedReader):
         surf_only: bool = False,
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
         virtualizarr_backend: str = "kerchunk",
         icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
         use_dask: bool = False,
         **kwargs: Any,
     ) -> xr.Dataset:
@@ -42,9 +45,15 @@ class ChimereReader(GriddedReader):
             Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
         virtualizarr_file : str or None, optional
             Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
         virtualizarr_backend : str, optional
-            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+            VirtualiZarr backend, by default "kerchunk".
         icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
             Path to the Icechunk repository, by default None.
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
@@ -78,13 +87,17 @@ class ChimereReader(GriddedReader):
             files,
             use_virtualizarr=use_virtualizarr,
             virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
             virtualizarr_backend=virtualizarr_backend,
             icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
             use_dask=use_dask,
             **kwargs,
         )
 
         ds = self.harmonize(ds)
+        ds = _ensure_time_dimension(ds)
 
         # Update history
         ds = update_history(ds, "Read Chimere data.")
