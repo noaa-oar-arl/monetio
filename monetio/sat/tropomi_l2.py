@@ -396,10 +396,17 @@ def _calc_tm5_tropopause_pressure(processed_data, netcdf_tropomi):
         DataArray with the tropopause pressure.
     """
     tm5_tropopause_pressure_idx = _add_variable("tm5_tropopause_layer_index", netcdf_tropomi)
-    tm5_tropopause_pressure_idx = tm5_tropopause_pressure_idx.where(
-        (tm5_tropopause_pressure_idx > 0) & (tm5_tropopause_pressure_idx < 10000), other=-1
-    )
-    tropopause_pressure = processed_data["pres_pa_mid"].isel(z=tm5_tropopause_pressure_idx)
+    nz = processed_data.sizes["z"]
+    valid = (tm5_tropopause_pressure_idx >= 0) & (tm5_tropopause_pressure_idx < nz)
+    idx_safe = tm5_tropopause_pressure_idx.where(valid, other=0).astype("int64")
+    tropopause_pressure = processed_data["pres_pa_mid"].isel(z=idx_safe).where(valid)
+
+    # IndexError: index 2048 is out of bounds for axis 1 with size 34
+    # seems to be related to this section?? Garbage pixes. index of 2048
+    # tm5_tropopause_pressure_idx = tm5_tropopause_pressure_idx.where(
+    #     (tm5_tropopause_pressure_idx > 0) & (tm5_tropopause_pressure_idx < 10000), other=-1
+    # )
+    # tropopause_pressure = processed_data["pres_pa_mid"].isel(z=tm5_tropopause_pressure_idx)
     return tropopause_pressure
 
 
