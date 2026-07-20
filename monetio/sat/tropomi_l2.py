@@ -62,6 +62,28 @@ def _open_one_dataset(fname, variable_dict):
             dimensions.append(x)
     dso.close()
     ds = ensure_increasing_altitude(ds)
+
+    # Generic PROPAGATING min/max screen: any requested variable given `min`
+    # and/or `max` masks ALL variables at pixels outside the range, e.g.
+    #   eff_cloud_fraction: {max: 0.2}, solar_zenith_angle: {max: 70},
+    #   main_data_quality_flag: {max: 0}
+    # Unlike the per-variable minimum/maximum keys (which self-mask one variable),
+    # this drops the whole pixel's retrieval across every variable.
+    for _sv, _spec in variable_dict.items():
+        if not isinstance(_spec, dict) or _sv not in ds:
+            continue
+        _lo, _hi = _spec.get("min"), _spec.get("max")
+        if _lo is None and _hi is None:
+            continue
+        _keep = xr.ones_like(ds[_sv], dtype=bool)
+        if _lo is not None:
+            _keep = _keep & (ds[_sv] >= float(_lo))
+        if _hi is not None:
+            _keep = _keep & (ds[_sv] <= float(_hi))
+        for _v in list(ds.data_vars):
+            if _v != _sv:
+                ds[_v] = ds[_v].where(_keep)
+                
     return ds.transpose(*dimensions, ...)
 
 
