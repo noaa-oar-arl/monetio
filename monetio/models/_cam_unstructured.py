@@ -5,8 +5,12 @@ MPAS
 
 """
 
+import logging
+
 import xarray as xr
-import uxarray as ux
+
+logger = logging.getLogger(__name__)
+
 # integrate uxarray here
 # conda install -c conda-forge uxarray
 
@@ -55,25 +59,38 @@ def open_mfdataset(
     # check that the files are netcdf format
     names, netcdf = _ensure_mfdataset_filenames(fname)
 
+    if not netcdf:
+        raise ValueError(
+            "File format not recognized. Files should be in netcdf format; "
+            "do not mix file types."
+        )
+        
     # Grid geometry: SCRIP (CESM-SE) or MPAS mesh/init file. Either is fine.
     ux_grid_path = scrip_file or mesh_file
+    
     if ux_grid_path is None:
         raise ValueError(
-            "Unstructured reader requires a grid file: set 'scrip_file:' "
-            "(SCRIP, e.g. CESM-SE) or 'mesh_file:' (MPAS init) in your YAML."
+            "Unstructured reader requires a grid file: set 'scrip_file' "
+            "(SCRIP, e.g. CESM-SE) or 'mesh_file' (MPAS init)."
         )
-
+    
+    # uxarray is an optional dependency; only import it when needed.
     try:
-        print(f"Opening unstructured grid with UXArray: {ux_grid_path}")
-        dset_load = ux.open_mfdataset(ux_grid_path, fname, **kwargs)
-    except Exception as e:
-        print("ERROR while opening dataset:")
-        print(repr(e))
-        raise
+        import uxarray as ux
+    except ImportError as e:
+        raise ImportError(
+            "Reading an unstructured grid requires the optional dependency "
+            "'uxarray'. Install it with:\n\n"
+            "    conda install -c conda-forge uxarray"
+        ) from e
+    
+    logger.info("Opening unstructured grid with uxarray: %s", ux_grid_path)
+    dset_load = ux.open_mfdataset(ux_grid_path, fname, **kwargs)
 
-    for _c in ("lat", "lon", "lev"):
-        if _c not in var_list:
-            var_list.append(_c)
+    # always include coordinate variables
+    for coord in ("lat", "lon", "lev"):
+        if coord not in var_list:
+            var_list.append(coord)
 
     # variables for cesm-se specific derivations
     _src_vars = []
@@ -91,9 +108,11 @@ def open_mfdataset(
     _present = [v for v in var_list if v in dset_load.variables]
     _missing = [v for v in var_list if v not in dset_load.variables]
     if _missing:
-        print(
-            f"unstructured reader: requested vars not in {names[0]!r}: "
-            f"{_missing}. Continuing with: {_present}."
+        logger.warning(
+            "Requested variables not found in %r: %s. Continuing with: %s.",
+            names[0],
+            _missing,
+            _present,
         )
     dset = dset_load[_present]
 
@@ -123,6 +142,7 @@ def open_mfdataset(
             _col_dims = [d for d in dset[_c].dims if d in ("ncol", "n_face", "n_node")]
             _col_dim = _col_dims[0] if _col_dims else dset[_c].dims[-1]
             dset[_c] = dset[_c].isel({d: 0 for d in dset[_c].dims if d != _col_dim})
+            
     # ===========================
 
     # Derive MM-standardized variables from CESM-SE native fields.
@@ -169,7 +189,7 @@ def open_mfdataset(
             dset = dset.drop_vars(_v)
 
     # Make sure this dataset has unstructured grid
-    dset.attrs["mio_has_unstructured_grid"] = True
+    dset.attrs["mio_has_unstructured_grid"] = bool(ux_grid_path)
     if scrip_file:
         dset.attrs["mio_scrip_file"] = scrip_file
     if mesh_file:
