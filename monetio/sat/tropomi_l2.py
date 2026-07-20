@@ -61,6 +61,7 @@ def _open_one_dataset(fname, variable_dict):
             if "qa_thresh_max" in variable_dict[variable]:
                 ds[variable].attrs["qa_thresh_max"] = variable_dict[variable]["qa_thresh_max"]
             ds[variable] = apply_quality_flag(ds[variable], dso)
+
     dimensions = []
     for x in ["time", "z", "y", "x"]:
         if x in ds.dims:
