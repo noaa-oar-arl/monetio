@@ -37,6 +37,7 @@ Change log
 2023 12 Jan  AMC  get_thickness modified to calculate if the attribute specifying the vertical levels is bad
 2023 03 Mar  AMC  get_latlon modified. replace x>=180 with x>=180+lon_tolerance
 2023 03 Mar  AMC  get_latlongrid improved exception statements
+2026 04 Aug  ICA  parse_hdata6and7 and parse_hdata8 updated to reflect changes in numpy 2.0.0+
 
 
 """
