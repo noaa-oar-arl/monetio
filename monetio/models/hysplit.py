@@ -407,7 +407,7 @@ class ModelBin:
 
     def parse_hdata6and7(self, hdata6, hdata7, century):
         # if no data read then break out of the while loop.
-        if not hdata6:
+        if hdata6.size == 0:
             return False, None, None
         pdate1 = datetime.datetime(
             century + int(hdata6["oyear"][0]),
@@ -445,7 +445,7 @@ class ModelBin:
         """
         lev_name = hdata8a["lev"][0]
         col_name = hdata8a["poll"][0].decode("UTF-8")
-        edata = hdata8b.byteswap().newbyteorder()  # otherwise get endian error.
+        edata = hdata8b.byteswap().view(hdata8b.dtype.newbyteorder())  # otherwise get endian error.
         concframe = pd.DataFrame.from_records(edata)
         concframe["levels"] = lev_name
         concframe["time"] = pdate1
