@@ -25,14 +25,19 @@ jobs:
         include:
           - python-version: "3.9"
             pandas-version: "1"
+            s3fs-version: "2025.7.0"
           - python-version: "3.11"
             pandas-version: "1"
+            s3fs-version: "2026.6.0"
           - python-version: "3.11"
             pandas-version: "2"
+            s3fs-version: "2026.6.0"
           - python-version: "3.13"
             pandas-version: "2"
+            s3fs-version: "2026.6.0"
           - python-version: "3.13"
             pandas-version: "3"
+            s3fs-version: "*"
       fail-fast: false
     defaults:
       run:
@@ -49,6 +54,8 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
             pandas=${{ matrix.pandas-version }}
+            s3fs=${{ matrix.s3fs-version }}
+            fsspec=${{ matrix.s3fs-version }}
 
       - name: Install the package (editable)
         run: pip install -e . --no-deps -vv
