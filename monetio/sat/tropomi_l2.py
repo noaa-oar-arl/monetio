@@ -1,4 +1,10 @@
-"""Read TROPOMI data into MELODIES-MONET"""
+"""Read TROPOMI data into MELODIES-MONET
+
+TROPOspheric Monitoring Instrument (TROPOMI) instrument.
+
+http://www.tropomi.eu
+https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-5p
+"""
 
 import glob
 import warnings
@@ -8,7 +14,6 @@ import numpy as np
 import xarray as xr
 
 MILISECONDS_TO_SECONDS = 0.001
-
 
 def _open_one_dataset(fname, variable_dict):
     """Opens only one dataset
@@ -56,6 +61,7 @@ def _open_one_dataset(fname, variable_dict):
             if "qa_thresh_max" in variable_dict[variable]:
                 ds[variable].attrs["qa_thresh_max"] = variable_dict[variable]["qa_thresh_max"]
             ds[variable] = apply_quality_flag(ds[variable], dso)
+
     dimensions = []
     for x in ["time", "z", "y", "x"]:
         if x in ds.dims:
@@ -391,10 +397,17 @@ def _calc_tm5_tropopause_pressure(processed_data, netcdf_tropomi):
         DataArray with the tropopause pressure.
     """
     tm5_tropopause_pressure_idx = _add_variable("tm5_tropopause_layer_index", netcdf_tropomi)
-    tm5_tropopause_pressure_idx = tm5_tropopause_pressure_idx.where(
-        (tm5_tropopause_pressure_idx > 0) & (tm5_tropopause_pressure_idx < 10000), other=-1
-    )
-    tropopause_pressure = processed_data["pres_pa_mid"].isel(z=tm5_tropopause_pressure_idx)
+    nz = processed_data.sizes["z"]
+    valid = (tm5_tropopause_pressure_idx >= 0) & (tm5_tropopause_pressure_idx < nz)
+    idx_safe = tm5_tropopause_pressure_idx.where(valid, other=0).astype("int64")
+    tropopause_pressure = processed_data["pres_pa_mid"].isel(z=idx_safe).where(valid)
+
+    # IndexError: index 2048 is out of bounds for axis 1 with size 34
+    # seems to be related to this section?? Garbage pixes. index of 2048
+    # tm5_tropopause_pressure_idx = tm5_tropopause_pressure_idx.where(
+    #     (tm5_tropopause_pressure_idx > 0) & (tm5_tropopause_pressure_idx < 10000), other=-1
+    # )
+    # tropopause_pressure = processed_data["pres_pa_mid"].isel(z=tm5_tropopause_pressure_idx)
     return tropopause_pressure
 
 
