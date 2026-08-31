@@ -210,72 +210,79 @@ def get_optimal_cartopy_proj(lat, lon, proj4_srs):
     return area.to_cartopy_crs()
 
 
-def _ioapi_grid_from_dataset(ds, earth_radius=6370000):
-    """SGet the IOAPI projection out of the file into proj4.
+def _ioapi_grid_from_dataset(ds, *, earth_radius=6370_000):
+    """Get the IOAPI projection info into proj4.
 
     Parameters
     ----------
-    ds : type
-        Description of parameter `ds`.
-    earth_radius : type
-        Description of parameter `earth_radius`.
+    ds : xarray.Dataset
+        I/O API dataset, e.g. CMAQ.
+    earth_radius : int
+        Earth radius in meters.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    str
+        Proj4 string.
     """
 
-    pargs = dict()
-    pargs["lat_1"] = ds.P_ALP
-    pargs["lat_2"] = ds.P_BET
-    pargs["lat_0"] = ds.YCENT
-    pargs["lon_0"] = ds.P_GAM
-    pargs["center_lon"] = ds.XCENT
-    pargs["x0"] = ds.XORIG
-    pargs["y0"] = ds.YORIG
-    pargs["r"] = earth_radius
+    pargs = {
+        "lat_1": ds.P_ALP,
+        "lat_2": ds.P_BET,
+        "lat_0": ds.YCENT,
+        "lon_0": ds.P_GAM,
+        "center_lon": ds.XCENT,
+        "x0": ds.XORIG,
+        "y0": ds.YORIG,
+        "r": earth_radius,
+    }
+
+    # https://www.cmascenter.org/ioapi/documentation/all_versions/html/GRIDS.html
     proj_id = ds.GDTYP
-    if proj_id == 2:
-        # Lambert
+    if proj_id == 1:
+        # Lat-Lon
+        p4 = "+proj=longlat"
+    elif proj_id == 2:
+        # Lambert Conformal Conic
         p4 = (
             "+proj=lcc +lat_1={lat_1} +lat_2={lat_2} "
             "+lat_0={lat_0} +lon_0={lon_0} "
             "+x_0=0 +y_0=0 +datum=WGS84 +units=m +a={r} +b={r}"
         )
-        p4 = p4.format(**pargs)
-    elif proj_id == 4:
-        # Polar stereo
-        p4 = "+proj=stere +lat_ts={lat_1} +lon_0={lon_0} +lat_0=90.0" "+x_0=0 +y_0=0 +a={r} +b={r}"
-        p4 = p4.format(**pargs)
     elif proj_id == 3:
         # Mercator
-        p4 = (
-            "+proj=merc +lat_ts={lat_1} " "+lon_0={center_lon} " "+x_0={x0} +y_0={y0} +a={r} +b={r}"
-        )
-        p4 = p4.format(**pargs)
+        p4 = "+proj=merc +lat_ts={lat_1} +lon_0={center_lon} +x_0={x0} +y_0={y0} +a={r} +b={r}"
+    elif proj_id == 4:
+        # Polar stereo
+        p4 = "+proj=stere +lat_ts={lat_1} +lon_0={lon_0} +lat_0=90.0 +x_0=0 +y_0=0 +a={r} +b={r}"
+    elif proj_id == 5:
+        # UTM
+        p4 = "+proj=utm +zone={lat_1:.0f}"
+    elif proj_id == 7:
+        # Equatorial Mercator
+        p4 = "+proj=merc +lat_ts={lat_1} +lon_0={lon_0} +x_0={x0} +y_0={y0} +a={r} +b={r}"
+    elif proj_id == 8:
+        # Transverse Mercator
+        p4 = "+proj=tmerc +lat_ts={lat_1} +k_0={lat_2} +lon_0={lon_0} +x_0={x0} +y_0={y0} +a={r} +b={r}"
     else:
-        raise NotImplementedError("IOAPI proj not implemented yet: " "{}".format(proj_id))
-    # area_def = _get_ioapi_pyresample_area_def(ds)
-    return p4  # , area_def
+        raise NotImplementedError("IOAPI proj not implemented yet: {proj_id}")
+
+    return p4.format(**pargs)
 
 
-def grid_from_dataset(ds, earth_radius=6370000):
-    """Short summary.
+def grid_from_dataset(ds, earth_radius=6370_000):
+    """Return Proj4 string from dataset if it is detected to be an I/O API file.
 
     Parameters
     ----------
-    ds : type
-        Description of parameter `ds`.
-    earth_radius : type
-        Description of parameter `earth_radius`.
+    ds : xarray.Dataset
+        I/O API dataset.
+    earth_radius : int
+        Earth radius in meters.
 
     Returns
     -------
-    type
-        Description of returned object.
-
+    str or None
     """
     # maybe its an IOAPI file
     if hasattr(ds, "IOAPI_VERSION") or hasattr(ds, "P_ALP"):
