@@ -200,7 +200,7 @@ def open_mfdataset(
     if convert_to_ppb:
         for i in dset.variables:
             if "units" in dset[i].attrs:
-                if "ppmv" in dset[i].attrs["units"]:
+                if "ppm" in dset[i].attrs["units"]:
                     dset[i] = dset[i] * 1000.0
                     dset[i].attrs["units"] = "ppbv"
     # convert "ug/kg-dryair -> ug/m3"

@@ -1,8 +1,20 @@
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
-from monetio.util import _try_merge_exact
+from monetio.util import _try_merge_exact, kolmogorov_zurbenko_filter
+
+
+def test_kolmogorov_zurbenko_filter():
+    s = pd.Series([1.0, 2, 3, 4, 5, 100, 5, 4, 3, 2, 1])
+
+    out = kolmogorov_zurbenko_filter(s, window=3, iterations=2)
+
+    assert len(out) == len(s)
+    assert out.notna().all()
+    # The spike gets pulled down by the repeated moving average.
+    assert out.iloc[5] < s.iloc[5]
 
 
 def test_merge_exact_helper():
