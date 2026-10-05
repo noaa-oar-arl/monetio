@@ -177,7 +177,7 @@ Available Networks
 * CASTNET (https://www.epa.gov/castnet)
 * IMPROVE (http://vista.cira.colostate.edu/Improve/)
 * PAMS (https://www.epa.gov/amtic/photochemical-assessment-monitoring-stations-pams)
-* SCHOOL AIR TOXICS (https://www3.epa.gov/ttnamti1/airtoxschool.html)
+* SCHOOL AIR TOXICS (https://archive.epa.gov/schoolair/web/pdf/satmonitoringplan.pdf)
 * NEAR ROAD (NO2; https://www.epa.gov/amtic/no2-monitoring-near-road-monitoring)
 * NATTS (https://www3.epa.gov/ttnamti1/natts.html)
 
