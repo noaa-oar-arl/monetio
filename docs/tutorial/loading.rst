@@ -31,7 +31,7 @@ AirNow is the near realtime dataset for air composition and meteorology measurem
    AirNow is currently hosted and operated at a contractor facility,
    known as the AirNow Data Management Center (DMC), which currently resides outside of RTP.
 
-   -- http://web.archive.org/web/20170628063910/https://www.airnow.gov/index.cfm?action=ani.airnowUS
+   -- https://web.archive.org/web/20170628063910/https://www.airnow.gov/index.cfm?action=ani.airnowUS
 
 AirNow_ data can be downloaded from the Amazon S3 server and aggregated using the
 mio.airnow class.  For example,lets say that we want to look at data from

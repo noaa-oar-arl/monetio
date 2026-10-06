@@ -60,6 +60,7 @@ linkcheck_retries = 7  # default is 1
 linkcheck_ignore = [
     "https://doi.org/10.1080/10473289.2005.10464718",
     "https://www.camx.com",
+    r"https?://web\.archive\.org/.*",
 ]
 linkcheck_report_timeouts_as_broken = True
 linkcheck_rate_limit_timeout = 400  # default is 300 (5 min)
