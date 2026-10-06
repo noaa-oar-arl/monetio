@@ -1,11 +1,7 @@
 from . import (
-    _camx_mm,
-    _cesm_fv_mm,
-    _cesm_se_mm,
-    _cmaq_mm,
-    _rrfs_cmaq_mm,
-    _wrfchem_mm,
     camx,
+    cesm_fv,
+    cesm_se,
     chimere,
     cmaq,
     fv3chem,
@@ -17,18 +13,15 @@ from . import (
     prepchem,
     raqms,
     ufs,
+    wrfchem,
 )
 
 __all__ = [
-    "_camx_mm",
-    "_cesm_se_mm",
-    "_cesm_fv_mm",
-    "_cmaq_mm",
-    "_rrfs_cmaq_mm",
-    "_wrfchem_mm",
+    "camx",
+    "cesm_fv",
+    "cesm_se",
     "chimere",
     "cmaq",
-    "camx",
     "fv3chem",
     "hysplit",
     "hytraj",
@@ -38,6 +31,7 @@ __all__ = [
     "prepchem",
     "raqms",
     "ufs",
+    "wrfchem",
 ]
 
 __name__ = "models"

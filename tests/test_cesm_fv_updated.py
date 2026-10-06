@@ -7,7 +7,7 @@ import pytest
 import xarray as xr
 from filelock import FileLock
 
-from monetio.models._cesm_fv_mm import _calc_pressure, _calc_pressure_i, open_mfdataset
+from monetio.models.cesm_fv import _calc_pressure, _calc_pressure_i, open_mfdataset
 
 HERE = Path(__file__).parent
 
