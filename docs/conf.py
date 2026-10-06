@@ -62,6 +62,7 @@ linkcheck_ignore = [
     "https://www.camx.com",
 ]
 linkcheck_report_timeouts_as_broken = True
+linkcheck_rate_limit_timeout = 400  # default is 300 (5 min)
 user_agent = "Mozilla/5.0 (X11; Linux x86_64; rv:25.0) Gecko/20100101 Firefox/25.0"
 
 # -- Extension configuration -------------------------------------------------
