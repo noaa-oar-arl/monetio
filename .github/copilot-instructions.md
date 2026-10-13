@@ -49,7 +49,7 @@ All instruction files should be written so they are easy for humans to scan and 
 * Use one rule per bullet with a bold keyword prefix (for example, `**Error Handling:**`).
 * Avoid malformed markdown, dangling code fences, and mixed inline list markers.
 * Keep examples minimal, executable, and clearly fenced.
-* Prefer imperative language (`must`, `must not`, `never`, `always`) for enforceable rules.
+* Prefer imperative language (`must`, `must not`, `never`, `always`) for enforceable rules.  Use definitions from [RFC 2119](https://www.ietf.org/rfc/rfc2119.html).
 * Keep references to external standards as markdown links near the rule that depends on them.
 
 ---
