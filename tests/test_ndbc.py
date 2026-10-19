@@ -1,7 +1,10 @@
+import warnings
+
 import pandas as pd
 import pytest
 import xarray as xr
 
+from monetio.readers.errors import OptionUnsupportedError
 from monetio.readers.ndbc import NDBCReader, build_urls
 
 
@@ -73,16 +76,82 @@ def test_ndbc_eager_vs_lazy(mock_ndbc_file, monkeypatch):
     assert ds_eager.latitude.values[0] == 31.73
 
     # Lazy
-    ds_lazy = reader.open_dataset(files=mock_ndbc_file, lazy=True, as_xarray=True)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message="Merging dataframes with merge column data type mismatches.*",
+        )
+        ds_lazy = reader.open_dataset(files=mock_ndbc_file, lazy=True, as_xarray=True)
     assert ds_lazy.wind_speed.chunks is not None
 
+    ds_use_dask = reader.open_dataset(files=mock_ndbc_file, use_dask=True, as_xarray=True)
+    assert ds_use_dask.wind_speed.chunks is not None
+
     ds_lazy_comp = ds_lazy.compute()
+    ds_use_dask_comp = ds_use_dask.compute()
 
     # Compare (drop history)
     ds_eager.attrs.pop("history", None)
     ds_lazy_comp.attrs.pop("history", None)
+    ds_use_dask_comp.attrs.pop("history", None)
 
     xr.testing.assert_allclose(ds_eager, ds_lazy_comp)
+    xr.testing.assert_allclose(ds_eager, ds_use_dask_comp)
+
+
+@pytest.mark.parametrize("as_xarray", [False, True])
+def test_ndbc_station_year_selection_bounds_file_list_and_lazy_outputs(
+    mock_ndbc_hist_file, monkeypatch, as_xarray
+):
+    import dask.dataframe as dd
+
+    import monetio.readers.ndbc as ndbc
+
+    observed = {}
+    original_build_urls = ndbc.build_urls
+
+    def localize_selected_urls(stations, *, years=None, realtime=True):
+        urls = original_build_urls(stations, years=years, realtime=realtime)
+        observed["urls"] = urls
+        return [mock_ndbc_hist_file for _ in urls]
+
+    monkeypatch.setattr(ndbc, "build_urls", localize_selected_urls)
+    monkeypatch.setattr(
+        ndbc,
+        "get_station_table",
+        lambda: pd.DataFrame(
+            {
+                "siteid": ["41002"],
+                "name": ["South Hatteras"],
+                "latitude": [31.73],
+                "longitude": [-74.95],
+            }
+        ),
+    )
+
+    result = NDBCReader().open_dataset(
+        stations=["41002"],
+        years=[2020],
+        realtime=False,
+        use_dask=True,
+        as_xarray=as_xarray,
+        wide_fmt=as_xarray,
+    )
+    try:
+        assert observed["urls"] == [
+            "https://www.ndbc.noaa.gov/data/historical/stdmet/41002h2020.txt.gz"
+        ]
+        if as_xarray:
+            assert isinstance(result, xr.Dataset)
+            assert result["wind_speed"].chunks is not None
+            computed = result.compute()
+            assert float(computed["wind_speed"].values.squeeze()) == 10.0
+        else:
+            assert isinstance(result, dd.DataFrame)
+            assert result.compute()["wind_speed"].tolist() == [10.0]
+    finally:
+        if isinstance(result, xr.Dataset):
+            result.close()
 
 
 def test_ndbc_historical(mock_ndbc_hist_file, monkeypatch):
@@ -104,6 +173,18 @@ def test_ndbc_historical(mock_ndbc_hist_file, monkeypatch):
     ds = reader.open_dataset(files=mock_ndbc_hist_file, as_xarray=True)
     assert ds.time.dt.year[0] == 2020
     assert "wind_speed" in ds.data_vars
+
+
+@pytest.mark.parametrize("as_xarray", [False, True])
+@pytest.mark.parametrize("use_dask", [False, True])
+def test_ndbc_rejects_array_chunks_before_file_access(tmp_path, as_xarray, use_dask):
+    with pytest.raises(OptionUnsupportedError, match="ndbc.*chunks"):
+        NDBCReader().open_dataset(
+            files=str(tmp_path / "missing-ndbc.txt"),
+            as_xarray=as_xarray,
+            use_dask=use_dask,
+            chunks={"time": 1},
+        )
 
 
 @pytest.mark.network

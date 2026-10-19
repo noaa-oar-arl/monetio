@@ -62,3 +62,41 @@ def test_rrfs_eager_lazy_consistency():
     # Verify History
     assert "Preprocessed RRFS data." in ds_eager_proc.attrs["history"]
     assert "Original" in ds_eager_proc.attrs["history"]
+
+
+def test_rrfs_reader_eager_use_dask_parity():
+    base = xr.Dataset(
+        {
+            "TMP": (("lat", "lon"), np.arange(9, dtype=float).reshape(3, 3)),
+            "O3MR": (("lat", "lon"), np.ones((3, 3), dtype=float) * 1e-6),
+        },
+        coords={"lat": np.linspace(30, 40, 3), "lon": np.linspace(-100, -90, 3)},
+    )
+
+    class MockDriver:
+        def __init__(self):
+            self.use_dask = []
+            self.chunks = []
+
+        def open(self, files, **kwargs):
+            self.use_dask.append(kwargs.get("use_dask", False))
+            self.chunks.append(kwargs.get("chunks"))
+            ds = base.copy(deep=True)
+            if kwargs.get("use_dask"):
+                ds = ds.chunk(kwargs["chunks"])
+            return kwargs["preprocess"](ds)
+
+    reader = RRFSReader()
+    driver = MockDriver()
+    reader.driver = driver
+    eager = reader.open_dataset(files="mock.grib2")
+    requested_chunks = {"lat": 1}
+    lazy = reader.open_dataset(files="mock.grib2", use_dask=True, chunks=requested_chunks)
+
+    assert eager.temperature.chunks is None
+    assert lazy.temperature.chunks is not None
+    assert driver.use_dask == [False, True]
+    assert driver.chunks == [None, requested_chunks]
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_identical(eager, lazy.compute())

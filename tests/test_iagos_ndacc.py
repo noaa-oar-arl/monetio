@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import dask.dataframe as dd
 import pandas as pd
 import pytest
 import xarray as xr
@@ -45,6 +46,44 @@ def test_iagos_harmonize():
     assert "ozone" in ds_h.variables
     assert ds_h["ozone"].attrs["units"] == "ppb"
     assert ds_h["ozone"].attrs["standard_name"] == "mole_fraction_of_ozone_in_air"
+
+
+@pytest.mark.parametrize("as_xarray", [False, True], ids=["table", "wide-xarray"])
+def test_iagos_drop_variables_preserves_selected_dask_output(tmp_path, as_xarray):
+    path = tmp_path / "iagos-selective.nc"
+    source = xr.Dataset(
+        {
+            "o3": (("time",), [1.0, 2.0, 3.0, 4.0]),
+            "lat": (("time",), [10.0, 11.0, 12.0, 13.0]),
+            "lon": (("time",), [20.0, 21.0, 22.0, 23.0]),
+            "unrelated": (("time",), [-1.0, -1.0, -1.0, -1.0]),
+        },
+        coords={"time": pd.date_range("2024-01-01", periods=4, freq="h")},
+    )
+    source.o3.attrs["units"] = "ppb"
+    source.to_netcdf(path, engine="h5netcdf")
+
+    lazy = IAGOSReader().open_dataset(
+        str(path),
+        use_dask=True,
+        chunks={"time": 2},
+        drop_variables=["unrelated"],
+        as_xarray=as_xarray,
+        expand2d=False,
+    )
+    if as_xarray:
+        try:
+            assert "unrelated" not in lazy
+            assert hasattr(lazy.ozone.data, "dask")
+            assert lazy.ozone.chunks == ((2, 2),)
+            assert lazy.ozone.compute().values.tolist() == [1.0, 2.0, 3.0, 4.0]
+        finally:
+            lazy.close()
+    else:
+        assert isinstance(lazy, dd.DataFrame)
+        assert "unrelated" not in lazy.columns
+        assert lazy.npartitions == 2
+        assert lazy.compute().ozone.tolist() == [1.0, 2.0, 3.0, 4.0]
 
 
 def test_ndacc_harmonize():

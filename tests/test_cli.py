@@ -4,6 +4,7 @@ import pandas as pd
 import xarray as xr
 from click.testing import CliRunner
 
+import monetio
 from monetio.cli import cli
 
 
@@ -131,3 +132,44 @@ def test_openaq_cli(mock_load):
     result = runner.invoke(cli, ["openaq", "-d", "2023-01-01"])
     assert result.exit_code == 0
     assert "Loading OpenAQ data" in result.output
+
+
+# --- T017: manifest-driven enumeration and validation ---------------------
+
+
+def test_cli_sources_command_lists_manifest():
+    """`monetio sources` prints exactly available_sources(), aliases included."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["sources"])
+    assert result.exit_code == 0
+    listed = result.output.split()
+    assert listed == monetio.available_sources()
+    assert "cmaq" in listed
+    assert "gefs" in listed  # an alias must be listed too (FR-014)
+
+
+def test_cli_load_rejects_unknown_source():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["load", "definitely-not-a-source"])
+    assert result.exit_code != 0
+    assert "Unknown source" in result.output
+
+
+def test_cli_load_accepts_alias_without_validate_flag():
+    """An alias passes manifest validation and reaches monetio.load unchanged."""
+    runner = CliRunner()
+    with patch("monetio.load") as mock_load:
+        mock_load.return_value = xr.Dataset()
+        result = runner.invoke(cli, ["load", "gefs"])
+        assert result.exit_code == 0
+        mock_load.assert_called_once()
+        assert mock_load.call_args[0][0] == "gefs"
+
+
+def test_cli_load_no_validate_bypasses_check():
+    runner = CliRunner()
+    with patch("monetio.load") as mock_load:
+        mock_load.return_value = xr.Dataset()
+        result = runner.invoke(cli, ["load", "whatever", "--no-validate"])
+        assert result.exit_code == 0
+        assert mock_load.call_args[0][0] == "whatever"

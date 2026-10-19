@@ -1,8 +1,8 @@
 # Design Document: GRIB2 Reading with VirtualiZarr
 
-**Date:** 2026-07-01  
-**Feature:** GRIB2 Reading with VirtualiZarr Integration  
-**Status:** Approved  
+**Date:** 2026-07-01<br>
+**Feature:** GRIB2 Reading with VirtualiZarr Integration<br>
+**Status:** Approved
 
 ## 1. Objective
 Enable high-performance, cloud-native metadata virtualization for GRIB2 files in MONETIO by integrating with `grib2io.kerchunk.ReferenceGenerator` and VirtualiZarr. This replaces the previous GRIB2 short-circuit logic with an actual VirtualiZarr-backed virtual dataset pipeline, allowing efficient, lazy, zero-copy access to both local and remote (S3) GRIB2 datasets.

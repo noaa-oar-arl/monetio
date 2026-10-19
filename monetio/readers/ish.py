@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 from ..util import force_object_strings, normalize_pandas_freq
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import ContentInvalidError, classify_transport_error
 from .sat_utils import update_history
 
 logger = logging.getLogger(__name__)
@@ -135,17 +136,20 @@ class ISH:
                 self.history = pd.read_csv(
                     f, parse_dates=["BEGIN", "END"], dtype={"USAF": str, "WBAN": str}
                 )
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - the alternate host is tried below; if that also fails the error is re-raised naming the URL (not_found, retrieval_failed)
             alt = fname.replace("www1.ncdc.noaa.gov", "www.ncei.noaa.gov")
             if alt != fname:
-                fs_alt = FileUtility.get_fs(alt)
-                with fs_alt.open(alt, "r") as f:
-                    self.history = pd.read_csv(
-                        f, parse_dates=["BEGIN", "END"], dtype={"USAF": str, "WBAN": str}
-                    )
+                try:
+                    fs_alt = FileUtility.get_fs(alt)
+                    with fs_alt.open(alt, "r") as f:
+                        self.history = pd.read_csv(
+                            f, parse_dates=["BEGIN", "END"], dtype={"USAF": str, "WBAN": str}
+                        )
+                except Exception as e_alt:
+                    raise classify_transport_error(e_alt, alt, service="NOAA ISH") from e_alt
                 self.history_file = alt
             else:
-                raise
+                raise classify_transport_error(e, fname, service="NOAA ISH") from e
 
         self.history.columns = [i.lower() for i in self.history.columns]
         if dates is not None:
@@ -232,12 +236,12 @@ class ISH:
 
         objs = []
         for iii in fname:
-            try:
-                temp = iii.split("/")[-1]
-                out_name = "isd." + temp.replace(".gz", "")
+            temp = iii.split("/")[-1]
+            out_name = "isd." + temp.replace(".gz", "")
 
-                if str(iii).startswith("s3://"):
-                    fs = FileUtility.get_fs(iii)
+            if str(iii).startswith("s3://"):
+                fs = FileUtility.get_fs(iii)
+                try:
                     with fs.open(iii, "rb") as f_in:
                         with open(out_name, "wb") as f_out:
                             if iii.endswith(".gz"):
@@ -245,18 +249,37 @@ class ISH:
                                     shutil.copyfileobj(gz, f_out)
                             else:
                                 shutil.copyfileobj(f_in, f_out)
-                    objs.append(out_name)
-                else:
-                    import requests
+                except Exception as e:
+                    raise classify_transport_error(e, iii, service="NOAA ISH") from e
+                objs.append(out_name)
+            else:
+                import requests
 
+                try:
                     r2 = requests.get(iii, stream=True)
-                    if r2.status_code != 404:
-                        objs.append(out_name)
-                        with open(out_name, "wb") as fid:
-                            gzip_file = gzip.GzipFile(fileobj=r2.raw)
-                            shutil.copyfileobj(gzip_file, fid)
-            except Exception:
-                pass
+                except Exception as e:
+                    raise classify_transport_error(e, iii, service="NOAA ISH") from e
+                # A 404 means this station has no file for this year, which is
+                # an expected gap rather than a failed retrieval; anything else
+                # that goes wrong while fetching or unpacking the payload is a
+                # real failure and must not drop the file silently.
+                if r2.status_code == 404:
+                    continue
+                if r2.status_code >= 400:
+                    raise classify_transport_error(
+                        requests.HTTPError(f"{r2.status_code} for {iii}", response=r2),
+                        iii,
+                        service="NOAA ISH",
+                    )
+                objs.append(out_name)
+                try:
+                    with open(out_name, "wb") as fid:
+                        gzip_file = gzip.GzipFile(fileobj=r2.raw)
+                        shutil.copyfileobj(gzip_file, fid)
+                except Exception as e:
+                    raise ContentInvalidError(
+                        iii, f"could not be unpacked as a gzip ISH file: {e}"
+                    ) from e
         return objs
 
 
@@ -320,16 +343,13 @@ def read_ish_file(fname: str, **kwargs) -> pd.DataFrame:
             with fs.open(fname, "rb", compression=compression, **storage_options) as f:
                 frame_as_array = np.genfromtxt(f, delimiter=ISH.WIDTHS, dtype=ISH.DTYPES)
             break
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - retry loop: each attempt is retried, and the final failure raises a classified error naming the URL (retrieval_failed, credential_rejected)
             tries += 1
             if tries > request_retries:
-                if "timeout" in str(e).lower() or "connect" in str(e).lower() or tries > 1:
-                    raise RuntimeError(f"Failed to connect to server for URL {fname}.") from e
-                logger.warning(f"Could not read {fname}: {e}")
-                return pd.DataFrame()
-
-    if frame_as_array is None:
-        return pd.DataFrame()
+                # Reaching the retry limit means the input could not be
+                # retrieved; report the URL and the underlying reason instead
+                # of handing back an empty frame that looks like "no data".
+                raise classify_transport_error(e, fname, service="NOAA ISH") from e
 
     df = pd.DataFrame.from_records(np.atleast_1d(frame_as_array))
 
@@ -341,6 +361,8 @@ def read_ish_file(fname: str, **kwargs) -> pd.DataFrame:
     dt_str = df["date"].astype(str).str.zfill(8) + df["htime"].astype(str).str.zfill(4)
     df["time"] = pd.to_datetime(dt_str, format="%Y%m%d%H%M", errors="coerce")
     df = df.dropna(subset=["time"])
+    if df.empty:
+        raise ContentInvalidError("ISH input contains no valid observation timestamps", fname)
 
     # Decode bytes
     for col, dtype in ISH.DTYPES:
@@ -452,6 +474,9 @@ class ISHReader(PointReader):
         >>> reader = ISHReader()
         >>> ds = reader.open_dataset(dates='2021-08-01', site='72406093721')
         """
+        if use_dask:
+            lazy = True
+
         # Regression fix: check multiple subsets
         if sum([box is not None, country is not None, state is not None, site is not None]) > 1:
             raise ValueError("Only one of `box`, `country`, `state`, or `site` can be used")
@@ -563,7 +588,7 @@ class ISHReader(PointReader):
                         .resample(time=normalize_pandas_freq(window))
                         .mean(numeric_only=True)
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 - numeric_only mean can fail on all-object frames; the plain mean below is the intended fallback
                     ds = ds.sortby("time").resample(time=normalize_pandas_freq(window)).mean()
 
                 # Restore metadata

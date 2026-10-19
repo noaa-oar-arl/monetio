@@ -1,0 +1,12 @@
+{
+  "captured": "2026-09-30",
+  "content_hash": "69bb850d704b6d03232baad8afe14785f63d18cc562653c2ab5a57ed936f6a67",
+  "kind": "recorded",
+  "layout": "ABI-L2-AODC",
+  "load_kwargs": {
+    "product": "ABI-L2-AODC"
+  },
+  "location": "s3://noaa-goes16/ABI-L2-AODC/2025/083/12/OR_ABI-L2-AODC-M6_G16_s20250831201172_e20250831203545_c20250831206433.nc",
+  "producer": "scripts/record_samples.py",
+  "reason": "one GOES-16 ABI CONUS AOD granule from the NOAA public S3 dataset; the smaller AODC product is used over the default full-disk AODF because it carries the same goes_imager_projection and so exercises the identical decode path at a quarter of the payload size"
+}

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -169,3 +171,60 @@ def test_vectorized_tspack_interp_with_nans():
         assert res.shape == (2, 1)
         assert res[0, 0] == 0.7
         assert np.isnan(res[1, 0])
+
+
+def test_aeronet_deferred_table_preserves_rows_and_dtypes():
+    import dask.dataframe as dd
+
+    from monetio.readers.aeronet import AERONETReader
+
+    source = Path(__file__).parent / "data" / "aeronet-AOD15-example.txt"
+    reader = AERONETReader()
+    eager = reader.open_dataset(files=str(source), as_xarray=False, lazy=False)
+    deferred = reader.open_dataset(files=str(source), as_xarray=False, defer=True, lazy=False)
+
+    assert isinstance(deferred, dd.DataFrame)
+    eager = eager.reindex(sorted(eager.columns), axis=1).reset_index(drop=True)
+    computed = deferred.compute().reindex(sorted(eager.columns), axis=1).reset_index(drop=True)
+    pd.testing.assert_frame_equal(eager, computed, check_dtype=False)
+
+
+def test_aeronet_wide_output_keeps_data_variables_dask_backed():
+    import dask.array as da
+    import xarray as xr
+
+    from monetio.readers.aeronet import AERONETReader
+
+    path = Path(__file__).parent / "data" / "aeronet-AOD15-example.txt"
+    reader = AERONETReader()
+    eager = reader.open_dataset(str(path), as_xarray=True, use_dask=False)
+    lazy = reader.open_dataset(str(path), as_xarray=True, use_dask=True)
+
+    assert isinstance(lazy, xr.Dataset)
+    assert any(isinstance(variable.data, da.Array) for variable in lazy.data_vars.values())
+    assert all(
+        isinstance(variable.data, da.Array)
+        for variable in lazy.data_vars.values()
+        if variable.ndim > 0
+    )
+    xr.testing.assert_equal(eager, lazy.compute())
+
+
+def test_aeronet_deferred_wide_output_stays_lazy_and_matches_eager():
+    import dask.array as da
+    import xarray as xr
+
+    from monetio.readers.aeronet import AERONETReader
+
+    path = Path(__file__).parent / "data" / "aeronet-AOD15-example.txt"
+    reader = AERONETReader()
+    eager = reader.open_dataset(str(path), as_xarray=True, use_dask=False)
+    deferred = reader.open_dataset(str(path), as_xarray=True, defer=True)
+
+    assert isinstance(deferred, xr.Dataset)
+    assert all(
+        isinstance(variable.data, da.Array)
+        for variable in deferred.data_vars.values()
+        if variable.ndim > 0
+    )
+    xr.testing.assert_equal(eager, deferred.compute())

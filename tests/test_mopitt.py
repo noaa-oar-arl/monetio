@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from monetio.readers.mopitt import mopitt_preprocess
+from monetio.readers.mopitt import MOPITTReader, mopitt_preprocess
 
 
 def make_mock_mopitt_ds():
@@ -85,6 +85,40 @@ def test_mopitt_preprocess_lazy():
     # alt[0] is 1000. ps is 1013.25. 1013.25 > 1000 is True. So it should NOT be nan.
 
     # Let's check what's going on.
+
+
+def test_mopitt_reader_drop_variable_preserves_dask_payload(tmp_path):
+    source = make_mock_mopitt_ds().rename(
+        {
+            "HDFEOS/GRIDS/MOP03/Data Fields/Latitude": "latitude",
+            "HDFEOS/GRIDS/MOP03/Data Fields/Longitude": "longitude",
+            "HDFEOS/GRIDS/MOP03/Data Fields/Pressure2": "pressure_levels_ak",
+            "HDFEOS/GRIDS/MOP03/Data Fields/RetrievedCOTotalColumnDay": "co_column",
+            "HDFEOS/GRIDS/MOP03/Data Fields/TotalColumnAveragingKernelDay": "co_ak_column",
+            "HDFEOS/GRIDS/MOP03/Data Fields/SurfacePressureDay": "surface_pressure",
+            "HDFEOS/GRIDS/MOP03/Data Fields/APrioriCOMixingRatioProfileDay": "apriori_co_profile",
+            "HDFEOS/GRIDS/MOP03/Data Fields/APrioriCOSurfaceMixingRatioDay": "apriori_co_surf",
+        }
+    )
+    source["unrelated"] = (("lon", "lat"), np.full((36, 18), -1.0))
+    path = tmp_path / "mopitt-selective.nc"
+    source.to_netcdf(path, engine="h5netcdf")
+    reader = MOPITTReader()
+    eager = reader.open_dataset(str(path), engine="h5netcdf", drop_variables=["unrelated"])
+    lazy = reader.open_dataset(
+        str(path),
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"lon": 10, "lat": 10},
+        drop_variables=["unrelated"],
+    )
+    try:
+        assert "unrelated" not in lazy
+        assert hasattr(lazy.co_column.data, "dask")
+        assert lazy.co_column.chunks == ((1,), (10, 10, 10, 6), (10, 8))
+        xr.testing.assert_allclose(eager, lazy.compute())
+    finally:
+        lazy.close()
 
 
 def test_mopitt_preprocess_missing_values():

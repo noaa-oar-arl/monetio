@@ -1,0 +1,9 @@
+{
+  "captured": "2026-09-30",
+  "content_hash": "a3d8b4fbbca34f10f5b01405f4aefc39a5f055f3feb80d293ae82815c7e95583",
+  "kind": "recorded",
+  "layout": "AOD",
+  "location": "s3://noaa-nesdis-snpp-pds/VIIRS-JRR-AOD/2026/08/29/JRR-AOD_v3r2_npp_s202608290135520_e202608290137144_c202608290303114.nc",
+  "producer": "scripts/record_samples.py",
+  "reason": "one SNPP VIIRS JRR AOD orbit granule from the NOAA public S3 dataset; ~8.4 MB is the smallest granule available because the product is a fixed full-swath file that cannot be truncated and stay valid"
+}

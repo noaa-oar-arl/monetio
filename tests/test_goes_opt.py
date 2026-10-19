@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
 
+import monetio
 from monetio.readers.goes import goes_preprocess
 
 
@@ -126,4 +129,31 @@ def test_add_goes_latlon_aero_protocol():
     assert (
         "Generated Latitude/Longitude coordinates" in ds_eager.attrs["history"]
         or "Optimized GOES coordinate generation" in ds_eager.attrs["history"]
+    )
+
+
+def test_goes_reader_use_dask_keeps_local_granule_lazy_and_matches_eager():
+    sample = next(Path("tests/data/samples/goes").glob("*.nc"))
+    eager = monetio.load("goes", files=str(sample))
+    lazy = monetio.load("goes", files=str(sample), use_dask=True)
+
+    assert any(hasattr(var.data, "dask") for var in lazy.data_vars.values())
+    xr.testing.assert_equal(
+        eager.drop_vars("history", errors="ignore"),
+        lazy.compute().drop_vars("history", errors="ignore"),
+    )
+
+
+def test_goes_reader_honors_chunks_and_lazy_subset():
+    sample = next(Path("tests/data/samples/goes").glob("*.nc"))
+    eager = monetio.load("goes", files=str(sample))
+    lazy = monetio.load("goes", files=str(sample), use_dask=True, chunks={"x": 500, "y": 300})
+
+    assert lazy.AOD.chunksizes["x"] == (500, 500, 500, 500, 500)
+    assert lazy.AOD.chunksizes["y"] == (300, 300, 300, 300, 300)
+    selected = lazy.isel(y=slice(10, 20), x=slice(30, 50)).compute()
+    expected = eager.isel(y=slice(10, 20), x=slice(30, 50))
+    xr.testing.assert_equal(
+        expected.drop_vars("history", errors="ignore"),
+        selected.drop_vars("history", errors="ignore"),
     )

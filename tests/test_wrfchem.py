@@ -82,6 +82,7 @@ def create_synthetic_wrfchem_ds(include_alt=True, include_p_pb_t=False):
 def test_wrfchem_reader_logic(lazy, tmp_path):
     """Test WRF-Chem reader with Eager (NumPy) and Lazy (Dask) backends."""
     ds_orig = create_synthetic_wrfchem_ds()
+    ds_orig["UNUSED"] = xr.full_like(ds_orig["O3"], -1)
     # Avoid colons in filenames for Windows compatibility
     file_path = tmp_path / "wrfout_d01_2023-01-01_00-00-00.nc"
     ds_orig.to_netcdf(file_path)
@@ -95,6 +96,7 @@ def test_wrfchem_reader_logic(lazy, tmp_path):
     # 1. Verify backend
     if lazy:
         assert ds.O3.chunks is not None
+        assert all(size == 1 for size in ds.O3.chunksizes["time"])
     else:
         assert ds.O3.chunks is None
 
@@ -139,8 +141,14 @@ def test_wrfchem_eager_lazy_consistency(tmp_path):
 
     reader = WRFChemReader()
 
-    ds_eager = reader.open_dataset(str(file_path), chunks=None).compute()
-    ds_lazy = reader.open_dataset(str(file_path), chunks={"time": 1}).compute()
+    ds_eager = reader.open_dataset(str(file_path), chunks=None, drop_variables=["UNUSED"]).compute()
+    ds_lazy_open = reader.open_dataset(
+        str(file_path), chunks={"time": 1}, drop_variables=["UNUSED"]
+    )
+    assert "UNUSED" not in ds_eager
+    assert "UNUSED" not in ds_lazy_open
+    assert ds_lazy_open.O3.chunks is not None
+    ds_lazy = ds_lazy_open.compute()
 
     # Compare values
     xr.testing.assert_allclose(ds_eager, ds_lazy)

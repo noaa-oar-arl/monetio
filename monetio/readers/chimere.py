@@ -83,6 +83,17 @@ class ChimereReader(GriddedReader):
         if "concat_dim" not in kwargs:
             kwargs["concat_dim"] = "time"
 
+        # Chunk validation happens against the dimensions stored in the
+        # source files, before chimere_preprocess renames them. Translate the
+        # public standardized names to Chimere's on-disk names here.
+        chunks = kwargs.get("chunks")
+        if isinstance(chunks, dict):
+            chunks = dict(chunks)
+            for public_name, source_name in (("time", "time_counter"), ("z", "bottom_top")):
+                if public_name in chunks and source_name not in chunks:
+                    chunks[source_name] = chunks.pop(public_name)
+            kwargs["chunks"] = chunks
+
         ds = self.driver.open(
             files,
             use_virtualizarr=use_virtualizarr,

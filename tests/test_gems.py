@@ -17,7 +17,10 @@ def create_mock_gems_dataset(is_dask=False):
 
     ds = xr.Dataset(
         data_vars={
-            "ColumnAmountNO2": (("nscans", "npixels"), np.random.rand(nscans, npixels)),
+            "ColumnAmountNO2": (
+                ("nscans", "npixels"),
+                np.random.default_rng(42).random((nscans, npixels)),
+            ),
             "Latitude": (
                 ("nscans", "npixels"),
                 np.linspace(30, 40, nscans)[:, None] * np.ones((1, npixels)),
@@ -70,3 +73,40 @@ def test_gems_reader_logic(lazy, monkeypatch):
 
     assert "history" in ds.attrs
     assert "GEMS" in ds.attrs["history"]
+
+
+def test_gems_reader_use_dask_local_netcdf_parity(tmp_path):
+    path = tmp_path / "gems-synthetic.nc"
+    create_mock_gems_dataset().to_netcdf(path, engine="h5netcdf")
+    reader = GEMSReader()
+    eager = reader.open_dataset(files=str(path), group="", engine="h5netcdf")
+    lazy = reader.open_dataset(files=str(path), group="", engine="h5netcdf", use_dask=True)
+
+    assert hasattr(lazy.ColumnAmountNO2.data, "dask")
+    xr.testing.assert_allclose(eager, lazy.compute())
+
+
+def test_gems_reader_drops_unselected_dask_variable(tmp_path):
+    path = tmp_path / "gems-selective.nc"
+    source = create_mock_gems_dataset()
+    source["unrelated"] = (("nscans", "npixels"), np.full((10, 20), -1.0))
+    source.to_netcdf(path, engine="h5netcdf")
+    reader = GEMSReader()
+    eager = reader.open_dataset(
+        str(path), group="", engine="h5netcdf", drop_variables=["unrelated"]
+    )
+    lazy = reader.open_dataset(
+        str(path),
+        group="",
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"nscans": 5},
+        drop_variables=["unrelated"],
+    )
+    try:
+        assert "unrelated" not in lazy
+        assert hasattr(lazy.ColumnAmountNO2.data, "dask")
+        assert lazy.ColumnAmountNO2.chunks == ((5, 5), (20,))
+        xr.testing.assert_allclose(eager, lazy.compute())
+    finally:
+        lazy.close()

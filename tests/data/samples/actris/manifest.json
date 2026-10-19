@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "ee2e30d6ee49535186eb6944703eae86a431201ec6322fdf234e18a53ae92ac4",
+  "kind": "recorded",
+  "location": "https://thredds.nilu.no/thredds/fileServer/ebas/AT0001R.19721101000000.20181210133000.filter_1pack.sulphate_total.aerosol.2mo.1d.AT01L_f1p_01.AT01L_XRF.lev2.nc",
+  "producer": "scripts/record_samples.py",
+  "reason": "one EBAS daily sulphate NetCDF from the THREDDS file server"
+}

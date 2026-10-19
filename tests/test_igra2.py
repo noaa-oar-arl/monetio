@@ -86,6 +86,7 @@ def test_igra2_reader_eager(tmp_path):
 
     ds = reader.open_dataset(files=str(f), as_xarray=True, lazy=False)
     assert isinstance(ds, xr.Dataset)
+    assert all(var.chunks is None for var in ds.data_vars.values())
     assert "temp" in ds.data_vars
     assert ds.temp.attrs["units"] == "degC"
     assert ds.siteid.values[0] == "USM00072201"
@@ -112,9 +113,40 @@ def test_igra2_reader_lazy(tmp_path):
 
     ds = reader.open_dataset(files=str(f), as_xarray=True, lazy=True)
     assert isinstance(ds, xr.Dataset)
+    assert all(var.chunks is not None for var in ds.data_vars.values() if var.dims)
     ds_c = ds.compute()
     assert ds_c.temp.values[0] == 1111.1
     assert ds_c.siteid.values[0] == "USM00072201"
+
+
+def test_igra2_use_dask_alias_returns_lazy_table(tmp_path):
+    import dask.dataframe as dd
+
+    header = "#USM00072201 2023 01 01 00 2315    1                   257906 -803164\n"
+    data = "11    0  100000 10000 11111 22222 33333 44444 55555\n"
+    path = tmp_path / "USM00072201-data.txt"
+    path.write_text(header + data)
+
+    reader = IGRA2Reader()
+    reader.stations = pd.DataFrame(
+        {
+            "siteid": ["USM00072201"],
+            "name": ["MIAMI"],
+            "elevation": [2.0],
+            "latitude": [25.79],
+            "longitude": [-80.32],
+        }
+    )
+    eager = reader.open_dataset(files=str(path), as_xarray=False)
+    assert isinstance(eager, pd.DataFrame)
+    assert len(eager) == 1
+    frame = reader.open_dataset(files=str(path), as_xarray=False, use_dask=True)
+
+    assert isinstance(frame, dd.DataFrame)
+    result = frame.compute()
+    pd.testing.assert_frame_equal(eager, result)
+    assert result.temp.iloc[0] == 1111.1
+    assert result.siteid.iloc[0] == "USM00072201"
 
 
 @pytest.mark.network
@@ -127,3 +159,10 @@ def test_igra2_integration():
         assert ds.siteid.values[0] == "USM00072201"
     except Exception as e:
         pytest.skip(f"Integration test failed (likely network): {e}")
+
+
+def test_igra2_site_selection_builds_only_requested_station_url():
+    reader = IGRA2Reader()
+    assert reader.build_urls(sites=["USM00072201"]) == [
+        "https://www.ncei.noaa.gov/pub/data/igra/data/data-por/USM00072201-data.txt.zip"
+    ]

@@ -3,7 +3,49 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from monetio.readers.omps import omps_preprocess
+from monetio.readers.omps import OMPSReader, omps_preprocess
+
+
+def test_omps_reader_eager_use_dask_parity(tmp_path):
+    path = tmp_path / "omps-l3.nc"
+    source = xr.Dataset(
+        {
+            "ColumnAmountO3": (
+                ("lat", "lon"),
+                np.arange(12, dtype="f4").reshape(3, 4) + 300.0,
+                {"units": " DU "},
+            ),
+            "Unrelated": (("lat", "lon"), np.full((3, 4), -1, dtype="f4")),
+            "Latitude": (("lat",), [-30.0, 0.0, 30.0]),
+            "Longitude": (("lon",), [-180.0, -90.0, 0.0, 90.0]),
+        },
+        attrs={"Date": "2024-01-01"},
+    )
+    source.to_netcdf(path, engine="h5netcdf")
+
+    reader = OMPSReader()
+    eager = reader.open_dataset(
+        str(path), product="nmto3_l3", engine="h5netcdf", drop_variables=["Unrelated"]
+    )
+    lazy = reader.open_dataset(
+        str(path),
+        product="nmto3_l3",
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"lat": 1, "lon": 2},
+        drop_variables=["Unrelated"],
+    )
+
+    assert "Unrelated" not in eager
+    assert "Unrelated" not in lazy
+    assert eager.ozone_column.chunks is None
+    assert lazy.ozone_column.chunks is not None
+    assert lazy.ozone_column.chunks == ((1,), (1, 1, 1), (2, 2))
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_identical(eager, lazy.compute())
+    eager.close()
+    lazy.close()
 
 
 @pytest.mark.parametrize("lazy", [True, False])

@@ -1,6 +1,7 @@
 """Tests for XarrayDriver Icechunk backend support (Tasks 2.1–2.4)."""
 
 import unittest.mock as mock
+from pathlib import Path
 
 import pytest
 import xarray as xr
@@ -45,7 +46,11 @@ class TestVirtualizarrBackendValidation:
         """Both 'kerchunk' and 'icechunk' should pass validation."""
         driver = XarrayDriver()
         f = tmp_path / "dummy.nc"
-        xr.Dataset({"x": [1, 2, 3]}).to_netcdf(f)
+        # A real data variable, not just the index: a load that opens a file but
+        # yields no data variables is now a refusal (an empty result is
+        # indistinguishable from success), so the dummy must carry one to reach
+        # and pass the backend-validation step the test is exercising.
+        xr.Dataset({"var": ("x", [1, 2, 3])}).to_netcdf(f)
         # kerchunk — should not raise ValueError (may raise other errors due to missing VZ deps)
         # We just verify the validation itself passes by catching only non-ValueError exceptions
         for backend in ("kerchunk", "icechunk"):
@@ -120,16 +125,23 @@ class TestSelectStore:
         files = ["/data/file1.nc", "/data/file2.nc"]
         registry, result_files = _select_store(files, {})
 
-        self.MockLocalStore.assert_called_once_with(prefix="/")
-        self.MockRegistry.return_value.register.assert_called_once_with(
-            "file:///", self.MockLocalStore.return_value
-        )
-        assert result_files == ["file:///data/file1.nc", "file:///data/file2.nc"]
+        local_root = Path(files[0]).resolve().anchor
+        root_uri = Path(local_root).as_uri()
+        self.MockLocalStore.assert_called_once_with(prefix=local_root)
+        register = self.MockRegistry.return_value.register
+        register.assert_any_call(root_uri, self.MockLocalStore.return_value)
+        if Path(local_root).drive:
+            encoded_drive = Path(local_root).drive.replace(":", "%3A")
+            register.assert_any_call(f"file:///{encoded_drive}/", self.MockLocalStore.return_value)
+            assert register.call_count == 2
+        else:
+            register.assert_called_once_with(root_uri, self.MockLocalStore.return_value)
+        assert result_files == [Path(path).resolve().as_uri() for path in files]
 
     def test_local_files_already_prefixed_not_doubled(self):
         files = ["file:///data/file1.nc"]
         _, result_files = _select_store(files, {})
-        assert result_files == ["file:///data/file1.nc"]
+        assert result_files == [Path("/data/file1.nc").resolve().as_uri()]
 
 
 # ---------------------------------------------------------------------------
@@ -186,8 +198,16 @@ class TestOpenViaIcechunk:
         ):
             result = _open_via_icechunk(vds, "/tmp/repo", None)
 
-        # Verify workflow
-        mock_icechunk.Repository.open_or_create.assert_called_once_with("/tmp/repo")
+        # Verify workflow. The repository is opened through the Icechunk v2 API,
+        # which takes a storage object (built from the local path), an explicit
+        # repository config, and the virtual-chunk-access mapping — not the bare
+        # path a v1 call would have used.
+        mock_icechunk.local_filesystem_storage.assert_called_once_with("/tmp/repo")
+        mock_icechunk.Repository.open_or_create.assert_called_once_with(
+            mock_icechunk.local_filesystem_storage.return_value,
+            config=mock_icechunk.RepositoryConfig.default.return_value,
+            authorize_virtual_chunk_access={},
+        )
         mock_repo.writable_session.assert_called_once_with("main")
         vds.virtualize.to_icechunk.assert_called_once_with(mock_store)
         mock_session.commit.assert_called_once_with("VirtualiZarr references")
@@ -213,7 +233,7 @@ class TestIcechunkWiring:
 
         # Create mock modules for the local imports inside open()
         mock_virtualizarr = mock.MagicMock()
-        mock_virtualizarr.open_virtual_mfdataset.return_value = mock_vds
+        mock_virtualizarr.open_virtual_dataset.return_value = mock_vds
         mock_parsers = mock.MagicMock()
 
         with (

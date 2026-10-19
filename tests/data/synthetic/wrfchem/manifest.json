@@ -1,0 +1,8 @@
+{
+  "captured": null,
+  "content_hash": "158a13ab928690452cdebcd81527f3e1892ce0982a7a75375004269c854ed383",
+  "kind": "synthetic",
+  "location": null,
+  "producer": "scripts/make_synthetic_sample.py",
+  "reason": "WRF-Chem output is model-internal and not redistributable; a synthetic file reproduces the WRF layout the reader parses."
+}

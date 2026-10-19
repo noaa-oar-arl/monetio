@@ -9,6 +9,13 @@ tests/data/TROPOMI*.nc
 tests/data/OMPS-*.h5
 monetio/obs/openaq_locations_data.*
 
+# Golden behavior baselines are derived, not source: regenerate them with
+# `python scripts/record_bc_baseline.py` before any behavior-changing work.
+# tests/conftest.py skips the BC gate when they are absent, so a fresh clone
+# is expected to produce them locally rather than carry hundreds of MB of
+# pickles in history.
+tests/data/baseline/
+
 # Default GitHub .gitignore for Python below:
 
 # Byte-compiled / optimized / DLL files
@@ -167,3 +174,19 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+.specify/
+specs/
+.github/agents/**/*
+.github/prompts/**/*
+.superpowers/
+.agents/skills/speckit-analyze/SKILL.md
+.agents/skills/speckit-checklist/SKILL.md
+.agents/skills/speckit-clarify/SKILL.md
+.agents/skills/speckit-constitution/SKILL.md
+.agents/skills/speckit-converge/SKILL.md
+.agents/skills/speckit-implement/SKILL.md
+.agents/skills/speckit-plan/SKILL.md
+.agents/skills/speckit-specify/SKILL.md
+.agents/skills/speckit-tasks/SKILL.md
+.agents/skills/speckit-taskstoissues/SKILL.md

@@ -1,6 +1,5 @@
 """SKYNET Sun Photometer Reader."""
 
-import warnings
 from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Union
@@ -12,6 +11,7 @@ import xarray as xr
 from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -223,8 +223,9 @@ def read_skynet_csv(fn: str, **kwargs: dict) -> pd.DataFrame:
             if isinstance(content, bytes):
                 content = content.decode("utf-8", errors="ignore")
     except Exception as e:
-        warnings.warn(f"Failed to read {fn}: {e}")
-        return pd.DataFrame()
+        # An input whose bytes cannot be read is a failed load naming that
+        # input, not a station with no observations.
+        raise annotate(e, fn) from e
 
     lines = content.splitlines()
     if not lines:
@@ -259,8 +260,9 @@ def read_skynet_csv(fn: str, **kwargs: dict) -> pd.DataFrame:
             na_values=["-999", "-999.9", "-9.999"],
         )
     except Exception as e:
-        warnings.warn(f"Error parsing SKYNET file {fn}: {e}")
-        return pd.DataFrame()
+        # Content that cannot be parsed is a failure naming the file it came
+        # from, not an empty result that looks like a successful no-data read.
+        raise annotate(e, fn) from e
 
     if df.empty:
         return df

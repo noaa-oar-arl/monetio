@@ -11,7 +11,7 @@ import monetio as mio
 import pandas as pd
 
 # Load AirNow data
-dates = pd.date_range(start='2018-05-01', end='2018-05-05', freq='h')
+dates = pd.date_range(start="2018-05-01", end="2018-05-05", freq="h")
 df = mio.load("airnow", files=dates)
 ```
 

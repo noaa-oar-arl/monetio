@@ -34,11 +34,10 @@ def test_pandora_reader_lazy():
         pytest.skip("Test file not found")
 
     reader = PandoraReader()
-    # PandoraReader (via GEOMSReader) currently opens files in a loop but uses dask.array.from_array
-    # for HDF5 variables if opened via GEOMSReader.
-    ds = reader.open_dataset(files=TEST_FP_PANDORA_NO2)
+    # The public default remains eager; request the lazy backend explicitly.
+    ds = reader.open_dataset(files=TEST_FP_PANDORA_NO2, use_dask=True)
 
-    # In GEOMSReader, HDF5 variables are wrapped in dask arrays.
+    # GEOMSReader wraps the source HDF5 variables in Dask arrays on request.
     assert isinstance(ds.nitrogen_dioxide.data, da.Array)
 
 

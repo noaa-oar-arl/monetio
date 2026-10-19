@@ -10,6 +10,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import register_reader
+from .errors import annotate
 from .geoms import GEOMSReader
 from .sat_utils import update_history
 
@@ -103,8 +104,22 @@ class NDACCReader(GEOMSReader):
             **kwargs,
         )
 
+        source_dataset = ds
+        ds = self.harmonize(ds)
+        if source_dataset is not ds:
+            ds.set_close(source_dataset.close)
+
         if not as_xarray:
-            return ds.to_dataframe().reset_index()
+            if use_dask:
+                frame = ds.to_dask_dataframe()[list(ds.variables)].reset_index(drop=True)
+            else:
+                frame = ds.to_dataframe()
+                if not ("time" in frame.columns and frame.index.name == "time"):
+                    frame = frame.reset_index()
+                else:
+                    frame = frame.reset_index(drop=True)
+            ds.close()
+            return frame
 
         # Update history
         ds = update_history(ds, "Read NDACC data using standardized preprocessing.")
@@ -174,10 +189,9 @@ class NDACCReader(GEOMSReader):
                         break
             return urls
         except Exception as e:
-            import warnings
-
-            warnings.warn(f"Failed to list NDACC files at {base_url}: {e}")
-            return []
+            # A directory we cannot list is a failed retrieval naming that
+            # directory, not an archive with no files in it.
+            raise annotate(e, base_url) from e
 
     def harmonize(self, ds: xr.Dataset) -> xr.Dataset:
         """

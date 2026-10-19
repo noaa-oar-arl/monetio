@@ -210,7 +210,7 @@ def read_improve_file(fname: str, delimiter: str = "\t", **kwargs: Any) -> pd.Da
                 if line.strip() == "Data":
                     skiprows = i + 1
                     break
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort search for the data-section marker; if the input is unreadable the full read below fails and names it (categories: malformed, retrieval_failed)
         pass
 
     # Read the CSV

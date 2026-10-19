@@ -100,7 +100,7 @@ class GEMSReader(GriddedReader):
                     **g_kwargs,
                 )
                 dsets.append(ds_g)
-            except Exception:
+            except Exception:  # noqa: BLE001 - per-group probe; not every group is present in every file, so an absent group is skipped and the remaining groups still build the result (categories: not_found, malformed)
                 # Not all groups may be present in all files
                 continue
 

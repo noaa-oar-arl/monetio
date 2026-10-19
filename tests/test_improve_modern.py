@@ -21,53 +21,49 @@ def mock_improve_file(tmp_path):
     return str(fn)
 
 
-def test_improve_eager(mock_improve_file):
-    reader = IMPROVEReader()
-    # Test as_xarray=False
-    df = reader.open_dataset(mock_improve_file, as_xarray=False, lazy=False)
-    assert isinstance(df, pd.DataFrame)
-    assert len(df) == 3
-    assert "epaid" in df.columns
-    assert "obs" in df.columns
-    assert df.epaid.iloc[0] == "010010001"
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
+def test_improve_output_forms(mock_improve_file, lazy):
+    """Table and Dataset output forms are correct for both backends.
 
-    # Test as_xarray=True, pivot=False, expand2d=False to keep it 1D and keep 'obs' as a variable
+    The lazy branch additionally proves eager/deferred parity; the eager branch
+    additionally proves the ``history`` provenance line (the dask path drops
+    per-stage provenance, so that assertion only applies to the eager output).
+    """
+    if lazy:
+        pytest.importorskip("dask")
+        import dask.dataframe as dd
+
+    reader = IMPROVEReader()
+
+    # as_xarray=False keeps the native table output.
+    frame = reader.open_dataset(mock_improve_file, as_xarray=False, lazy=lazy)
+    if lazy:
+        assert isinstance(frame, dd.DataFrame)
+        frame = frame.compute()
+    else:
+        assert isinstance(frame, pd.DataFrame)
+    assert len(frame) == 3
+    assert "epaid" in frame.columns
+    assert "obs" in frame.columns
+    assert frame.epaid.iloc[0] == "010010001"
+
+    # as_xarray=True, pivot=False, expand2d=False keeps it 1D with 'obs' a variable.
     ds = reader.open_dataset(
-        mock_improve_file, as_xarray=True, lazy=False, pivot=False, expand2d=False
+        mock_improve_file, as_xarray=True, lazy=lazy, pivot=False, expand2d=False
     )
     assert isinstance(ds, xr.Dataset)
     assert "obs" in ds.data_vars
     assert "time" in ds.coords
     assert ds.sizes["time"] == 3
-    assert "history" in ds.attrs
-    assert "Read IMPROVE data" in ds.attrs["history"]
-
-
-def test_improve_lazy(mock_improve_file):
-    pytest.importorskip("dask")
-    import dask.dataframe as dd
-
-    reader = IMPROVEReader()
-    # Test as_xarray=False, lazy=True
-    df_lazy = reader.open_dataset(mock_improve_file, as_xarray=False, lazy=True)
-    assert isinstance(df_lazy, dd.DataFrame)
-    df = df_lazy.compute()
-    assert len(df) == 3
-
-    # Test as_xarray=True, lazy=True, pivot=False, expand2d=False
-    ds_lazy = reader.open_dataset(
-        mock_improve_file, as_xarray=True, lazy=True, pivot=False, expand2d=False
-    )
-    assert isinstance(ds_lazy, xr.Dataset)
-    # Check if data is dask-backed
-    assert hasattr(ds_lazy.obs.data, "dask")
-
-    ds_eager = reader.open_dataset(
-        mock_improve_file, as_xarray=True, lazy=False, pivot=False, expand2d=False
-    )
-
-    # Compare results
-    xr.testing.assert_allclose(ds_eager.compute(), ds_lazy.compute())
+    if lazy:
+        assert hasattr(ds.obs.data, "dask")
+        ds_eager = reader.open_dataset(
+            mock_improve_file, as_xarray=True, lazy=False, pivot=False, expand2d=False
+        )
+        xr.testing.assert_allclose(ds_eager.compute(), ds.compute())
+    else:
+        assert "history" in ds.attrs
+        assert "Read IMPROVE data" in ds.attrs["history"]
 
 
 def test_improve_metadata(mock_improve_file):

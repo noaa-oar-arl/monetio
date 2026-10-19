@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
 from monetio.readers.aqs import AQSReader
+from monetio.readers.errors import OptionUnsupportedError
 
 
 def create_mock_aqs_file(fn):
@@ -69,6 +71,92 @@ def test_aqs_eager_lazy_identity(tmp_path):
     ds_lazy_computed = ds_lazy_computed.drop_vars("history", errors="ignore")
 
     xr.testing.assert_allclose(ds_eager, ds_lazy_computed)
+
+
+@pytest.mark.parametrize("as_xarray", [False, True])
+def test_aqs_date_selection_is_applied_to_lazy_outputs(tmp_path, as_xarray):
+    fn = tmp_path / "test_aqs_date_selection.csv"
+    create_mock_aqs_file(fn)
+    frame = pd.read_csv(fn)
+    frame.loc[1, ["Date GMT", "Date Local"]] = "2023-01-02"
+    frame.to_csv(fn, index=False)
+
+    selected_date = pd.to_datetime(["2023-01-01"])
+    eager = AQSReader().open_dataset(
+        files=str(fn),
+        dates=selected_date,
+        lazy=False,
+        as_xarray=as_xarray,
+        wide_fmt=as_xarray,
+    )
+    lazy = AQSReader().open_dataset(
+        files=str(fn),
+        dates=selected_date,
+        use_dask=True,
+        as_xarray=as_xarray,
+        wide_fmt=as_xarray,
+    )
+    if as_xarray:
+        assert lazy.time.size == 1
+        xr.testing.assert_allclose(eager, lazy.compute())
+    else:
+        assert len(lazy.compute()) == 1
+        pd.testing.assert_frame_equal(eager, lazy.compute(), check_dtype=True)
+
+
+def test_aqs_lazy_table_output_preserves_dask_dataframe(tmp_path):
+    import dask.dataframe as dd
+
+    fn = tmp_path / "test_aqs_table.csv"
+    create_mock_aqs_file(fn)
+    reader = AQSReader()
+    dates = pd.to_datetime(["2023-01-01"])
+
+    eager = reader.open_dataset(files=str(fn), dates=dates, lazy=False, as_xarray=False)
+    lazy = reader.open_dataset(files=str(fn), dates=dates, use_dask=True, as_xarray=False)
+
+    assert isinstance(lazy, dd.DataFrame)
+    pd.testing.assert_frame_equal(eager, lazy.compute(), check_dtype=True)
+
+
+def test_aqs_lazy_table_schema_probe_reads_one_row_then_full_file_on_compute(tmp_path, monkeypatch):
+    import monetio.readers.aqs as aqs_module
+
+    fn = tmp_path / "test_aqs_schema.csv"
+    create_mock_aqs_file(fn)
+    original = aqs_module.pd.read_csv
+    calls = []
+
+    def counted(path, *args, **kwargs):
+        calls.append(kwargs.get("nrows"))
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(aqs_module.pd, "read_csv", counted)
+    lazy = AQSReader().open_dataset(
+        files=str(fn),
+        dates=pd.to_datetime(["2023-01-01"]),
+        use_dask=True,
+        as_xarray=False,
+    )
+
+    assert calls == [1]
+    assert len(lazy.compute()) == 1
+    assert calls == [1, None]
+
+
+@pytest.mark.parametrize("as_xarray", [False, True])
+def test_aqs_rejects_array_chunk_mapping_before_file_access(tmp_path, monkeypatch, as_xarray):
+    def unexpected_schema_probe(*args, **kwargs):
+        raise AssertionError("unsupported chunks must be rejected before reading input")
+
+    monkeypatch.setattr("monetio.readers.aqs._aqs_schema_meta", unexpected_schema_probe)
+    with pytest.raises(OptionUnsupportedError, match="aqs.*chunks"):
+        AQSReader().open_dataset(
+            files=str(tmp_path / "missing.csv"),
+            use_dask=True,
+            as_xarray=as_xarray,
+            chunks={"time": 1},
+        )
 
 
 def test_epa_utils_provenance():

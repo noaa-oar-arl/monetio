@@ -124,3 +124,53 @@ def test_tempo_reader_integration_mock(monkeypatch):
     assert "longitude" in ds.coords
     assert "surface_pressure" in ds.data_vars
     assert "history" in ds.attrs
+
+
+def test_tempo_reader_eager_use_dask_parity(monkeypatch):
+    def mock_open(self, files, **kwargs):
+        group = kwargs.get("group")
+        if group == "product":
+            ds = xr.Dataset(
+                {"vertical_column_troposphere": (("x", "y"), np.arange(25).reshape(5, 5))}
+            )
+        elif group == "geolocation":
+            ds = xr.Dataset(
+                {
+                    "latitude": (("x", "y"), np.ones((5, 5))),
+                    "longitude": (("x", "y"), np.ones((5, 5))),
+                }
+            )
+        elif group == "support_data":
+            ds = xr.Dataset({"surface_pressure": (("x", "y"), np.ones((5, 5)))})
+        else:
+            return xr.Dataset()
+        return ds.chunk(kwargs.get("chunks", {"x": 2, "y": 2})) if kwargs.get("use_dask") else ds
+
+    from monetio.readers.drivers import XarrayDriver
+
+    monkeypatch.setattr(XarrayDriver, "open", mock_open)
+    reader = TEMPOReader()
+    eager = reader.open_dataset("mock_file.nc")
+    lazy = reader.open_dataset("mock_file.nc", use_dask=True, chunks={"x": 2, "y": 5})
+
+    assert eager.vertical_column_troposphere.chunks is None
+    assert lazy.vertical_column_troposphere.chunks is not None
+    assert lazy.vertical_column_troposphere.chunks == ((2, 2, 1), (5,))
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_identical(eager, lazy.compute())
+
+
+def test_tempo_explicit_group_selection_opens_only_requested_group(monkeypatch):
+    from monetio.readers.drivers import XarrayDriver
+
+    opened = []
+
+    def mock_open(self, files, **kwargs):
+        opened.append(kwargs["group"])
+        return xr.Dataset({"vertical_column_troposphere": (("x", "y"), np.ones((2, 2)))})
+
+    monkeypatch.setattr(XarrayDriver, "open", mock_open)
+    ds = TEMPOReader().open_dataset("mock_file.nc", group="product")
+    assert opened == ["product"]
+    assert "vertical_column_troposphere" in ds

@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "15b7782ffcf6c06da94fa47415ae439793ffba4581e6d00f7201f005ee7f8a0e",
+  "kind": "recorded",
+  "location": "https://gml.noaa.gov/aftp/data/radiation/surfrad/Bondville_IL/2024/bon24001.dat",
+  "producer": "scripts/record_samples.py",
+  "reason": "one SURFRAD station-day file, trimmed"
+}

@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 BASE_URL = "https://gsce-dtn.sdstate.edu/index.php/s/e8wPYPOL1bGXk5z/download?path=%2F"
@@ -79,6 +80,16 @@ class NESDISFRPReader(GriddedReader):
             if date is None:
                 raise ValueError("Either 'files' or 'date' must be provided.")
             files = self.build_urls(date, ftype=ftype)
+
+        if kwargs.get("chunks") is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "nesdis_frp",
+                cause=(
+                    "each binary tile is decoded as one complete array payload; "
+                    "Dask can defer the tile read but cannot split it into chunks"
+                ),
+            )
 
         if "preprocess" not in kwargs:
             kwargs["preprocess"] = partial(nesdis_frp_preprocess, ftype=ftype)
@@ -194,9 +205,11 @@ def read_nesdis_frp_binary(fname: str, **kwargs) -> xr.Dataset:
             w = FortranFile(buffer)
             try:
                 a = w.read_reals(dtype=dtype)
-            except Exception:
+            except (ValueError, EOFError):
                 # Fallback: maybe it's not a reals record but a simple binary dump
-                # FortranFile expects header/footer. If missing, it fails.
+                # FortranFile expects header/footer. If missing, it fails
+                # (ValueError for a bad record marker, EOFError for a short
+                # file), so only those two fall through to the raw read.
                 buffer.seek(0)
                 a = np.frombuffer(buffer.read(), dtype=dtype)
         return a.reshape((r, r), order="F").copy()

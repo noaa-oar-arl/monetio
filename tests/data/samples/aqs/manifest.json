@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "2ba5718f653f9be9ddc54d467c03c2c7dc629e8ec285d242c195e0d7518e4dfb",
+  "kind": "recorded",
+  "location": "https://aqs.epa.gov/aqsweb/airdata/daily_88502_1998.zip",
+  "producer": "scripts/record_samples.py",
+  "reason": "one AQS daily parameter-year CSV, trimmed"
+}

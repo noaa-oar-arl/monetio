@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from monetio.readers.errors import OptionUnsupportedError
 from monetio.readers.modis_ornl import MODISORNLReader, _get_latlon, _make_xarray_dataset
 
 
@@ -29,6 +30,101 @@ def test_modis_ornl_latlon_lazy():
     # Verify it can be chunked
     lon_lazy = lon.chunk({"x": 5, "y": 4})
     assert hasattr(lon_lazy.data, "dask")
+
+
+def test_modis_ornl_rejects_use_dask_before_remote_retrieval(monkeypatch):
+    reader = MODISORNLReader()
+
+    def unexpected_retrieval(*args, **kwargs):
+        raise AssertionError("use_dask must be rejected before the SOAP request")
+
+    monkeypatch.setattr("monetio.readers.modis_ornl._get_single_retrieval", unexpected_retrieval)
+    with pytest.raises(OptionUnsupportedError, match="use_dask"):
+        reader.open_dataset(date="2020-01-01", use_dask=True)
+
+
+def test_modis_ornl_rejects_chunks_before_remote_retrieval(monkeypatch):
+    reader = MODISORNLReader()
+
+    def unexpected_retrieval(*args, **kwargs):
+        raise AssertionError("chunks must be rejected before the SOAP request")
+
+    monkeypatch.setattr("monetio.readers.modis_ornl._get_single_retrieval", unexpected_retrieval)
+    with pytest.raises(OptionUnsupportedError, match="modis_ornl.*chunks"):
+        reader.open_dataset(date="2020-01-01", chunks={"time": 1})
+
+
+def test_modis_ornl_reader_eager_output_without_network(monkeypatch):
+    from monetio.readers import modis_ornl
+
+    metadata = {
+        "band": "Lai_500m",
+        "date_int": 2020001,
+        "xllcorner": 0,
+        "yllcorner": 0,
+        "cellsize": 1000,
+        "ncols": 3,
+        "nrows": 2,
+        "units": "m",
+        "product": "MOD15A2H",
+        "server": "test_server",
+    }
+    monkeypatch.setattr(modis_ornl, "HAS_SUDS", True)
+    monkeypatch.setattr(
+        modis_ornl,
+        "_get_single_retrieval",
+        lambda *args, **kwargs: _make_xarray_dataset(np.arange(6).reshape(2, 3), metadata),
+    )
+
+    ds = MODISORNLReader().open_dataset(date="2020-01-01", product="MOD15A2H")
+    assert isinstance(ds, xr.Dataset)
+    assert isinstance(ds["Lai_500m"].data, np.ndarray)
+    np.testing.assert_array_equal(ds["Lai_500m"].values, np.arange(6).reshape(1, 2, 3))
+
+
+def test_modis_ornl_forwards_remote_spatial_and_band_selection(monkeypatch):
+    from monetio.readers import modis_ornl
+
+    metadata = {
+        "band": "Lai_500m",
+        "date_int": 2020001,
+        "xllcorner": 0,
+        "yllcorner": 0,
+        "cellsize": 1000,
+        "ncols": 3,
+        "nrows": 2,
+        "units": "m",
+        "product": "MOD15A2H",
+        "server": "test_server",
+    }
+    captured = {}
+
+    def retrieve(date, **kwargs):
+        captured.update(kwargs)
+        return modis_ornl._make_xarray_dataset(np.arange(6).reshape(2, 3), metadata)
+
+    monkeypatch.setattr(modis_ornl, "HAS_SUDS", True)
+    monkeypatch.setattr(modis_ornl, "_get_single_retrieval", retrieve)
+    ds = MODISORNLReader().open_dataset(
+        date="2020-01-01",
+        product="MOD15A2H",
+        band="Lai_500m",
+        latitude=40.0,
+        longitude=-105.0,
+        kmAboveBelow=25,
+        kmLeftRight=30,
+    )
+
+    assert captured == {
+        "product": "MOD15A2H",
+        "band": "Lai_500m",
+        "quality_control": None,
+        "lat": 40.0,
+        "lon": -105.0,
+        "kmAboveBelow": 25,
+        "kmLeftRight": 30,
+    }
+    assert "Lai_500m" in ds
 
 
 def test_make_xarray_dataset_eager_lazy():

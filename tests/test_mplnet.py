@@ -16,6 +16,7 @@ def test_mplnet_reader_basic(tmp_path):
     ds_mock = xr.Dataset(
         data_vars={
             "nrb": (("time", "altitude"), np.random.rand(2, 100)),
+            "unused_payload": (("time", "altitude"), np.full((2, 100), -1.0)),
             "latitude": (("time",), [40.0, 40.0]),
             "longitude": (("time",), [-80.0, -80.0]),
             "surface_altitude": (("time",), [0.5, 0.5]),  # km
@@ -38,7 +39,7 @@ def test_mplnet_reader_basic(tmp_path):
     reader = MPLNETReader()
 
     # Test Eager
-    ds = reader.open_dataset(files=str(fn), lazy=False)
+    ds = reader.open_dataset(files=str(fn), lazy=False, drop_variables=["unused_payload"])
     assert isinstance(ds, xr.Dataset)
     assert "nrb" in ds.data_vars
     assert "elevation" in ds.coords
@@ -50,13 +51,26 @@ def test_mplnet_reader_basic(tmp_path):
     assert "Preprocessed MPLNET data" in ds.attrs["history"]
 
     # Test Lazy
-    ds_lazy = reader.open_dataset(files=str(fn), lazy=True)
+    ds_lazy = reader.open_dataset(
+        files=str(fn),
+        use_dask=True,
+        chunks={"time": 1, "altitude": 50},
+        drop_variables=["unused_payload"],
+    )
     assert isinstance(ds_lazy, xr.Dataset)
     assert ds_lazy.nrb.chunks is not None
+    assert "unused_payload" not in ds_lazy
+    assert ds_lazy.nrb.chunks == ((1, 1), (50, 50))
+    assert "unused_payload" not in ds_lazy
+    assert ds_lazy.nrb.chunks == ((1, 1), (50, 50))
     assert "elevation" in ds_lazy.coords
     # Check that unit conversion was lazy
     assert "elevation" in ds_lazy.coords
     assert ds_lazy.elevation.attrs["units"] == "m"
+    xr.testing.assert_allclose(
+        ds.drop_vars("history", errors="ignore"),
+        ds_lazy.compute().drop_vars("history", errors="ignore"),
+    )
 
 
 def test_mplnet_load_universal(tmp_path):

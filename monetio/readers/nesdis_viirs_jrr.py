@@ -1,11 +1,13 @@
 """NESDIS VIIRS JRR Reader"""
 
 import datetime
+from collections.abc import Mapping
 
 import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import annotate
 from .sat_utils import add_time_coord, standardize_satellite_coords, update_history
 
 JRR_SPECS = {
@@ -130,6 +132,17 @@ class VIIRSJRRReader(GriddedReader):
         if "combine" not in kwargs:
             kwargs["combine"] = "nested"
 
+        requested_chunks = kwargs.get("chunks")
+        if isinstance(requested_chunks, Mapping):
+            driver_chunks = dict(requested_chunks)
+            # Xarray validates chunks against on-disk dimensions before the
+            # preprocessing function renames Rows/Columns to y/x.
+            if "y" in driver_chunks and "Rows" not in driver_chunks:
+                driver_chunks["Rows"] = driver_chunks.pop("y")
+            if "x" in driver_chunks and "Columns" not in driver_chunks:
+                driver_chunks["Columns"] = driver_chunks.pop("x")
+            kwargs["chunks"] = driver_chunks
+
         ds = super().open_dataset(
             files,
             use_virtualizarr=use_virtualizarr,
@@ -142,6 +155,14 @@ class VIIRSJRRReader(GriddedReader):
             use_dask=use_dask,
             **kwargs,
         )
+
+        # `chunks` is applied by Xarray before preprocessing, when the source
+        # dimensions are Rows/Columns. Also honor chunk mappings expressed in
+        # the public y/x dimensions produced by preprocessing.
+        if use_dask and isinstance(requested_chunks, Mapping):
+            output_chunks = {dim: size for dim, size in requested_chunks.items() if dim in ds.dims}
+            if output_chunks:
+                ds = ds.chunk(output_chunks)
 
         # Update history
         ds = update_history(ds, f"Read NESDIS VIIRS JRR {product} data from {satellite}.")
@@ -195,9 +216,18 @@ class VIIRSJRRReader(GriddedReader):
             # Use FileUtility to expand paths, which leverages obstore/fsspec
             try:
                 found = FileUtility.expand_paths(f"{prefix}*.nc")
-                urls.extend(found)
-            except Exception:
+            except FileNotFoundError:
+                # expand_paths raises when a glob matches nothing. A listing
+                # that succeeded and simply matched nothing is legitimately no
+                # data for this day; the empty list adds nothing and the loop
+                # carries on.
                 continue
+            except Exception as e:
+                # A failed listing is a retrieval (or credential) problem, not
+                # "no data for this date": surface it naming the prefix that
+                # could not be listed rather than skipping.
+                raise annotate(e, prefix) from e
+            urls.extend(found)
 
         return sorted(urls)
 

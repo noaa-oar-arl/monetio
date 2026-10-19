@@ -88,3 +88,28 @@ def test_openaq_aws_unit_conversion(sample_openaq_aws_csv):
     # We use positional indexing for robustness across Xarray versions in tests.
     val = ds.o3_ppm.isel(time=0, node=0).values
     assert np.isclose(val, 0.01)
+
+
+def test_openaq_aws_date_site_selection_bounds_s3_paths(monkeypatch):
+    """The date/site query should probe only its requested S3 objects."""
+    from monetio.readers.openaq_aws import get_paths
+
+    class FakeFS:
+        def __init__(self):
+            self.probes = []
+
+        def exists(self, path):
+            self.probes.append(path)
+            return path.endswith("location-7073-20230101.csv.gz")
+
+    fs = FakeFS()
+    monkeypatch.setattr("monetio.readers.drivers.FileUtility.get_fs", lambda *args, **kwargs: fs)
+    paths = get_paths(
+        pd.to_datetime(["2023-01-01 00:00", "2023-01-01 12:00"]),
+        siteid="7073",
+    )
+    assert paths == [
+        "openaq-data-archive/records/csv.gz/locationid=7073/year=2023/month=01/"
+        "location-7073-20230101.csv.gz"
+    ]
+    assert fs.probes == paths

@@ -124,9 +124,9 @@ def calipso_preprocess(ds: xr.Dataset, variable_dict: dict | None = None) -> xr.
         # Profile_Time is often seconds since a reference
         # But for now, let's just make sure it's a coord
         if "time" not in ds.coords:
-                ds = ds.rename({"Profile_Time": "time"})
-                if ds["time"].ndim == 1:
-                    ds = ds.set_coords("time")
+            ds = ds.rename({"Profile_Time": "time"})
+            if ds["time"].ndim == 1:
+                ds = ds.set_coords("time")
 
     # 3. Apply scale factors if not already applied by engine
     # CALIOP variables often have scale_factor attributes

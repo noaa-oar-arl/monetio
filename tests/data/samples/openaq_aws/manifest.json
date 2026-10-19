@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "d23c40536218cb8705bdc24323a5547f4170df247dacde4eed79227c74da3cfc",
+  "kind": "recorded",
+  "location": "s3://openaq-data-archive/records/csv.gz/locationid=10000/year=2018/month=10/location-10000-20181017.csv.gz",
+  "producer": "scripts/record_samples.py",
+  "reason": "one OpenAQ archive site-day record"
+}

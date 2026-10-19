@@ -17,40 +17,24 @@ import inspect
 
 import pytest
 
+from monetio._manifest import SOURCE_MANIFEST
 from monetio.readers.base import READER_REGISTRY, GriddedReader, PointReader
 
-# Modules excluded from the audit (infrastructure, specs, utilities)
-EXCLUDED_MODULES = {
-    "__init__",
-    "base",
-    "drivers",
-    "_deprecation",
-    "camx_specs",
-    "cmaq_specs",
-    "ufs_specs",
-    "wrfchem_specs",
-    "epa_utils",
-    "nasa_utils",
-    "sat_utils",
-    "time_utils",
-    "ncep_pds",
-}
+# Reader modules come from the manifest (the single source of truth): only
+# modules that declare a source are audited, so the infrastructure modules
+# (base, drivers, *_specs, *_utils, _deprecation) are excluded by
+# construction rather than by a hand-maintained list.
+MANIFEST_MODULE_NAMES = sorted({s.module.rsplit(".", 1)[-1] for s in SOURCE_MANIFEST})
 
-# Modules that legitimately contain multiple distinct registered classes
-MULTI_CLASS_MODULES = {"gfs"}
+# Modules that legitimately contain multiple distinct registered classes are
+# exactly the modules whose manifest spec declares aliases — the aliases are
+# what signal additional registrations (e.g. gfs also registers gefs/gdas).
+MULTI_CLASS_MODULES = {s.module.rsplit(".", 1)[-1] for s in SOURCE_MANIFEST if s.aliases}
 
 
 def _get_reader_module_names():
-    """Discover all reader module names by scanning the readers directory."""
-    from pathlib import Path
-
-    readers_dir = Path(__file__).parent.parent / "monetio" / "readers"
-    modules = []
-    for f in sorted(readers_dir.glob("*.py")):
-        name = f.stem
-        if name not in EXCLUDED_MODULES:
-            modules.append(name)
-    return modules
+    """All audited reader module names, derived from the manifest."""
+    return MANIFEST_MODULE_NAMES
 
 
 READER_MODULE_NAMES = _get_reader_module_names()
@@ -78,70 +62,38 @@ def _get_registered_classes(mod, module_name):
 
 
 @pytest.mark.parametrize("module_name", READER_MODULE_NAMES)
-class TestReaderStructureUniformity:
+def test_reader_structure_contract(module_name):
+    """Check each reader module's complete structural contract in one case.
+
+    The former five tests repeated module import and reader-class discovery for
+    every module. Keep every check and aggregate failures so a single case still
+    reports all structural defects for the affected module.
     """
-    **Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.7**
+    mod = _import_reader_module(module_name)
+    failures = []
 
-    Property 5: For any reader module in monetio/readers/ (excluding infrastructure
-    and utility modules), the module SHALL contain exactly one class decorated with
-    @register_reader, that class SHALL inherit from GriddedReader or PointReader,
-    SHALL implement open_dataset() and harmonize() methods, and the module SHALL
-    have a non-empty module-level docstring.
-    """
+    if not (mod.__doc__ and mod.__doc__.strip()):
+        failures.append("module docstring is missing or empty")
 
-    def test_module_has_docstring(self, module_name):
-        """Requirement 10.7: Reader module SHALL include a module-level docstring."""
-        mod = _import_reader_module(module_name)
-        docstring = mod.__doc__
-        assert docstring is not None, f"Module {module_name} has no docstring"
-        assert docstring.strip(), f"Module {module_name} has empty docstring"
+    registered = _get_registered_classes(mod, module_name)
+    if not registered:
+        failures.append("no registered reader class found")
+    elif module_name not in MULTI_CLASS_MODULES and len(registered) != 1:
+        failures.append(
+            f"found {len(registered)} registered classes "
+            f"({[cls.__name__ for cls in registered]}), expected exactly one"
+        )
 
-    def test_has_registered_reader_class(self, module_name):
-        """Requirement 10.1: Reader module SHALL contain exactly one @register_reader class."""
-        mod = _import_reader_module(module_name)
-        registered = _get_registered_classes(mod, module_name)
-
-        assert len(registered) >= 1, f"Module {module_name} has no @register_reader decorated class"
-
-        if module_name not in MULTI_CLASS_MODULES:
-            assert len(registered) == 1, (
-                f"Module {module_name} has {len(registered)} distinct registered classes "
-                f"({[c.__name__ for c in registered]}), expected exactly 1"
+    for cls in registered:
+        if not issubclass(cls, GriddedReader | PointReader):
+            failures.append(
+                f"{cls.__name__} does not inherit from GriddedReader or PointReader "
+                f"(MRO: {[base.__name__ for base in cls.__mro__]})"
             )
+        for method in ("open_dataset", "harmonize"):
+            if not callable(getattr(cls, method, None)):
+                failures.append(f"{cls.__name__}.{method} is missing or not callable")
 
-    def test_inherits_from_base_reader(self, module_name):
-        """Requirement 10.2: Reader class SHALL inherit from GriddedReader or PointReader."""
-        mod = _import_reader_module(module_name)
-        registered = _get_registered_classes(mod, module_name)
-
-        for cls in registered:
-            assert issubclass(cls, GriddedReader | PointReader), (
-                f"Class {cls.__name__} in {module_name} does not inherit from "
-                f"GriddedReader or PointReader. MRO: {[c.__name__ for c in cls.__mro__]}"
-            )
-
-    def test_implements_open_dataset(self, module_name):
-        """Requirement 10.3: Reader class SHALL implement open_dataset()."""
-        mod = _import_reader_module(module_name)
-        registered = _get_registered_classes(mod, module_name)
-
-        for cls in registered:
-            assert hasattr(cls, "open_dataset"), (
-                f"Class {cls.__name__} in {module_name} missing open_dataset()"
-            )
-            assert callable(getattr(cls, "open_dataset")), (
-                f"Class {cls.__name__} in {module_name}: open_dataset is not callable"
-            )
-
-    def test_implements_harmonize(self, module_name):
-        """Requirement 10.4: Reader class SHALL implement harmonize()."""
-        mod = _import_reader_module(module_name)
-        registered = _get_registered_classes(mod, module_name)
-
-        for cls in registered:
-            assert hasattr(cls, "harmonize"), (
-                f"Class {cls.__name__} in {module_name} missing harmonize()"
-            )
-            assert callable(getattr(cls, "harmonize")), (
-                f"Class {cls.__name__} in {module_name}: harmonize is not callable"
-            )
+    assert not failures, (
+        f"Module {module_name} violates reader structure contract:\n- " + "\n- ".join(failures)
+    )

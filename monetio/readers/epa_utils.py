@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Union
 import pandas as pd
 
 from ..util import force_object_strings
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -193,8 +194,9 @@ def read_monitor_file(
             df["airnow_flag"] = "AIRNOW"
             df.columns = [i.lower() for i in df.columns]
         except Exception as e:
-            logger.error(f"Failed to read AirNow monitor file: {e}")
-            df = pd.DataFrame()
+            # The monitor list is required metadata; a failed fetch is a
+            # retrieval failure naming the source URL, not empty metadata.
+            raise annotate(e, monitor_airnow_url) from e
     else:
         # Try local HDF first
         try:
@@ -205,7 +207,7 @@ def read_monitor_file(
             fname = os.path.join(basedir, "data", "monitoring_site_locations.hdf")
             if os.path.exists(fname):
                 df = pd.read_hdf(fname)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - optional local cache; an unreadable bundled file falls back to downloading metadata from AQS, so the load still succeeds (categories: not_found, malformed)
             logger.debug(f"Local monitor file not found or unreadable: {e}")
 
         if df.empty:
@@ -258,8 +260,9 @@ def read_monitor_file(
                 df = df.drop(columns=monitor_drop, errors="ignore")
                 df = convert_statenames_to_abv(df).dropna(subset=["latitude", "longitude"])
             except Exception as e:
-                logger.error(f"Failed to download/process AQS monitor metadata: {e}")
-                df = pd.DataFrame()
+                # Metadata we cannot download is a retrieval failure naming
+                # the source URLs, not an empty monitor table.
+                raise annotate(e, site_url, monitor_url) from e
 
     if not df.empty:
         if network is not None:

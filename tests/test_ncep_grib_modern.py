@@ -65,6 +65,75 @@ def test_ncep_grib_reader_open(monkeypatch):
     assert "history" in ds.attrs
 
 
+def _grib2io_like_dataset(valid_date):
+    """A single-file dataset shaped like grib2io output: y/x dims, scalar validDate/refDate."""
+    ny, nx = 3, 4
+    return xr.Dataset(
+        {"VAR1": (("y", "x"), np.zeros((ny, nx), dtype="f4"))},
+        coords={
+            "validDate": np.datetime64(valid_date, "us"),
+            "refDate": np.datetime64(valid_date, "us"),
+            "leadTime": np.timedelta64(0, "us"),
+        },
+    )
+
+
+def test_ncep_grib_preprocess_promotes_scalar_valid_date():
+    """A scalar validDate becomes a size-1 'time' dimension so concatenation keeps the label."""
+    out = ncep_grib_preprocess(_grib2io_like_dataset("2025-03-24T00"))
+
+    assert "time" in out.dims
+    assert out.sizes["time"] == 1
+    assert "time" in out.coords
+    assert out["time"].ndim == 1
+    assert out["time"].values[0] == np.datetime64("2025-03-24T00", "us")
+
+
+def test_ncep_grib_preprocess_concat_preserves_distinct_times():
+    """Distinct per-file valid dates survive nested/minimal concatenation as a 1-D time index.
+
+    Reproduces the multi-file GRIB2 scan where ``coords='minimal'`` would otherwise
+    collapse the scalar time coords, leaving an unindexed ``time`` dimension that
+    cannot align against observations.
+    """
+    ds_a = ncep_grib_preprocess(_grib2io_like_dataset("2025-03-24T00"))
+    ds_b = ncep_grib_preprocess(_grib2io_like_dataset("2025-03-24T03"))
+
+    combined = xr.concat([ds_a, ds_b], dim="time", coords="minimal", compat="override")
+
+    assert combined.sizes["time"] == 2
+    assert "time" in combined.coords
+    np.testing.assert_array_equal(
+        combined["time"].values,
+        np.array(["2025-03-24T00", "2025-03-24T03"], dtype="datetime64[us]"),
+    )
+
+
+def test_ncep_grib_preprocess_leaves_existing_time_untouched():
+    """A file that already carries a time dimension is not expanded again."""
+    ds = xr.Dataset(
+        {"VAR1": (("time", "y", "x"), np.zeros((2, 3, 4), dtype="f4"))},
+        coords={
+            "time": np.array(["2025-03-24T00", "2025-03-24T03"], dtype="datetime64[us]"),
+            "validDate": np.datetime64("2025-03-24T00", "us"),
+        },
+    )
+
+    out = ncep_grib_preprocess(ds)
+
+    assert out.sizes["time"] == 2
+    assert out["time"].ndim == 1
+
+
+def test_ncep_grib_preprocess_falls_back_to_ref_date():
+    """Without validDate, the reference time (refDate) names the cycle."""
+    ds = _grib2io_like_dataset("2025-03-24T00").drop_vars("validDate")
+
+    out = ncep_grib_preprocess(ds)
+
+    assert out["time"].values[0] == np.datetime64("2025-03-24T00", "us")
+
+
 def test_ncep_grib_preprocess_aero_protocol():
     """Verify ncep_grib_preprocess follows the Aero Protocol (Eager vs Lazy identity)."""
     # 1. Setup mock data

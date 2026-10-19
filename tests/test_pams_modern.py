@@ -1,5 +1,6 @@
 import json
 
+import pandas as pd
 import pytest
 import xarray as xr
 
@@ -66,29 +67,41 @@ def test_pams_eager_lazy_consistency(mock_pams_files):
     assert ds_lazy.Ozone.attrs["units"] == "ppb"
 
 
-def test_pams_no_compute_on_open(mock_pams_files):
-    from dask.callbacks import Callback
-
-    class ComputeCounter(Callback):
-        def __init__(self):
-            self.compute_count = 0
-
-        def _start(self, dsk):
-            self.compute_count += 1
-
-    counter = ComputeCounter()
+@pytest.mark.parametrize("lazy_option", [{"lazy": True}, {"use_dask": True}])
+def test_pams_lazy_output_preserves_dask_arrays(mock_pams_files, lazy_option):
     reader = PAMSReader()
 
-    with counter:
-        ds_lazy = reader.open_dataset(mock_pams_files, as_xarray=True, lazy=True)
-        # Accessing metadata shouldn't trigger compute
-        _ = ds_lazy.Ozone.attrs["units"]
-        _ = ds_lazy.coords
-
-    # Xarray's to_dask_array(lengths=True) triggers a compute to get the length
-    # of the partitions for the dask array in to_xarray.
-    # So we expect at least 1 compute per variable being converted to dask array.
-    # This is an "Allowed Exception" in monetio/readers/base.py
-    assert counter.compute_count > 0
+    ds_lazy = reader.open_dataset(mock_pams_files, as_xarray=True, **lazy_option)
     # But it should still be "lazy" for the actual data.
-    assert hasattr(ds_lazy.Ozone.data, "dask")
+    assert all(hasattr(var.data, "dask") for var in ds_lazy.data_vars.values() if var.ndim)
+
+
+def test_pams_lazy_table_output_preserves_dask_dataframe(mock_pams_files):
+    import dask.dataframe as dd
+
+    reader = PAMSReader()
+    eager = reader.open_dataset(mock_pams_files, as_xarray=False)
+    lazy = reader.open_dataset(mock_pams_files, as_xarray=False, use_dask=True)
+
+    assert isinstance(lazy, dd.DataFrame)
+    pd.testing.assert_frame_equal(eager, lazy.compute(), check_dtype=False)
+
+
+def test_pams_reuses_first_file_parse_for_schema_and_units(mock_pams_files, monkeypatch):
+    import monetio.readers.pams as pams_module
+
+    original = pams_module.read_pams
+    calls = []
+
+    def counted(path, **kwargs):
+        calls.append(path)
+        return original(path, **kwargs)
+
+    monkeypatch.setattr(pams_module, "read_pams", counted)
+    ds = PAMSReader().open_dataset(mock_pams_files, as_xarray=True, use_dask=True)
+
+    assert all(hasattr(var.data, "dask") for var in ds.data_vars.values() if var.ndim)
+    # One full parse supplies the explicit schema and units. The Xarray point
+    # index preparation performs one additional full parse to learn lengths;
+    # it does not repeat per coordinate or let Dask infer schema from a read.
+    assert calls.count(mock_pams_files) == 2

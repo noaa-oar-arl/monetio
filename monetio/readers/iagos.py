@@ -10,6 +10,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import PointReader, register_reader
+from .drivers import XarrayDriver
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -24,6 +25,11 @@ class IAGOSReader(PointReader):
     """
 
     fixed_location = False
+
+    def __init__(self):
+        # This reader opens NetCDF directly with Xarray; it does not use the
+        # whole-file pandas parser inherited by ordinary PointReader classes.
+        self.driver = XarrayDriver(source=self._source_name)
 
     def open_dataset(
         self,
@@ -79,6 +85,8 @@ class IAGOSReader(PointReader):
         Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded IAGOS data.
         """
+        if use_dask:
+            lazy = True
         if files is None:
             if dates is None:
                 raise ValueError("Must provide either 'files' or 'dates'.")
@@ -92,16 +100,53 @@ class IAGOSReader(PointReader):
         # IAGOS data is NetCDF. We use xr.open_mfdataset for robustness.
         # It handles both single and multiple files, and laziness.
         ds = xr.open_mfdataset(files, combine="nested", concat_dim="time", **kwargs)
+        source_ds = ds
 
         ds = self.harmonize(ds)
 
-        df = ds.to_dataframe().reset_index()
-        df.attrs = dict(ds.attrs)
-
         if not as_xarray:
+            if use_dask or lazy:
+                # Xarray's Dask conversion already carries dimension coordinates
+                # as columns. Reset only the dataframe's internal index; adding
+                # it as a new ``index`` column diverges from the eager output.
+                df = ds.to_dask_dataframe().reset_index(drop=True)
+                output_columns = [
+                    name
+                    for name in dict.fromkeys(
+                        [*ds.dims, *ds.data_vars, *(c for c in ds.coords if c not in ds.dims)]
+                    )
+                    if name in df.columns
+                ]
+                df = df[output_columns]
+            else:
+                df = ds.to_dataframe().reset_index()
+            df.attrs = dict(ds.attrs)
+            source_ds.close()
             return df
 
-        ds = self.to_xarray(df, expand2d=expand2d)
+        if lazy:
+            # Route through the same row layout used by the eager branch so
+            # both produce the standard (time, node) UGRID representation.
+            # The dataframe conversion keeps payload columns Dask-backed; the
+            # shared converter prepares only the index/layout coordinates.
+            df = ds.to_dask_dataframe().reset_index(drop=True)
+            output_columns = [
+                name
+                for name in dict.fromkeys(
+                    [*ds.dims, *ds.data_vars, *(c for c in ds.coords if c not in ds.dims)]
+                )
+                if name in df.columns
+            ]
+            ds = self.to_xarray(df[output_columns], expand2d=expand2d)
+            if source_ds is not ds:
+                ds.set_close(source_ds.close)
+        else:
+            # Preserve the historical eager default, which materialized through
+            # pandas before converting to the UGRID representation.
+            df = ds.to_dataframe().reset_index()
+            df.attrs = dict(ds.attrs)
+            source_ds.close()
+            ds = self.to_xarray(df, expand2d=expand2d)
         ds = update_history(ds, "Converted IAGOS data to UGRID xarray format.")
 
         ds = update_history(ds, "Read IAGOS data using standardized preprocessing.")

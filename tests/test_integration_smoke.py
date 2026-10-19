@@ -10,85 +10,34 @@
 import importlib
 import inspect
 import unittest.mock as mock
+from pathlib import Path
 
 import pytest
 
 import monetio
+from monetio._manifest import SOURCE_MANIFEST
 
 # ---------------------------------------------------------------------------
-# All reader module paths (relative to monetio.readers)
+# All reader-module paths, derived from the manifest (the single source of
+# truth). Source modules come from SOURCE_MANIFEST; infrastructure modules
+# (base, drivers, spec/util helpers) are whatever else lives in the readers
+# package. Neither list is hand-maintained, so neither can drift.
 # ---------------------------------------------------------------------------
 
-_READER_MODULES = [
-    "monetio.readers.actris",
-    "monetio.readers.aeronet",
-    "monetio.readers.airnow",
-    "monetio.readers.aqs",
-    "monetio.readers.base",
-    "monetio.readers.camx",
-    "monetio.readers.camx_specs",
-    "monetio.readers.cems",
-    "monetio.readers.chimere",
-    "monetio.readers.cmaq",
-    "monetio.readers.cmaq_specs",
-    "monetio.readers.crn",
-    "monetio.readers.drivers",
-    "monetio.readers.earlinet",
-    "monetio.readers.epa_utils",
-    "monetio.readers.eprofile",
-    "monetio.readers.geoms",
-    "monetio.readers.gfs",
-    "monetio.readers.gml_ozonesonde",
-    "monetio.readers.goes",
-    "monetio.readers.grib2",
-    "monetio.readers.hysplit",
-    "monetio.readers.hytraj",
-    "monetio.readers.iagos",
-    "monetio.readers.icap_mme",
-    "monetio.readers.icartt",
-    "monetio.readers.igra2",
-    "monetio.readers.improve",
-    "monetio.readers.ish",
-    "monetio.readers.ish_lite",
-    "monetio.readers.merra2",
-    "monetio.readers.modis_l2",
-    "monetio.readers.modis_ornl",
-    "monetio.readers.mopitt",
-    "monetio.readers.mplnet",
-    "monetio.readers.nadp",
-    "monetio.readers.nasa_modis",
-    "monetio.readers.nasa_utils",
-    "monetio.readers.ncep_grib",
-    "monetio.readers.ndacc",
-    "monetio.readers.ndbc",
-    "monetio.readers.nesdis_edr_viirs",
-    "monetio.readers.nesdis_eps_viirs",
-    "monetio.readers.nesdis_frp",
-    "monetio.readers.nesdis_viirs_jrr",
-    "monetio.readers.omps",
-    "monetio.readers.omps_nadir",
-    "monetio.readers.openaq",
-    "monetio.readers.openaq_aws",
-    "monetio.readers.openaq_v2",
-    "monetio.readers.pams",
-    "monetio.readers.pandora",
-    "monetio.readers.pardump",
-    "monetio.readers.raqms",
-    "monetio.readers.rrfs",
-    "monetio.readers.sat_utils",
-    "monetio.readers.skynet",
-    "monetio.readers.solrad",
-    "monetio.readers.surfrad",
-    "monetio.readers.tempo",
-    "monetio.readers.time_utils",
-    "monetio.readers.tolnet",
-    "monetio.readers.tropomi",
-    "monetio.readers.ufs",
-    "monetio.readers.ufs_specs",
-    "monetio.readers.umbc_aerosol",
-    "monetio.readers.wrfchem",
-    "monetio.readers.wrfchem_specs",
-]
+
+def _reader_package_modules() -> list[str]:
+    pkg_dir = Path(importlib.import_module("monetio.readers").__file__).parent
+    names = sorted(p.stem for p in pkg_dir.glob("*.py") if p.stem != "__init__")
+    return [f"monetio.readers.{n}" for n in names]
+
+
+_READER_MODULES = _reader_package_modules()
+
+# Modules the manifest declares, as a sanity cross-check of the discovery:
+# every manifest module must exist on disk.
+_declared = {f"monetio.readers.{s.module.rsplit('.', 1)[-1]}" for s in SOURCE_MANIFEST}
+_missing = _declared - set(_READER_MODULES)
+assert not _missing, f"manifest declares modules missing on disk: {sorted(_missing)}"
 
 
 @pytest.mark.parametrize("module_path", _READER_MODULES)
@@ -99,10 +48,10 @@ def test_reader_module_imports_without_error(module_path):
 
 
 # ---------------------------------------------------------------------------
-# All source names from _READER_MODULES in monetio/__init__.py
+# All source names (canonical + aliases), enumerated from the manifest
 # ---------------------------------------------------------------------------
 
-_ALL_SOURCE_NAMES = list(monetio._READER_MODULES.keys())
+_ALL_SOURCE_NAMES = monetio.available_sources()
 
 
 @pytest.mark.parametrize("source_name", _ALL_SOURCE_NAMES)
@@ -116,7 +65,7 @@ def test_load_source_resolves_reader(source_name):
 
     # Ensure the reader module is imported (lazy loading)
     if source_name not in READER_REGISTRY:
-        importlib.import_module(monetio._READER_MODULES[source_name], package="monetio")
+        importlib.import_module(monetio.source_info(source_name).module, package="monetio")
 
     assert source_name in READER_REGISTRY, (
         f"Source '{source_name}' not found in READER_REGISTRY after import"

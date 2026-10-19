@@ -3,6 +3,7 @@
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import SectionUnavailableError, is_absent_section
 from .sat_utils import standardize_satellite_coords, update_history
 
 
@@ -75,16 +76,23 @@ class TEMPOReader(GriddedReader):
         """
         if group is None:
             groups = ["product", "geolocation", "support_data", "qa_statistics"]
-        elif isinstance(group, str):
-            groups = [group]
+            # The default list is a convenience, not a request: a file without
+            # one of these groups is normal (not every product ships every
+            # section), so an absent group is recorded and skipped. A group that
+            # exists but cannot be read still fails.
+            explicit = False
         else:
-            groups = group
+            groups = [group] if isinstance(group, str) else list(group)
+            # The caller named these sections; every one of them is required.
+            explicit = True
 
         user_preprocess = kwargs.pop("preprocess", None)
 
         if "engine" not in kwargs:
             kwargs["engine"] = "h5netcdf"
         dsets = []
+        included = []
+        absent = []
         for g in groups:
             g_kwargs = kwargs.copy()
             g_kwargs["group"] = g
@@ -103,12 +111,22 @@ class TEMPOReader(GriddedReader):
                     **g_kwargs,
                 )
                 dsets.append(ds_g)
-            except Exception:
-                # Not all groups may be present in all files
-                continue
+                included.append(g)
+            except Exception as e:
+                if not explicit and is_absent_section(e):
+                    absent.append(f"{g} (not present in this file)")
+                    continue
+                # A named section that could not be opened is a failure naming
+                # the input and the section — never a silent continue, which
+                # would hide the variables living in that section.
+                raise SectionUnavailableError(files, g, cause=str(e)) from e
 
         if not dsets:
-            raise RuntimeError("No TEMPO groups could be opened.")
+            raise SectionUnavailableError(
+                files,
+                ", ".join(str(g) for g in groups),
+                cause="no section of the input could be opened",
+            )
 
         # Merge groups
         ds = xr.merge(dsets, compat="no_conflicts")
@@ -121,6 +139,12 @@ class TEMPOReader(GriddedReader):
 
         # Update history
         ds = update_history(ds, "Read TEMPO L2 data.")
+        # Multi-section products must report which sections were included, so a
+        # reader of the provenance can see the product's actual coverage.
+        sections_line = f"included sections: {', '.join(included)}"
+        if absent:
+            sections_line += f" | skipped absent sections: {', '.join(absent)}"
+        ds = update_history(ds, sections_line)
 
         return ds
 

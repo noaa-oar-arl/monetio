@@ -104,7 +104,7 @@ class Sentinel4Reader(GriddedReader):
                     **g_kwargs,
                 )
                 dsets.append(ds_g)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-group probe; an unopenable group is reported and skipped so the remaining groups still build the result (categories: not_found, malformed)
                 warnings.warn(f"Could not open group {g}: {e}")
 
         if not dsets:

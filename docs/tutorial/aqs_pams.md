@@ -11,14 +11,15 @@ We will first begin by importing monet and a few helper classes for
 later
 
 ```python
-import numpy as np          # numpy
-import pandas as pd         # pandas
-import monetio as mio       # observations from MONET
-import matplotlib.pyplot as plt # plotting
-import seaborn as sns       # better color palettes
+import numpy as np  # numpy
+import pandas as pd  # pandas
+import monetio as mio  # observations from MONET
+import matplotlib.pyplot as plt  # plotting
+import seaborn as sns  # better color palettes
 import cartopy.crs as ccrs  # map projections
-import cartopy.feature as cfeature # politcal and geographic features
-sns.set_style('ticks')   # plot configuration
+import cartopy.feature as cfeature  # politcal and geographic features
+
+sns.set_style("ticks")  # plot configuration
 sns.set_context("talk")  # plot configure for size of text
 ```
 
@@ -30,8 +31,8 @@ temperature. For all of the measurements available please see
 <https://aqs.epa.gov/aqsweb/airdata/download_files.html>
 
 ```python
-dates = pd.date_range(start='2004-01-01',end='2004-12-31')
-df = mio.aqs.add_data(dates,daily=True,param=['VOC','OZONE'], download=True)
+dates = pd.date_range(start="2004-01-01", end="2004-12-31")
+df = mio.aqs.add_data(dates, daily=True, param=["VOC", "OZONE"], download=True)
 ```
 
 ```````text

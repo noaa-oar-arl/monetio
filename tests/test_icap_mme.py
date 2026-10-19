@@ -17,6 +17,7 @@ def create_mock_icap_ds(lazy=False):
             ("time", "lat", "lon"),
             np.arange(nt * nlat * nlon).reshape(nt, nlat, nlon).astype(float),
         ),
+        "unused_payload": (("time", "lat", "lon"), np.ones((nt, nlat, nlon), dtype="f4")),
     }
 
     ds = xr.Dataset(
@@ -45,20 +46,25 @@ def test_icap_protocol_compliance():
     class MockDriver:
         def __init__(self, ds):
             self.ds = ds
+            self.use_dask = None
 
         def open(self, *args, **kwargs):
+            self.use_dask = kwargs.get("use_dask", False)
             return self.ds
 
     # Test Eager
     reader.driver = MockDriver(ds_eager)
     res_eager = reader.open_dataset(files="dummy.nc")
+    assert not isinstance(res_eager.dustaod550.data, da.Array)
 
     # Test Lazy
-    reader.driver = MockDriver(ds_lazy)
-    res_lazy = reader.open_dataset(files="dummy.nc", lazy=True)
+    lazy_driver = MockDriver(ds_lazy)
+    reader.driver = lazy_driver
+    res_lazy = reader.open_dataset(files="dummy.nc", use_dask=True)
 
     # Check laziness
     assert isinstance(res_lazy.dustaod550.data, da.Array)
+    assert lazy_driver.use_dask is True
 
     # Check consistency
     xr.testing.assert_allclose(res_eager, res_lazy.compute())
@@ -66,6 +72,42 @@ def test_icap_protocol_compliance():
     # Check history
     assert "history" in res_eager.attrs
     assert "Read ICAP-MME data." in res_eager.attrs["history"]
+
+
+def test_icap_reader_honors_chunks_on_local_netcdf(tmp_path):
+    path = tmp_path / "icap.nc"
+    create_mock_icap_ds().to_netcdf(path, engine="h5netcdf")
+
+    result = ICAPMMEReader().open_dataset(
+        files=str(path),
+        use_dask=True,
+        engine="h5netcdf",
+        chunks={"time": 1, "lat": 5, "lon": 10},
+    )
+
+    assert result.dustaod550.chunks == ((1, 1, 1, 1), (5, 5), (10, 10))
+    result.close()
+
+
+def test_icap_reader_drops_unselected_dask_payload(tmp_path):
+    path = tmp_path / "icap-selective.nc"
+    eager_source = create_mock_icap_ds()
+    eager_source.to_netcdf(path, engine="h5netcdf")
+
+    reader = ICAPMMEReader()
+    eager = reader.open_dataset(str(path), engine="h5netcdf", drop_variables=["unused_payload"])
+    lazy = reader.open_dataset(
+        str(path),
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"time": 2},
+        drop_variables=["unused_payload"],
+    )
+    assert "unused_payload" not in lazy
+    assert isinstance(lazy.dustaod550.data, da.Array)
+    xr.testing.assert_allclose(eager, lazy.compute())
+    eager.close()
+    lazy.close()
 
 
 def test_open_dataset_bad_date():

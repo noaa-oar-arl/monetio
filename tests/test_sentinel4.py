@@ -16,13 +16,14 @@ def create_mock_sentinel4_dataset(is_dask=False):
 
     ds = xr.Dataset(
         data_vars={
+            "unused_payload": (("scanline", "ground_pixel"), np.ones((scanline, ground_pixel))),
             "qa_value": (
                 ("scanline", "ground_pixel"),
                 np.linspace(0, 1, scanline * ground_pixel).reshape(scanline, ground_pixel),
             ),
             "nitrogendioxide_tropospheric_column": (
                 ("scanline", "ground_pixel"),
-                np.random.rand(scanline, ground_pixel),
+                np.random.default_rng(42).random((scanline, ground_pixel)),
             ),
             "latitude": (
                 ("scanline", "ground_pixel"),
@@ -69,3 +70,30 @@ def test_sentinel4_reader_logic(lazy, monkeypatch):
         assert ds.nitrogendioxide_tropospheric_column.chunks is not None
     else:
         assert ds.nitrogendioxide_tropospheric_column.chunks is None
+
+
+def test_sentinel4_reader_use_dask_local_netcdf_parity(tmp_path):
+    path = tmp_path / "sentinel4-synthetic.nc"
+    create_mock_sentinel4_dataset().to_netcdf(path, engine="h5netcdf")
+    reader = Sentinel4Reader()
+    eager = reader.open_dataset(
+        files=str(path),
+        group="",
+        engine="h5netcdf",
+        qa_threshold=0.5,
+        drop_variables=["unused_payload"],
+    )
+    lazy = reader.open_dataset(
+        files=str(path),
+        group="",
+        engine="h5netcdf",
+        qa_threshold=0.5,
+        use_dask=True,
+        chunks={"scanline": 4, "ground_pixel": 7},
+        drop_variables=["unused_payload"],
+    )
+
+    assert hasattr(lazy.nitrogendioxide_tropospheric_column.data, "dask")
+    assert "unused_payload" not in lazy
+    assert lazy.nitrogendioxide_tropospheric_column.chunks == ((4, 4, 2), (7, 7, 6))
+    xr.testing.assert_allclose(eager, lazy.compute())

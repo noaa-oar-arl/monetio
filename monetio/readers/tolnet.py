@@ -4,6 +4,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, _ensure_time_dimension, register_reader
+from .errors import SectionUnavailableError, is_absent_section
 from .sat_utils import update_history
 
 
@@ -16,6 +17,7 @@ class TOLNetReader(GriddedReader):
     def open_dataset(
         self,
         files: str | list[str],
+        defer: bool = False,
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
         virtualizarr_parser: str | None = None,
@@ -33,6 +35,11 @@ class TOLNetReader(GriddedReader):
         ----------
         files : Union[str, List[str]]
             File path(s) or URL(s).
+        defer : bool, optional
+            Return an unevaluated, dask-backed dataset with no hidden
+            full-dataset compute. Implies ``use_dask=True``;
+            raises for a source declaring
+            ``capabilities.deferred = False``.
         use_virtualizarr : bool, optional
             Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
         virtualizarr_file : str or None, optional
@@ -50,7 +57,9 @@ class TOLNetReader(GriddedReader):
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
         **kwargs : dict
-            Additional arguments passed to XarrayDriver.open.
+            Additional arguments passed to XarrayDriver.open, including
+            ``concurrent_files`` (delayed per-file fan-out of the custom
+            ``read_method``) and ``chunks`` (explicit chunking).
 
         Returns
         -------
@@ -62,6 +71,11 @@ class TOLNetReader(GriddedReader):
         >>> reader = TOLNetReader()
         >>> ds = reader.open_dataset(files="TOLNet_*.hdf5")
         """
+        if defer:
+            # defer wins over lazy/use_dask=False.
+            self._require_defer_support()
+            use_dask = True
+
         user_preprocess = kwargs.pop("preprocess", None)
 
         if "engine" not in kwargs:
@@ -147,38 +161,74 @@ def read_tolnet(fname: str, chunks=None, **kwargs) -> xr.Dataset:
         "decode_cf",
         "mask_and_scale",
         "backend_kwargs",
+        "drop_variables",
     ]
     xr_kwargs = {k: v for k, v in kwargs.items() if k in xr_keys}
 
-    # Forward the explicit chunks parameter (overrides any chunks in kwargs)
+    # TOLNet's HDF5 DATA group has anonymous dimensions until preprocessing
+    # maps them to ``z`` and ``time``. Translate caller-facing chunk keys to
+    # those raw dimension names before opening the payload.
     if chunks is not None:
-        xr_kwargs["chunks"] = chunks
+        translated_chunks = dict(chunks)
+        if chunks:
+            with xr.open_dataset(
+                fname,
+                group="DATA",
+                engine=kwargs.get("engine", "h5netcdf"),
+                phony_dims="sort",
+            ) as metadata:
+                for public_name, variable in (
+                    ("z", "ALT"),
+                    ("time", "TIME_MID_UT_UNIX"),
+                ):
+                    if public_name in translated_chunks and variable in metadata:
+                        raw_dim = metadata[variable].dims[0]
+                        translated_chunks[raw_dim] = translated_chunks.pop(public_name)
+        xr_kwargs["chunks"] = translated_chunks
 
     engine = kwargs.get("engine", "h5netcdf")
 
     # 1. Open DATA group
+    #
+    # The DATA group is where the profile variables live: a file whose DATA
+    # group cannot be opened is not a TOLNet profile, and returning an empty
+    # dataset would let the caller believe the file was read and simply had no
+    # data. An absent group (a file of some other layout) and an unreadable one
+    # (a corrupt file) are both failures; the message distinguishes them.
     try:
         ds_data = xr.open_dataset(
             fname, group="DATA", engine=engine, phony_dims="sort", **xr_kwargs
         )
     except Exception as e:
-        # Fallback if group doesn't exist
-        import warnings
-
-        warnings.warn(f"Could not open group DATA in {fname}: {e}")
-        return xr.Dataset()
+        cause = str(e)
+        if is_absent_section(e):
+            cause = f"group not present in this file: {cause}"
+        raise SectionUnavailableError(fname, "DATA", cause=cause) from e
 
     # 2. Open INSTRUMENT_ATTRIBUTES group (for attributes only)
+    #
+    # The profile data is already open and valid; this group only enriches
+    # metadata, so its absence does not invalidate the load — but the
+    # enrichment that did not happen is recorded in provenance rather than
+    # passing silently.
     try:
         # We don't need chunks for attributes, and it might even fail if we pass them
-        ds_atts = xr.open_dataset(fname, group="INSTRUMENT_ATTRIBUTES", engine=engine)
-        # Copy attributes to ds_data
-        ds_data.attrs.update(ds_atts.attrs)
-    except Exception:
-        pass
+        with xr.open_dataset(fname, group="INSTRUMENT_ATTRIBUTES", engine=engine) as ds_atts:
+            # Copy attributes before releasing this metadata-only dataset.
+            ds_data.attrs.update(ds_atts.attrs)
+    except Exception as e:  # noqa: BLE001 - metadata enrichment only (section_unavailable); recorded below
+        ds_data = update_history(
+            ds_data,
+            f"INSTRUMENT_ATTRIBUTES group unavailable in {fname}: {e}; "
+            "instrument metadata not applied.",
+        )
 
     # Now apply TOLNet-specific transformations lazily
     ds = tolnet_preprocess(ds_data)
+    # Xarray transformations can produce a new Dataset without carrying the
+    # backend close callback. Keep the source dataset as the resource owner so
+    # callers can release its file handle with ``ds.close()``.
+    ds.set_close(ds_data.close)
 
     return ds
 
@@ -300,7 +350,7 @@ def tolnet_preprocess(ds: xr.Dataset) -> xr.Dataset:
             )
             ds["x"] = [0]
             ds["y"] = [0]
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional attribute-derived location (malformed); the profile itself is already loaded and valid
         pass
 
     # 5. Mask missing values (-999, -990 are common)

@@ -6,6 +6,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import PointReader, register_reader
+from .drivers import XarrayDriver
 from .sat_utils import update_history
 
 
@@ -14,6 +15,11 @@ class TCCONReader(PointReader):
     """
     Reader for TCCON (Total Carbon Column Observing Network) GGG2020 data.
     """
+
+    def __init__(self):
+        # TCCON opens NetCDF directly with Xarray; it does not use the
+        # whole-file pandas parser inherited by ordinary PointReader classes.
+        self.driver = XarrayDriver(source=self._source_name)
 
     def open_dataset(
         self,
@@ -75,6 +81,7 @@ class TCCONReader(PointReader):
 
         # TCCON GGG2020 is NetCDF, treat as PointReader for harmonization
         ds = xr.open_mfdataset(files, **kwargs)
+        source_ds = ds
 
         # Harmonize
         ds = self.harmonize(ds)
@@ -82,13 +89,41 @@ class TCCONReader(PointReader):
         # Update history
         ds = update_history(ds, "Read TCCON GGG2020 data.")
 
-        df = ds.to_dataframe().reset_index()
-        df.attrs = dict(ds.attrs)
-
         if not as_xarray:
+            if use_dask:
+                # Xarray already includes dimension coordinates as columns in
+                # to_dask_dataframe(); reset_index() adds a spurious integer
+                # ``index`` column that the eager to_dataframe path omits.
+                df = ds.to_dask_dataframe()
+                column_order = [
+                    *[dim for dim in ds.dims if dim in ds.coords],
+                    *ds.data_vars,
+                    *[coord for coord in ds.coords if coord not in ds.dims],
+                ]
+                df = df[column_order]
+            else:
+                df = ds.to_dataframe().reset_index()
+            df.attrs = dict(ds.attrs)
+            source_ds.close()
             return df
 
-        ds_out = self.to_xarray(df, expand2d=expand2d)
+        if use_dask:
+            # Use the same point-table conversion as eager output, while
+            # retaining Dask-backed columns and the source's UGRID layout.
+            df = ds.to_dask_dataframe()
+            column_order = [
+                *[dim for dim in ds.dims if dim in ds.coords],
+                *ds.data_vars,
+                *[coord for coord in ds.coords if coord not in ds.dims],
+            ]
+            ds_out = self.to_xarray(df[column_order], expand2d=expand2d)
+            ds_out.set_close(source_ds.close)
+        else:
+            # Preserve the historical eager default via pandas conversion.
+            df = ds.to_dataframe().reset_index()
+            df.attrs = dict(ds.attrs)
+            source_ds.close()
+            ds_out = self.to_xarray(df, expand2d=expand2d)
         ds_out = update_history(ds_out, "Converted TCCON data to UGRID xarray format.")
         return ds_out
 
@@ -125,13 +160,13 @@ class TCCONReader(PointReader):
                 fs = fsspec.filesystem("http")
                 found = fs.glob(f"{url_prefix}*.nc")
                 urls.extend(found)
-            except Exception:
+            except Exception:  # noqa: BLE001 - the R0 layout is probed first and a listing failure falls through to the R1 layout below (categories: retrieval_failed, not_found)
                 # Try R1 if R0 fails
                 try:
                     url_prefix_r1 = base_url.replace(".R0/", ".R1/").format(sid)
                     found = fs.glob(f"{url_prefix_r1}*.nc")
                     urls.extend(found)
-                except Exception:
+                except Exception:  # noqa: BLE001 - per-site listing is best-effort; a site unreachable under both layouts is skipped and the remaining sites still resolve (categories: retrieval_failed, not_found)
                     continue
 
         return urls

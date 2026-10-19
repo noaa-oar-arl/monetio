@@ -15,7 +15,6 @@
 
 Some features require additional packages:
 
-- **Cubed backend**: `cubed` and `cubed-xarray`
 - **VirtualiZarr**: `virtualizarr`, `obstore`, `obspec_utils`, `ujson`, and `zarr`
 - **GRIB2 support**: `grib2io`
 - **HDF4 support**: `pyhdf`

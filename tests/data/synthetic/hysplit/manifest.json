@@ -1,0 +1,8 @@
+{
+  "captured": null,
+  "content_hash": "1020f34b198618c6aaa444d18981a1b19bed79d4260c61f550057736ec40f030",
+  "kind": "synthetic",
+  "location": null,
+  "producer": "scripts/make_synthetic_sample.py",
+  "reason": "HYSPLIT concentration (cdump) output is model-internal and not redistributable; a synthetic binary reproduces the big-endian record stream the reader parses."
+}

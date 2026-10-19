@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 import xarray as xr
+from dask_audit_support import write_camx_pseudonetcdf_fixture
 
+from monetio.readers.base import _get_ioapi_times
 from monetio.readers.camx import CAMxReader
 
 
@@ -71,13 +75,16 @@ def test_camx_eager_lazy(tmp_path):
     >>> test_camx_eager_lazy(tmp_path)
     """
     ds_mock = mock_camx_dataset()
+    ds_mock["UNUSED"] = xr.full_like(ds_mock["O3"], -1)
     fname = tmp_path / "test_camx.nc"
     ds_mock.to_netcdf(fname, engine="h5netcdf")
 
     reader = CAMxReader()
 
     # Eager Mode
-    ds_eager = reader.open_dataset(files=str(fname), lazy=False, engine="h5netcdf")
+    ds_eager = reader.open_dataset(
+        files=str(fname), lazy=False, engine="h5netcdf", drop_variables=["UNUSED"]
+    )
     assert isinstance(ds_eager, xr.Dataset)
     assert "time" in ds_eager.coords
     assert "latitude" in ds_eager.coords
@@ -87,9 +94,14 @@ def test_camx_eager_lazy(tmp_path):
 
     # Lazy Mode
     # Note: Using chunks={} in open_dataset kwargs triggers dask
-    ds_lazy = reader.open_dataset(files=str(fname), chunks={"time": 1}, engine="h5netcdf")
+    ds_lazy = reader.open_dataset(
+        files=str(fname), chunks={"time": 1}, engine="h5netcdf", drop_variables=["UNUSED"]
+    )
     assert isinstance(ds_lazy, xr.Dataset)
     assert hasattr(ds_lazy.o3.data, "dask")
+    assert ds_lazy.o3.chunksizes["time"] == (1, 1)
+    assert "UNUSED" not in ds_eager
+    assert "UNUSED" not in ds_lazy
 
     # Verify values and coordinates consistency
     # This ensures that both Eager (NumPy) and Lazy (Dask) paths produce identical results.
@@ -111,6 +123,74 @@ def test_camx_eager_lazy(tmp_path):
     # Verify coordinate laziness/chunking (Step 3 fix)
     assert hasattr(ds_lazy.latitude.data, "dask")
     assert hasattr(ds_lazy.longitude.data, "dask")
+
+
+def test_camx_pseudonetcdf_default_backend_dask_parity(tmp_path):
+    pytest.importorskip("PseudoNetCDF")
+    path = write_camx_pseudonetcdf_fixture(tmp_path / "projected.uamiv")
+    reader = CAMxReader()
+    eager = reader.open_dataset(str(path), use_dask=False)
+    lazy = reader.open_dataset(str(path), use_dask=True, chunks={"time": 1})
+    try:
+        assert lazy.o3.chunksizes["time"] == (1,)
+        xr.testing.assert_allclose(
+            eager.drop_vars("history", errors="ignore"),
+            lazy.compute().drop_vars("history", errors="ignore"),
+        )
+    finally:
+        eager.close()
+        lazy.close()
+
+
+def test_ioapi_time_uses_header_start_when_first_tflag_is_missing():
+    ds = mock_camx_dataset()
+    ds.attrs["SDATE"] = 2023001
+    ds.attrs["STIME"] = 0
+    ds["TFLAG"][0, 0, 0] = 0
+
+    actual = _get_ioapi_times(ds).time.values
+
+    np.testing.assert_array_equal(
+        actual,
+        np.array(["2023-01-01T00:00:00", "2023-01-01T01:00:00"], dtype="datetime64[ns]"),
+    )
+
+
+@pytest.mark.parametrize("reference_backend", ["kerchunk", "icechunk"])
+def test_camx_virtualizarr_dask_backend_parity(tmp_path, reference_backend):
+    pytest.importorskip("virtualizarr")
+    if reference_backend == "icechunk":
+        pytest.importorskip("icechunk")
+
+    sample = (Path(__file__).parent / "data" / "synthetic" / "camx" / "camx_synthetic.nc").resolve()
+    reader = CAMxReader()
+    eager = reader.open_dataset(str(sample), engine="h5netcdf", use_dask=False)
+    options = {
+        "use_virtualizarr": True,
+        "virtualizarr_parser": "hdf5",
+        "use_dask": True,
+        "chunks": {"time": 1},
+    }
+    if reference_backend == "kerchunk":
+        options["virtualizarr_file"] = str(tmp_path / "camx-refs.json")
+    else:
+        options.update(
+            use_icechunk=True,
+            icechunk_url=str(tmp_path / "camx-icechunk"),
+        )
+
+    lazy = reader.open_dataset(str(sample), **options)
+    try:
+        assert lazy.o3.chunksizes["time"] == (1, 1)
+        xr.testing.assert_allclose(
+            eager.drop_vars("history", errors="ignore"),
+            lazy.compute().drop_vars("history", errors="ignore"),
+        )
+        if reference_backend == "kerchunk":
+            assert (tmp_path / "camx-refs.json").is_file()
+    finally:
+        eager.close()
+        lazy.close()
 
 
 if __name__ == "__main__":

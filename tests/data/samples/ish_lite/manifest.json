@@ -1,0 +1,9 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "67e1bbfc6f168f7fd67f4ecbed24bd5e79cf99ff7d9cb45de6e2d0961009e60c",
+  "kind": "recorded",
+  "layout": "ish_lite",
+  "location": "https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/2025/040520-99999-2025.gz",
+  "producer": "scripts/record_samples.py",
+  "reason": "one trimmed ISH-Lite station-year file (whitespace layout)"
+}

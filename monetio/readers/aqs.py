@@ -15,6 +15,7 @@ import xarray as xr
 from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .epa_utils import add_monitor_metadata, standardize_epa_units
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -239,25 +240,14 @@ def get_species(
     return df
 
 
-def load_aqs_file(url: str) -> pd.DataFrame:
-    """
-    Load a single AQS file.
-
-    Parameters
-    ----------
-    url : str
-        URL or local path to the AQS file.
-
-    Returns
-    -------
-    pd.DataFrame
-        The loaded AQS data.
-    """
+def _load_aqs_file(url: str, *, nrows: int | None = None) -> pd.DataFrame:
+    """Parse and normalize an AQS input, optionally reading only a row prefix."""
     if "daily" in url:
         df = pd.read_csv(
             url,
             dtype={0: str, 1: str, 2: str},
             encoding="ISO-8859-1",
+            nrows=nrows,
         )
         if "Date Local" in df.columns:
             df["time_local"] = pd.to_datetime(df["Date Local"])
@@ -275,6 +265,7 @@ def load_aqs_file(url: str) -> pd.DataFrame:
             url,
             low_memory=False,
             encoding="ISO-8859-1",
+            nrows=nrows,
         )
         if "Date GMT" in df.columns and "Time GMT" in df.columns:
             df["time"] = pd.to_datetime(df["Date GMT"] + " " + df["Time GMT"])
@@ -305,9 +296,31 @@ def load_aqs_file(url: str) -> pd.DataFrame:
     return df.drop(columns="date_of_last_change", errors="ignore")
 
 
+def load_aqs_file(url: str) -> pd.DataFrame:
+    """
+    Load a single AQS file.
+
+    Parameters
+    ----------
+    url : str
+        URL or local path to the AQS file.
+
+    Returns
+    -------
+    pd.DataFrame
+        The loaded AQS data.
+    """
+    return _load_aqs_file(url)
+
+
+def _aqs_schema_meta(files: str | list[str]) -> pd.DataFrame:
+    """Build a Dask schema by parsing only the first row of one input."""
+    first = files[0] if isinstance(files, list) else files
+    return _load_aqs_file(first, nrows=1).iloc[:0]
+
+
 def build_url(param: str, year: str, daily: bool = False) -> tuple[str, str]:
     """Build URL and filename for AQS data."""
-    beginning = f"{AQS_BASE_URL}{'daily_' if daily else 'hourly_'}"
     fname_prefix = "daily_" if daily else "hourly_"
 
     p = param.upper()
@@ -356,7 +369,7 @@ def build_urls(
                     content_length = int(r.headers.get("Content-Length", 0))
                     if content_length > 500:
                         return url, fname
-        except Exception:
+        except Exception:  # noqa: BLE001 - per-candidate availability probe; an unreachable candidate is dropped and the remaining candidates still build the URL list (categories: retrieval_failed)
             pass
         return None
 
@@ -428,7 +441,9 @@ class AQSReader(PointReader):
         icechunk_url : str or None, optional
             Path to Icechunk repository.
         use_dask : bool, optional
-            Whether to use Dask for lazy loading, by default False.
+            Whether to use Dask for lazy loading, by default False. Lazy table
+            loading reads the first CSV header and one data row to build the
+            post-reader schema; full input parsing happens during evaluation.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         param : Union[str, List[str]], optional
@@ -448,7 +463,8 @@ class AQSReader(PointReader):
         as_xarray : bool, optional
             Whether to return an xarray.Dataset, by default True.
         lazy : bool, optional
-            Whether to return a dask-backed object, by default False.
+            Whether to return a dask-backed object, by default False. When
+            enabled, schema preparation reads one row from the first CSV.
         **kwargs : dict
             Additional arguments passed to the reader.
 
@@ -462,6 +478,16 @@ class AQSReader(PointReader):
         >>> from monetio.readers.aqs import AQSReader
         >>> ds = AQSReader().open_dataset(dates='2023-06-01', param='OZONE')
         """
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "aqs",
+                cause=(
+                    "AQS CSV inputs are parsed as whole files and partitioned by input; "
+                    "array chunk mappings are not supported"
+                ),
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Must provide either 'files' or 'dates'.")
@@ -488,6 +514,11 @@ class AQSReader(PointReader):
         driver_kwargs = kwargs.copy()
         driver_kwargs.pop("n_procs", None)
 
+        # AQS parser schemas depend on daily/hourly CSV layouts. One record is
+        # enough to infer the post-parser dtype structure without having Dask
+        # read and discard the first complete file for metadata inference.
+        schema_meta = _aqs_schema_meta(files) if lazy or use_dask else None
+
         df = super().open_dataset(
             files,
             use_virtualizarr=use_virtualizarr,
@@ -501,6 +532,7 @@ class AQSReader(PointReader):
             read_method=load_aqs_file,
             as_xarray=False,
             lazy=lazy,
+            meta=schema_meta,
             **driver_kwargs,
         )
 

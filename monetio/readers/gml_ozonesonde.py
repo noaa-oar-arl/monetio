@@ -11,6 +11,7 @@ import xarray as xr
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -250,8 +251,10 @@ def discover_files(
         try:
             r = requests.get(url, timeout=TIMEOUT)
             r.raise_for_status()
-        except Exception:
-            return []
+        except Exception as e:
+            # A listing we cannot fetch is a failed retrieval naming that
+            # listing, not a station with no files on record.
+            raise annotate(e, url) from e
 
         data = []
         for m in re.finditer(r'href="([a-z0-9_]+\.l100)"', r.text):

@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import dask.array as da
 import numpy as np
 import xarray as xr
 
+import monetio
 from monetio.readers.nesdis_eps_viirs import NESDISEPSVIIRSReader, nesdis_eps_viirs_preprocess
 
 
@@ -65,3 +68,28 @@ def test_nesdis_eps_viirs_build_urls():
     urls = reader.build_urls("2024-01-01")
     assert len(urls) == 1
     assert "2024/npp_eaot_ip_gridded_0.25_20240101.high.nc" in urls[0]
+
+
+def test_nesdis_eps_viirs_local_reader_use_dask_parity():
+    sample = next(Path("tests/data/samples/nesdis_eps_viirs").glob("*.nc"))
+    eager = monetio.load("nesdis_eps_viirs", files=str(sample), drop_variables=["AE"])
+    lazy = monetio.load(
+        "nesdis_eps_viirs",
+        files=str(sample),
+        use_dask=True,
+        chunks={"lat": 180, "lon": 360},
+        drop_variables=["AE"],
+    )
+
+    try:
+        assert any(hasattr(var.data, "dask") for var in lazy.data_vars.values())
+        assert "AE" not in eager
+        assert "AE" not in lazy
+        assert lazy.AOD550.chunks == ((180, 180, 180, 180), (360, 360, 360, 360))
+        eager.attrs.pop("history", None)
+        computed = lazy.compute()
+        computed.attrs.pop("history", None)
+        xr.testing.assert_equal(eager, computed)
+    finally:
+        eager.close()
+        lazy.close()

@@ -1,7 +1,168 @@
+import json
+from pathlib import Path
+
 import numpy as np
+import pytest
 import xarray as xr
 
 from monetio.readers.grib2 import Grib2Reader
+
+
+def test_grib2_reader_eager_use_dask_parity(tmp_path):
+    path = tmp_path / "grib2-shaped.nc"
+    source = xr.Dataset(
+        {"tmp": (("lat_0", "lon_0"), np.arange(12, dtype="f4").reshape(3, 4))},
+        coords={"lat_0": [-30.0, 0.0, 30.0], "lon_0": [0.0, 90.0, 180.0, 270.0]},
+    )
+    source.to_netcdf(path, engine="h5netcdf")
+
+    reader = Grib2Reader()
+    eager = reader.open_dataset(str(path), engine="h5netcdf")
+    lazy = reader.open_dataset(
+        str(path), engine="h5netcdf", use_dask=True, chunks={"lat_0": 1, "lon_0": 2}
+    )
+
+    assert eager.tmp.chunks is None
+    assert lazy.tmp.chunks is not None
+    assert lazy.tmp.chunks == ((1, 1, 1), (2, 2))
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_identical(eager, lazy.compute())
+    eager.close()
+    lazy.close()
+
+
+@pytest.mark.parametrize("reader_name", ["grib2", "ncep_grib"])
+def test_real_grib2_backend_honors_chunks_and_matches_eager(reader_name):
+    pytest.importorskip("grib2io")
+
+    from monetio.readers.ncep_grib import NCEPGribReader
+
+    sample_root = Path(__file__).parent / "data" / "samples"
+    if reader_name == "grib2":
+        path = sample_root / "grib2" / "grib2_sample.grib2"
+        reader = Grib2Reader()
+    else:
+        path = sample_root / "ncep_grib" / "ncep_grib_sample.grib2"
+        reader = NCEPGribReader()
+
+    eager = reader.open_dataset(str(path), use_dask=False)
+    lazy = reader.open_dataset(str(path), use_dask=True, chunks={"y": 30, "x": 60})
+    variable = next(iter(lazy.data_vars))
+    assert lazy[variable].chunks == ((1,), (30, 30, 30, 30, 30, 30, 1), (60, 60, 60, 60, 60, 60))
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_allclose(eager, lazy.compute())
+    eager.close()
+    lazy.close()
+
+
+@pytest.mark.parametrize("reader_name", ["grib2", "ncep_grib"])
+def test_real_grib2_backend_filters_messages_before_payload_reads(
+    tmp_path, monkeypatch, reader_name
+):
+    grib2io = pytest.importorskip("grib2io")
+    import grib2io.xarray_backend as grib_backend
+
+    from monetio.readers.ncep_grib import NCEPGribReader
+
+    sample = Path(__file__).parent / "data" / "samples" / "ncep_grib" / "ncep_grib_sample.grib2"
+    with grib2io.open(str(sample), _xarray_backend=True) as stream:
+        source = stream[0]
+        values = source.data.copy()
+        second_section4 = source.section4.copy()
+        second_section4[2] = 0  # discipline category: temperature
+        second_section4[3] = 0  # temperature parameter
+        second = grib2io.Grib2Message(
+            section0=source.section0.copy(),
+            section1=source.section1.copy(),
+            section2=source.section2,
+            section3=source.section3.copy(),
+            section4=second_section4,
+            section5=source.section5.copy(),
+        )
+        second.data = (values + 10.0).astype("f4")
+        second.pack()
+
+    path = tmp_path / "two-variable.grib2"
+    path.write_bytes(sample.read_bytes() + second._msg)
+    if reader_name == "grib2":
+        reader = Grib2Reader()
+    else:
+        reader = NCEPGribReader()
+    filters = {"shortName": "PRMSL"}
+    eager = reader.open_dataset(str(path), filters=filters, use_dask=False)
+    assert len(eager.data_vars) == 1
+
+    data_reads = []
+    original_data = grib_backend._data
+
+    def counted_data(filehandle, message, *args, **kwargs):
+        data_reads.append(message.shortName)
+        return original_data(filehandle, message, *args, **kwargs)
+
+    monkeypatch.setattr(grib_backend, "_data", counted_data)
+    lazy = reader.open_dataset(str(path), filters=filters, use_dask=True, chunks={})
+    assert len(lazy.data_vars) == 1
+    assert next(iter(lazy.data_vars)) in eager.data_vars
+    computed = lazy.compute()
+    assert data_reads
+    assert set(data_reads) == {"PRMSL"}
+    eager.attrs.pop("history", None)
+    computed.attrs.pop("history", None)
+    xr.testing.assert_allclose(eager, computed)
+    eager.close()
+
+
+@pytest.mark.parametrize("reference_backend", ["kerchunk", "icechunk"])
+def test_real_grib2_virtualizarr_dask_backend_parity(tmp_path, reference_backend):
+    pytest.importorskip("grib2io")
+    pytest.importorskip("virtualizarr")
+    if reference_backend == "icechunk":
+        pytest.importorskip("icechunk")
+
+    path = Path(__file__).parent / "data" / "samples" / "grib2" / "grib2_sample.grib2"
+    reader = Grib2Reader()
+    eager = reader.open_dataset(str(path), use_dask=False)
+    options = {
+        "use_virtualizarr": True,
+        "virtualizarr_parser": "grib2",
+        "use_dask": True,
+        "chunks": {"y": 30, "x": 60},
+    }
+    if reference_backend == "kerchunk":
+        ref_path = tmp_path / "grib2-refs.json"
+        options["virtualizarr_file"] = str(ref_path)
+    else:
+        options.update(use_icechunk=True, icechunk_url=str(tmp_path / "grib2-icechunk"))
+
+    lazy = None
+    try:
+        try:
+            lazy = reader.open_dataset(str(path), **options)
+        except NotImplementedError as exc:
+            if "Reading inlined reference data is currently not supported" in str(exc):
+                pytest.xfail("VirtualiZarr cannot yet read inlined GRIB2 reference chunks")
+            raise
+        assert hasattr(lazy.PRMSL.data, "dask")
+        assert lazy.PRMSL.chunksizes["y"] == (30, 30, 30, 30, 30, 30, 1)
+        # GRIB references preserve fixed-surface metadata as a singleton
+        # dimension; compare the decoded scientific field after removing it.
+        try:
+            computed = lazy.PRMSL.squeeze("mean_sea_level", drop=True).compute()
+        except NotImplementedError as exc:
+            if "Reading inlined reference data is currently not supported" in str(exc):
+                pytest.xfail("VirtualiZarr cannot yet read inlined GRIB2 reference chunks")
+            raise
+        np.testing.assert_allclose(eager.PRMSL.values, computed.values)
+        if reference_backend == "kerchunk":
+            assert ref_path.is_file()
+            refs = json.loads(ref_path.read_text())["refs"]
+            assert '"id": "grib2io"' in refs["PRMSL/.zarray"]
+    finally:
+        eager.close()
+        if lazy is not None:
+            lazy.close()
 
 
 def test_grib2_reader_open():
@@ -87,6 +248,7 @@ def test_ncep_grib_eager_lazy(tmp_path):
     assert hasattr(ds_lazy.TMP_P0_L1_GLL0.data, "dask")
     assert hasattr(ds_lazy.latitude.data, "dask")
     assert hasattr(ds_lazy.longitude.data, "dask")
+    assert ds_lazy.TMP_P0_L1_GLL0.chunks == ((5, 5), (10, 10))
 
     # 3. Consistency Check
     xr.testing.assert_allclose(

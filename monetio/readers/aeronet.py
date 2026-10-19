@@ -16,6 +16,12 @@ import xarray as xr
 from ..util import force_object_strings, normalize_pandas_freq
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import (
+    ContentInvalidError,
+    OptionUnsupportedError,
+    annotate,
+    classify_transport_error,
+)
 from .sat_utils import update_history
 
 
@@ -50,6 +56,7 @@ class AERONETReader(PointReader):
         n_procs: int = 1,
         as_xarray: bool = True,
         lazy: bool = False,
+        defer: bool = False,
         retries: int = 5,
         backoff_factor: float = 2.0,
         n_chunks: int | None = None,
@@ -104,6 +111,13 @@ class AERONETReader(PointReader):
             Whether to return an xarray.Dataset, by default True.
         lazy : bool, optional
             Whether to return a dask-backed object, by default False.
+        defer : bool, optional
+            Return an unevaluated result with no hidden full-data compute.
+            Implies ``lazy=True``.
+            AERONET frames are already wide (one column per wavelength), so
+            no long→wide reshape is deferred; the dask-backed DataFrame is
+            converted to a dask-backed Dataset without the per-column
+            ``to_dask_array(lengths=True)`` computes.
         retries : int, optional
             Number of retries for network calls, by default 5.
         backoff_factor : float, optional
@@ -124,6 +138,18 @@ class AERONETReader(PointReader):
         >>> reader = AERONETReader()
         >>> ds = reader.open_dataset(dates='2021-08-01', siteid='Mauna_Loa')
         """
+        if use_dask:
+            # Normalize the documented alias before URL chunk planning and
+            # before the internal n_procs decision below.
+            lazy = True
+
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "aeronet",
+                cause="AERONET text inputs are parsed as whole tabular records; array chunk controls do not apply",
+            )
+
         if files is None:
             if dates is None:
                 # Default to today (use naive to avoid pd.date_range issues)
@@ -170,6 +196,10 @@ class AERONETReader(PointReader):
 
         # Use base class to open
         # If n_procs > 1 and not lazy, we use dask to parallelize the load then compute
+        if defer:
+            # defer wins over lazy=False; the base class also
+            # enforces the capabilities.deferred guard.
+            lazy = True
         use_dask = lazy or (n_procs > 1)
 
         # Determine meta for Dask to ensure consistency and avoid early computes
@@ -179,21 +209,35 @@ class AERONETReader(PointReader):
             files_list = FileUtility.expand_paths(files)
             for f in files_list:
                 try:
-                    # We call read_aeronet_csv directly to get a template DataFrame
-                    meta = read_aeronet_csv(
-                        f,
-                        inv_type=inv_type,
-                        interp_to_aod_values=interp_to_aod_values,
-                        detect_dust=detect_dust,
-                        storage_options=storage_options,
-                        retries=retries,
-                        backoff_factor=backoff_factor,
-                        **kwargs,
-                    )
-                    if not meta.empty:
-                        meta = meta.iloc[:0]  # Just the columns/dtypes
+                    # For local files, infer dtypes from the header and at most
+                    # one data record; never parse the whole first file just to
+                    # construct Dask's empty schema. The HTTP downloader still
+                    # fetches full content in read_aeronet_csv, so remote schema
+                    # inference remains an explicitly recorded preparation case.
+                    if str(f).startswith(("http://", "https://")):
+                        template = read_aeronet_csv(
+                            f,
+                            inv_type=inv_type,
+                            interp_to_aod_values=interp_to_aod_values,
+                            detect_dust=detect_dust,
+                            storage_options=storage_options,
+                            retries=retries,
+                            backoff_factor=backoff_factor,
+                            **kwargs,
+                        )
+                    else:
+                        template = _aeronet_local_schema_sample(
+                            f,
+                            inv_type=inv_type,
+                            interp_to_aod_values=interp_to_aod_values,
+                            detect_dust=detect_dust,
+                            storage_options=storage_options,
+                            **kwargs,
+                        )
+                    if not template.empty:
+                        meta = template.iloc[:0]
                         break
-                except Exception:
+                except Exception:  # noqa: BLE001 - schema probe may skip an unusable template; the actual read reports the named failure
                     continue
             if meta is not None and meta.empty and len(meta.columns) == 0:
                 meta = None
@@ -223,6 +267,7 @@ class AERONETReader(PointReader):
             read_method=read_func,
             as_xarray=False,
             lazy=use_dask,
+            defer=defer,
             meta=meta,
             **kwargs,
         )
@@ -237,6 +282,16 @@ class AERONETReader(PointReader):
                 pass
 
         if not lazy and df.empty:
+            # An empty result means the inputs contributed no records. When the
+            # caller asked for specific files, that is a content problem naming
+            # those files, not the "valid query but no data found" outcome that
+            # a date range legitimately returns when the site has no data.
+            if dates is None:
+                raise ContentInvalidError(
+                    "no AERONET records could be parsed",
+                    *(files if isinstance(files, list) else [files]),
+                    cause="the input(s) did not parse into any data rows",
+                )
             raise Exception("valid query but no data found")
 
         # Post-processing (Freq resampling)
@@ -254,7 +309,7 @@ class AERONETReader(PointReader):
         df = self.harmonize(df)
 
         if as_xarray:
-            ds = self.to_xarray(df, **kwargs)
+            ds = self.to_xarray(df, defer=defer, **kwargs)
 
             if add_diagnostics:
                 # Add 550nm AOD if possible
@@ -383,8 +438,11 @@ def get_valid_sites(retries: int = 5, backoff_factor: float = 2.0) -> pd.DataFra
                 "Elevation(meters)": "elevation",
             },
         )
-    except Exception as e:
-        # Check if it's a connection error
+    except Exception as e:  # noqa: BLE001 - best-effort site validation (retrieval_failed, credential_rejected, malformed); connection/timeout re-raise below
+        # Site validation is best-effort: a failure to fetch the site list must
+        # not fail an otherwise-valid load. The connection/timeout cases
+        # re-raise (the caller's network handling decides); anything else
+        # degrades to "no validation" with the reason surfaced.
         import requests
 
         if isinstance(e, requests.exceptions.ConnectionError | requests.exceptions.Timeout):
@@ -582,6 +640,45 @@ def _build_single_url(d1, d2, product, inv_type, daily, lunar, siteid, latlonbox
     return f"{base_url}{dates_}{product_}{avg_}{lunar_}{inv_type_}{loc_}&if_no_html=1"
 
 
+def _aeronet_local_schema_sample(
+    fn: str,
+    *,
+    inv_type=None,
+    interp_to_aod_values=None,
+    detect_dust=False,
+    storage_options=None,
+    **kwargs,
+) -> pd.DataFrame:
+    """Build a Dask schema from local header lines and one data record."""
+    from io import BytesIO
+
+    fs = FileUtility.get_fs(str(fn), storage_options=storage_options)
+    with fs.open(str(fn), "rb") as stream:
+        header = [stream.readline() for _ in range(10)]
+    header_text = b"".join(header)
+    is_inv = b"Inversion" in header_text or inv_type is not None
+    skiprows = 6 if is_inv else 5
+    lines = list(header[: skiprows + 1])
+    if len(lines) <= skiprows:
+        raise ValueError("AERONET input has no schema header")
+    with fs.open(str(fn), "rb") as stream:
+        for _ in range(skiprows + 1):
+            stream.readline()
+        for line in stream:
+            lines.append(line)
+            if line.strip():
+                break
+    sample = BytesIO(b"".join(lines))
+    frame = read_aeronet_csv(
+        sample,
+        inv_type=inv_type,
+        interp_to_aod_values=interp_to_aod_values,
+        detect_dust=detect_dust,
+        **kwargs,
+    )
+    return frame
+
+
 def read_aeronet_csv(
     fn: str,
     *,
@@ -634,16 +731,11 @@ def read_aeronet_csv(
             response = session.get(str(fn), timeout=120)
             response.raise_for_status()
             source = BytesIO(response.content)
-        except Exception as e:
-            import requests
-
-            if isinstance(e, requests.exceptions.ConnectionError | requests.exceptions.Timeout):
-                raise
-
-            warnings.warn(f"Failed to fetch {fn}: {e}")
-            if meta_df is not None:
-                return meta_df.iloc[:0]
-            return pd.DataFrame()
+        except Exception as e:  # noqa: BLE001 - http fetch failure; transport/auth re-raise as named categories, HTTP-status degrades to empty frame (retrieval_failed, credential_rejected)
+            # A rejected credential names the service and the payload; a
+            # transport failure names the URL and stays retryable. Neither may
+            # look like "no data".
+            raise classify_transport_error(e, fn, service="AERONET") from e
     else:
         source = fn
 
@@ -669,14 +761,19 @@ def read_aeronet_csv(
         else:
             raise ValueError(f"Invalid source type: {type(fn)}")
     except Exception as e:
-        warnings.warn(f"Failed to read header of {fn}: {e}")
-        if meta_df is not None:
-            return meta_df.iloc[:0]
-        return pd.DataFrame()
+        # An input whose header cannot be read is a failure naming that input,
+        # not a silently-empty frame: a corrupt or unreadable local file must
+        # not look like a successful no-data result. categories:
+        # not_found, permission_denied, malformed.
+        raise annotate(e, fn) from e
 
     header_text = "\n".join(header_lines)
     is_inv = "Inversion" in header_text or inv_type is not None
     skiprows = 5 if not is_inv else 6
+    # ``info`` is provenance metadata: include the service preamble and the
+    # column header, but never payload rows. Keeping it bounded also makes the
+    # value identical to the one-record schema probe used by Dask readers.
+    header_text = "\n".join(header_lines[: skiprows + 1])
 
     if "<html>" in header_text or len([line for line in header_lines if line]) < 2:
         # Invalid query or no data found. Return empty with columns if possible.
@@ -685,7 +782,7 @@ def read_aeronet_csv(
         try:
             cols = [c.strip().lower() for c in header_lines[skiprows].split(",")]
             df = pd.DataFrame(columns=cols)
-        except Exception:
+        except (IndexError, ValueError):  # noqa: BLE001 - no header row to read columns from; empty result is the no-data signal
             return pd.DataFrame()
     else:
         try:
@@ -699,14 +796,10 @@ def read_aeronet_csv(
             )
             df = df.rename(columns=str.lower)
         except Exception as e:
-            warnings.warn(f"Error parsing CSV from {fn}: {e}")
-            if meta_df is not None:
-                return meta_df.iloc[:0]
-            try:
-                cols = [c.strip().lower() for c in header_lines[skiprows].split(",")]
-                df = pd.DataFrame(columns=cols)
-            except Exception:
-                return pd.DataFrame()
+            # A retrieved payload that cannot be parsed is a content problem
+            # naming the input — never a silently-empty frame. categories:
+            # malformed, content_invalid.
+            raise annotate(e, fn) from e
 
     # Do not return early if df.empty, to ensure consistent columns for Dask
     df = df.copy()
@@ -749,7 +842,7 @@ def read_aeronet_csv(
             else:
                 try:
                     df[c] = pd.to_numeric(df[c])
-                except Exception:
+                except (ValueError, TypeError):  # noqa: BLE001 - a non-numeric column keeps its dtype; dtype normalization is best-effort
                     pass
 
     if hasattr(df, "attrs"):
@@ -837,7 +930,7 @@ def _vectorized_tspack_interp(wvs: np.ndarray, aods: np.ndarray, new_wvs: np.nda
             else:
                 x, y, yp, sigma = pytspack.tspsi(row_wvs, row_aod)
                 out[i, :] = pytspack.hval(new_wvs, x, y, yp, sigma)
-        except Exception:
+        except Exception:  # noqa: BLE001 - per-row interpolation is best-effort (malformed); a row whose spline fails stays NaN
             continue
 
     return out

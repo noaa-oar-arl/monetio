@@ -16,6 +16,7 @@ def test_earlinet_reader_basic(tmp_path):
     ds_mock = xr.Dataset(
         data_vars={
             "backscatter": (("wavelength", "time", "altitude"), np.random.rand(1, 2, 200)),
+            "unused_payload": (("time", "altitude"), np.full((2, 200), -1.0)),
             "latitude": ((), 45.82),
             "longitude": ((), 8.617),
         },
@@ -39,7 +40,7 @@ def test_earlinet_reader_basic(tmp_path):
     reader = EARLINETReader()
 
     # Test Eager
-    ds = reader.open_dataset(files=str(fn), lazy=False)
+    ds = reader.open_dataset(files=str(fn), lazy=False, drop_variables=["unused_payload"])
     assert isinstance(ds, xr.Dataset)
     assert "backscatter" in ds.data_vars
     assert "latitude" in ds.coords
@@ -51,11 +52,24 @@ def test_earlinet_reader_basic(tmp_path):
     assert "Preprocessed EARLINET data" in ds.attrs["history"]
 
     # Test Lazy
-    ds_lazy = reader.open_dataset(files=str(fn), lazy=True)
+    ds_lazy = reader.open_dataset(
+        files=str(fn),
+        lazy=True,
+        chunks={"time": 1, "altitude": 50},
+        drop_variables=["unused_payload"],
+    )
     assert isinstance(ds_lazy, xr.Dataset)
     assert ds_lazy.backscatter.chunks is not None
+    assert "unused_payload" not in ds_lazy
+    assert ds_lazy.backscatter.chunks == ((1,), (1, 1), (50, 50, 50, 50))
+    assert "unused_payload" not in ds_lazy
+    assert ds_lazy.backscatter.chunks == ((1,), (1, 1), (50, 50, 50, 50))
     assert "latitude" in ds_lazy.coords
     assert "longitude" in ds_lazy.coords
+    xr.testing.assert_allclose(
+        ds.drop_vars("history", errors="ignore"),
+        ds_lazy.compute().drop_vars("history", errors="ignore"),
+    )
 
 
 def test_earlinet_load_universal(tmp_path):

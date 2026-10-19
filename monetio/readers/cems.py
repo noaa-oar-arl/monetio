@@ -8,6 +8,7 @@ import xarray as xr
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -92,6 +93,16 @@ class CEMSReader(PointReader):
         >>> reader = CEMSReader()
         >>> ds = reader.open_dataset(dates="2023-01-01", states="md")
         """
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "cems",
+                cause=(
+                    "CEMS CSV inputs are parsed as whole files and partitioned by input; "
+                    "array chunk mappings are not supported"
+                ),
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")
@@ -114,6 +125,15 @@ class CEMSReader(PointReader):
             k: v for k, v in kwargs.items() if k not in ["expand2d", "pivot", "wide_fmt"]
         }
 
+        schema_meta = None
+        if lazy or use_dask:
+            file_list = FileUtility.expand_paths(files)
+            if file_list:
+                # CEMS uses a fixed CSV schema. Reuse its bounded five-row
+                # header/unit probe so Dask does not infer metadata by parsing
+                # and discarding the complete first emissions file.
+                schema_meta = read_cems(file_list[0], nrows=5).iloc[:0]
+
         df = self.driver.open(
             files,
             use_virtualizarr=use_virtualizarr,
@@ -126,6 +146,7 @@ class CEMSReader(PointReader):
             use_dask=use_dask,
             read_method=read_cems,
             lazy=lazy,
+            meta=schema_meta,
             **reader_kwargs,
         )
 
@@ -146,7 +167,7 @@ class CEMSReader(PointReader):
                         # We use a limited read to get headers and units
                         meta_df = read_cems(file_list[0], nrows=5)
                         unit_map = meta_df.attrs.get("unit_mapping", {})
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - optional unit-mapping recovery by peeking at the first file; the load itself already succeeded and only the units attribute may be missing (categories: malformed, retrieval_failed)
                     import warnings
 
                     warnings.warn(f"CEMS unit mapping recovery failed: {e}")

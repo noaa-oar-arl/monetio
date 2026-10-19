@@ -10,6 +10,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import register_reader
+from .errors import RetrievalFailedError
 from .geoms import GEOMSReader
 from .sat_utils import update_history
 
@@ -111,10 +112,26 @@ class PandoraReader(GEOMSReader):
         # Apply harmonization explicitly as GEOMSReader.open_dataset calls geoms_preprocess
         # but doesn't call a reader-specific harmonize method from the base class properly
         # if not overridden in a specific way.
+        source_dataset = ds
         ds = self.harmonize(ds)
+        if source_dataset is not ds:
+            ds.set_close(source_dataset.close)
 
         if not as_xarray:
-            return ds.to_dataframe().reset_index()
+            if use_dask:
+                frame = ds.to_dask_dataframe()[list(ds.variables)].reset_index(drop=True)
+            else:
+                frame = ds.to_dataframe()
+                # GEOMS time is sometimes a same-named auxiliary coordinate,
+                # not an Xarray index. In that layout the timestamp is already
+                # a column and pandas reset_index would try to insert a second
+                # ``time`` column containing the positional dimension index.
+                if not ("time" in frame.columns and frame.index.name == "time"):
+                    frame = frame.reset_index()
+                else:
+                    frame = frame.reset_index(drop=True)
+            ds.close()
+            return frame
 
         # Update history
         ds = update_history(ds, "Read Pandora data using standardized preprocessing.")
@@ -168,49 +185,48 @@ class PandoraReader(GEOMSReader):
         try:
             fs = fsspec.filesystem("https")
             all_files = fs.ls(base_url)
-
-            urls = []
-            for f in all_files:
-                if not f.endswith(".h5"):
-                    continue
-
-                f_lower = f.lower()
-                if product and f"{product.lower()}_" not in f_lower:
-                    continue
-
-                # Pandora filenames contain start and end times:
-                # groundbased_uvvis.doas.directsun.no2_noaa.esrl057_rd.rnvs3.1.8_boulder.co_20180430t232018z_20221222t223120z_001.h5
-                # Extract dates from filename
-                parts = f_lower.split("_")
-                try:
-                    # Usually the last two parts before .h5 are dates
-                    start_str = parts[-3].split("t")[0]
-                    end_str = parts[-2].split("t")[0]
-
-                    f_start = pd.to_datetime(start_str, format="%Y%m%d")
-                    f_end = pd.to_datetime(end_str, format="%Y%m%d")
-
-                    for d in dates:
-                        if f_start <= d <= f_end:
-                            urls.append(
-                                f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}"
-                            )
-                            break
-                except Exception:
-                    # Fallback to simple string match
-                    for d in dates:
-                        if d.strftime("%Y%m%d") in f_lower:
-                            urls.append(
-                                f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}"
-                            )
-                            break
-
-            return sorted(list(set(urls)))
         except Exception as e:
-            import warnings
+            # A failed listing is a retrieval failure, not "no files for this
+            # date": returning an empty list here makes a broken request or an
+            # unreachable archive load as "no data", so raise naming the URL.
+            raise RetrievalFailedError(base_url, cause=str(e)) from e
 
-            warnings.warn(f"Failed to list Pandora files at {base_url}: {e}")
-            return []
+        urls = []
+        for f in all_files:
+            if not f.endswith(".h5"):
+                continue
+
+            f_lower = f.lower()
+            if product and f"{product.lower()}_" not in f_lower:
+                continue
+
+            # Pandora filenames contain start and end times:
+            # groundbased_uvvis.doas.directsun.no2_noaa.esrl057_rd.rnvs3.1.8_boulder.co_20180430t232018z_20221222t223120z_001.h5
+            # Extract dates from filename
+            parts = f_lower.split("_")
+            try:
+                # Usually the last two parts before .h5 are dates
+                start_str = parts[-3].split("t")[0]
+                end_str = parts[-2].split("t")[0]
+
+                f_start = pd.to_datetime(start_str, format="%Y%m%d")
+                f_end = pd.to_datetime(end_str, format="%Y%m%d")
+
+                for d in dates:
+                    if f_start <= d <= f_end:
+                        urls.append(f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}")
+                        break
+            except (ValueError, IndexError):
+                # The filename does not carry the expected date fields
+                # (bad digits, or too few underscore-separated parts);
+                # fall back to a plain substring match of the requested
+                # dates rather than dropping the candidate.
+                for d in dates:
+                    if d.strftime("%Y%m%d") in f_lower:
+                        urls.append(f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}")
+                        break
+
+        return sorted(list(set(urls)))
 
     def harmonize(self, ds: xr.Dataset) -> xr.Dataset:
         """

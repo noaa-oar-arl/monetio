@@ -191,6 +191,9 @@ class ISHLiteReader(PointReader):
         if source is not None:
             ish.source = source
 
+        if use_dask:
+            lazy = True
+
         if files is None and dates is not None:
             dates = pd.to_datetime(dates)
             # Ensure dates is always a DatetimeIndex, not a single Timestamp
@@ -299,7 +302,7 @@ class ISHLiteReader(PointReader):
                         .resample(time=normalize_pandas_freq(window))
                         .mean(numeric_only=True)
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 - numeric_only mean can fail on all-object frames; the plain mean below is the intended fallback
                     ds = ds.sortby("time").resample(time=normalize_pandas_freq(window)).mean()
 
                 # Restore metadata

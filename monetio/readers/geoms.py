@@ -9,7 +9,45 @@ import xarray as xr
 
 from .base import GriddedReader, _ensure_time_dimension, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError, annotate
 from .sat_utils import update_history
+
+
+class _H5DatasetProxy:
+    """Serializable, file-backed array reference for Dask HDF5 reads."""
+
+    def __init__(
+        self,
+        path: str,
+        key: str,
+        shape: tuple[int, ...],
+        dtype: np.dtype,
+        storage_options: dict | None = None,
+    ):
+        self.path = path
+        self.key = key
+        self.shape = shape
+        self.dtype = np.dtype(dtype)
+        self.ndim = len(shape)
+        self.storage_options = dict(storage_options or {})
+
+    def __getitem__(self, index):
+        from monetio.util import _import_required
+
+        h5py = _import_required("h5py")
+        fs = FileUtility.get_fs(self.path, self.storage_options)
+        with fs.open(self.path, "rb") as stream, h5py.File(stream, "r") as f:
+            return np.asarray(f[self.key][index])
+
+
+def _close_hdf5_resources(handle, stream) -> None:
+    """Close both h5py's wrapper and the filesystem stream it wraps."""
+    try:
+        if handle is not None:
+            handle.close()
+    finally:
+        if stream is not None and not getattr(stream, "closed", False):
+            stream.close()
 
 
 @register_reader("geoms")
@@ -29,8 +67,10 @@ class GEOMSReader(GriddedReader):
         use_icechunk: bool = False,
         icechunk_url: str | None = None,
         use_dask: bool = False,
+        lazy: bool = False,
         rename_all: bool = True,
         squeeze: bool = True,
+        drop_variables: list[str] | None = None,
         **kwargs: Any,
     ) -> xr.Dataset:
         """
@@ -56,10 +96,16 @@ class GEOMSReader(GriddedReader):
             Path to the Icechunk repository, by default None.
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
+        lazy : bool, optional
+            Alias for ``use_dask``.
         rename_all : bool, optional
             Whether to rename all variables to lowercase/standard names, by default True.
         squeeze : bool, optional
             Whether to squeeze dimensions of size 1, by default True.
+        drop_variables : list[str], optional
+            Source variable names to exclude before building HDF5 Dask arrays.
+            HDF4 inputs reject this option because their parser materializes
+            every variable before constructing the Dataset.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -75,13 +121,52 @@ class GEOMSReader(GriddedReader):
         """
         # Note: GEOMS files (especially HDF4) often require custom logic that
         # open_mfdataset might not handle natively without a complex engine.
-        # We maintain a loop but ensure laziness where possible.
+        # We maintain a loop and pass the Dask choice to the HDF5 path.
 
-        file_list = FileUtility.expand_paths(files)
+        if lazy:
+            use_dask = True
+
+        chunks_requested = "chunks" in kwargs
+        chunks = kwargs.pop("chunks", "auto")
+        if chunks_requested and chunks is None:
+            if use_dask:
+                raise OptionUnsupportedError(
+                    "chunks",
+                    "geoms",
+                    cause="Dask-backed GEOMS input requires explicit or automatic chunks",
+                )
+        elif chunks_requested:
+            # As in Xarray, a non-null chunk request opts into Dask-backed data.
+            use_dask = True
+
+        storage_options = dict(kwargs.pop("storage_options", {}) or {})
+        file_list = FileUtility.expand_paths(files, storage_options=storage_options or None)
+        if drop_variables and any(
+            Path(f).suffix.lower() in {".h4", ".hdf4", ".hdf"} for f in file_list
+        ):
+            raise OptionUnsupportedError(
+                "drop_variables",
+                "geoms",
+                cause="the HDF4 parser materializes all variables before Dataset construction",
+            )
+        if use_dask and any(Path(f).suffix.lower() in {".h4", ".hdf4", ".hdf"} for f in file_list):
+            raise OptionUnsupportedError(
+                "use_dask",
+                "geoms",
+                cause="the HDF4 parser materializes complete arrays before building the Dataset",
+            )
 
         dsets = []
         for f in file_list:
-            ds = open_dataset_geoms(f, rename_all=rename_all, squeeze=squeeze)
+            ds = open_dataset_geoms(
+                f,
+                rename_all=rename_all,
+                squeeze=squeeze,
+                use_dask=use_dask,
+                chunks=chunks,
+                drop_variables=drop_variables,
+                storage_options=storage_options,
+            )
             dsets.append(ds)
 
         if not dsets:
@@ -99,7 +184,16 @@ class GEOMSReader(GriddedReader):
         return ds
 
 
-def open_dataset_geoms(fp: str, *, rename_all: bool = True, squeeze: bool = True) -> xr.Dataset:
+def open_dataset_geoms(
+    fp: str,
+    *,
+    rename_all: bool = True,
+    squeeze: bool = True,
+    use_dask: bool = False,
+    chunks: Any = "auto",
+    drop_variables: list[str] | None = None,
+    storage_options: dict | None = None,
+) -> xr.Dataset:
     """
     Internal function to open a single GEOMS file.
 
@@ -111,6 +205,11 @@ def open_dataset_geoms(fp: str, *, rename_all: bool = True, squeeze: bool = True
         Whether to rename all variables, by default True.
     squeeze : bool, optional
         Whether to squeeze, by default True.
+    use_dask : bool, optional
+        Keep HDF5 variables file-backed and Dask-backed, by default False.
+    chunks : Any, optional
+        Dask chunk layout, either a dimension-to-size mapping or a Dask chunk
+        specification. A mapping's omitted dimensions use one full-size chunk.
 
     Returns
     -------
@@ -120,22 +219,34 @@ def open_dataset_geoms(fp: str, *, rename_all: bool = True, squeeze: bool = True
     from monetio.util import _import_required
 
     ext = Path(fp).suffix.lower()
-    fs = FileUtility.get_fs(fp)
+    storage_options = dict(storage_options or {})
+    fs = FileUtility.get_fs(fp, storage_options or None)
 
     if ext in {".h4", ".hdf4", ".hdf"}:
+        if use_dask:
+            raise OptionUnsupportedError(
+                "use_dask",
+                "geoms",
+                cause="the HDF4 parser materializes complete arrays before building the Dataset",
+            )
         pyhdf_SD = _import_required("pyhdf.SD")
-        if fp.startswith("s3://"):
-            import tempfile
+        try:
+            if fp.startswith("s3://"):
+                import tempfile
 
-            with tempfile.NamedTemporaryFile(suffix=ext, delete=True) as tmp:
-                fs.get(fp, tmp.name)
-                sd = pyhdf_SD.SD(tmp.name)
+                with tempfile.NamedTemporaryFile(suffix=ext, delete=True) as tmp:
+                    fs.get(fp, tmp.name)
+                    sd = pyhdf_SD.SD(tmp.name)
+                    data_vars, attrs = _read_hdf4(sd)
+                    sd.end()
+            else:
+                sd = pyhdf_SD.SD(str(fp))
                 data_vars, attrs = _read_hdf4(sd)
                 sd.end()
-        else:
-            sd = pyhdf_SD.SD(str(fp))
-            data_vars, attrs = _read_hdf4(sd)
-            sd.end()
+        except Exception as e:
+            # pyhdf's HDF4 errors do not name the file; the error must identify
+            # the input it failed on while keeping its original type.
+            raise annotate(e, fp) from e
 
         # For HDF4, we have NumPy arrays now. Wrap in Dataset.
         ds = xr.Dataset(data_vars=data_vars, attrs=attrs)
@@ -146,27 +257,103 @@ def open_dataset_geoms(fp: str, *, rename_all: bool = True, squeeze: bool = True
         from monetio.util import _import_required
 
         h5py = _import_required("h5py")
-        da_array = _import_required("dask.array")
+        if use_dask:
+            da_array = _import_required("dask.array")
+            from dask.base import tokenize
 
-        f_obj = fs.open(fp, "rb")
-        f = h5py.File(f_obj, "r")
+        f_obj = None
+        f = None
+        try:
+            f_obj = fs.open(fp, "rb")
+            f = h5py.File(f_obj, "r")
+            source_info = fs.info(fp)
+        except Exception as e:
+            _close_hdf5_resources(f, f_obj)
+            # h5py's "file signature not found" does not name the file, so a
+            # corrupt input is indistinguishable from a wrong path. Keep the
+            # original exception type and add the location.
+            raise annotate(e, fp) from e
 
+        source_identity = (
+            source_info.get("size"),
+            source_info.get("mtime"),
+            source_info.get("etag"),
+            source_info.get("ETag"),
+            source_info.get("version_id"),
+        )
         data_vars = {}
-        for k, v in f.items():
-            dims = tuple(_rename_h5_dim(str(d)) for d in v.dims)
-            # We wrap in DataArray with lazy loading using dask.array.from_array.
-            # This allows backend-agnostic lazy evaluation without immediate v[...] compute.
-            data_lazy = da_array.from_array(v, chunks="auto")
-            data_vars[k] = (dims, data_lazy, dict(v.attrs))
+        try:
+            for k, v in f.items():
+                if drop_variables and k in drop_variables:
+                    continue
+                dims = tuple(_rename_h5_dim(str(d)) for d in v.dims)
+                if use_dask:
+                    # Keep the Dask graph serializable: h5py Dataset handles cannot
+                    # be tokenized or sent to workers. Each task reopens only its
+                    # requested slice from a file/key reference.
+                    proxy = _H5DatasetProxy(
+                        str(fp), k, tuple(v.shape), v.dtype, storage_options=storage_options
+                    )
+                    variable_chunks = chunks
+                    if isinstance(chunks, dict):
+                        dim_aliases = {}
+                        for dim in dims:
+                            aliases = [dim]
+                            if dim.startswith("fakeDim"):
+                                suffix = dim[len("fakeDim") :].lstrip("0123456789")
+                                aliases.append(suffix)
+                                if suffix.lower() == "datetime":
+                                    aliases.append("time")
+                            dim_aliases[dim] = aliases
+                        accepted_dims = {
+                            alias for aliases in dim_aliases.values() for alias in aliases
+                        }
+                        unknown_dims = set(chunks) - accepted_dims
+                        if unknown_dims:
+                            raise ValueError(
+                                f"GEOMS variable {k!r} has dimensions {dims}; "
+                                f"unknown chunk dimensions: {sorted(unknown_dims)}"
+                            )
+                        variable_chunks = tuple(
+                            next(
+                                (chunks[name] for name in dim_aliases[dim] if name in chunks), size
+                            )
+                            for dim, size in zip(dims, v.shape)
+                        )
+                    data = da_array.from_array(
+                        proxy,
+                        chunks=variable_chunks,
+                        name=f"geoms-{tokenize(str(fp), source_identity, k, tuple(v.shape), str(v.dtype))}",
+                    )
+                else:
+                    data = np.asarray(v[...])
+                data_vars[k] = (dims, data, dict(v.attrs))
+        except Exception:
+            _close_hdf5_resources(f, f_obj)
+            raise
 
         attrs = dict(f.attrs)
-        # Note: We don't close the file yet because dask needs the handle for lazy reads.
-        # This is a trade-off for GEOMS HDF5 files which don't fit standard xr.open_dataset engines.
+        # Lazy tasks reopen by path/key; eager mode has copied payloads to
+        # NumPy, so the metadata handle can close after preprocessing either way.
         ds = xr.Dataset(data_vars=data_vars, attrs=attrs)
     else:
-        raise ValueError(f"unrecognized file extension: {ext!r}")
+        raise annotate(ValueError(f"unrecognized file extension: {ext!r}"), fp)
 
-    ds = geoms_preprocess(ds, rename_all=rename_all, squeeze=squeeze)
+    try:
+        ds = geoms_preprocess(ds, rename_all=rename_all, squeeze=squeeze)
+        # GEOMS frequently stores decoded timestamps as a data variable on a
+        # same-named dimension. Promote it before table conversion so
+        # ``to_dataframe().reset_index()`` does not create two ``time`` columns.
+        if "time" in ds.variables and "time" not in ds.coords:
+            ds = ds.set_coords("time")
+    except Exception:
+        if ext in {".h5", ".he5", ".hdf5"}:
+            _close_hdf5_resources(f, f_obj)
+        raise
+    if ext in {".h5", ".he5", ".hdf5"}:
+        # Dask tasks reopen via serializable path/key references, so the
+        # metadata handle is no longer needed after preprocessing.
+        _close_hdf5_resources(f, f_obj)
 
     return ds
 

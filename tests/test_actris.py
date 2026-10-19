@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
@@ -75,6 +78,24 @@ def test_actris_reader_eager(mock_actris_file):
     assert ds["siteid"].values[0] == "Test Station"
 
 
+def test_actris_netcdf_default_outputs_are_eager():
+    sample = (
+        Path(__file__).parent / "data" / "samples" / "actris" / "AT0001R.sulphate_total.lev2.nc"
+    )
+    reader = ACTRISReader()
+    dataset = reader.open_dataset(str(sample), as_xarray=True)
+    try:
+        assert isinstance(dataset, xr.Dataset)
+        assert dataset.data_vars
+        assert all(var.chunks is None for var in dataset.data_vars.values())
+    finally:
+        dataset.close()
+
+    table = reader.open_dataset(str(sample), as_xarray=False)
+    assert isinstance(table, pd.DataFrame)
+    assert len(table) > 0
+
+
 def test_actris_reader_lazy(mock_actris_file):
     reader = ACTRISReader()
     ds = reader.open_dataset(mock_actris_file, as_xarray=True, lazy=True)
@@ -87,6 +108,30 @@ def test_actris_reader_lazy(mock_actris_file):
     ds_computed = ds.compute()
     assert np.isnan(ds_computed["Ozone"].values[2])
     assert ds_computed["Ozone"].values[0] == 10.0
+
+
+@pytest.mark.parametrize("as_xarray", [False, True], ids=["table", "wide-xarray"])
+def test_actris_netcdf_honors_chunks_and_drop_variables(as_xarray):
+    sample = (
+        Path(__file__).parent / "data" / "samples" / "actris" / "AT0001R.sulphate_total.lev2.nc"
+    )
+    result = ACTRISReader().open_dataset(
+        str(sample),
+        as_xarray=as_xarray,
+        use_dask=True,
+        chunks={"time": 1},
+        drop_variables=["sulphate_total_qc"],
+    )
+
+    if as_xarray:
+        try:
+            assert result.sulphate_total.chunksizes["time"] == (1,) * result.sizes["time"]
+            assert "sulphate_total_qc" not in result
+        finally:
+            result.close()
+    else:
+        assert "sulphate_total_qc" not in result.columns
+        assert result.npartitions == 61
 
 
 def test_actris_redirection(mock_actris_file):

@@ -34,6 +34,7 @@ class CMAQReader(GriddedReader):
         earth_radius: float = 6370000,
         convert_to_ppb: bool = True,
         drop_duplicates: bool = False,
+        defer: bool = False,
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
         virtualizarr_parser: str | None = None,
@@ -57,6 +58,11 @@ class CMAQReader(GriddedReader):
             Convert gas species from ppmV to ppbV, by default True.
         drop_duplicates : bool, optional
             Drop duplicate time steps within each file, by default False.
+        defer : bool, optional
+            Return an unevaluated, dask-backed dataset with no hidden
+            full-dataset compute. Implies ``use_dask=True``;
+            raises for a source declaring
+            ``capabilities.deferred = False``.
         use_virtualizarr : bool, optional
             Whether to use VirtualiZarr, by default False.
         virtualizarr_file : str or None, optional
@@ -74,13 +80,23 @@ class CMAQReader(GriddedReader):
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
         **kwargs : Any
-            Additional arguments passed to xarray.open_mfdataset or the driver.
+            Additional arguments passed to xarray.open_mfdataset or the driver,
+            including the scale options ``parallel`` (concurrent per-file
+            metadata parsing), ``concurrent_files`` (delayed
+            per-file fan-out for custom ``read_method``), and
+            ``chunks`` (explicit chunking; wins over automatic chunking).
 
         Returns
         -------
         xarray.Dataset
             The processed CMAQ dataset.
         """
+        if defer:
+            # defer wins over use_dask=False; the driver-level
+            # guard enforces the capabilities.deferred declaration.
+            self._require_defer_support()
+            use_dask = True
+
         # 1. Setup preprocessing
         if "preprocess" not in kwargs:
             kwargs["preprocess"] = partial(

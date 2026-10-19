@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import xarray as xr
 
 from monetio.readers.raqms import RAQMSReader
@@ -17,6 +18,7 @@ def test_raqms_eager_vs_lazy():
 
     # 2. Lazy (Dask)
     ds_lazy = reader.open_dataset(TEST_FP, lazy=True, chunks={"time": 1})
+    ds_use_dask = reader.open_dataset(TEST_FP, use_dask=True)
 
     # Basic checks
     assert "latitude" in ds_eager.coords
@@ -26,12 +28,18 @@ def test_raqms_eager_vs_lazy():
 
     # Ensure lazy is actually lazy
     assert hasattr(ds_lazy.surfpres_pa.data, "dask")
+    assert hasattr(ds_use_dask.surfpres_pa.data, "dask")
+    assert all(size == 1 for size in ds_lazy.surfpres_pa.chunksizes["time"])
 
     # 3. Assert equality
     # We drop history as it contains timestamps which will differ
     xr.testing.assert_allclose(
         ds_eager.drop_vars("history", errors="ignore"),
         ds_lazy.compute().drop_vars("history", errors="ignore"),
+    )
+    xr.testing.assert_allclose(
+        ds_eager.drop_vars("history", errors="ignore"),
+        ds_use_dask.compute().drop_vars("history", errors="ignore"),
     )
 
 
@@ -58,6 +66,15 @@ def test_raqms_var_list():
     # Check that a non-requested, non-required var is NOT present
     # In RAQMS, 'geop' is usually present but not in our required list
     assert "geop" not in ds.data_vars
+
+    lazy = reader.open_dataset(TEST_FP, use_dask=True, chunks={"time": 1}, var_list=["o3vmr"])
+    try:
+        assert "geop" not in lazy.data_vars
+        assert hasattr(lazy.o3vmr.data, "dask")
+        assert hasattr(lazy.surfpres_pa.data, "dask")
+        np.testing.assert_allclose(lazy.o3vmr.compute(), ds.o3vmr)
+    finally:
+        lazy.close()
 
 
 def test_raqms_unit_conversion():

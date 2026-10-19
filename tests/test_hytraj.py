@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from monetio.readers.errors import OptionUnsupportedError
 from monetio.readers.hytraj import HYTRAJReader, read_hytraj_file
 
 
@@ -48,3 +49,27 @@ def test_hytraj_eager_lazy_consistency(mock_tdump):
     # Verify consistency
     xr.testing.assert_allclose(ds_eager, ds_lazy.compute())
     assert "Read HYTRAJ data" in ds_eager.attrs["history"]
+
+
+def test_hytraj_rejects_input_chunk_sizing(mock_tdump):
+    reader = HYTRAJReader()
+    with pytest.raises(OptionUnsupportedError, match="hytraj.*chunks"):
+        reader.open_dataset(files=mock_tdump, chunks={"time": 1})
+
+
+@pytest.mark.parametrize("as_xarray", [False, True], ids=["table", "wide-xarray"])
+def test_hytraj_explicit_file_selection_skips_unrelated_payload(mock_tdump, tmp_path, as_xarray):
+    """Only explicitly supplied trajectory files are parsed into partitions."""
+    import dask.dataframe as dd
+
+    unrelated = tmp_path / "tdump-unselected.txt"
+    unrelated.write_text("not a valid trajectory file\n")
+    result = HYTRAJReader().open_dataset(files=[mock_tdump], use_dask=True, as_xarray=as_xarray)
+    if as_xarray:
+        assert isinstance(result, xr.Dataset)
+        assert result.pressure.chunks is not None
+        assert result.sizes["time"] == 2
+        result.close()
+    else:
+        assert isinstance(result, dd.DataFrame)
+        assert len(result.compute()) == 2

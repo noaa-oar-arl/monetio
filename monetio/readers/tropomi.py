@@ -5,6 +5,7 @@ import warnings
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import SectionUnavailableError, is_absent_section
 from .sat_utils import (
     apply_qa_mask,
     lazy_index_along_axis,
@@ -91,10 +92,15 @@ class TROPOMIReader(GriddedReader):
                 "PRODUCT/SUPPORT_DATA/GEOLOCATIONS",
                 "PRODUCT/SUPPORT_DATA/DETAILED_RESULTS",
             ]
-        elif isinstance(group, str):
-            groups = [group]
+            # The default list is a convenience, not a request: not every
+            # TROPOMI product ships every section, so an absent group is
+            # recorded and skipped. A group that exists but cannot be read
+            # still fails.
+            explicit = False
         else:
-            groups = group
+            groups = [group] if isinstance(group, str) else list(group)
+            # The caller named these sections; every one of them is required.
+            explicit = True
 
         # To ensure consistent dimensions and that all variables needed for
         # preprocessing (e.g. pressure calculation) are available, we apply
@@ -104,6 +110,8 @@ class TROPOMIReader(GriddedReader):
         if "engine" not in kwargs:
             kwargs["engine"] = "h5netcdf"
         dsets = []
+        included = []
+        absent = []
         for g in groups:
             # We copy kwargs to avoid modifying the original dict in the loop
             g_kwargs = kwargs.copy()
@@ -124,11 +132,22 @@ class TROPOMIReader(GriddedReader):
                     **g_kwargs,
                 )
                 dsets.append(ds_g)
+                included.append(g)
             except Exception as e:
-                warnings.warn(f"Could not open group {g}: {e}")
+                if not explicit and is_absent_section(e):
+                    absent.append(f"{g} (not present in this file)")
+                    continue
+                # A named section that could not be opened is a failure naming
+                # the input and the section — never a silent continue, which
+                # would hide the variables living in that section.
+                raise SectionUnavailableError(files, g, cause=str(e)) from e
 
         if not dsets:
-            raise RuntimeError("No groups could be opened.")
+            raise SectionUnavailableError(
+                files,
+                ", ".join(str(g) for g in groups),
+                cause="no section of the input could be opened",
+            )
 
         # Merge groups
         # We use compat='no_conflicts' as coordinates should be identical
@@ -144,6 +163,12 @@ class TROPOMIReader(GriddedReader):
 
         # Update history
         ds = update_history(ds, "Read TROPOMI data.")
+        # Multi-section products must report which sections were included, so a
+        # reader of the provenance can see the product's actual coverage.
+        sections_line = f"included sections: {', '.join(included)}"
+        if absent:
+            sections_line += f" | skipped absent sections: {', '.join(absent)}"
+        ds = update_history(ds, sections_line)
 
         return ds
 
@@ -275,7 +300,11 @@ def _add_pressure_levels(ds: xr.Dataset) -> xr.Dataset:
                 ds["troppres"] = lazy_index_along_axis(p_mid, itrop_valid, dim="z")
 
                 ds["troppres"].attrs.update({"units": "Pa", "long_name": "tropopause pressure"})
-            except Exception as e:
+            except (KeyError, IndexError, ValueError, TypeError) as e:
+                # The tropopause layer index is optional metadata and can be
+                # malformed (out of range, non-numeric, missing dimension);
+                # the derived tropopause pressure is then simply omitted, and
+                # the layer pressures computed above are still valid.
                 warnings.warn(f"Could not calculate tropopause pressure: {e}")
 
     # 2. CO/CH4 style (pressure_levels interfaces)

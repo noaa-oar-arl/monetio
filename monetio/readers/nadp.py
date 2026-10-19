@@ -13,6 +13,7 @@ import xarray as xr
 from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -363,8 +364,10 @@ class NADPReader(PointReader):
 
         try:
             meta = pd.read_csv(url)
-        except Exception:
-            return pd.DataFrame(columns=["siteid", "latitude", "longitude"])
+        except Exception as e:
+            # Station metadata we cannot retrieve is a failure naming the
+            # source, not an empty site table.
+            raise annotate(e, url) from e
 
         meta.columns = [i.lower() for i in meta.columns]
         if "startdate" in meta.columns:

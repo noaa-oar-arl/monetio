@@ -133,3 +133,42 @@ def test_airnow_no_hidden_compute(mock_airnow_file, monkeypatch):
     # In Dask-Expr (Pandas 3.0+), lengths=True might trigger a compute of partitions to find sizes.
     # We allow minimal computes for metadata/structure discovery if required by the backend.
     assert compute_calls <= 2
+
+
+def test_airnow_deferred_table_preserves_long_rows(mock_airnow_file, monkeypatch):
+    import dask.dataframe as dd
+
+    import monetio.readers.epa_utils as epa_utils
+
+    monkeypatch.setattr(
+        epa_utils,
+        "read_monitor_file",
+        lambda *args, **kwargs: pd.DataFrame(
+            {
+                "siteid": ["012345678", "999999999"],
+                "latitude": [40.0, 35.0],
+                "longitude": [-80.0, -120.0],
+            }
+        ),
+    )
+    reader = AirNowReader()
+    eager = reader.open_dataset(
+        files=mock_airnow_file,
+        as_xarray=False,
+        wide_fmt=False,
+        lazy=False,
+        bad_utcoffset="leave",
+    )
+    deferred = reader.open_dataset(
+        files=mock_airnow_file,
+        as_xarray=False,
+        wide_fmt=False,
+        defer=True,
+        lazy=False,
+        bad_utcoffset="leave",
+    )
+
+    assert isinstance(deferred, dd.DataFrame)
+    pd.testing.assert_frame_equal(
+        eager.reset_index(drop=True), deferred.compute().reset_index(drop=True), check_dtype=False
+    )

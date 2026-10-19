@@ -11,6 +11,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import PointReader, register_reader
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -87,6 +88,9 @@ class OpenAQReader(PointReader):
         >>> reader = OpenAQReader()
         >>> ds = reader.open_dataset(dates='2023-01-01', lazy=True)
         """
+
+        if use_dask:
+            lazy = True
 
         # For backward compatibility, if the first argument looks like dates, swap them.
         if (
@@ -374,7 +378,7 @@ def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> lis
         fs = FileUtility.get_fs("s3://openaq-fetches")
         folders = fs.ls(s3bucket)
         use_s3 = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - store availability probe; when the bucket cannot be listed the reader falls back to the requested dates instead of failing the load (categories: retrieval_failed, credential_rejected)
         use_s3 = False
 
     dates = pd.to_datetime(dates)
@@ -395,7 +399,7 @@ def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> lis
 
     dates_available = pd.to_datetime(days_available, format=r"%Y-%m-%d", errors="coerce")
 
-    dates_requested = pd.Series(dates).floor("D").drop_duplicates()
+    dates_requested = pd.DatetimeIndex(dates).floor("D").drop_duplicates()
     dates_have = dates_requested[dates_requested.isin(dates_available)]
 
     urls = []
@@ -404,16 +408,15 @@ def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> lis
         if use_s3:
             try:
                 files = fs.ls(f"{s3bucket}/{sdate}")
-                urls.extend(f"s3://{f}" for f in files)
             except Exception as e:
-                logger.warning(f"Failed to list S3 files for date {sdate}: {e}")
-                # Fallback to a few standard names if listing fails but we know the day exists?
-                # Actually OpenAQ fetches have unpredictable names (timestamps).
-                # If S3 ls failed, we probably can't get the filenames easily.
-        else:
-            # Without S3 listing, we can't easily know the granule names for OpenAQ fetches.
-            # But the user might be providing files explicitly.
-            pass
+                # The date was advertised by the bucket listing, so failing to
+                # list its contents is a lost day of data rather than an empty
+                # day: surface it naming the prefix that could not be listed.
+                raise annotate(e, f"{s3bucket}/{sdate}") from e
+            urls.extend(f"s3://{f}" for f in files)
+        # Without a working S3 listing there is no way to discover the granule
+        # names for OpenAQ fetches (they are timestamped and unpredictable), so
+        # nothing is added here; the caller may pass files explicitly.
 
     return urls
 
@@ -484,7 +487,7 @@ def read_openaq_json(fn: str, storage_options: dict = None, **kwargs: Any) -> pd
             # Replace +0100 with +01:00 if necessary
             utcoffset_str = utcoffset_str.str.replace(r"(\d{2})(\d{2})$", r"\1:\2", regex=True)
             utcoffset = pd.to_timedelta(utcoffset_str)
-        except Exception:
+        except Exception:  # noqa: BLE001 - an unparsable local-time offset is a per-record gap: UTC is kept and the offset recorded as zero, never guessed
             utcoffset = pd.Timedelta(0)
     else:
         utcoffset = pd.Timedelta(0)
@@ -509,7 +512,7 @@ def read_openaq_json(fn: str, storage_options: dict = None, **kwargs: Any) -> pd
                 elif u == "seconds":
                     u = "s"
                 averagingPeriod.loc[is_unit] = pd.to_timedelta(value[is_unit], unit=u)
-            except Exception:
+            except Exception:  # noqa: BLE001 - an unrecognized averaging-period unit leaves that column of records without a period rather than inventing one; the parsed value is kept
                 pass
 
     # Reassemble DataFrame

@@ -87,6 +87,13 @@ def test_icartt_reader_lazy(tmp_path):
     # 3. Compare
     xr.testing.assert_allclose(ds_eager, ds_lazy.compute())
 
+    table_eager = reader.open_dataset(fn, as_xarray=False, lazy=False)
+    table_lazy = reader.open_dataset(fn, as_xarray=False, lazy=True)
+    assert hasattr(table_lazy, "compute")
+    import pandas as pd
+
+    pd.testing.assert_frame_equal(table_eager, table_lazy.compute(), check_dtype=False)
+
 
 def test_icartt_complex_scaling(tmp_path):
     fn = str(tmp_path / "test_complex.ict")

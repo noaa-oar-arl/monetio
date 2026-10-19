@@ -1,0 +1,7 @@
+# Recorded/synthetic test fixtures are byte-exact captures whose sha256 is
+# asserted by tests/test_sample_coverage.py (content_hash). Any line-ending
+# conversion would change the bytes and break that hash, so every fixture under
+# tests/data is treated as binary: git must not normalize EOLs or strip trailing
+# whitespace. This is what keeps the suite green on Windows, where
+# actions/checkout enables core.autocrlf and would otherwise rewrite LF to CRLF.
+tests/data/** -text

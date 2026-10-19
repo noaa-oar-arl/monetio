@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pandas as pd
@@ -5,6 +6,10 @@ import pytest
 import xarray as xr
 
 from monetio.readers.gfs import GDASReader, GEFSReader, GFSReader
+from monetio.readers.hrrr import HRRRReader
+from monetio.readers.nam import NAMReader
+from monetio.readers.rap import RAPReader
+from monetio.readers.rrfs import RRFSReader
 
 
 def test_gfs_build_urls():
@@ -43,6 +48,73 @@ def test_gdas_build_urls():
     urls = reader.build_urls(dates, hour=18, lead_time=0)
     assert len(urls) == 1
     assert urls[0] == "s3://noaa-gfs-bdp-pds/gdas.20250324/18/atmos/gdas.t18z.pgrb2.0p25.f000"
+
+
+@pytest.mark.parametrize(
+    "reader_cls",
+    [GFSReader, GEFSReader, GDASReader, HRRRReader, NAMReader, RAPReader],
+)
+def test_ncep_pds_readers_forward_use_dask_and_preserve_results(reader_cls):
+    base = xr.Dataset(
+        {"TMP": (("lat_0", "lon_0"), [[280.0, 281.0], [282.0, 283.0]])},
+        coords={"lat_0": [10.0, 20.0], "lon_0": [30.0, 40.0]},
+    )
+
+    class MockDriver:
+        def __init__(self):
+            self.use_dask = []
+            self.chunks = []
+
+        def open(self, files, **kwargs):
+            self.use_dask.append(kwargs.get("use_dask", False))
+            self.chunks.append(kwargs.get("chunks"))
+            ds = base.copy(deep=True)
+            return ds.chunk(kwargs["chunks"]) if kwargs.get("use_dask") else ds
+
+    reader = reader_cls()
+    driver = MockDriver()
+    reader.driver = driver
+    eager = reader.open_dataset(files="mock.grib2")
+    requested_chunks = {"lat_0": 1}
+    lazy = reader.open_dataset(files="mock.grib2", use_dask=True, chunks=requested_chunks)
+
+    assert eager.temperature.chunks is None
+    assert lazy.temperature.chunks is not None
+    assert driver.use_dask == [False, True]
+    assert driver.chunks == [None, requested_chunks]
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_identical(eager, lazy.compute())
+
+
+@pytest.mark.parametrize(
+    "reader_name",
+    ["gfs", "gefs", "gdas", "hrrr", "nam", "rap", "rrfs"],
+)
+def test_real_ncep_grib_backend_honors_chunks_and_matches_eager(reader_name):
+    pytest.importorskip("grib2io")
+
+    readers = {
+        "gfs": GFSReader,
+        "gefs": GEFSReader,
+        "gdas": GDASReader,
+        "hrrr": HRRRReader,
+        "nam": NAMReader,
+        "rap": RAPReader,
+        "rrfs": RRFSReader,
+    }
+    path = Path(__file__).parent / "data" / "samples" / "ncep_grib" / "ncep_grib_sample.grib2"
+    reader = readers[reader_name]()
+    eager = reader.open_dataset(str(path), use_dask=False)
+    lazy = reader.open_dataset(str(path), use_dask=True, chunks={"y": 30, "x": 60})
+
+    variable = next(iter(lazy.data_vars))
+    assert lazy[variable].chunks == ((30, 30, 30, 30, 30, 30, 1), (60, 60, 60, 60, 60, 60))
+    eager.attrs.pop("history", None)
+    lazy.attrs.pop("history", None)
+    xr.testing.assert_allclose(eager, lazy.compute())
+    eager.close()
+    lazy.close()
 
 
 def test_gfs_rejects_non_grib2io_engine():

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     import dask.dataframe as dd
 
 from .base import PointReader, register_reader
+from .errors import annotate
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,9 @@ class OpenAQAWSReader(PointReader):
         >>> reader = OpenAQAWSReader()
         >>> ds = reader.open_dataset(dates='2023-01-01', siteid='7073', wide_fmt=True)
         """
+
+        if use_dask:
+            lazy = True
 
         # For backward compatibility, if the first argument looks like dates, swap them.
         if (
@@ -345,24 +349,16 @@ def read_openaq_aws_csv(fp: str, **kwargs) -> pd.DataFrame:
 
 
 def read_openaq_aws_csv_robust(fp: str, **kwargs) -> pd.DataFrame:
-    """Try to read a file, returning empty DF if not found."""
+    """Try to read a file, re-raising with the offending path named.
+
+    The name is kept for backwards compatibility; a missing or unparsable
+    archive file is now reported as a failure naming that file rather than
+    quietly contributing zero rows to the load.
+    """
     try:
         return read_openaq_aws_csv(fp, **kwargs)
-    except Exception:
-        # Many archive files might be missing or empty
-        return pd.DataFrame(
-            columns=[
-                "siteid",
-                "sensor_id",
-                "location",
-                "time",
-                "latitude",
-                "longitude",
-                "parameter",
-                "units",
-                "value",
-            ]
-        )
+    except Exception as e:
+        raise annotate(e, fp) from e
 
 
 def _maybe_to_list(x, *, not_none=False):

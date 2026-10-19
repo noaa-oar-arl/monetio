@@ -82,9 +82,19 @@ def test_solrad_eager_lazy_consistency(tmp_path):
     reader = SOLRADReader()
     # 1. Eager
     ds_eager = reader.open_dataset(files=str(fn), as_xarray=True, lazy=False)
+    table_eager = reader.open_dataset(files=str(fn), as_xarray=False, lazy=False)
     # 2. Lazy
     ds_lazy = reader.open_dataset(files=str(fn), as_xarray=True, lazy=True)
+    table_lazy = reader.open_dataset(files=str(fn), as_xarray=False, lazy=True)
 
+    assert isinstance(table_eager, pd.DataFrame)
+    assert len(table_eager) == 1
+    assert all(var.chunks is None for var in ds_eager.data_vars.values())
+    assert all(var.chunks is not None for var in ds_lazy.data_vars.values() if var.dims)
+    import dask.dataframe as dd
+
+    assert isinstance(table_lazy, dd.DataFrame)
+    pd.testing.assert_frame_equal(table_eager, table_lazy.compute())
     xr.testing.assert_allclose(ds_eager, ds_lazy.compute())
     assert float(ds_eager.ghi.values[0, 0]) == 20.0
     assert "Read SOLRAD dataset" in ds_eager.attrs["history"]

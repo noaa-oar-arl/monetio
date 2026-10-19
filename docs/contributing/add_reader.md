@@ -9,7 +9,8 @@ All readers are located in the `monetio/readers/` directory and inherit from `Ba
 - **`BaseReader`**: The abstract base class that defines the `open_dataset` interface.
 - **`GriddedReader`**: A base class for gridded data (Models, Satellites) that utilizes the `XarrayDriver`.
 - **`PointReader`**: A base class for point/tabular data (Observations) that utilizes the `PandasDriver`.
-- **`READER_REGISTRY`**: A global dictionary where all readers must register themselves using the `@register_reader("name")` decorator.
+- **`READER_REGISTRY`**: A global dictionary where all readers register themselves using the `@register_reader("name")` decorator.
+- **`SOURCE_MANIFEST`** (in `monetio/_manifest.py`): the single authoritative list of data sources. Each source is declared exactly once here; the package's view of "what can be loaded, and from which module" is derived from it. The `@register_reader` decorator validates the name against this manifest at import time.
 
 ## Design Principles
 
@@ -36,18 +37,21 @@ Code must run **Eagerly (NumPy) by default** and **Lazily (Dask) optionally**.
 
 ## Steps to Add a New Reader
 
+Adding a source is a **two-edit** process: the reader module itself, and one
+entry in the manifest. Everything else — `monetio.load()`, the source
+enumeration in `available_sources()`, the CLI's source list, and the `load()`
+docstring — is derived from those two edits, so it cannot drift out of sync.
+
 ### 1. Create the Reader Module
 
-Create a new Python file in `monetio/readers/`, for example `monetio/readers/mynewmodel.py`.
-
-### 2. Implement the Reader Class
-
-Inherit from `GriddedReader` (for gridded data) or `PointReader` (for point data).
+Create a new Python file in `monetio/readers/`, for example `monetio/readers/mynewmodel.py`,
+with the `@register_reader` decorator on your class:
 
 ```python
 from typing import List, Union
 import xarray as xr
 from .base import GriddedReader, register_reader
+
 
 @register_reader("mynewmodel")
 class MyNewModelReader(GriddedReader):
@@ -74,29 +78,66 @@ class MyNewModelReader(GriddedReader):
         return ds
 ```
 
-### 3. Register the Reader for Lazy Loading
+### 2. Declare the Source in the Manifest
 
-Update `monetio/__init__.py` to add your reader to the `_READER_MODULES` map. This allows users to use `monetio.load("mynewmodel", ...)` without manually importing your module.
+Add one entry to `SOURCE_MANIFEST` in `monetio/_manifest.py`:
 
 ```python
-_READER_MODULES = {
-    # ...
-    "mynewmodel": ".readers.mynewmodel",
-}
+(_s("mynewmodel", ".readers.mynewmodel", "gridded"),)
 ```
 
-### 4. Add to the Universal Load Function
+The three fields are the source name (which must match the
+`@register_reader("...")` name — the decorator validates against the manifest
+and raises if the name is undeclared), the module path relative to the
+`monetio` package, and the kind (`"gridded"` for `GriddedReader` subclasses,
+`"point"` for `PointReader` subclasses; the registration checks the base class
+agrees).
 
-Ensure your reader is listed in the docstring of the `load` function in `monetio/__init__.py`.
+Optional keyword arguments on `_s(...)`:
+
+- `aliases=("myalias", ...)` — extra loadable names that resolve to this same
+  module. Every name a module registers with `@register_reader` must appear in
+  the manifest, either as the canonical `name` or in `aliases` — the decorator
+  validates against the manifest and raises `ValueError` for an undeclared
+  name. A module that registers several distinct reader classes (like the GFS
+  family, where `gfs`/`gefs`/`gdas` are three classes in one module) declares
+  one manifest entry with the remaining names as aliases.
+- `caps=ScaleCapabilities(...)` — only for sources that have implemented and
+  tested the opt-in large-data options (deferred loading, concurrent file
+  reads, parallel metadata parsing, and so on). Leave this out for a new
+  reader; the honest default declares nothing.
+- `legacy=(...)` — only when replacing an old facade module.
+
+You do **not** need to edit `monetio/__init__.py`, `monetio/cli.py`, or any
+docstring listing sources — those are generated from the manifest.
 
 ## Best Practices
 
-### Lazy Loading
+### Eager defaults and opt-in scale behavior
 
-Readers should aim to be lazy by default. Use Xarray and Dask to avoid loading large datasets into memory until computation is requested.
+Reader defaults are eager. Return NumPy-backed Xarray data or a pandas table unless
+that source and output mode have passing evidence for an explicit option. Dask
+support is mode-specific; a source may support deferred arrays for one output
+form and reject them for another.
 
-- Avoid calling `.values`, `.compute()`, or `.load()` unless absolutely necessary (e.g., for coordinate construction).
-- Use `preprocess` functions with `xarray.open_mfdataset` for per-file processing.
+Before enabling a `ScaleCapabilities` flag:
+
+- Add a deterministic, offline fixture and a passing case for the exact source,
+  output form, backend, and relevant option combination.
+- For deferred paths, provide validated post-preprocessing metadata where
+  possible and record any schema, row-length, or coordinate preparation pass,
+  its input and output bounds, later rereads, and resource ownership.
+- Compare eager and evaluated deferred output for values, dtypes, ordering,
+  masks, units, diagnostics, and meaningful provenance. Normalize only
+  explicitly volatile provenance fields.
+- Exercise the universal loader, direct reader, and shared driver boundaries
+  as applicable. A skip for a missing optional dependency is not passing
+  evidence.
+- Record fixture and source fingerprints in `tests/data/dask_reader_audit.json`
+  and run `python scripts/validate_dask_audit.py`.
+
+See [Dask reader behavior](../dask_readers.md) for the current tested contract
+and its limits.
 
 ### Provenance and Metadata
 
@@ -104,6 +145,7 @@ Always update the `history` attribute of the returned dataset or dataframe to re
 
 ```python
 import datetime
+
 history = f"{datetime.datetime.now()}: Read MyNewModel data."
 ds.attrs["history"] = ds.attrs.get("history", "") + "\n" + history
 ```
