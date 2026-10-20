@@ -626,14 +626,10 @@ def _open_via_icechunk(
     for var in vds.variables.values():
         if isinstance(var.data, ManifestArray):
             for path in var.data.manifest.iter_nonempty_paths():
-                if path.startswith("s3://"):
-                    parts = path[5:].split("/", 1)
-                    prefix = "s3://" + parts[0] + "/"
-                    unique_prefixes.add(prefix)
-                elif path.startswith("http://") or path.startswith("https://"):
-                    parts = path.split("/", 4)
-                    prefix = "/".join(parts[:3]) + "/"
-                    unique_prefixes.add(prefix)
+                from urllib.parse import urlsplit
+                url_parts = urlsplit(path)
+                if url_parts.scheme in ("s3", "http", "https"):
+                    unique_prefixes.add(f"{url_parts.scheme:s}://{url_parts.netloc:s}")
                 elif path.startswith("file://"):
                     prefix = path.rsplit("/", 1)[0] + "/"
                     unique_prefixes.add(prefix)
