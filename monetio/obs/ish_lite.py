@@ -327,7 +327,7 @@ class ISH:
             print("Resampling to every " + window)
             df = (
                 df.set_index("time")
-                .groupby("siteid")
+                .groupby("siteid")[[c for c in df.columns if c not in {"time", "siteid"}]]
                 .resample(window)
                 .mean(numeric_only=True)
                 .reset_index()
