@@ -157,8 +157,8 @@ class ISH:
         if sites is None:
             sites = self.history
 
-        base_url = "https://noaa-isd-pds.s3.amazonaws.com/isd-lite/data"
         bucket_path = "noaa-isd-pds/isd-lite/data"
+        base_url = f"s3://{bucket_path}"
         unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
         if self.verbose:
             print("Building ISH-Lite URLs...")
@@ -214,6 +214,7 @@ class ISH:
             sep=r"\s+",
             header=None,
             names=columns,
+            storage_options={"anon": True} if str(fname).startswith("s3://") else None,
         )
         time_vars = ["year", "month", "day", "hour"]
         df.insert(0, "time", pd.to_datetime(df[time_vars]))
@@ -363,7 +364,13 @@ class ISH:
         jjj = 0
         for iii in fname:
             try:
-                r2 = requests.get(iii, stream=True)
+                r2 = requests.get(
+                    iii.replace(
+                        "s3://noaa-isd-pds/isd-lite/data",
+                        "https://noaa-isd-pds.s3.amazonaws.com/isd-lite/data",
+                    ),
+                    stream=True,
+                )
                 temp = iii.split("/")
                 temp = temp[-1]
                 fname = "isd." + temp.replace(".gz", "")
