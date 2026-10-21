@@ -4,8 +4,8 @@ site_url: https://noaa-oar-arl.github.io/monetio/
 
 theme:
   name: material
-  logo: assets/MONETIO_logo.png
-  favicon: assets/MONETIO_logo.png
+  logo: assets/MONETIO-logo.png
+  favicon: assets/MONETIO-logo.png
   features:
     - navigation.tabs
     - navigation.sections
@@ -67,6 +67,7 @@ plugins:
   - section-index
 
 markdown_extensions:
+  - meta
   - admonition
   - pymdownx.details
   - pymdownx.superfences:

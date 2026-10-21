@@ -1,4 +1,14 @@
+---
+type: howto
+category: how_to
+tags: [installation, platforms, support]
+---
+
 # Installation
+
+## Supported Platforms
+
+MONETIO officially supports Linux and macOS. Windows is not an officially supported or CI-tested platform.
 
 ## Required Dependencies
 

@@ -633,6 +633,9 @@ def _open_via_icechunk(
                 elif path.startswith("file://"):
                     prefix = path.rsplit("/", 1)[0] + "/"
                     unique_prefixes.add(prefix)
+                elif path.startswith("file://"):
+                    prefix = path.rsplit("/", 1)[0] + "/"
+                    unique_prefixes.add(prefix)
 
     config = icechunk.RepositoryConfig.default()
     authorize = {}
