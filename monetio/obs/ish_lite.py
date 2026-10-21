@@ -1,6 +1,6 @@
 """NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
 
-https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
+https://noaa-isd-pds.s3.amazonaws.com/isd-lite/isd-lite-format.txt
 
 ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
 It is a subset of the full ISD containing eight common surface parameters
@@ -72,7 +72,7 @@ class ISH:
     """
 
     def __init__(self):
-        self.history_file = "https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv"
+        self.history_file = "https://noaa-isd-pds.s3.amazonaws.com/isd-history.csv"
         self.history = None
         self.dates = None
         self.verbose = False
@@ -83,7 +83,7 @@ class ISH:
         setting the :attr:`history` attribute.
         If both are unset, you get the entire history file.
 
-        https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv
+        https://noaa-isd-pds.s3.amazonaws.com/isd-history.csv
 
         The constructed 'station_id' column is a combination of the USAF and WBAN columns.
         This is done since USAF and WBAN alone are not unique in the history file.
@@ -156,7 +156,8 @@ class ISH:
         furls = []
         if self.verbose:
             print("Building ISH-Lite URLs...")
-        url = "https://www.ncei.noaa.gov/pub/data/noaa/isd-lite"
+        url = "https://noaa-isd-pds.s3.amazonaws.com/isd-lite/data"
+        year_url_base = "https://noaa-isd-pds.s3.amazonaws.com/index.html#isd-lite/data"
         # Get each yearly urls available from the isd-lite site
         if len(unique_years) > 1:
             all_urls = []
@@ -166,7 +167,9 @@ class ISH:
                 if self.verbose:
                     print("Year:", date)
                 year_url = (
-                    pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+                    pd.read_html(f"{year_url_base}/{date}/")[0]["Name"]
+                    .iloc[2:-1]
+                    .to_frame(name="name")
                 )
                 all_urls.append(
                     f"{url}/{date}/" + year_url
@@ -175,7 +178,9 @@ class ISH:
             all_urls = pd.concat(all_urls, ignore_index=True)
         else:
             year = unique_years.strftime("%Y")[0]
-            all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+            all_urls = (
+                pd.read_html(f"{year_url_base}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+            )
             all_urls = f"{url}/{year}/" + all_urls
 
         # Construct expected URLs based on sites and year(s) requested
