@@ -69,13 +69,18 @@ class ISH:
         URL for the ISD history file.
     history : DataFrame, optional
         ISD history file frame, read by :meth:`read_ish_history`, ``None`` until read.
+    fs : s3fs.S3FileSystem
+        Anonymous S3 filesystem, used to list available files.
     """
 
     def __init__(self):
+        import s3fs
+
         self.history_file = "https://noaa-isd-pds.s3.amazonaws.com/isd-history.csv"
         self.history = None
         self.dates = None
         self.verbose = False
+        self.fs = s3fs.S3FileSystem(anon=True)
 
     def read_ish_history(self, dates=None):
         """Read ISH history file (:attr:`history_file`) and subset based on
@@ -152,50 +157,38 @@ class ISH:
         if sites is None:
             sites = self.history
 
+        base_url = "https://noaa-isd-pds.s3.amazonaws.com/isd-lite/data"
+        bucket_path = "noaa-isd-pds/isd-lite/data"
         unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
-        furls = []
         if self.verbose:
             print("Building ISH-Lite URLs...")
-        url = "https://noaa-isd-pds.s3.amazonaws.com/isd-lite/data"
-        year_url_base = "https://noaa-isd-pds.s3.amazonaws.com/index.html#isd-lite/data"
-        # Get each yearly urls available from the isd-lite site
-        if len(unique_years) > 1:
-            all_urls = []
-            if self.verbose:
-                print("multiple years needed... Getting all available years")
-            for date in unique_years.strftime("%Y"):
-                if self.verbose:
-                    print("Year:", date)
-                year_url = (
-                    pd.read_html(f"{year_url_base}/{date}/")[0]["Name"]
-                    .iloc[2:-1]
-                    .to_frame(name="name")
-                )
-                all_urls.append(
-                    f"{url}/{date}/" + year_url
-                )  # add the full url path to the file name only
 
-            all_urls = pd.concat(all_urls, ignore_index=True)
-        else:
-            year = unique_years.strftime("%Y")[0]
-            all_urls = (
-                pd.read_html(f"{year_url_base}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
+        # Get the available files for each year
+        all_urls = []
+        for year in unique_years.strftime("%Y"):
+            if self.verbose:
+                print("Year:", year)
+            try:
+                keys = self.fs.ls(f"{bucket_path}/{year}/")
+            except FileNotFoundError:
+                continue
+            fnames = [key.rsplit("/", 1)[-1] for key in keys]
+            all_urls.extend(
+                f"{base_url}/{year}/{fname}" for fname in fnames if fname.endswith(".gz")
             )
-            all_urls = f"{url}/{year}/" + all_urls
+        all_urls = pd.Series(all_urls, dtype=str).to_frame(name="name")
 
         # Construct expected URLs based on sites and year(s) requested
+        urls = []
         for syear in unique_years.strftime("%Y"):
             year_fnames = (
                 sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
             )
             for fname in year_fnames:
-                furls.append(f"{url}/{syear}/{fname}")
-
-        # Files needed for comparison
-        url = pd.Series(furls, index=None)
+                urls.append(f"{base_url}/{syear}/{fname}")
 
         # Only available URLs
-        final_urls = pd.merge(url.to_frame(name="name"), all_urls, how="inner")
+        final_urls = pd.merge(pd.DataFrame({"name": urls}), all_urls, how="inner")
 
         return final_urls
 
