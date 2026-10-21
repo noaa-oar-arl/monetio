@@ -1,5 +1,7 @@
 """Local reanalysis reader tests for eager and Dask-backed execution."""
 
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -26,9 +28,18 @@ def _assert_parity(reader, dataset, path, variable):
     eager = reader.open_dataset(str(path), engine="h5netcdf")
     lazy = reader.open_dataset(str(path), engine="h5netcdf", use_dask=True)
     assert hasattr(lazy[variable].data, "dask")
-    # Reader-level Dask support is expected to preserve metadata and exact
-    # values; approximate array-only comparison would hide provenance drift.
-    xr.testing.assert_identical(eager, lazy.compute())
+    # Provenance timestamps are added during preprocessing, so separate eager
+    # and lazy opens have different timestamps despite identical history.
+    computed = lazy.compute()
+    for result in (eager, computed):
+        if "history" in result.attrs:
+            result.attrs["history"] = re.sub(
+                r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}",
+                "<timestamp>",
+                result.attrs["history"],
+            )
+    # Compare the full datasets after normalizing only the generated times.
+    xr.testing.assert_identical(eager, computed)
 
 
 def test_era5_local_reader_use_dask_parity(tmp_path):

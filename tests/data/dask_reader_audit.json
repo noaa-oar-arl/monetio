@@ -267,7 +267,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/earlinet.py",
@@ -582,7 +582,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tolnet.py",
@@ -671,7 +671,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_execution.py",
@@ -722,7 +722,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/iagos.py",
@@ -782,7 +782,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndacc.py",
@@ -839,7 +839,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndacc.py",
@@ -897,7 +897,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_execution.py",
@@ -953,7 +953,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/madis.py",
@@ -1012,7 +1012,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tolnet.py",
@@ -1079,7 +1079,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/madis.py",
@@ -1142,7 +1142,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/iagos.py",
@@ -1209,7 +1209,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_resources.py",
@@ -1268,7 +1268,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_execution.py",
@@ -1318,7 +1318,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_airnow.py",
@@ -1374,7 +1374,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ish.py",
@@ -1432,7 +1432,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ish_lite.py",
@@ -1489,7 +1489,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/igra2.py",
@@ -1545,7 +1545,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hytraj.py",
@@ -1602,7 +1602,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/openaq.py",
@@ -1663,7 +1663,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndbc.py",
@@ -1721,7 +1721,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_edr_viirs.py",
@@ -1807,7 +1807,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/openaq_v2.py",
@@ -1864,7 +1864,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/modis_ornl.py",
@@ -1908,7 +1908,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/geoms.py",
@@ -1973,7 +1973,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndacc.py",
@@ -2044,7 +2044,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/raqms.py",
@@ -2097,7 +2097,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/omps_nadir.py",
@@ -2158,7 +2158,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_execution.py",
@@ -2210,7 +2210,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:e75e30b70d5965e2ad82d1529b6256f717017d7705a9aefa5a28aa069190cb1f",
@@ -2325,7 +2325,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aqs_modern_extra.py",
@@ -2378,7 +2378,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_time_utils.py",
@@ -2430,7 +2430,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_sat_utils.py",
@@ -2497,7 +2497,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hytraj.py",
@@ -2729,7 +2729,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pams.py",
@@ -2793,7 +2793,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pams.py",
@@ -2858,7 +2858,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aqs_modern.py",
@@ -2936,7 +2936,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_airnow_modern.py",
@@ -2993,7 +2993,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_camx.py",
@@ -3048,7 +3048,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ncep_grib.py",
@@ -3107,7 +3107,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tolnet.py",
@@ -3167,7 +3167,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/wrfchem.py",
@@ -3226,7 +3226,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hytraj.py",
@@ -3287,7 +3287,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_crn.py",
@@ -3351,7 +3351,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aeronet_modern.py",
@@ -3419,7 +3419,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_cems_modern.py",
@@ -3475,7 +3475,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aeronet_modern.py",
@@ -3538,7 +3538,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aeronet_modern.py",
@@ -3601,7 +3601,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_cmaq.py",
@@ -3666,7 +3666,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_ameriflux.py",
@@ -3728,7 +3728,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_ameriflux.py",
@@ -3789,7 +3789,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/gml_ozonesonde.py",
@@ -3845,7 +3845,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/goes.py",
@@ -3896,7 +3896,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/goes.py",
@@ -3947,7 +3947,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/umbc_aerosol.py",
@@ -4005,7 +4005,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/icartt.py",
@@ -4062,7 +4062,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nadp.py",
@@ -4118,7 +4118,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nasa_modis.py",
@@ -4179,7 +4179,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_calipso.py",
@@ -4232,7 +4232,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/earlinet.py",
@@ -4289,7 +4289,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/earthcare.py",
@@ -4350,7 +4350,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_chimere.py",
@@ -4410,7 +4410,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/skynet.py",
@@ -4466,7 +4466,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/gems.py",
@@ -4523,7 +4523,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/sentinel4.py",
@@ -4583,7 +4583,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/eprofile.py",
@@ -4634,7 +4634,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/mplnet.py",
@@ -4683,7 +4683,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_eps_viirs.py",
@@ -4738,7 +4738,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_viirs_jrr.py",
@@ -4789,7 +4789,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/mrms.py",
@@ -4849,7 +4849,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/smap.py",
@@ -4909,7 +4909,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/gpm_imerg.py",
@@ -4969,7 +4969,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/era5.py",
@@ -4977,7 +4977,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:7de9130b3203a8e099f25e2d5d7f90e889fa70eb6f941f5df578e9daf346f35c",
@@ -4996,7 +4996,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:era5-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5027,7 +5027,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/merra2.py",
@@ -5035,7 +5035,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:aed5304b7a93595b4628678c09c8577078aba499725e5f4d270d9367d550c02b",
@@ -5054,7 +5054,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:merra2-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5085,7 +5085,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ufs.py",
@@ -5143,7 +5143,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hysplit.py",
@@ -5195,7 +5195,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/omps.py",
@@ -5256,7 +5256,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/omps_nadir.py",
@@ -5316,7 +5316,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tempo.py",
@@ -5372,7 +5372,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_execution.py",
@@ -5441,7 +5441,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_deferred.py",
@@ -5495,7 +5495,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/era5.py",
@@ -5503,7 +5503,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:7de9130b3203a8e099f25e2d5d7f90e889fa70eb6f941f5df578e9daf346f35c",
@@ -5522,7 +5522,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:era5-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5553,7 +5553,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/merra2.py",
@@ -5561,7 +5561,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:aed5304b7a93595b4628678c09c8577078aba499725e5f4d270d9367d550c02b",
@@ -5580,7 +5580,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:merra2-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5616,7 +5616,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_actris.py",
@@ -5666,7 +5666,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_crn.py",
@@ -5719,7 +5719,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/surfrad.py",
@@ -5777,7 +5777,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/solrad.py",
@@ -5834,7 +5834,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/igra2.py",
@@ -5890,7 +5890,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pardump.py",
@@ -5947,7 +5947,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/modis_ornl.py",
@@ -6005,7 +6005,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/modis_l2.py",
@@ -6065,7 +6065,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tropomi.py",
@@ -6123,7 +6123,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/icap_mme.py",
@@ -6183,7 +6183,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ish.py",
@@ -6239,7 +6239,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ish_lite.py",
@@ -6295,7 +6295,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ish.py",
@@ -6355,7 +6355,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pardump.py",
@@ -6410,7 +6410,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tempo.py",
@@ -6479,7 +6479,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_crn.py",
@@ -6531,7 +6531,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/surfrad.py",
@@ -6587,7 +6587,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/solrad.py",
@@ -6642,7 +6642,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/igra2.py",
@@ -6697,7 +6697,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/igra2.py",
@@ -6757,7 +6757,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/gfs.py",
@@ -6835,7 +6835,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/rrfs.py",
@@ -6897,7 +6897,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hysplit.py",
@@ -6957,7 +6957,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ncep_reanalysis.py",
@@ -7019,7 +7019,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/grib2.py",
@@ -7078,7 +7078,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/jpss_atms.py",
@@ -7139,7 +7139,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/jpss_cris.py",
@@ -7200,7 +7200,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/omps.py",
@@ -7261,7 +7261,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/geoms.py",
@@ -7321,7 +7321,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pardump.py",
@@ -7374,7 +7374,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hysplit.py",
@@ -7426,7 +7426,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hytraj.py",
@@ -7480,7 +7480,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/icap_mme.py",
@@ -7538,7 +7538,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/modis_ornl.py",
@@ -7581,7 +7581,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tropomi.py",
@@ -7640,7 +7640,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/omps_nadir.py",
@@ -7701,7 +7701,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/era5.py",
@@ -7713,7 +7713,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:cd8a10d67a9bedc5ab9f46a75775be1e5ea17815d3ebc63c5cd953e928aaef42",
@@ -7730,7 +7730,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::test_reanalysis_readers_select_requested_variables",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:reanalysis-selective-read",
           "kind": "generated",
           "parameters": {
@@ -7770,7 +7770,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -7829,7 +7829,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -7889,7 +7889,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_memory.py",
@@ -7981,7 +7981,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_memory.py",
@@ -8058,7 +8058,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -8119,7 +8119,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_cmaq.py",
@@ -8186,7 +8186,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aqs_modern_extra.py",
@@ -8232,7 +8232,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -8295,7 +8295,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tolnet.py",
@@ -8378,7 +8378,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -8432,7 +8432,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/madis.py",
@@ -8496,7 +8496,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/madis.py",
@@ -8559,7 +8559,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/madis.py",
@@ -8630,7 +8630,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_execution.py",
@@ -8671,7 +8671,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/era5.py",
@@ -8747,7 +8747,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndacc.py",
@@ -8799,7 +8799,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/earlinet.py",
@@ -8860,7 +8860,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tccon.py",
@@ -8915,7 +8915,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tccon.py",
@@ -8977,7 +8977,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/geoms.py",
@@ -9036,7 +9036,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -9086,7 +9086,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tolnet.py",
@@ -9145,7 +9145,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndbc.py",
@@ -9195,7 +9195,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_actris.py",
@@ -9243,7 +9243,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ndbc.py",
@@ -9314,7 +9314,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_cems_modern.py",
@@ -9370,7 +9370,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -9433,7 +9433,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_chimere.py",
@@ -9497,7 +9497,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/raqms.py",
@@ -9549,7 +9549,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ufs.py",
@@ -9618,7 +9618,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/gems.py",
@@ -9684,7 +9684,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nasa_modis.py",
@@ -9750,7 +9750,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/modis_ornl.py",
@@ -9812,7 +9812,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_viirs_jrr.py",
@@ -9884,7 +9884,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/mopitt.py",
@@ -9955,7 +9955,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_calipso.py",
@@ -10017,7 +10017,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/earthcare.py",
@@ -10083,7 +10083,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_edr_viirs.py",
@@ -10143,7 +10143,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_edr_viirs.py",
@@ -10206,7 +10206,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/iagos.py",
@@ -10305,7 +10305,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/gml_ozonesonde.py",
@@ -10438,7 +10438,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/tccon.py",
@@ -10501,7 +10501,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/umbc_aerosol.py",
@@ -10568,7 +10568,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/earlinet.py",
@@ -10654,7 +10654,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/nesdis_frp.py",
@@ -10713,7 +10713,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/icap_mme.py",
@@ -10771,7 +10771,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/icap_mme.py",
@@ -10834,7 +10834,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/geoms.py",
@@ -10894,7 +10894,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/goes.py",
@@ -10958,7 +10958,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/sentinel4.py",
@@ -11022,7 +11022,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hytraj.py",
@@ -11082,7 +11082,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pardump.py",
@@ -11142,7 +11142,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/pardump.py",
@@ -11200,7 +11200,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/hysplit.py",
@@ -11248,7 +11248,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ncep_reanalysis.py",
@@ -11312,7 +11312,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aqs_modern_extra.py",
@@ -11376,7 +11376,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_airnow.py",
@@ -11446,7 +11446,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_aeronet.py",
@@ -11521,7 +11521,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_memory.py",
@@ -11590,7 +11590,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_memory.py",
@@ -11650,7 +11650,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_deferred.py",
@@ -11762,7 +11762,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_dask_reader_resources.py",
@@ -11822,7 +11822,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/era5.py",
@@ -11834,7 +11834,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:27ac9ef36f349b83513ba91a1ccd8efe2d5b94dec538e691bbe1dd6ffcef7d5d",
@@ -11853,7 +11853,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:reanalysis-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -11890,7 +11890,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/geoms.py",
@@ -11955,7 +11955,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -12014,7 +12014,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -12085,7 +12085,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -12153,7 +12153,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -12987,7 +12987,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -13076,7 +13076,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -13149,7 +13149,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -13219,7 +13219,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -13289,7 +13289,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -13437,7 +13437,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/base.py",
@@ -13522,7 +13522,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_scale_distributed.py",
@@ -13735,7 +13735,7 @@
       "code_hashes": [
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ncep_pds.py",
@@ -13829,7 +13829,7 @@
       "code_hashes": [
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ncep_pds.py",
@@ -13910,7 +13910,7 @@
       "code_hashes": [
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ncep_grib.py",
@@ -13992,7 +13992,7 @@
         },
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/conftest.py",
@@ -14066,7 +14066,7 @@
       "code_hashes": [
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_camx.py",
@@ -14120,7 +14120,7 @@
       "code_hashes": [
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "monetio/readers/ufs.py",
@@ -14178,7 +14178,7 @@
       "code_hashes": [
         {
           "path": "monetio/readers/drivers.py",
-          "sha256": "96781235daf55e8c8478b89470eefede6051ca3009269a0d21b282de46df6f41"
+          "sha256": "264ab4851715d22a1337154efa758aaee284082731be9fc36e3b13b3c93fe72e"
         },
         {
           "path": "tests/test_grib2.py",
@@ -19779,7 +19779,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:era5-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -19792,7 +19792,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::test_reanalysis_readers_select_requested_variables",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:reanalysis-selective-read",
           "kind": "generated",
           "parameters": {
@@ -33989,7 +33989,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:merra2-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -34002,7 +34002,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::test_reanalysis_readers_select_requested_variables",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "d6c88d34acdcad57b5354c1c15e39563373cdfe36228912f247d118d68d76439",
           "fixture_id": "generated:reanalysis-selective-read",
           "kind": "generated",
           "parameters": {

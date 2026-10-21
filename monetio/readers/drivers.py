@@ -627,6 +627,7 @@ def _open_via_icechunk(
         if isinstance(var.data, ManifestArray):
             for path in var.data.manifest.iter_nonempty_paths():
                 from urllib.parse import urlsplit
+
                 url_parts = urlsplit(path)
                 if url_parts.scheme in ("s3", "http", "https"):
                     unique_prefixes.add(f"{url_parts.scheme:s}://{url_parts.netloc:s}")
