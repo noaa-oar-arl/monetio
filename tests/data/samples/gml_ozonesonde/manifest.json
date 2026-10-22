@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "7e5f25fc4b402750cf224a9803dc527f394b211abddb633ffe3dfc6ffbd02f90",
+  "kind": "recorded",
+  "location": "https://gml.noaa.gov/aftp/data/ozwv/Ozonesonde/Boulder,%20Colorado/100%20Meter%20Average%20Files/abl001_1967_04_27_16.l100",
+  "producer": "scripts/record_samples.py",
+  "reason": "one GML ozonesonde 100 m average sounding"
+}

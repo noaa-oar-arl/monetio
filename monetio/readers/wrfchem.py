@@ -33,6 +33,14 @@ class WRFChemReader(GriddedReader):
         var_list: list[str] | None = None,
         surf_only: bool = False,
         surf_only_nc: bool = False,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         **kwargs: Any,
     ) -> xr.Dataset:
         """
@@ -52,6 +60,20 @@ class WRFChemReader(GriddedReader):
             Whether to only keep surface data, by default False.
         surf_only_nc : bool, optional
             Whether input data already contains only surface data, by default False.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr, by default False.
+        virtualizarr_file : str or None, optional
+            Path to the VirtualiZarr file, by default None.
+        virtualizarr_backend : str, optional
+            VirtualiZarr backend, by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -59,6 +81,11 @@ class WRFChemReader(GriddedReader):
         -------
         xarray.Dataset
             The processed WRF-Chem dataset.
+
+        Examples
+        --------
+        >>> reader = WRFChemReader()
+        >>> ds = reader.open_dataset("wrfout_d01_*")
         """
         if "preprocess" not in kwargs:
             kwargs["preprocess"] = partial(
@@ -75,12 +102,65 @@ class WRFChemReader(GriddedReader):
         if "concat_dim" not in kwargs:
             kwargs["concat_dim"] = "time"
 
-        ds = self.driver.open(files, **kwargs)
-
-        ds = self.harmonize(ds)
+        # Explicitly pass virtualization parameters to the driver via base class
+        ds = super().open_dataset(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # Update history
         ds = update_history(ds, "Read WRF-Chem data.")
+
+        return ds
+
+    def harmonize(self, ds: xr.Dataset) -> xr.Dataset:
+        """
+        Standardize variable names and metadata.
+
+        Parameters
+        ----------
+        ds : xr.Dataset
+            WRF-Chem dataset.
+
+        Returns
+        -------
+        xr.Dataset
+            Harmonized dataset.
+        """
+        # Coordinate and Dimension Renaming (if not already done in preprocess)
+        rename_dict = {
+            "Time": "time",
+            "south_north": "y",
+            "west_east": "x",
+            "XLONG": "longitude",
+            "XLAT": "latitude",
+            "bottom_top": "z",
+            "bottom_top_stag": "z_stag",
+            "soil_layers_stag": "z_soil",
+        }
+        actual_rename = {}
+        for k, v in rename_dict.items():
+            if k in ds.variables or k in ds.dims:
+                if v in ds.dims and k != v:
+                    continue
+                actual_rename[k] = v
+
+        if actual_rename:
+            ds = ds.rename(actual_rename)
+
+        # Scientific Hygiene
+        ds = _scientific_hygiene(ds)
+
+        # Update history
+        ds = update_history(ds, "Harmonized WRF-Chem dataset.")
 
         return ds
 
@@ -172,8 +252,18 @@ def wrfchem_preprocess(
     # 7. Scientific Hygiene
     ds = _scientific_hygiene(ds)
 
+    # 8. Transpose to standard order if dims exist
+    # Ensure all dimensions are accounted for to avoid ValueError
+    target_dims = ["time", "z", "y", "x"]
+    dims = [d for d in target_dims if d in ds.dims]
+    dims += [d for d in ds.dims if d not in target_dims]
+    if dims:
+        ds = ds.transpose(*dims)
+
     # Update history
-    ds = update_history(ds, "Preprocessed WRF-Chem data.")
+    ds = update_history(
+        ds, "Preprocessed WRF-Chem data (renaming, unit conversion, diagnostics, and hygiene)."
+    )
 
     return ds
 

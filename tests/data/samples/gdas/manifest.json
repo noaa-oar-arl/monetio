@@ -1,0 +1,13 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "e8e6e9c12e8c5d483c5849d37ba67cfa801104f92e02ef4979f78bbcda151b64",
+  "kind": "recorded",
+  "layout": "pgrb2.1p00",
+  "load_kwargs": {
+    "save_index": false
+  },
+  "location": "s3://noaa-gfs-bdp-pds/gdas.20250324/00/atmos/gdas.t00z.pgrb2.1p00.f000",
+  "producer": "scripts/record_samples.py",
+  "reason": "leading field of a GDAS 1.0-degree GRIB2 product",
+  "requires": "grib2io"
+}

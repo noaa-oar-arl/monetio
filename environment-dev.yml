@@ -24,6 +24,7 @@ dependencies:
   - pyproj
   - requests
   - timezonefinder
+
   #
   # virtualizarr
   - virtualizarr>=1.0
@@ -33,6 +34,7 @@ dependencies:
   #
   # test
   - hypothesis
+  - psutil
   - pytest
   - pytest-xdist
   #

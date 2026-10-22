@@ -1,17 +1,58 @@
 import abc
+import inspect
+import threading
+from functools import wraps
 from typing import TYPE_CHECKING, NamedTuple, Union
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
+from .._manifest import resolve
 from ..util import ds_to_2d, force_object_strings
+from .errors import (
+    CapabilityUnavailableError,
+    OptionUnsupportedError,
+    ToleranceRecord,
+    format_tolerance_record,
+)
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
     import dask.dataframe as dd
 
-from .drivers import PandasDriver, XarrayDriver
+from .drivers import PandasDriver, XarrayDriver, _validate_nonempty_result
+
+
+def _partition_column(part, col):
+    """Extract one column from a delayed partition frame as a numpy array.
+
+    Used by the deferred wide path so each output array is built from a
+    pre-materialized partition list instead of re-optimizing the DataFrame
+    graph once per column. Module-level (not a lambda) so the delayed task
+    stays picklable for distributed schedulers.
+    """
+    return np.asarray(part[col])
+
+
+def _partition_layout(part, columns):
+    """Return partition length and the small row keys needed for Xarray layout.
+
+    Deferred table-to-Xarray conversion needs concrete index coordinates for
+    the UGRID node layout. Gather all of those keys together with each
+    partition length so the reader parses a partition once during preparation
+    instead of once for the length and again for each index coordinate.
+    """
+    return len(part), {name: part[name].to_numpy(copy=True) for name in columns}
+
+
+def _is_dask_frame(df) -> bool:
+    """True for a dask DataFrame (import-guarded; dask is an optional extra)."""
+    try:
+        import dask.dataframe as dd
+    except ImportError:  # pragma: no cover - dask installed in dev env
+        return False
+    return isinstance(df, dd.DataFrame)
 
 
 # 1. Diagnostic Specification
@@ -27,13 +68,103 @@ class DiagnosticSpec(NamedTuple):
 
 # 2. The Registry
 READER_REGISTRY = {}
+# Guards the duplicate-check + insert so concurrent first-use of two sources
+# cannot both pass the check before either writes.
+_REGISTRATION_LOCK = threading.Lock()
 
 
 def register_reader(name):
-    """Decorator to register a reader class."""
+    """Decorator to register a reader class, validated against the manifest.
+
+    The manifest (``monetio/_manifest.py``)
+    is authoritative, so at decoration time this MUST
+
+    1. reject a ``name`` not declared in the manifest (undeclared source);
+    2. reject a *different* class already holding ``name`` (duplicate claim),
+       naming both claimants — replacing today's silent last-import-wins;
+    3. reject a base class that disagrees with the declared ``kind``.
+
+    The dependency arrow is ``readers/base.py -> _manifest.py`` only; the
+    manifest never imports readers.
+    """
 
     def _register(cls):
-        READER_REGISTRY[name] = cls
+        try:
+            spec = resolve(name)
+        except KeyError:
+            raise ValueError(
+                f"register_reader({name!r}): {name!r} is not declared in "
+                "monetio._manifest.SOURCE_MANIFEST. Add a SourceSpec there "
+                "(single source of truth)."
+            ) from None
+
+        expected = GriddedReader if spec.kind == "gridded" else PointReader
+        if not issubclass(cls, expected):
+            raise TypeError(
+                f"register_reader({name!r}): class {cls.__name__} "
+                f"({cls.__module__}) does not subclass {expected.__name__}, "
+                f"but the manifest declares kind={spec.kind!r}."
+            )
+
+        with _REGISTRATION_LOCK:
+            existing = READER_REGISTRY.get(name)
+            if existing is not None and existing is not cls:
+                raise ValueError(
+                    f"Duplicate registration of source {name!r}: "
+                    f"{existing.__module__}.{existing.__name__} is already "
+                    f"registered, and {cls.__module__}.{cls.__name__} claims "
+                    "the same name (last-import-wins is disallowed)."
+                )
+            # Guard the public dispatch boundary as well as the shared
+            # drivers. A few registered readers call xarray.open_dataset
+            # directly, so their ``defer`` keyword would otherwise leak into
+            # the backend and fail with an unrelated TypeError (or be ignored).
+            original_open = cls.open_dataset
+            signature = inspect.signature(original_open)
+
+            @wraps(original_open)
+            def _capability_guard(self, *args, **kwargs):
+                try:
+                    bound = signature.bind_partial(self, *args, **kwargs)
+                except TypeError:
+                    # Preserve the reader's original argument error.
+                    return original_open(self, *args, **kwargs)
+                defer = bound.arguments.get("defer", False)
+                requested_chunks = bound.arguments.get("chunks")
+                for param in signature.parameters.values():
+                    if param.kind is inspect.Parameter.VAR_KEYWORD:
+                        defer = defer or bound.arguments.get(param.name, {}).get("defer", False)
+                        if requested_chunks is None:
+                            requested_chunks = bound.arguments.get(param.name, {}).get("chunks")
+                if defer:
+                    self._require_defer_support()
+                # ACTRIS NetCDF inputs bypass the tabular driver entirely and
+                # hand chunk options to xarray. Its NASA-Ames path still uses
+                # PandasDriver, where array chunks have no meaning.
+                files = bound.arguments.get("files")
+                if files is None and args:
+                    files = args[0]
+                file_items = files if isinstance(files, list | tuple) else [files]
+                is_actris_netcdf = self._source_name == "actris" and all(
+                    str(path).lower().endswith(".nc") for path in file_items if path is not None
+                )
+                if (
+                    requested_chunks is not None
+                    and isinstance(getattr(self, "driver", None), PandasDriver)
+                    and not is_actris_netcdf
+                ):
+                    raise OptionUnsupportedError(
+                        "chunks",
+                        getattr(self, "_source_name", None) or "point reader",
+                        cause=(
+                            "tabular readers parse each complete input file as one dataframe "
+                            "partition; array chunk mappings cannot control those reads"
+                        ),
+                    )
+                return original_open(self, *args, **kwargs)
+
+            cls.open_dataset = _capability_guard
+            READER_REGISTRY[name] = cls
         return cls
 
     return _register
@@ -66,6 +197,82 @@ class BaseReader(abc.ABC):
         """
         return ds
 
+    def _manifest_spec(self):
+        """Return this reader's manifest spec, or ``None`` when unregistered.
+
+        Resolution order: the declared ``name``, then identity against the
+        reader registry. A reader used directly in tests without registration
+        has no spec, and capability declarations cannot apply to it.
+        """
+        from .._manifest import MANIFEST_BY_NAME
+
+        spec = None
+        name = getattr(self, "name", None) or getattr(self, "_registry_name", None)
+        if name is not None:
+            try:
+                spec = resolve(name)
+            except KeyError:
+                spec = None
+        if spec is None:
+            # Recover the registered name by identity against the registry.
+            for reg_name, cls in READER_REGISTRY.items():
+                if cls is type(self) and reg_name in MANIFEST_BY_NAME:
+                    spec = MANIFEST_BY_NAME[reg_name]
+                    break
+        return spec
+
+    @property
+    def _source_name(self) -> str | None:
+        """The manifest name this reader loads under, when registered."""
+        spec = self._manifest_spec()
+        return spec.name if spec is not None else None
+
+    def _require_defer_support(self) -> None:
+        """Raise a clear error when this source declares no deferred support.
+
+        ``defer=True`` on a source with
+        ``capabilities.deferred = False`` MUST raise naming the source and the
+        recorded reason — it MUST NOT silently return a materialized result.
+        The lookup is best-effort: a reader that is not registered under a
+        manifest name (e.g. a subclass used directly in tests) is allowed to
+        defer.
+        """
+        spec = self._manifest_spec()
+        if spec is not None and not spec.capabilities.deferred:
+            reason = spec.capabilities.reason or "no reason recorded"
+            raise CapabilityUnavailableError(spec.name, "defer", reason)
+
+
+def _ensure_time_dimension(ds: xr.Dataset) -> xr.Dataset:
+    """Ensure ``time`` is represented as a dimension when possible."""
+    if not isinstance(ds, xr.Dataset):
+        return ds
+
+    if "time" in ds.dims:
+        return ds
+
+    if "time" in ds.coords:
+        time_dims = ds["time"].dims
+
+        # Promote scalar time to a singleton dimension.
+        if len(time_dims) == 0:
+            ds = ds.expand_dims("time")
+            return ds
+
+        # If time is a 1D coordinate attached to another dimension, swap dimensions.
+        if len(time_dims) == 1 and time_dims[0] in ds.dims:
+            try:
+                ds = ds.swap_dims({time_dims[0]: "time"})
+            except Exception:  # noqa: BLE001 - best-effort dimension normalization; a frame whose time coordinate cannot become a dimension keeps its original layout and still loads (categories: malformed)
+                pass
+            return ds
+
+    if "time" in ds.variables and "time" not in ds.coords:
+        ds = ds.set_coords("time")
+        return _ensure_time_dimension(ds)
+
+    return ds
+
 
 class GriddedReader(BaseReader):
     """
@@ -73,16 +280,24 @@ class GriddedReader(BaseReader):
     """
 
     def __init__(self):
-        self.driver = XarrayDriver()
+        # The driver is told which source it belongs to so failures name the
+        # source (unsupported options) and capability declarations can be
+        # enforced at the driver level, where every reader's keywords land.
+        self.driver = XarrayDriver(source=self._source_name)
 
     def open_dataset(
         self,
         files: str | list[str],
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
         virtualizarr_backend: str = "kerchunk",
         icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
         use_dask: bool = False,
+        defer: bool = False,
+        tolerate=None,
         **kwargs,
     ) -> xr.Dataset:
         """
@@ -96,12 +311,27 @@ class GriddedReader(BaseReader):
             Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
         virtualizarr_file : str or None, optional
             Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
         virtualizarr_backend : str, optional
             Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
         icechunk_repo : str or None, optional
             Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk for VirtualiZarr references, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
+        defer : bool, optional
+            Return an unevaluated, dask-backed dataset with no hidden
+            full-dataset compute. Implies ``use_dask=True`` and
+            wins over ``use_dask=False``; raises for
+            a source declaring ``capabilities.deferred = False``.
+        tolerate : str or bool, optional
+            Explicit tolerance for skipped inputs (``"input"``); a failing file
+            of several is skipped and recorded in provenance instead of failing
+            the load. Never implied and never the default.
         **kwargs : dict
             Additional arguments passed to the driver.
 
@@ -110,16 +340,36 @@ class GriddedReader(BaseReader):
         xr.Dataset
             The loaded dataset.
         """
+        if defer:
+            self._require_defer_support()
+            # defer wins over use_dask=False.
+            use_dask = True
+
         ds = self.driver.open(
             files,
             use_virtualizarr=use_virtualizarr,
             virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
             virtualizarr_backend=virtualizarr_backend,
             icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
             use_dask=use_dask,
+            defer=defer,
+            tolerate=tolerate,
             **kwargs,
         )
-        return self.harmonize(ds)
+        ds = self.harmonize(ds)
+        ds = _ensure_time_dimension(ds)
+        return ds
+
+    def to_kerchunk(self, files: str | list[str], virtualizarr_file: str | None = None, **kwargs):
+        """Generate Kerchunk references for the given files."""
+        return self.driver.to_kerchunk(files, virtualizarr_file=virtualizarr_file, **kwargs)
+
+    def to_icechunk(self, files: str | list[str], icechunk_url: str, **kwargs):
+        """Generate Icechunk references for the given files."""
+        return self.driver.to_icechunk(files, icechunk_url=icechunk_url, **kwargs)
 
 
 class PointReader(BaseReader):
@@ -130,21 +380,29 @@ class PointReader(BaseReader):
     fixed_location = True
 
     def __init__(self):
-        self.driver = PandasDriver()
+        self.driver = PandasDriver(source=self._source_name)
 
     def open_dataset(
         self,
         files: str | list[str],
-        # VirtualiZarr kwargs accepted but silently ignored for PointReaders
+        # VirtualiZarr applies to gridded data only; a tabular source rejects
+        # these instead of accepting and ignoring them (see _reject_virtualizarr).
         use_virtualizarr: bool = False,
         virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
         virtualizarr_backend: str = "kerchunk",
         icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
         # Standard PointReader kwargs
         read_method: str = "read_csv",
         as_xarray: bool = True,
         lazy: bool = False,
+        defer: bool = False,
+        tolerate=None,
+        use_dask: bool = False,
         meta: pd.DataFrame | pd.Series | dict | tuple | None = None,
+        expand2d: bool = True,
         **kwargs,
     ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
         """
@@ -155,21 +413,46 @@ class PointReader(BaseReader):
         files : Union[str, List[str]]
             File path, list of paths, or glob pattern.
         use_virtualizarr : bool, optional
-            Accepted but ignored for PointReaders (VirtualiZarr only applies to gridded data).
+            Rejected for point sources — virtualization only applies to gridded
+            data. Passing it raises rather than being silently ignored.
         virtualizarr_file : str or None, optional
-            Accepted but ignored for PointReaders.
+            Rejected for point sources (same reason).
+        virtualizarr_parser : str or None, optional
+            Rejected for point sources (same reason).
         virtualizarr_backend : str, optional
-            Accepted but ignored for PointReaders.
+            Rejected for point sources when set to a non-default value.
         icechunk_repo : str or None, optional
-            Accepted but ignored for PointReaders.
+            Rejected for point sources (same reason).
+        use_icechunk : bool, optional
+            Rejected for point sources when set to a non-default value.
+        icechunk_url : str or None, optional
+            Rejected for point sources (same reason).
         read_method : str, optional
             The pandas/dask reading method to use, by default "read_csv".
         as_xarray : bool, optional
             If True, return an xarray.Dataset, by default True.
         lazy : bool, optional
             If True, return a dask-backed object, by default False.
+        defer : bool, optional
+            If True, return an **unevaluated** result and perform no hidden
+            full-data compute during the load. Implies
+            ``lazy=True`` and overrides ``lazy=False``. With ``as_xarray=False`` this returns an
+            unevaluated Dask DataFrame; with ``as_xarray=True`` it returns a
+            Dask-backed :class:`xarray.Dataset` built without materializing the
+            data (bounded metadata only). A source whose manifest
+            declares ``capabilities.deferred = False`` raises a clear error
+            naming the source and reason rather than silently
+            returning a materialized result.
+        use_dask : bool, optional
+            Alias for `lazy`, by default False.
         meta : pd.DataFrame, pd.Series, dict, or tuple, optional
             Dask metadata to use for lazy loading, by default None.
+        tolerate : str or bool, optional
+            Explicit tolerance for skipped inputs (``"input"``); a failing file
+            of several is skipped and recorded in provenance instead of failing
+            the load. Never implied and never the default. Eager path only — a
+            lazy load defers reading to Dask, where a failing input cannot be
+            identified here, so the request is rejected rather than ignored.
         **kwargs : dict
             Additional arguments passed to the reader and driver.
 
@@ -178,10 +461,32 @@ class PointReader(BaseReader):
         Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded dataset.
         """
-        # VirtualiZarr kwargs (use_virtualizarr, virtualizarr_file,
-        # virtualizarr_backend, icechunk_repo) are silently discarded here
-        # and NOT forwarded to PandasDriver.
-        df = self.driver.open(files, read_method=read_method, lazy=lazy, meta=meta, **kwargs)
+        self._reject_virtualizarr(
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+        )
+        # Handle 'use_dask' as an alias for 'lazy'
+        if use_dask:
+            lazy = True
+        if defer:
+            self._require_defer_support()
+            # defer wins over lazy=False.
+            lazy = True
+
+        df = self.driver.open(
+            files,
+            read_method=read_method,
+            lazy=lazy,
+            defer=defer,
+            meta=meta,
+            tolerate=tolerate,
+            **kwargs,
+        )
 
         df = self.harmonize(df)
 
@@ -189,15 +494,59 @@ class PointReader(BaseReader):
         df = force_object_strings(df)
 
         if as_xarray:
-            return self.to_xarray(df, **kwargs)
+            ds = self.to_xarray(df, expand2d=expand2d, defer=defer, **kwargs)
+            if not lazy:
+                # The driver checked the frame; assembling the Dataset can
+                # still leave the caller with a schema-only shell (variables
+                # and coordinates defined, every dimension empty) when an
+                # input parsed into nothing. That is indistinguishable from a
+                # successful load, so it is refused here too. A lazy/deferred
+                # result is not validated: nothing has been read yet.
+                inputs = (
+                    list(files)
+                    if isinstance(files, list | tuple)
+                    else ([] if files is None else [files])
+                )
+                ds = _validate_nonempty_result(ds, inputs, self._source_name)
+            return ds
 
         return df
+
+    def _reject_virtualizarr(self, **options) -> None:
+        """Refuse virtualization options on a tabular source, naming each one.
+
+        VirtualiZarr produces virtual references for chunked gridded formats;
+        there is nothing for it to virtualize in a flat table. Accepting the
+        options and doing nothing with them left callers believing a reference
+        file had been written, so every non-default value raises instead.
+        """
+        defaults = {
+            "use_virtualizarr": False,
+            "virtualizarr_file": None,
+            "virtualizarr_parser": None,
+            "virtualizarr_backend": "kerchunk",
+            "icechunk_repo": None,
+            "use_icechunk": False,
+            "icechunk_url": None,
+        }
+        source = self._source_name or type(self).__name__
+        for option, default in defaults.items():
+            value = options.get(option)
+            if value != default:
+                raise OptionUnsupportedError(option, source)
 
     def harmonize(
         self, df: Union[pd.DataFrame, "dd.DataFrame"]
     ) -> Union[pd.DataFrame, "dd.DataFrame"]:
         """
         Harmonize the dataset (standard naming, dropping NaNs).
+
+        Rows dropped for a missing location are counted and the count is
+        recorded in provenance — the discard is correct behavior, but an
+        unrecorded one breaks mass-balance checks between input and output
+        row counts. The count is only taken on the eager path: counting a
+        lazy frame would require computing it, which a deferred load
+        promises not to do.
 
         Parameters
         ----------
@@ -209,27 +558,51 @@ class PointReader(BaseReader):
         Union[pd.DataFrame, "dd.DataFrame"]
             Harmonized dataframe.
         """
+        discarded = None
         if "latitude" in df.columns and "longitude" in df.columns:
+            before = None
+            if not _is_dask_frame(df):
+                before = len(df)
             df = df.dropna(subset=["latitude", "longitude"])
+            if before is not None:
+                discarded = before - len(df)
 
         # Update history if attributes exist (backend-agnostic)
-        df = update_history(df, "Harmonized and dropped NaN locations.")
+        message = "Harmonized and dropped NaN locations."
+        if discarded is not None:
+            record = ToleranceRecord().with_discarded_rows(discarded)
+            line = format_tolerance_record(record, requested=True)
+            if line:
+                message = f"{message} {line}"
+        df = update_history(df, message)
 
         return super().harmonize(df)
 
     def to_xarray(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], expand2d: bool = True, **kwargs
+        self,
+        obj: Union[pd.DataFrame, "dd.DataFrame", xr.Dataset],
+        expand2d: bool = True,
+        defer: bool = False,
+        **kwargs,
     ) -> xr.Dataset:
         """
-        Convert the DataFrame to an xarray Dataset in UGRID convention.
+        Convert a DataFrame or Dataset to an xarray Dataset in UGRID convention.
         By default, returns a 2D dataset (time, node) if expand2d=True.
 
         Parameters
         ----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            Input dataframe.
+        obj : Union[pd.DataFrame, dd.DataFrame, xr.Dataset]
+            Input dataframe or unstructured dataset.
         expand2d : bool, optional
             Whether to expand to 2D (time, node) structure, by default True.
+        defer : bool, optional
+            Preserve the explicit deferred-loading contract. Lazy and deferred
+            table-to-Xarray conversion runs one preparation task per partition
+            to collect its length and required ``time``/``siteid`` coordinate
+            keys; ``variable`` keys are also collected for the wide UGRID
+            layout. This is a full partition parse for text readers, with
+            O(rows) coordinate keys retained in memory; it does not persist
+            payload columns. Later evaluation can reread the input.
         **kwargs : dict
             Additional arguments passed to ds_to_2d (e.g. pivot).
 
@@ -238,46 +611,139 @@ class PointReader(BaseReader):
         xr.Dataset
             The dataset in UGRID convention.
         """
-        # 1. Identify backend
-        try:
-            import dask.dataframe as dd
-
-            is_dask = isinstance(df, dd.DataFrame)
-        except ImportError:
-            is_dask = False
-
-        # 2. Prepare DataFrame (ensure time and siteid are columns)
-        if is_dask:
-            temp_df = df
+        # 1. Handle Dataset Input (Optimization to avoid round-trip)
+        if isinstance(obj, xr.Dataset):
+            ds = obj
+            # Ensure dimension is 'node'
+            if "node" not in ds.dims:
+                # Find the primary dimension (should be 1D)
+                potential_dims = [d for d in ds.dims if d not in ["time", "siteid"]]
+                if potential_dims:
+                    ds = ds.rename({potential_dims[0]: "node"})
         else:
-            temp_df = df.copy()
-
-        for name in ["time", "siteid"]:
+            df = obj
+            # 2. Identify backend
             try:
-                names = temp_df.index.names
-            except AttributeError:
-                names = [temp_df.index.name]
+                import dask.dataframe as dd
 
-            if name in names:
-                temp_df = temp_df.reset_index()
+                is_dask = isinstance(df, dd.DataFrame)
+            except ImportError:
+                is_dask = False
 
-        # 3. Handle Backends
-        # Consistently force object strings for both backends to avoid nullable string issues.
-        temp_df = force_object_strings(temp_df)
+            # 3. Prepare DataFrame (ensure time and siteid are columns)
+            if is_dask:
+                temp_df = df
+            else:
+                temp_df = df.copy()
 
-        if is_dask:
-            # 3a. Lazy Path
-            ds = xr.Dataset()
-            # Exception to "No Hidden Computes": lengths=True is required by Xarray
-            # to determine dimension sizes for the Dataset structure.
-            for col in temp_df.columns:
-                ds[col] = (("node",), temp_df[col].to_dask_array(lengths=True))
-        else:
-            # 3b. Eager Path
-            # Consistently use 1D for both Eager and Lazy by default.
-            ds = temp_df.reset_index(drop=True).to_xarray()
-            if "index" in ds.dims:
-                ds = ds.rename({"index": "node"})
+            # Drop 'index' if it exists to avoid conflicts during conversion
+            if "index" in temp_df.columns:
+                temp_df = temp_df.drop(columns="index")
+
+            for name in ["time", "siteid"]:
+                try:
+                    names = temp_df.index.names
+                except AttributeError:
+                    names = [temp_df.index.name]
+
+                if name in names:
+                    temp_df = temp_df.reset_index()
+
+            # 4. Handle Backends
+            # Consistently force object strings for both backends to avoid nullable string issues.
+            temp_df = force_object_strings(temp_df)
+
+            if is_dask:
+                # 4a. Lazy Path
+                # Xarray needs concrete node lengths for the one-dimensional
+                # partition layout. Computing these lengths executes each
+                # upstream parser once; for text inputs this is a full payload
+                # preparation scan, even though only O(partitions) integers are
+                # returned. Share that scan across columns and retain the graph
+                # for subsequent evaluation. Do not claim it is metadata-only
+                # or persist the full table to avoid the later storage read.
+                import dask
+                import dask.array as da
+                from dask.delayed import delayed
+
+                # Materialize each partition once for lengths and the index
+                # columns that Xarray must know before it can build node
+                # coordinates. These values are bounded to partition lengths
+                # and required coordinate keys; data variables remain in the
+                # deferred graph and are reread when that graph is evaluated.
+                parts = temp_df.to_delayed()
+                layout_columns = [name for name in ("time", "siteid") if name in temp_df.columns]
+                if expand2d and "variable" in temp_df.columns:
+                    layout_columns.append("variable")
+                if layout_columns:
+                    layout = dask.compute(
+                        *[
+                            delayed(_partition_layout, pure=True)(part, layout_columns)
+                            for part in parts
+                        ]
+                    )
+                    lengths = [int(item[0]) for item in layout]
+                    prepared_indexes = {
+                        name: np.concatenate([item[1][name] for item in layout])
+                        for name in layout_columns
+                    }
+                else:
+                    # Dask's map_partitions(len) can trigger parser/meta work
+                    # in addition to its length computation. The same delayed
+                    # partition helper gives one full parse per partition and
+                    # retains only the O(partitions) lengths for 1D output.
+                    layout = dask.compute(
+                        *[delayed(_partition_layout, pure=True)(part, []) for part in parts]
+                    )
+                    lengths = [int(item[0]) for item in layout]
+                    prepared_indexes = {}
+                # its own delayed parts re-optimizes the whole expression tree
+                # per column, which is quadratic in the number of columns —
+                # fatal for wide observation products (hundreds of wavelength
+                # columns). Selecting the column inside the delayed callable
+                # keeps it lazy without touching the graph again.
+
+                def _col_array(col):
+                    series = temp_df[col]
+                    dtype = series.dtype
+                    if isinstance(dtype, pd.api.extensions.ExtensionDtype):
+                        # Mirror to_dask_array's conversion of extension dtypes
+                        # (e.g. nullable strings) to object arrays.
+                        dtype = np.dtype(object)
+                    # Each partition delay yields a pandas DataFrame; wrap it so
+                    # the dask-array blocks are real numpy arrays (a downstream
+                    # unstack shuffle indexes blocks positionally, which a Series
+                    # rejects). ``np.asarray`` is applied lazily, not computed.
+                    arrs = [
+                        da.from_delayed(
+                            delayed(_partition_column, pure=True)(part, col),
+                            shape=(n,),
+                            dtype=dtype,
+                        )
+                        for part, n in zip(parts, lengths, strict=True)
+                    ]
+                    return arrs[0] if len(arrs) == 1 else da.concatenate(arrs)
+
+                ds = xr.Dataset()
+                for col in temp_df.columns:
+                    if col == "node" and "node" in ds.dims:
+                        continue
+                    data = prepared_indexes[col] if col in prepared_indexes else _col_array(col)
+                    ds[col] = (("node",), data)
+
+                # Dask DataFrame has no DataFrame-level attrs. Preserve stable
+                # reader metadata attached to its declared empty schema so
+                # deferred Xarray output retains provenance such as AERONET's
+                # source header, matching the eager conversion.
+                ds.attrs.update(getattr(temp_df._meta, "attrs", {}))
+            else:
+                # 4b. Eager Path
+                # Consistently use 1D for both Eager and Lazy by default.
+                ds = temp_df.reset_index(drop=True).to_xarray()
+                if "index" in ds.dims:
+                    if "node" in ds.variables or "node" in ds.dims:
+                        ds = ds.drop_vars("node", errors="ignore")
+                    ds = ds.rename({"index": "node"})
 
         # Set standard coordinates
         coords = [
@@ -330,10 +796,10 @@ class PointReader(BaseReader):
                 if "node" in ds[var].dims:
                     ds[var].attrs.update({"mesh": "mesh", "location": "node"})
 
-        # Copy attributes from DataFrame if they exist (e.g. history).
+        # Copy attributes from input object if they exist (e.g. history).
         # Dask DataFrames don't support .attrs the same way as pandas, so
         # we guard with getattr to avoid AttributeError.
-        df_attrs = getattr(df, "attrs", {}) or {}
+        df_attrs = getattr(obj, "attrs", {}) or {}
         for k, v in df_attrs.items():
             if k not in ds.attrs:
                 ds.attrs[k] = v
@@ -348,6 +814,8 @@ class PointReader(BaseReader):
 
         # Update history
         ds = update_history(ds, "Converted to xarray Dataset with UGRID convention.")
+
+        ds = _ensure_time_dimension(ds)
 
         return ds
 
@@ -630,15 +1098,15 @@ def _add_ioapi_latlon(ds: xr.Dataset, proj4_srs: str) -> xr.Dataset:
     yda = xr.DataArray(y, dims=y_dim)
 
     # 3. Backend-Agnostic Chunking
-    # Proactively check for Dask-backed data variables
-    is_dask = len(ds.chunks) > 0 or any(hasattr(ds[v].data, "dask") for v in ds.data_vars)
-
-    if is_dask:
-        # Use existing chunks or default to 'auto'
-        x_chunks = ds.chunks.get(x_dim, "auto")
-        y_chunks = ds.chunks.get(y_dim, "auto")
-        xda = xda.chunk({x_dim: x_chunks})
-        yda = yda.chunk({y_dim: y_chunks})
+    if ds.chunks:
+        # Match coordinate chunking to data variables to maintain laziness.
+        # We avoid hardcoded 'auto' and instead respect existing dataset chunks.
+        x_chunks = {d: ds.chunks[d] for d in xda.dims if d in ds.chunks}
+        y_chunks = {d: ds.chunks[d] for d in yda.dims if d in ds.chunks}
+        if x_chunks:
+            xda = xda.chunk(x_chunks)
+        if y_chunks:
+            yda = yda.chunk(y_chunks)
 
     # Broadcast to 2D
     yv, xv = xr.broadcast(yda, xda)
@@ -707,7 +1175,7 @@ def _add_ioapi_latlon(ds: xr.Dataset, proj4_srs: str) -> xr.Dataset:
 
 def _get_ioapi_times(ds: xr.Dataset) -> xr.Dataset:
     """
-    Extracts and assigns time coordinate from IOAPI TFLAG lazily.
+    Extracts a concrete time coordinate from the small IOAPI TFLAG variable.
 
     Parameters
     ----------
@@ -737,7 +1205,10 @@ def _get_ioapi_times(ds: xr.Dataset) -> xr.Dataset:
     else:
         dt_dim = dt_dims[0]
 
-    # Use apply_ufunc to construct dates lazily using vectorized parser
+    # Parse only TFLAG through a local synchronous scheduler. Xarray needs a
+    # concrete index coordinate, and inheriting a caller's distributed Client
+    # here can send the PseudoNetCDF file manager to a worker during graph
+    # construction. The gridded data variables remain Dask-backed.
     dates = xr.apply_ufunc(
         parse_ioapi_times,
         tflag.isel(**{dt_dim: 0}),
@@ -746,6 +1217,20 @@ def _get_ioapi_times(ds: xr.Dataset) -> xr.Dataset:
         dask="parallelized",
         output_dtypes=[np.dtype("datetime64[ns]")],
     )
+    dates = dates.compute(scheduler="synchronous")
+
+    # Some HDF readers expose the first TFLAG date as a fill value even when
+    # the IOAPI header contains the valid start date. SDATE/STIME are the
+    # authoritative timestamp for the first record, so use them to repair
+    # only that missing value; later TFLAG values remain untouched.
+    date_values = np.asarray(dates.values, dtype="datetime64[ns]")
+    if date_values.size and np.isnat(date_values.flat[0]) and "SDATE" in ds.attrs:
+        start_date = parse_ioapi_times(ds.attrs["SDATE"], ds.attrs.get("STIME", 0))
+        start_date = np.asarray(start_date, dtype="datetime64[ns]").reshape(-1)
+        if start_date.size and not np.isnat(start_date[0]):
+            date_values = date_values.copy()
+            date_values.flat[0] = start_date[0]
+            dates = dates.copy(data=date_values)
 
     # If 'TSTEP' is the time dimension, we replace its values
     if "TSTEP" in ds.dims:

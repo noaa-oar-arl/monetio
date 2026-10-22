@@ -14,12 +14,20 @@ from .sat_utils import add_time_coord, standardize_satellite_coords, update_hist
 class GOESReader(GriddedReader):
     """
     Reader for GOES-R Series (GOES-16, 17, 18) ABI data.
-    Supports local files and S3 (via s3fs).
+    Supports local files and S3 (via obstore or s3fs).
     """
 
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime.datetime] | datetime.datetime | str = None,
         satellite: str = "16",
         product: str = "ABI-L2-AODF",
@@ -32,6 +40,22 @@ class GOESReader(GriddedReader):
         ----------
         files : Union[str, List[str]], optional
             File path(s) or URL(s).
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve. If files is None, this is used to build URLs.
         satellite : str, optional
@@ -56,8 +80,18 @@ class GOESReader(GriddedReader):
 
         if "engine" not in kwargs:
             kwargs["engine"] = "h5netcdf"
-
-        ds = super().open_dataset(files, **kwargs)
+        ds = super().open_dataset(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # Update history
         ds = update_history(ds, f"Read GOES-{satellite} {product} data.")
@@ -107,17 +141,15 @@ class GOESReader(GriddedReader):
         List[str]
             List of S3 URLs.
         """
-        from ..util import _import_required
-
-        s3fs = _import_required("s3fs")
+        from .drivers import FileUtility
 
         if isinstance(dates, str | datetime.datetime | pd.Timestamp):
             dates = pd.DatetimeIndex([pd.to_datetime(dates)])
         else:
             dates = pd.to_datetime(dates)
 
-        fs = s3fs.S3FileSystem(anon=True)
         bucket = f"noaa-goes{satellite}"
+        fs = FileUtility.get_fs(f"s3://{bucket}")
 
         urls = []
         for d in dates:
@@ -191,7 +223,7 @@ def _add_goes_latlon(ds: xr.Dataset) -> xr.Dataset:
     xr.Dataset
         Dataset with 'latitude' and 'longitude' coordinates added.
     """
-    from pyproj import CRS, Proj
+    from pyproj import CRS
 
     proj_var = ds.goes_imager_projection
     proj_dict = proj_var.attrs.copy()
@@ -213,16 +245,18 @@ def _add_goes_latlon(ds: xr.Dataset) -> xr.Dataset:
     y_m = ds.y * satellite_height
 
     # 2. Broadcast to 2D (y, x) lazily
-    if hasattr(ds, "chunks") and ds.chunks:
-        x_m = x_m.chunk({"x": ds.chunks.get("x", "auto")})
-        y_m = y_m.chunk({"y": ds.chunks.get("y", "auto")})
-
     # Note: GOES data variables usually have dimensions (y, x)
+    if ds.chunks:
+        # Match coordinate chunking to data variables to maintain laziness.
+        # This ensures that derived 2D coordinates are also lazy when the dataset is.
+        x_m = x_m.chunk({d: ds.chunks[d] for d in x_m.dims if d in ds.chunks})
+        y_m = y_m.chunk({d: ds.chunks[d] for d in y_m.dims if d in ds.chunks})
+
     y_2d, x_2d = xr.broadcast(y_m, x_m)
 
-    def _proj_inv(xv: np.ndarray, yv: np.ndarray, p_srs: str) -> tuple:
+    def _proj_inv(xv: np.ndarray, yv: np.ndarray, p_srs: str) -> tuple[np.ndarray, np.ndarray]:
         """
-        Element-wise inverse projection wrapper.
+        Element-wise inverse projection kernel using pyproj.Transformer.
 
         Parameters
         ----------
@@ -235,17 +269,28 @@ def _add_goes_latlon(ds: xr.Dataset) -> xr.Dataset:
 
         Returns
         -------
-        tuple
+        tuple[np.ndarray, np.ndarray]
             (latitude, longitude) as float32 NumPy arrays.
         """
+        from functools import lru_cache
+
+        from pyproj import Transformer
+
+        @lru_cache(maxsize=1)
+        def _get_transformer(srs):
+            return Transformer.from_crs(srs, "EPSG:4326", always_xy=True)
+
         # Ensure p_srs is a string if it came as a Dask scalar/array
         if isinstance(p_srs, np.ndarray | np.generic):
             p_srs = p_srs.item()
         if hasattr(p_srs, "decode"):
             p_srs = p_srs.decode()
 
-        p = Proj(p_srs)
-        lon, lat = p(xv, yv, inverse=True)
+        # GOES projection is geostationary. Transformer is more efficient than Proj.
+        # We use a cached transformer from the input SRS to WGS84 (EPSG:4326).
+        transformer = _get_transformer(p_srs)
+        lon, lat = transformer.transform(xv, yv)
+
         # Handle out of disk values (GOES specific)
         lon = np.where(lon < 400, lon, np.nan)
         lat = np.where(lat < 100, lat, np.nan)

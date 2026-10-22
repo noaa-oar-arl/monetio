@@ -8,6 +8,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import PointReader, register_reader
+from .errors import OptionUnsupportedError, annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -19,6 +20,14 @@ class NDBCReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         stations: str | list[str] = None,
         years: int | list[int] = None,
         realtime: bool = True,
@@ -35,6 +44,22 @@ class NDBCReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         stations : Union[str, List[str]], optional
             Station IDs to retrieve if files are not provided.
         years : Union[int, List[int]], optional
@@ -57,6 +82,21 @@ class NDBCReader(PointReader):
         Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded NDBC data.
         """
+        # Keep NDBC's post-processing decisions aligned with the shared driver:
+        # it checks ``lazy`` after ``super().open_dataset`` has returned.
+        if use_dask:
+            lazy = True
+
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "ndbc",
+                cause=(
+                    "NDBC text inputs are parsed as whole files and partitioned by input; "
+                    "array chunk mappings are not supported"
+                ),
+            )
+
         if files is None:
             if stations is None:
                 raise ValueError("Must provide either 'files' or 'stations'.")
@@ -71,6 +111,14 @@ class NDBCReader(PointReader):
         # Use base class to open
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=lazy,
@@ -87,7 +135,9 @@ class NDBCReader(PointReader):
         if as_xarray:
             # NDBC is already "wide" (one row per time/station)
             # expand2d=True will use ds_to_2d which works fine.
-            ds = self.to_xarray(df, expand2d=wide_fmt, **kwargs)
+            # Filter out expand2d from kwargs if present to avoid double-passing
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=wide_fmt, **to_xr_kwargs)
             ds = update_history(ds, "Read NDBC buoy data.")
             return ds
 
@@ -244,8 +294,10 @@ def read_ndbc(fn: str, **kwargs) -> pd.DataFrame:
             na_values=["MM", "99", "999", "99.0", "999.0"],
             on_bad_lines="warn",
         )
-    except Exception:
-        return pd.DataFrame()
+    except Exception as e:
+        # An observation file that cannot be read or parsed is a failed
+        # load naming that file, not a station with no data.
+        raise annotate(e, fn) from e
 
     # Extract siteid from filename
     import os
@@ -300,8 +352,10 @@ def get_station_table() -> pd.DataFrame:
         df["longitude"] = locs.apply(lambda x: x[1])
 
         return df[["siteid", "name", "latitude", "longitude"]]
-    except Exception:
-        return pd.DataFrame()
+    except Exception as e:
+        # The station table is required metadata; a failed fetch is a
+        # retrieval failure naming the source, not an empty station list.
+        raise annotate(e, url) from e
 
 
 def add_station_metadata(
@@ -330,6 +384,11 @@ def add_station_metadata(
         is_dask = False
 
     if is_dask:
+        # Dask may promote object strings to Arrow strings when wrapping a
+        # pandas frame. Align the station keys before the distributed merge.
+        df = df.assign(siteid=df.siteid.astype("string[pyarrow]"))
+        meta = meta.copy()
+        meta["siteid"] = meta.siteid.astype("string[pyarrow]")
         meta_wrap = dd.from_pandas(meta, npartitions=1)
         df = df.merge(meta_wrap, on="siteid", how="left")
     else:

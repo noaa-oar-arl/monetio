@@ -53,6 +53,8 @@ National Centers for Environmental Prediction (NCEP) GRIB2 model outputs.
 - **Source ID**: `gdas`: Global Data Assimilation System.
 - **Source ID**: `rrfs`: Rapid Refresh Forecast System.
 - **Source ID**: `grib2`: Standard GRIB2 files.
+- **Recommended API**: Use `open_dataset(...)` with the grib2io xarray backend
+    options (`filters`, `use_icechunk`, `storage_options`, etc.).
 
 ### ICAP-MME
 

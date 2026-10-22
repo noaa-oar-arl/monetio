@@ -18,7 +18,48 @@ from ..util import long_to_wide
 from .base import PointReader, register_reader
 from .drivers import FileUtility
 from .epa_utils import add_monitor_metadata
+from .errors import OptionUnsupportedError, annotate
 from .sat_utils import update_history
+
+
+def _airnow_frame_meta(files, *, daily: bool, storage_options=None) -> pd.DataFrame:
+    """Infer AirNow's fixed row schema from one delimited record per input.
+
+    This is bounded schema discovery (one line per input), not a data partition
+    parse. Files must share the hourly or daily layout.
+    """
+    import fsspec
+
+    from .drivers import FileUtility
+
+    paths = FileUtility.expand_paths(files)
+    layouts = set()
+    for path in paths:
+        with fsspec.open(path, "rt", compression="infer", **(storage_options or {})) as stream:
+            first = stream.readline()
+        if not first:
+            continue
+        fields = len(first.rstrip("\r\n").split("|"))
+        if fields in (8, 9):
+            layouts.add(fields)
+    if len(layouts) > 1:
+        raise ValueError("AirNow deferred inputs mix hourly and daily row layouts")
+    use_daily = next(iter(layouts)) == 8 if layouts else daily
+    columns = (
+        ["date", "siteid", "site", "variable", "units", "obs", "hours", "source"]
+        if use_daily
+        else ["date", "time", "siteid", "site", "utcoffset", "variable", "units", "obs", "source"]
+    )
+    # pandas 3 infers its dedicated ``str`` dtype for CSV text columns. AirNow
+    # normalizes site identifiers to object strings in ``read_airnow_csv``;
+    # match that explicitly while retaining pandas' inferred dtype for the
+    # other text columns.
+    meta = pd.DataFrame({column: pd.Series(dtype="str") for column in columns})
+    meta["siteid"] = pd.Series(dtype=object)
+    meta["obs"] = pd.Series(dtype="float64")
+    if not use_daily:
+        meta["utcoffset"] = pd.Series(dtype="int64")
+    return meta
 
 
 @register_reader("airnow")
@@ -26,6 +67,14 @@ class AirNowReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str = None,
         download: bool = False,
         wide_fmt: bool = True,
@@ -34,6 +83,7 @@ class AirNowReader(PointReader):
         bad_utcoffset: str = "drop",
         as_xarray: bool = True,
         lazy: bool = False,
+        defer: bool = False,
         **kwargs,
     ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
         """
@@ -43,6 +93,22 @@ class AirNowReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         download : bool, optional
@@ -60,6 +126,11 @@ class AirNowReader(PointReader):
             Whether to return an xarray.Dataset, by default True.
         lazy : bool, optional
             Whether to return a dask-backed object, by default False.
+        defer : bool, optional
+            Return an unevaluated result with no hidden full-data compute.
+            Implies ``lazy=True``:
+            the wide-format reshape is skipped in the DataFrame stage and
+            deferred to ``to_xarray``/``ds_to_2d``.
         **kwargs : dict
             Additional arguments passed to the driver.
 
@@ -68,6 +139,19 @@ class AirNowReader(PointReader):
         Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded AirNow data.
         """
+
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "airnow",
+                cause="AirNow CSV inputs are parsed as whole tabular records; array chunk controls do not apply",
+            )
+
+        if use_dask:
+            # Normalize the public alias before output-shape decisions below;
+            # otherwise the reader can pivot a Dask frame eagerly even though
+            # PointReader later sees use_dask=True.
+            lazy = True
 
         if files is None and dates is not None:
             # Construct URLs from dates
@@ -84,20 +168,44 @@ class AirNowReader(PointReader):
             raise ValueError("Must provide either 'files' or 'dates'.")
 
         # Define per-file preprocessing
-        storage_options = kwargs.get("storage_options", {})
+        storage_options = kwargs.get("storage_options")
         if not storage_options and any(str(f).startswith("s3://") for f in files):
-            storage_options = {"anon": True}
+            from .drivers import get_default_storage_options
+
+            storage_options = get_default_storage_options(str(files[0]))
 
         read_func = partial(read_airnow_csv, daily=daily, storage_options=storage_options)
 
         # Use base class to open
         # We stay in long format if we are lazy to avoid expensive shuffles/computes
         # during the DataFrame stage.
+        if defer:
+            # defer wins over lazy=False; the base class also
+            # enforces the capabilities.deferred guard.
+            lazy = True
+        # The parser's output shape is determined by the explicit daily
+        # option or by a fixed hourly CSV schema. Supplying this empty metadata
+        # avoids Dask evaluating the first complete input just to infer columns.
+        # Keep the bounded probe off the ordinary eager path.
+        meta = None
+        if lazy or use_dask or n_procs > 1:
+            meta = _airnow_frame_meta(files, daily=daily, storage_options=storage_options)
+
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=lazy,
+            defer=defer,
+            meta=meta,
             **kwargs,
         )
 
@@ -112,7 +220,9 @@ class AirNowReader(PointReader):
             df = df.compute(num_workers=n_procs)
 
         if as_xarray:
-            ds = self.to_xarray(df, expand2d=wide_fmt, **kwargs)
+            # Filter out expand2d from kwargs if present to avoid double-passing
+            to_xr_kwargs = {k: v for k, v in kwargs.items() if k != "expand2d"}
+            ds = self.to_xarray(df, expand2d=wide_fmt, defer=defer, **to_xr_kwargs)
 
             # Ensure history from _post_process and harmonize is there
             # even if lost in DataFrame stage (Dask doesn't support .attrs)
@@ -343,8 +453,8 @@ def build_urls(
 
     urls = []
     fnames = []
-    # Use S3 bucket directly
-    base_url = "s3://files.airnowtech.org/airnow/"
+    # Use HTTPS by default as S3 access can be restricted or require region config
+    base_url = "https://files.airnowtech.org/airnow/"
     for dt in dates:
         if daily:
             fname = "daily_data.dat"
@@ -454,8 +564,10 @@ def read_airnow_csv(
             dtype=_dtype_hints,
             storage_options=storage_options,
         )
-    except Exception:
-        dft = pd.DataFrame(columns=hourly_cols)
+    except Exception as e:
+        # An input that cannot be read or parsed at all is a failed load
+        # naming that input, not a silently-empty observation set.
+        raise annotate(e, fn) from e
 
     ncols = dft.columns.size
     if ncols == len(hourly_cols):

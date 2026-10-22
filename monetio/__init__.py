@@ -1,76 +1,64 @@
+"""MONETIO — Model and Observation Evaluation Toolkit: I/O.
+
+Package initialization is **lazy**: importing ``monetio`` loads no reader, no
+legacy facade submodule, and no source-specific optional dependency. Reader
+and facade modules are drawn in on first access via PEP 562
+:func:`__getattr__`.
+"""
+
+from __future__ import annotations
+
 import importlib
+
+from . import _lazy
+from ._manifest import SOURCE_MANIFEST, all_source_names, build_reader_modules, resolve
 
 __version__ = "0.2.7"
 
+# Derived from the single-source-of-truth manifest. Retained as a
+# private compatibility view because existing tests read ``monetio._READER_MODULES``;
+# it is no longer hand-maintained, so it cannot drift from the registry.
+_READER_MODULES = build_reader_modules()
 
-# Map reader names to their module paths for lazy loading
-_READER_MODULES = {
-    # Models
-    "cmaq": ".readers.cmaq",
-    "camx": ".readers.camx",
-    "chimere": ".readers.chimere",
-    "hysplit": ".readers.hysplit",
-    "hytraj": ".readers.hytraj",
-    "icap_mme": ".readers.icap_mme",
-    "ncep_grib": ".readers.ncep_grib",
-    "pardump": ".readers.pardump",
-    "raqms": ".readers.raqms",
-    "ufs": ".readers.ufs",
-    "wrfchem": ".readers.wrfchem",
-    "grib2": ".readers.grib2",
-    "gfs": ".readers.gfs",
-    "gefs": ".readers.gfs",
-    "gdas": ".readers.gfs",
-    "rrfs": ".readers.rrfs",
-    # Obs
-    "airnow": ".readers.airnow",
-    "aeronet": ".readers.aeronet",
-    "aqs": ".readers.aqs",
-    "cems": ".readers.cems",
-    "crn": ".readers.crn",
-    "improve": ".readers.improve",
-    "eprofile": ".readers.eprofile",
-    "ish": ".readers.ish",
-    "ish_lite": ".readers.ish_lite",
-    "nadp": ".readers.nadp",
-    "openaq": ".readers.openaq",
-    "openaq_v2": ".readers.openaq_v2",
-    "openaq_aws": ".readers.openaq_aws",
-    "pams": ".readers.pams",
-    "ndbc": ".readers.ndbc",
-    "surfrad": ".readers.surfrad",
-    "solrad": ".readers.solrad",
-    "ndacc": ".readers.ndacc",
-    "pandora": ".readers.pandora",
-    "skynet": ".readers.skynet",
-    # Profile
-    "icartt": ".readers.icartt",
-    "tolnet": ".readers.tolnet",
-    "geoms": ".readers.geoms",
-    "gml_ozonesonde": ".readers.gml_ozonesonde",
-    "igra2": ".readers.igra2",
-    "mplnet": ".readers.mplnet",
-    "earlinet": ".readers.earlinet",
-    "actris": ".readers.actris",
-    "iagos": ".readers.iagos",
-    "umbc_aerosol": ".readers.umbc_aerosol",
-    # Sat
-    "goes": ".readers.goes",
-    "nesdis_edr_viirs": ".readers.nesdis_edr_viirs",
-    "nesdis_eps_viirs": ".readers.nesdis_eps_viirs",
-    "modis_ornl": ".readers.modis_ornl",
-    "nasa_modis": ".readers.nasa_modis",
-    "modis_l2": ".readers.modis_l2",
-    "nesdis_frp": ".readers.nesdis_frp",
-    "omps": ".readers.omps",
-    "omps_nadir": ".readers.omps_nadir",
-    "mopitt": ".readers.mopitt",
-    "tempo": ".readers.tempo",
-    "tropomi": ".readers.tropomi",
-    "merra2": ".readers.merra2",
-    "nesdis_viirs_jrr": ".readers.nesdis_viirs_jrr",
-    "viirs_jrr": ".readers.nesdis_viirs_jrr",
+# Package submodules that are real attributes but no longer eagerly imported.
+# This is stable infrastructure (not a per-source list), so it cannot drift.
+_PACKAGE_SUBMODULES = frozenset({"grids", "util", "cli", "obs", "models", "sat", "profile"})
+
+# Legacy top-level convenience attributes, derived from the manifest's
+# ``legacy_paths`` so that ``monetio.airnow`` keeps binding the deprecated
+# facade module (which carries ``add_data``), exactly as today.
+# Maps e.g. ``"airnow" -> "obs.airnow"``.
+_LEGACY_ATTRS: dict[str, str] = {
+    path.rsplit(".", 1)[-1]: path for spec in SOURCE_MANIFEST for path in spec.legacy_paths
 }
+
+
+# --- public enumeration API ------------------------------------------------
+
+
+def available_sources() -> list[str]:
+    """Every loadable source name (canonical + aliases), sorted.
+
+    Imports no reader module.
+    """
+    return all_source_names()
+
+
+def source_info(name: str):
+    """Return the :class:`~monetio._manifest.SourceSpec` for ``name``/alias.
+
+    Raises :class:`ValueError` naming the unknown source and listing available
+    sources. Does not import the reader module.
+    """
+    try:
+        return resolve(name)
+    except KeyError:
+        raise _lazy.unknown_source_error(name, verb="Unknown source") from None
+
+
+def source_capabilities(name: str):
+    """Return the scale-capability declaration for ``name``/alias."""
+    return source_info(name).capabilities
 
 
 def load(source: str, files=None, **kwargs):
@@ -81,100 +69,188 @@ def load(source: str, files=None, **kwargs):
         ds = monetio.load("cmaq", files="/path/to/data*.nc")
         df = monetio.load("airnow", files=["2023-01-01", "2023-01-02"])
 
-    Available sources:
-        Models: cmaq, camx, chimere, hysplit, hytraj, icap_mme, ncep_grib, pardump, raqms, ufs, wrfchem, grib2, gfs, gefs, gdas, rrfs
-        Obs: airnow, aeronet, aqs, cems, crn, eprofile, improve, ish, ish_lite, nadp, ndacc, ndbc, openaq, openaq_v2, openaq_aws, pams, pandora, skynet, solrad, surfrad
-        Profile: actris, earlinet, geoms, gml_ozonesonde, iagos, icartt, igra2, mplnet, tolnet, umbc_aerosol
-        Sat: goes, merra2, modis_l2, modis_ornl, mopitt, nasa_modis, nesdis_edr_viirs, nesdis_eps_viirs, nesdis_frp, nesdis_viirs_jrr, omps, omps_nadir, tempo, tropomi, viirs_jrr
-    """
-    from .readers.base import READER_REGISTRY
-
-    if source not in READER_REGISTRY:
-        if source in _READER_MODULES:
-            # Lazy import
-            importlib.import_module(_READER_MODULES[source], package="monetio")
-        else:
-            raise ValueError(
-                f"Unknown source '{source}'. Available: {list(_READER_MODULES.keys())}"
-            )
-
-    if source not in READER_REGISTRY:
-        # Should be registered by now if module was valid
-        raise RuntimeError(f"Source '{source}' found in lazy index but failed to register itself.")
-
-    # Instantiate the reader class and open data
-    reader_cls = READER_REGISTRY[source]
-    reader = reader_cls()
-
-    return reader.open_dataset(files=files, **kwargs)
-
-
-def virtualize(source: str, files=None, output: str = None, backend: str = "kerchunk", **kwargs):
-    """
-    Pre-process files into a virtual reference (e.g., Kerchunk JSON or Icechunk repo).
-
-    Usage:
-        monetio.virtualize("merra2", files="data/*.nc4", output="merra2_ref.json")
+    The available sources are enumerated by :func:`available_sources`; this
+    docstring no longer hand-lists them (that list drifted).
 
     Parameters
     ----------
     source : str
-        The reader source ID (e.g., "merra2", "gfs").
-    files : str or list of str, optional
-        File path(s) or glob pattern(s).
-    output : str, optional
-        Path to save the output reference (required for 'kerchunk' backend).
-    backend : str, optional
-        The virtualization backend. Must be "kerchunk" (default) or "icechunk".
-    **kwargs : dict
-        Additional arguments passed to the reader and driver.
-    """
-    if backend == "kerchunk" and output is None:
-        raise ValueError("The 'output' parameter is required for the 'kerchunk' backend.")
+        Loadable source name (see :func:`available_sources`).
+    files : str, list of str, or None
+        File path(s), glob pattern, URL(s), or date arguments for remote
+        sources.
+    **kwargs
+        Source-specific options. Two are shared across sources:
 
+        ``defer``
+            Return an unevaluated, dask-backed result. Sources that have not
+            earned deferred support raise instead of silently materializing.
+        ``tolerate``
+            Explicit tolerance for skipped inputs — ``"input"`` skips a failing
+            file of several and records the skip (location, reason, category)
+            in the result's provenance. Tolerance is never implied and never
+            the default: without it, the first bad input fails the whole load.
+    """
+    try:
+        reader_cls = _lazy.get_reader_class(source)
+    except KeyError:
+        # An unknown name must report the same way as the other entry points
+        # (ValueError naming the source + the available list), not a bare
+        # KeyError from the manifest lookup.
+        raise _lazy.unknown_source_error(source) from None
+    reader = reader_cls()
+    try:
+        result = reader.open_dataset(files=files, **kwargs)
+    except Exception as exc:
+        # A failure must identify the inputs it came from. Readers annotate
+        # their own errors at the exact site, but a failure raised in shared
+        # plumbing (a parse helper, a coordinate transform) can surface here
+        # without naming anything; add the caller's own inputs so no error
+        # message can leave the caller guessing which file broke.
+        from .readers.errors import annotate
+
+        if files is not None:
+            locations = files if isinstance(files, list | tuple) else [files]
+            message = str(exc)
+            missing = [str(f) for f in locations if str(f) not in message]
+            if missing:
+                annotated = annotate(exc, *missing)
+                if annotated is exc:
+                    # Already a reader error: the locations were appended in
+                    # place, so re-raise untouched to keep its own chain.
+                    raise
+                annotated.__cause__ = exc.__cause__ if exc.__cause__ is not None else exc
+                raise annotated from annotated.__cause__
+        raise
+
+    # A load that opened inputs and produced nothing is indistinguishable from
+    # success, so it must refuse rather than return. The drivers enforce this on
+    # their own paths; this boundary covers readers that assemble their result
+    # outside a driver. A deferred/lazy result is not checked: nothing has been
+    # read yet, so emptiness is not yet knowable at this point.
+    if files is not None and result is not None:
+        from .readers.drivers import _validate_nonempty_result
+
+        if not type(result).__module__.startswith("dask"):
+            inputs = files if isinstance(files, list | tuple) else [files]
+            result = _validate_nonempty_result(result, inputs, source)
+    return result
+
+
+def virtualize(
+    source: str,
+    files,
+    output: str,
+    backend: str = "kerchunk",
+    concat_dim: str = "time",
+    **kwargs,
+):
+    """Pre-compute and persist VirtualiZarr references for a supported source.
+
+    Parameters
+    ----------
+    source : str
+        Registered reader source name (e.g. ``"gfs"`` or ``"merra2"``).
+    files : str | list[str]
+        Input file path(s) or glob expression.
+    output : str
+        Output reference path. For ``backend="kerchunk"``, this is a JSON file.
+        For ``backend="icechunk"``, this is an Icechunk repository URL/path.
+    backend : {"kerchunk", "icechunk"}, optional
+        Virtualization backend, by default ``"kerchunk"``.
+    concat_dim : str, optional
+        Dimension used when combining multiple files, by default ``"time"``.
+    **kwargs : dict
+        Additional keyword arguments forwarded to :func:`load`.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset opened through the virtualized references.
+    """
+    if backend not in {"kerchunk", "icechunk"}:
+        raise ValueError(f"Invalid backend '{backend}'. Expected one of: 'kerchunk', 'icechunk'.")
+
+    use_icechunk = backend == "icechunk"
     return load(
         source,
         files=files,
         use_virtualizarr=True,
-        virtualizarr_file=output,
-        virtualizarr_backend=backend,
+        virtualizarr_file=None if use_icechunk else output,
+        use_icechunk=use_icechunk,
+        icechunk_url=output if use_icechunk else None,
+        concat_dim=concat_dim,
         **kwargs,
     )
 
 
-from . import grids
-from .models import (
-    camx,
-    chimere,
-    cmaq,
-    hysplit,
-    hytraj,
-    ncep_grib,
-    pardump,
-    raqms,
-)
-from .obs import (
-    aeronet,
-    airnow,
-    aqs,
-    cems,
-    crn,
-    improve,
-    ish,
-    ish_lite,
-    nadp,
-    openaq,
-    openaq_v2,
-    openaq_v3,
-    pams,
-)
-from .profile import geoms, gml_ozonesonde, icartt, tolnet
-from .sat import goes
+# --- PEP 562 lazy attribute resolution -------------------------------------
 
+
+def __getattr__(name: str):
+    """Resolve package attributes on demand, preserving every legacy surface.
+
+    ``__getattr__`` is only called after normal attribute lookup fails, so real
+    attributes (``load``, ``available_sources``, ``__version__``, the helper
+    functions below) are never shadowed by a source lookup. Resolution order is
+    fixed.
+    """
+    # 1. legacy facade convenience attribute (monetio.airnow -> monetio.obs.airnow),
+    #    which today binds the deprecated wrapper carrying add_data(). If a
+    #    declared legacy path has no facade module, fall through to the reader.
+    legacy = _LEGACY_ATTRS.get(name)
+    if legacy is not None:
+        try:
+            module = importlib.import_module(f"monetio.{legacy}")
+        except ImportError:
+            module = None
+        if module is not None:
+            globals()[name] = module
+            return module
+
+    # 2. a declared source with no legacy facade (gfs, icap_mme, ufs, ...) ->
+    #    bind its reader module.
+    if _lazy.is_source(name):
+        module = _lazy.import_reader(name)
+        globals()[name] = module
+        return module
+
+    # 3. a package submodule (grids, util, cli, or a facade package itself).
+    if name in _PACKAGE_SUBMODULES:
+        module = importlib.import_module(f"monetio.{name}")
+        globals()[name] = module
+        return module
+
+    # 4. a facade submodule that is not a manifest source (e.g. openaq_v3,
+    #    which today is eagerly imported and must stay reachable).
+    for facade in ("obs", "models", "sat", "profile"):
+        try:
+            module = importlib.import_module(f"monetio.{facade}.{name}")
+        except ImportError:
+            continue
+        globals()[name] = module
+        return module
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    names = set(globals()) | set(_LEGACY_ATTRS) | set(all_source_names())
+    names |= set(_PACKAGE_SUBMODULES)
+    return sorted(names)
+
+
+# ``__all__`` lists names resolved lazily via ``__getattr__`` (star-import
+# triggers attribute access). Kept complete so ``from monetio import *`` works
+# — this is the R2 Defect B fix (icap_mme was previously listed but never
+# importable, so star-import raised AttributeError).
 __all__ = [
     "__version__",
     "load",
     "virtualize",
+    "available_sources",
+    "source_info",
+    "source_capabilities",
     #
     # utility functions
     "rename_latlon",
@@ -189,9 +265,9 @@ __all__ = [
     "airnow",
     "aeronet",
     "aqs",
-    "cems",  # TODO: module with add_data
+    "cems",
     "crn",
-    "improve",  # TODO: module with add_data
+    "improve",
     "ish",
     "ish_lite",
     "nadp",
@@ -222,6 +298,9 @@ __all__ = [
     "gfs",
     "gefs",
     "gdas",
+    "hrrr",
+    "nam",
+    "rap",
 ]
 
 
@@ -295,9 +374,12 @@ def dataset_to_monet(ds, *, lat_name="lat", lon_name="lon", latlon2d=None):
         ndim_lat = ds[lat_name].ndim
         assert ndim_lat <= 2
         latlon2d = ndim_lat == 2
-    # TODO: apply rename_to_monet_latlon ?
+
     if latlon2d is False:
         ds = coards_to_netcdf(ds, lat_name=lat_name, lon_name=lon_name)
+
+    ds = rename_to_monet_latlon(ds)
+
     return ds
 
 
@@ -336,3 +418,13 @@ def coards_to_netcdf(ds, *, lat_name="lat", lon_name="lon"):
     ds["y"] = y
     ds = ds.set_coords(["latitude", "longitude"])
     return ds
+
+
+# No eager grib2io import here. Importing grib2io pulls in zarr (and its whole
+# codec stack), which would defeat lazy package initialization: a bare
+# ``import monetio`` must not load optional third-party backends. grib2io
+# registers its zarr v3 codecs itself on import (``grib2io/__init__`` imports
+# its ``codecs`` submodule), and every code path that needs those codecs already
+# imports grib2io — the ``engine="grib2io"`` xarray dispatch and the GRIB2
+# VirtualiZarr pipeline both do — so registration happens exactly when needed
+# without costing the bare import.

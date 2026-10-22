@@ -1,12 +1,14 @@
 """Utilities for EPA AQS and IMPROVE data."""
 
 import logging
+import os
 from functools import lru_cache
 from typing import TYPE_CHECKING, Union
 
 import pandas as pd
 
 from ..util import force_object_strings
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -15,18 +17,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def convert_statenames_to_abv(df: pd.DataFrame) -> pd.DataFrame:
+def convert_statenames_to_abv(
+    df: Union[pd.DataFrame, "dd.DataFrame"],
+) -> Union[pd.DataFrame, "dd.DataFrame"]:
     """
     Convert full state names to two-letter abbreviations.
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df : Union[pd.DataFrame, dd.DataFrame]
         Input dataframe with a 'state_name' column.
 
     Returns
     -------
-    pd.DataFrame
+    Union[pd.DataFrame, dd.DataFrame]
         Dataframe with 'state_name' converted to abbreviations.
 
     Examples
@@ -94,6 +98,10 @@ def convert_statenames_to_abv(df: pd.DataFrame) -> pd.DataFrame:
     }
     if "state_name" in df.columns:
         df["state_name"] = df["state_name"].replace(d)
+
+    # Update history for provenance
+    df = update_history(df, "Converted full state names to abbreviations.")
+
     return df
 
 
@@ -125,8 +133,6 @@ def read_monitor_file(
     >>> # Read specific network monitors
     >>> df_improve = read_monitor_file(network='IMPROVE')
     """
-    import os
-
     df = pd.DataFrame()
     if airnow:
         monitor_airnow_url = "https://s3-us-west-1.amazonaws.com//files.airnowtech.org/airnow/today/monitoring_site_locations.dat"
@@ -188,8 +194,9 @@ def read_monitor_file(
             df["airnow_flag"] = "AIRNOW"
             df.columns = [i.lower() for i in df.columns]
         except Exception as e:
-            logger.error(f"Failed to read AirNow monitor file: {e}")
-            df = pd.DataFrame()
+            # The monitor list is required metadata; a failed fetch is a
+            # retrieval failure naming the source URL, not empty metadata.
+            raise annotate(e, monitor_airnow_url) from e
     else:
         # Try local HDF first
         try:
@@ -200,7 +207,7 @@ def read_monitor_file(
             fname = os.path.join(basedir, "data", "monitoring_site_locations.hdf")
             if os.path.exists(fname):
                 df = pd.read_hdf(fname)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - optional local cache; an unreadable bundled file falls back to downloading metadata from AQS, so the load still succeeds (categories: not_found, malformed)
             logger.debug(f"Local monitor file not found or unreadable: {e}")
 
         if df.empty:
@@ -253,8 +260,9 @@ def read_monitor_file(
                 df = df.drop(columns=monitor_drop, errors="ignore")
                 df = convert_statenames_to_abv(df).dropna(subset=["latitude", "longitude"])
             except Exception as e:
-                logger.error(f"Failed to download/process AQS monitor metadata: {e}")
-                df = pd.DataFrame()
+                # Metadata we cannot download is a retrieval failure naming
+                # the source URLs, not an empty monitor table.
+                raise annotate(e, site_url, monitor_url) from e
 
     if not df.empty:
         if network is not None:
@@ -281,7 +289,7 @@ def convert_epa_unit(
 
     Parameters
     ----------
-    df : Union[pd.DataFrame, "dd.DataFrame"]
+    df : Union[pd.DataFrame, dd.DataFrame]
         Input dataframe.
     obscolumn : str, optional
         Name of column with observation data, by default 'obs'.
@@ -294,7 +302,7 @@ def convert_epa_unit(
 
     Returns
     -------
-    Union[pd.DataFrame, "dd.DataFrame"]
+    Union[pd.DataFrame, dd.DataFrame]
         Dataframe with converted values.
 
     Examples
@@ -325,7 +333,7 @@ def convert_epa_unit(
         df[obscolumn] = df[obscolumn].mask(mask, df[obscolumn] / factor)
         df[unit_column] = df[unit_column].mask(mask, ppb)
 
-    # Update history
+    # Update history for provenance
     df = update_history(df, f"Converted {species} to {to_unit}.")
 
     return df
@@ -370,10 +378,8 @@ def add_monitor_metadata(
         import dask.dataframe as dd
 
         is_dask = isinstance(df, dd.DataFrame)
-        lib = dd if is_dask else pd
     except ImportError:
         is_dask = False
-        lib = pd
 
     monitor_df = read_monitor_file(network=network, airnow=airnow)
 
@@ -405,9 +411,10 @@ def add_monitor_metadata(
 
     if daily and "gmt_offset" in df.columns and "time_local" in df.columns:
         # Adjust time for daily data based on local time and offset
-        df["time"] = df.time_local - lib.to_timedelta(df.gmt_offset, unit="h")
+        # Backend-agnostic arithmetic: multiply by 1 hour timedelta
+        df["time"] = df["time_local"] - df["gmt_offset"] * pd.Timedelta(hours=1)
 
-    # Update history
+    # Update history for provenance
     if history_msg is None:
         history_msg = f"Added station metadata from {'AirNow' if airnow else 'AQS'}."
     df = update_history(df, history_msg)
@@ -468,7 +475,7 @@ def standardize_epa_units(
 
     df = df.drop(columns="units_lower")
 
-    # Update history
+    # Update history for provenance
     df = update_history(df, "Standardized units and adjusted observation values.")
 
     return df

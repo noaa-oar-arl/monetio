@@ -132,7 +132,21 @@ def wsdir2uv(ws, wdir):
     return u, v
 
 
-def long_to_wide(df):
+def is_dask_dataframe(obj) -> bool:
+    """True if ``obj`` is a ``dask.dataframe.DataFrame``/``Series``.
+
+    Shared by the deferred wide path and the drivers. Imports
+    ``dask.dataframe`` lazily so this helper never forces it on the eager path;
+    returns ``False`` when dask is not installed at all.
+    """
+    try:
+        import dask.dataframe as dd
+    except ImportError:
+        return False
+    return isinstance(obj, dd.DataFrame | dd.Series)
+
+
+def long_to_wide(df, defer=False):
     """
     Convert a long-format DataFrame (or Dask DataFrame) to wide format.
 
@@ -140,11 +154,18 @@ def long_to_wide(df):
     ----------
     df : Union[pd.DataFrame, dd.DataFrame]
         The input DataFrame in long format, containing 'time', 'siteid', 'variable', 'obs', and 'units'.
+    defer : bool, optional
+        When True **and** ``df`` is a Dask DataFrame, return it unchanged (still
+        long) instead of computing the pivot — the reshape is deferred to
+        :func:`ds_to_2d` via ``to_xarray``. The eager (pandas) result is unaffected.
+        Default False
+        reproduces today's behavior byte-for-byte, including the ``UserWarning``.
 
     Returns
     -------
     Union[pd.DataFrame, dd.DataFrame]
-        The DataFrame in wide format.
+        The DataFrame in wide format, or the original long Dask frame when
+        ``defer=True``.
     """
     try:
         import dask.dataframe as dd
@@ -152,6 +173,12 @@ def long_to_wide(df):
         is_dask = isinstance(df, dd.DataFrame)
     except ImportError:
         is_dask = False
+
+    if is_dask and defer:
+        # dask cannot express this multi-index pivot lazily
+        # (no MultiIndex, no lazy pivot_table on a composite key without
+        # collapsing partitions). Stay long; ds_to_2d reshapes lazily.
+        return df
 
     if is_dask:
         # Dask doesn't support multi-index pivot_table well and requires categories.
@@ -623,12 +650,12 @@ def force_object_strings(df):
     if attrs:
         try:
             df.attrs.update(attrs)
-        except Exception:
+        except Exception:  # noqa: BLE001 - attrs are best-effort metadata (malformed); per-key fallback below
             # Fallback for backends where update() might fail
             for k, v in attrs.items():
                 try:
                     df.attrs[k] = v
-                except Exception:
+                except Exception:  # noqa: BLE001 - single-key best-effort (malformed); metadata must never fail a load
                     pass
     return df
 
@@ -657,13 +684,33 @@ def ds_to_2d(ds, pivot=True, fixed_location=False):
     if "node" not in ds.dims:
         return ds
 
+    # A query that legitimately returned no records has nothing to lay out, so
+    # an empty frame is passed through unchanged; deciding whether an empty
+    # result is acceptable is the caller's job, not this transformation's. The
+    # zero-length check is on the node dimension itself because an empty result
+    # still carries the time/siteid/variable coordinate names, so a later
+    # "missing coordinate" test would not catch it and the pivot path would
+    # instead fail on a size-zero dimension.
+    if ds.sizes.get("node", 0) == 0:
+        return ds
+
     # Ensure time, siteid, and variable are coords for set_index
     for col in ["time", "siteid", "variable"]:
         if col in ds.data_vars and col not in ds.coords:
             ds = ds.set_coords(col)
 
     if "time" not in ds.coords or "siteid" not in ds.coords:
-        return ds
+        # The stated job of this transformation is to produce a (time, node)
+        # layout; without both axes there is nothing to expand, and returning
+        # the unexpanded input would let the caller believe it had been
+        # expanded.
+        from .readers.errors import TransformNotAppliedError
+
+        missing = [name for name in ("time", "siteid") if name not in ds.coords]
+        raise TransformNotAppliedError(
+            "ds_to_2d",
+            f"cannot expand to 2D (time, node): missing coordinate(s) {missing}",
+        )
 
     # Handle history
     history = (
@@ -758,7 +805,7 @@ def ds_to_2d(ds, pivot=True, fixed_location=False):
                                 # Convert data var to coordinate after fixing
                                 ds2d = ds2d.set_coords(coord)
                                 ds2d.coords[coord] = fixed_coord
-                        except Exception:
+                        except Exception:  # noqa: BLE001 - per-coordinate best-effort fix (malformed); the un-fixed coordinate is still valid
                             pass
 
         # Copy attributes from original dataset (scientific hygiene)
@@ -773,10 +820,17 @@ def ds_to_2d(ds, pivot=True, fixed_location=False):
             ds2d.attrs["history"] = history
         return ds2d
     except Exception as e:
-        import warnings
+        # A caller who asked for the 2D layout must not receive the 1D input
+        # with only a warning: downstream code written against (time, node)
+        # then fails later with an error that does not mention this
+        # transformation at all. categories: malformed, content_invalid.
+        from .readers.errors import TransformNotAppliedError
 
-        warnings.warn(f"ds_to_2d failed: {e}. Returning 1D dataset.")
-        return ds
+        if isinstance(e, TransformNotAppliedError):
+            raise
+        raise TransformNotAppliedError(
+            "ds_to_2d", f"expansion to 2D (time, node) failed: {e}"
+        ) from e
 
 
 def _try_merge_exact(left, right, *, right_name=None):

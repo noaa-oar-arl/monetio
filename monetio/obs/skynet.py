@@ -12,7 +12,7 @@ def add_data(
     dates=None,
     siteid=None,
     product="AOT",
-    as_xarray=False,
+    as_xarray=True,
     **kwargs,
 ):
     """Retrieve and load SKYNET data."""
@@ -31,7 +31,7 @@ def add_data(
 )
 def add_local(
     fname,
-    as_xarray=False,
+    as_xarray=True,
     **kwargs,
 ):
     """Read a local SKYNET file."""

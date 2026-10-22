@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 BASE_URL = "https://gsce-dtn.sdstate.edu/index.php/s/e8wPYPOL1bGXk5z/download?path=%2F"
@@ -23,6 +24,14 @@ class NESDISFRPReader(GriddedReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         date: datetime.datetime | str | pd.Timestamp = None,
         ftype: str = "meanFRP",
         **kwargs,
@@ -34,6 +43,22 @@ class NESDISFRPReader(GriddedReader):
         ----------
         files : str or list[str], optional
             File path(s) or URL(s).
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         date : datetime.datetime, str, or pd.Timestamp, optional
             Date to retrieve. If files is None, this is used to build URLs.
         ftype : str, optional
@@ -56,6 +81,16 @@ class NESDISFRPReader(GriddedReader):
                 raise ValueError("Either 'files' or 'date' must be provided.")
             files = self.build_urls(date, ftype=ftype)
 
+        if kwargs.get("chunks") is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "nesdis_frp",
+                cause=(
+                    "each binary tile is decoded as one complete array payload; "
+                    "Dask can defer the tile read but cannot split it into chunks"
+                ),
+            )
+
         if "preprocess" not in kwargs:
             kwargs["preprocess"] = partial(nesdis_frp_preprocess, ftype=ftype)
 
@@ -71,8 +106,18 @@ class NESDISFRPReader(GriddedReader):
             kwargs["concat_dim"] = "tile"
         if "combine" not in kwargs:
             kwargs["combine"] = "nested"
-
-        ds = super().open_dataset(files, **kwargs)
+        ds = super().open_dataset(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # Update history
         ds = update_history(ds, f"Read NESDIS {ftype} data.")
@@ -160,9 +205,11 @@ def read_nesdis_frp_binary(fname: str, **kwargs) -> xr.Dataset:
             w = FortranFile(buffer)
             try:
                 a = w.read_reals(dtype=dtype)
-            except Exception:
+            except (ValueError, EOFError):
                 # Fallback: maybe it's not a reals record but a simple binary dump
-                # FortranFile expects header/footer. If missing, it fails.
+                # FortranFile expects header/footer. If missing, it fails
+                # (ValueError for a bad record marker, EOFError for a short
+                # file), so only those two fall through to the raw read.
                 buffer.seek(0)
                 a = np.frombuffer(buffer.read(), dtype=dtype)
         return a.reshape((r, r), order="F").copy()
@@ -231,10 +278,13 @@ def nesdis_frp_preprocess(ds: xr.Dataset, ftype: str = "meanFRP") -> xr.Dataset:
     res = "C384"
     # ds.tile is usually a scalar coordinate if it's from a single file (tile)
     # but could be an array if concatenated.
-    try:
-        tile = int(ds.tile.values) if not hasattr(ds.tile.data, "dask") else None
-    except (TypeError, ValueError):
-        tile = None
+    tile = None
+    if not hasattr(ds.tile.data, "dask"):
+        try:
+            if ds.tile.ndim == 0:
+                tile = int(ds.tile)
+        except (TypeError, ValueError):
+            pass
 
     # If tile is dask-backed, we might need to be careful.
     # But tile should be a coordinate, usually small and eager.
@@ -265,6 +315,7 @@ def nesdis_frp_preprocess(ds: xr.Dataset, ftype: str = "meanFRP") -> xr.Dataset:
                 "units": "MW",  # Assuming MW for FRP
             }
         )
+        ds = update_history(ds, f"Updated attributes for {ftype}")
 
     # Provenance
     ds = update_history(ds, f"Preprocessed NESDIS {ftype} data using standardized preprocessing.")

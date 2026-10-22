@@ -1,0 +1,38 @@
+# Version control and editor metadata
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Python build and cache artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment and credentials (never bake into an image)
+.env
+.env.*
+.netrc
+*_netrc
+
+# Documentation and CI-only inputs
+docs/
+site/
+mkdocs.yml
+benchmark_cmaq.nc
+
+# Test scratch space and large local fixtures
+tests/data/**/tmp/
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db

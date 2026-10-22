@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "35e1fbc0daae634423b342cb4f451430ca8017a639e2efdad8a503eda8d442ee",
+  "kind": "recorded",
+  "location": "s3://files.airnowtech.org/airnow/2023/20230101/HourlyData_2023010100.dat",
+  "producer": "scripts/record_samples.py",
+  "reason": "one AirNow hourly broadcast, trimmed"
+}

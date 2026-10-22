@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "4a50bfac0942388d88a353b1587363c60a9b8fee7d48f88f65802e63185e8ea5",
+  "kind": "recorded",
+  "location": "https://www1.ncdc.noaa.gov/pub/data/uscrn/products/hourly02/2021/CRNH0203-2021-TX_Monahans_6_ENE.txt",
+  "producer": "scripts/record_samples.py",
+  "reason": "one CRN hourly station-year file, trimmed"
+}

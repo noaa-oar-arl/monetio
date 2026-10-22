@@ -11,6 +11,7 @@ import xarray as xr
 from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError, RetrievalFailedError, annotate
 from .sat_utils import update_history
 from .time_utils import parse_yyyymmdd_hhmm
 
@@ -186,6 +187,14 @@ class CRNReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: datetime | list[datetime] | pd.DatetimeIndex | None = None,
         daily: bool = False,
         sub_hourly: bool = False,
@@ -202,6 +211,22 @@ class CRNReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File paths or URLs. If None, uses `dates` to discover files.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[datetime, List[datetime], pd.DatetimeIndex], optional
             Dates to retrieve if `files` is None.
         daily : bool, optional
@@ -224,6 +249,16 @@ class CRNReader(PointReader):
         Union[xr.Dataset, pd.DataFrame]
             The loaded dataset.
         """
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "crn",
+                cause=(
+                    "CRN text inputs are parsed as whole files and partitioned by input; "
+                    "array chunk mappings are not supported"
+                ),
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")
@@ -235,7 +270,20 @@ class CRNReader(PointReader):
             files = self.retrieve(files)
 
         # We use read_crn as the custom read_method
-        df = self.driver.open(files, read_method=read_crn, lazy=lazy, **kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_crn,
+            lazy=lazy,
+            **kwargs,
+        )
 
         # Post-processing: Merge with monitor info and fix columns
         df = self._postprocess(df, latlonbox=latlonbox)
@@ -270,12 +318,20 @@ class CRNReader(PointReader):
             Post-processed dataframe.
         """
         monitors = self.get_monitor_df(latlonbox=latlonbox)
+        try:
+            import dask.dataframe as dd
+
+            is_dask = isinstance(df, dd.DataFrame)
+        except ImportError:
+            is_dask = False
+
+        key_dtype = "string[pyarrow]" if is_dask else object
         # Rename WBAN to WBANNO to match data files
         monitors = monitors.rename(columns={"WBAN": "WBANNO"})
         # Ensure siteid/WBANNO is string and padded to 5 digits
-        monitors["WBANNO"] = monitors["WBANNO"].astype(str).str.zfill(5)
+        monitors["WBANNO"] = monitors["WBANNO"].astype(str).str.zfill(5).astype(key_dtype)
 
-        df["WBANNO"] = df["WBANNO"].astype(str).str.zfill(5)
+        df["WBANNO"] = df["WBANNO"].astype(str).str.zfill(5).astype(key_dtype)
         # Merge (unified logic for both backends)
         df = df.merge(monitors, how="left", on=["WBANNO", "LATITUDE", "LONGITUDE"])
 
@@ -323,19 +379,10 @@ class CRNReader(PointReader):
             mdf = pd.read_csv(path, delimiter="\t")
             # Filter for USCRN
             mdf = mdf.loc[mdf["NETWORK"] == "USCRN"].copy()
-        except Exception:
-            # Fallback if file missing
-            mdf = pd.DataFrame(
-                columns=[
-                    "STATE",
-                    "LOCATION",
-                    "VECTOR",
-                    "WBAN",
-                    "LATITUDE",
-                    "LONGITUDE",
-                    "NETWORK",
-                ]
-            )
+        except Exception as e:
+            # The bundled station table is required metadata; an unreadable
+            # one is a failure naming that file, not an empty station list.
+            raise annotate(e, path) from e
 
         if latlonbox is not None:
             con = (
@@ -410,8 +457,7 @@ class CRNReader(PointReader):
                     if fname in all_fnames:
                         urls.append(f"{year_url}{fname}")
                         fnames.append(fname)
-            except Exception:
-                # Fallback to individual checks if ls fails or is not supported
+            except Exception:  # noqa: BLE001 - per-year directory listing is best-effort; an unsupported or failed ls falls back to probing each candidate URL individually (categories: retrieval_failed, malformed)
                 for _, row in monitors.iterrows():
                     state = row["STATE"]
                     site = row["LOCATION"].replace(" ", "_")
@@ -452,7 +498,8 @@ class CRNReader(PointReader):
                 try:
                     fs.get(url, fname)
                 except Exception as e:
-                    print(f"Failed to retrieve {url}: {e}")
-                    continue
+                    # A download that failed is a retrieval failure naming
+                    # the URL, not an input to silently skip.
+                    raise RetrievalFailedError(url, cause=str(e)) from e
             local_files.append(fname)
         return local_files

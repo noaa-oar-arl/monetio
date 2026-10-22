@@ -1,0 +1,9 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "3efe3c2b35350e3075bfbbe972d1935d1cfcb29d27f307d495987c904d44b940",
+  "kind": "recorded",
+  "layout": "ish",
+  "location": "https://www.ncei.noaa.gov/pub/data/noaa/2025/040520-99999-2025.gz",
+  "producer": "scripts/record_samples.py",
+  "reason": "one trimmed ISH station-year file (fixed-width layout)"
+}

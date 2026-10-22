@@ -47,6 +47,13 @@ _NON_MOLEC_PARAMS = [
     "bc",
 ]
 
+
+def _boolean_object_partition(series: pd.Series) -> pd.Series:
+    """Convert nullable boolean values to Xarray-compatible objects."""
+    values = series.astype(object)
+    return values.where(series.notna(), np.nan)
+
+
 _BASE_URL = "https://api.openaq.org"
 _ENDPOINTS = {
     "locations": "/v2/locations",
@@ -226,6 +233,7 @@ class OpenAQV2Reader(PointReader):
         sites: list[str] = None,
         wide_fmt: bool = True,
         as_xarray: bool = True,
+        use_dask: bool = False,
         lazy: bool = False,
         **kwargs: Any,
     ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
@@ -246,6 +254,8 @@ class OpenAQV2Reader(PointReader):
             Whether to return data in wide format, by default True.
         as_xarray : bool, optional
             Whether to return an xarray.Dataset, by default True.
+        use_dask : bool, optional
+            Whether to return a Dask-backed object, by default False.
         lazy : bool, optional
             Whether to return a dask-backed object, by default False.
         **kwargs : dict
@@ -262,6 +272,11 @@ class OpenAQV2Reader(PointReader):
         >>> reader = OpenAQV2Reader()
         >>> df = reader.open_dataset(dates='2023-01-01', as_xarray=False)
         """
+        # This reader builds its own Dask graph instead of using PandasDriver,
+        # so resolve the shared alias before branching or forwarding API kwargs.
+        if use_dask:
+            lazy = True
+
         if dates is None:
             raise ValueError("must provide at least one datetime-like via 'dates'")
 
@@ -344,7 +359,10 @@ class OpenAQV2Reader(PointReader):
             "country": str,
             "city": str,
             "is_mobile": bool,
-            "is_analysis": object,
+            # Preserve the API's nullable boolean field. An object dtype is
+            # treated as a string column by Dask's schema inference and can
+            # turn ``False`` into the literal string "False" in partitions.
+            "is_analysis": "boolean",
             "entity": str,
             "sensor_type": str,
             "time": "datetime64[us]",
@@ -564,7 +582,10 @@ class OpenAQV2Reader(PointReader):
         return df
 
     def to_xarray(
-        self, df: Union[pd.DataFrame, "dd.DataFrame"], wide_fmt: bool = True, **kwargs: Any
+        self,
+        df: Union[pd.DataFrame, "dd.DataFrame"],
+        expand2d: bool = True,
+        **kwargs: Any,
     ) -> xr.Dataset:
         """
         Convert to xarray and rename variables for consistency.
@@ -583,6 +604,25 @@ class OpenAQV2Reader(PointReader):
         xr.Dataset
             The loaded dataset.
         """
+        # OpenAQ v2 uses wide_fmt as an alias for expand2d
+        wide_fmt = kwargs.get("wide_fmt", expand2d)
+        if "is_analysis" in df.columns:
+            try:
+                import dask.dataframe as dd
+
+                is_dask = isinstance(df, dd.DataFrame)
+            except ImportError:
+                is_dask = False
+            if is_dask:
+                df = df.assign(
+                    is_analysis=df["is_analysis"].map_partitions(
+                        _boolean_object_partition, meta=pd.Series(dtype=object)
+                    )
+                )
+            else:
+                df = df.copy()
+                values = df["is_analysis"].astype(object)
+                df["is_analysis"] = values.where(df["is_analysis"].notna(), np.nan)
         ds = super().to_xarray(df, expand2d=wide_fmt, **kwargs)
 
         if wide_fmt:

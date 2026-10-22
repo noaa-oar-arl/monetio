@@ -1,0 +1,12 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "94512a812348022bf27f01d7ffe5993905570c6e86c7903c16fefe4ccbdce21e",
+  "kind": "recorded",
+  "load_kwargs": {
+    "save_index": false
+  },
+  "location": "s3://noaa-gfs-bdp-pds/gfs.20250324/00/atmos/gfs.t00z.pgrb2.1p00.f000",
+  "producer": "scripts/record_samples.py",
+  "reason": "one NCEP GRIB2 field decoded by the generic reader",
+  "requires": "grib2io"
+}

@@ -9,6 +9,7 @@ import xarray as xr
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -26,6 +27,15 @@ class PardumpReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
+        chunks: Any = None,
         drange: tuple[datetime, datetime] | list[datetime] | None = None,
         century: int = 2000,
         verbose: bool = False,
@@ -40,6 +50,22 @@ class PardumpReader(PointReader):
         ----------
         files : Union[str, List[str]]
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         drange : tuple of datetime, optional
             Date range to filter, by default None.
         century : int, optional
@@ -50,6 +76,9 @@ class PardumpReader(PointReader):
             If True, return an xarray.Dataset, by default True.
         lazy : bool, optional
             If True, return a dask-backed object, by default False.
+        chunks : Any, optional
+            Chunk sizing is unsupported because PARDUMP records are parsed
+            into one in-memory pandas table before output conversion.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -63,6 +92,9 @@ class PardumpReader(PointReader):
         >>> reader = PardumpReader()
         >>> ds = reader.open_dataset("PARDUMP.bin")
         """
+        if chunks is not None:
+            raise OptionUnsupportedError("chunks", "pardump")
+
         # Pass parameters to read_pardump via kwargs
         kwargs.update(
             {
@@ -74,6 +106,14 @@ class PardumpReader(PointReader):
 
         return super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_pardump,
             as_xarray=as_xarray,
             lazy=lazy,

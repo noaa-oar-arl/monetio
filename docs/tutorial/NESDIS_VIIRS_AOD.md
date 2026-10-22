@@ -14,7 +14,8 @@ Sahara. Lets open the data on a single day at first, in this case
 
 ```python
 import monetio as mio
-edr = mio.nesdis_edr_viirs.open_dataset('2018-07-05')
+
+edr = mio.nesdis_edr_viirs.open_dataset("2018-07-05")
 print(edr)
 ```
 

@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .base import GriddedReader, register_reader, update_history
+from .base import GriddedReader, _ensure_time_dimension, register_reader, update_history
 from .drivers import FileUtility
+from .errors import MalformedInputError, OptionUnsupportedError, annotate
 
 
 @register_reader("hysplit")
@@ -16,12 +17,21 @@ class HYSPLITReader(GriddedReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         drange: list[datetime.datetime] | None = None,
         century: int | None = None,
         verbose: bool = False,
         sample_time_stamp: str = "start",
         check_grid: bool = True,
         lazy: bool = False,
+        chunks: Any = None,
         **kwargs: Any,
     ) -> xr.Dataset:
         """
@@ -31,6 +41,22 @@ class HYSPLITReader(GriddedReader):
         ----------
         files : Union[str, List[str]]
             File path(s), URL(s), or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         drange : List[datetime.datetime], optional
             Date range to filter, by default None.
         century : int, optional
@@ -42,7 +68,11 @@ class HYSPLITReader(GriddedReader):
         check_grid : bool, optional
             Whether to fix grid continuity, by default True.
         lazy : bool, optional
-            Whether to use Dask for lazy loading, by default False.
+            Whether to use Dask for lazy loading. HYSPLIT binary files are
+            parsed as complete NumPy arrays, so Dask-backed input is unsupported.
+        chunks : Any, optional
+            Chunk sizing is unsupported because the binary parser materializes
+            complete concentration files as NumPy arrays.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -51,6 +81,22 @@ class HYSPLITReader(GriddedReader):
         xr.Dataset
             The processed HYSPLIT dataset.
         """
+        if chunks is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "hysplit",
+                cause="the binary parser materializes each complete concentration file",
+            )
+        if use_dask or lazy:
+            raise OptionUnsupportedError(
+                "use_dask",
+                "hysplit",
+                cause=(
+                    "the HYSPLIT binary parser reads each complete concentration file "
+                    "into NumPy arrays and cannot provide Dask-backed input"
+                ),
+            )
+
         # Set up kwargs for read_method
         read_kwargs = {
             "drange": drange,
@@ -68,6 +114,14 @@ class HYSPLITReader(GriddedReader):
         # while still benefiting from FileUtility and potential future driver features.
         ds = self.driver.open(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=open_dataset_hysplit,
             lazy=lazy,
             preprocess=None,  # HYSPLIT handles its own preprocessing
@@ -76,6 +130,7 @@ class HYSPLITReader(GriddedReader):
         )
 
         ds = update_history(ds, "Read HYSPLIT data.")
+        ds = _ensure_time_dimension(ds)
         return ds
 
     def harmonize(self, ds):
@@ -148,7 +203,7 @@ class ModelBin:
         real4 = ">f"
         int4 = ">i"
         int2 = ">i2"
-        char4 = ">a4"
+        char4 = ">S4"
 
         rec1 = dtype(
             [
@@ -316,7 +371,11 @@ class ModelBin:
     def parse_hdata8(hdata8a, hdata8b, pdate1):
         lev_name = hdata8a["lev"][0]
         col_name = hdata8a["poll"][0].decode("UTF-8")
-        edata = hdata8b.byteswap().newbyteorder()
+        # The concentration block is read big-endian; convert to a native-byte-
+        # order array (value-preserving) before building the record frame, which
+        # is what the old ``byteswap().newbyteorder()`` idiom was reaching for
+        # before numpy 2 removed the no-argument form.
+        edata = np.asarray(hdata8b, dtype=hdata8b.dtype.newbyteorder("="))
         concframe = pd.DataFrame.from_records(edata)
         concframe["levels"] = lev_name
         concframe["time"] = pdate1
@@ -338,13 +397,30 @@ class ModelBin:
         fs = FileUtility.get_fs(filename)
         fid = fs.open(filename, "rb")
 
+        # Header-derived record counts are untrusted: a corrupt file can claim
+        # far more records than it actually holds, and np.fromfile(count=...) makes
+        # NumPy pre-allocate count*itemsize before reading (observed: a 117-byte
+        # file asking for 68.4 GiB). That raises a platform-dependent MemoryError --
+        # Linux refuses the reservation outright, macOS over-commits and fails
+        # elsewhere -- so the failure is neither deterministic nor does it name the
+        # input. Reject any count whose records cannot fit in the file up front.
+        file_size = fs.info(filename).get("size")
+
+        def _fits(count, itemsize, label):
+            if count < 0 or (file_size is not None and count * itemsize > file_size):
+                raise MalformedInputError(
+                    filename,
+                    f"{label} count {count} exceeds the {file_size}-byte file",
+                )
+            return int(count)
+
         recs = self.define_struct()
         rec1, rec2, rec3, rec4a = recs[0], recs[1], recs[2], recs[3]
         rec4b, rec5a, rec5b, rec5c = recs[4], recs[5], recs[6], recs[7]
         rec6, rec8a, rec8b, rec8c = recs[8], recs[9], recs[10], recs[11]
 
         hdata1 = np.fromfile(fid, dtype=rec1, count=1)
-        nstartloc = self.parse_header(hdata1)
+        nstartloc = _fits(self.parse_header(hdata1), rec2.itemsize, "starting-location")
 
         hdata2 = np.fromfile(fid, dtype=rec2, count=nstartloc)
         century = self.parse_hdata2(hdata2, nstartloc, century)
@@ -355,13 +431,15 @@ class ModelBin:
             print("Grid specs", self.gridhash)
 
         hdata4a = np.fromfile(fid, dtype=rec4a, count=1)
-        hdata4b = np.fromfile(fid, dtype=rec4b, count=hdata4a["nlev"][0])
+        nlev = _fits(hdata4a["nlev"][0], rec4b.itemsize, "level")
+        hdata4b = np.fromfile(fid, dtype=rec4b, count=nlev)
         self.parse_hdata4(hdata4a, hdata4b)
 
         hdata5a = np.fromfile(fid, dtype=rec5a, count=1)
-        np.fromfile(fid, dtype=rec5b, count=hdata5a["pollnum"][0])
+        pollnum = _fits(hdata5a["pollnum"][0], rec5b.itemsize, "species")
+        np.fromfile(fid, dtype=rec5b, count=pollnum)
         np.fromfile(fid, dtype=rec5c, count=1)
-        self.atthash["Number of Species"] = hdata5a["pollnum"][0]
+        self.atthash["Number of Species"] = pollnum
         self.atthash["Species ID"] = []
 
         iimax = 0
@@ -386,7 +464,8 @@ class ModelBin:
                     hdata8a = np.fromfile(fid, dtype=rec8a, count=1)
                     if hdata8a["ne"] >= 1:
                         self.atthash["Species ID"].append(hdata8a["poll"][0].decode("UTF-8"))
-                        hdata8b = np.fromfile(fid, dtype=rec8b, count=hdata8a["ne"][0])
+                        ne = _fits(hdata8a["ne"][0], rec8b.itemsize, "concentration")
+                        hdata8b = np.fromfile(fid, dtype=rec8b, count=ne)
                         self.nonzeroconcdates.append(pdate1)
                     else:
                         self.zeroconcdates.append(pdate1)
@@ -631,8 +710,11 @@ def combine_dataset(
                 )
             try:
                 mlat, mlon = getlatlon(hxr.attrs)
-            except Exception:
-                print("WARNING Cannot open " + fname[0])
+            except Exception as e:
+                # Without the grid attributes this output cannot be placed on a
+                # lat/lon grid or compared with the others, so combining would
+                # silently mix grids. Name the offending file instead.
+                raise annotate(e, fname[0]) from e
             if iii > 0:
                 tt1 = np.array_equal(mlat, mlat_p)
                 tt2 = np.array_equal(mlon, mlon_p)

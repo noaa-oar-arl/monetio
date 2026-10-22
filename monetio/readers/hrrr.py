@@ -1,0 +1,75 @@
+"""HRRR (High-Resolution Rapid Refresh) Reader"""
+
+import datetime
+from typing import Any
+
+import pandas as pd
+
+from .base import register_reader
+from .ncep_pds import NCEPPDSReader
+
+
+@register_reader("hrrr")
+class HRRRReader(NCEPPDSReader):
+    """
+    Reader for HRRR (High-Resolution Rapid Refresh) on AWS or NOMADS.
+    """
+
+    def build_urls(
+        self,
+        dates: pd.DatetimeIndex | list[datetime.datetime] | datetime.datetime | str,
+        hour: int = 0,
+        lead_time: int | list[int] = 0,
+        product: str = "prs",
+        source: str = "aws",
+        **kwargs: Any,
+    ) -> list[str]:
+        """
+        Build URLs for HRRR data.
+
+        Parameters
+        ----------
+        dates : Union[pd.DatetimeIndex, List[datetime], datetime, str]
+            Dates to retrieve.
+        hour : int, optional
+            Forecast cycle hour (0-23). Default is 0.
+        lead_time : Union[int, List[int]], optional
+            Forecast lead time(s). Default is 0.
+        product : str, optional
+            Product string. Common options: 'prs' (pressure levels), 'nat' (native).
+        source : str, optional
+            Data source: 'aws' (default) or 'nomads'.
+        **kwargs : Any
+            Additional arguments.
+
+        Returns
+        -------
+        List[str]
+            List of URLs.
+        """
+        if isinstance(dates, str | datetime.datetime | pd.Timestamp):
+            dates = pd.DatetimeIndex([pd.to_datetime(dates)])
+        else:
+            dates = pd.to_datetime(dates)
+
+        if isinstance(lead_time, int):
+            lead_times = [lead_time]
+        else:
+            lead_times = lead_time
+
+        urls = []
+        for d in dates:
+            d_str = d.strftime("%Y%m%d")
+            h_str = f"{hour:02d}"
+            for lt in lead_times:
+                lt_str = f"{lt:02d}"
+                prod_str = "nat" if product == "nat" else "prs"
+                if source.lower() == "aws":
+                    bucket = "noaa-hrrr-bdp-pds"
+                    # s3://noaa-hrrr-bdp-pds/hrrr.20250325/conus/hrrr.t00z.wrfprsf00.grib2
+                    url = f"s3://{bucket}/hrrr.{d_str}/conus/hrrr.t{h_str}z.wrf{prod_str}f{lt_str}.grib2"
+                else:
+                    # https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/hrrr.20250325/conus/hrrr.t00z.wrfprsf00.grib2
+                    url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/hrrr.{d_str}/conus/hrrr.t{h_str}z.wrf{prod_str}f{lt_str}.grib2"
+                urls.append(url)
+        return urls

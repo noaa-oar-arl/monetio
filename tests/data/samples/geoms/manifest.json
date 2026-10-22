@@ -1,0 +1,9 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "2d1f7b7e39991555ebc800699af068815404bb32a5cd1b3d6c116e887c3c2095",
+  "kind": "recorded",
+  "location": "https://www-air.larc.nasa.gov/pub/NDACC/PUBLIC/stations/mauna.loa.hi/hdf/lidar/groundbased_lidar.aerosol_nasa.jpl002_glass.1.1_mauna.loa.hi_20040109t045500z_20040109t065531z_001.hdf",
+  "producer": "scripts/record_samples.py",
+  "reason": "one GEOMS HDF4 lidar profile, recorded whole",
+  "requires": "pyhdf"
+}

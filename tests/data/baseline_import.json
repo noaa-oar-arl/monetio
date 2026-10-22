@@ -1,0 +1,19 @@
+{
+  "python": "3.12.12",
+  "executable": "/Users/barry/Documents/monetio-1/.venv/bin/python",
+  "reps": 10,
+  "median_seconds": 0.877116666524671,
+  "min_seconds": 0.7668638330651447,
+  "max_seconds": 11.540675041964278,
+  "n_modules": 1591,
+  "monetio_readers_loaded": 53,
+  "facade_submodules_loaded": {
+    "obs": 20,
+    "models": 12,
+    "sat": 12,
+    "profile": 5
+  },
+  "optional_present_after_bare_import": [
+    "scipy"
+  ]
+}

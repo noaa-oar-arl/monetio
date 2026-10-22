@@ -1,0 +1,13 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "28303bcdc94bf011ea344f45e3ffb5cbb4e851882f65d7667f3b4d4cdb33f57c",
+  "kind": "recorded",
+  "layout": "pgrb2a.0p50",
+  "load_kwargs": {
+    "save_index": false
+  },
+  "location": "s3://noaa-gefs-pds/gefs.20250324/00/atmos/pgrb2ap5/geavg.t00z.pgrb2a.0p50.f000",
+  "producer": "scripts/record_samples.py",
+  "reason": "leading field of a GEFS 0.5-degree ensemble-mean GRIB2 product",
+  "requires": "grib2io"
+}

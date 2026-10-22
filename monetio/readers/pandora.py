@@ -10,6 +10,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import register_reader
+from .errors import RetrievalFailedError
 from .geoms import GEOMSReader
 from .sat_utils import update_history
 
@@ -27,6 +28,14 @@ class PandoraReader(GEOMSReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime.datetime] | datetime.datetime | str | None = None,
         siteid: str | None = None,
         instrument: str | None = None,
@@ -41,6 +50,22 @@ class PandoraReader(GEOMSReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         siteid : str, optional
@@ -71,15 +96,42 @@ class PandoraReader(GEOMSReader):
                 return xr.Dataset()
             return pd.DataFrame()
 
-        ds = super().open_dataset(files, **kwargs)
+        ds = super().open_dataset(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # Apply harmonization explicitly as GEOMSReader.open_dataset calls geoms_preprocess
         # but doesn't call a reader-specific harmonize method from the base class properly
         # if not overridden in a specific way.
+        source_dataset = ds
         ds = self.harmonize(ds)
+        if source_dataset is not ds:
+            ds.set_close(source_dataset.close)
 
         if not as_xarray:
-            return ds.to_dataframe().reset_index()
+            if use_dask:
+                frame = ds.to_dask_dataframe()[list(ds.variables)].reset_index(drop=True)
+            else:
+                frame = ds.to_dataframe()
+                # GEOMS time is sometimes a same-named auxiliary coordinate,
+                # not an Xarray index. In that layout the timestamp is already
+                # a column and pandas reset_index would try to insert a second
+                # ``time`` column containing the positional dimension index.
+                if not ("time" in frame.columns and frame.index.name == "time"):
+                    frame = frame.reset_index()
+                else:
+                    frame = frame.reset_index(drop=True)
+            ds.close()
+            return frame
 
         # Update history
         ds = update_history(ds, "Read Pandora data using standardized preprocessing.")
@@ -133,49 +185,48 @@ class PandoraReader(GEOMSReader):
         try:
             fs = fsspec.filesystem("https")
             all_files = fs.ls(base_url)
-
-            urls = []
-            for f in all_files:
-                if not f.endswith(".h5"):
-                    continue
-
-                f_lower = f.lower()
-                if product and f"{product.lower()}_" not in f_lower:
-                    continue
-
-                # Pandora filenames contain start and end times:
-                # groundbased_uvvis.doas.directsun.no2_noaa.esrl057_rd.rnvs3.1.8_boulder.co_20180430t232018z_20221222t223120z_001.h5
-                # Extract dates from filename
-                parts = f_lower.split("_")
-                try:
-                    # Usually the last two parts before .h5 are dates
-                    start_str = parts[-3].split("t")[0]
-                    end_str = parts[-2].split("t")[0]
-
-                    f_start = pd.to_datetime(start_str, format="%Y%m%d")
-                    f_end = pd.to_datetime(end_str, format="%Y%m%d")
-
-                    for d in dates:
-                        if f_start <= d <= f_end:
-                            urls.append(
-                                f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}"
-                            )
-                            break
-                except Exception:
-                    # Fallback to simple string match
-                    for d in dates:
-                        if d.strftime("%Y%m%d") in f_lower:
-                            urls.append(
-                                f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}"
-                            )
-                            break
-
-            return sorted(list(set(urls)))
         except Exception as e:
-            import warnings
+            # A failed listing is a retrieval failure, not "no files for this
+            # date": returning an empty list here makes a broken request or an
+            # unreachable archive load as "no data", so raise naming the URL.
+            raise RetrievalFailedError(base_url, cause=str(e)) from e
 
-            warnings.warn(f"Failed to list Pandora files at {base_url}: {e}")
-            return []
+        urls = []
+        for f in all_files:
+            if not f.endswith(".h5"):
+                continue
+
+            f_lower = f.lower()
+            if product and f"{product.lower()}_" not in f_lower:
+                continue
+
+            # Pandora filenames contain start and end times:
+            # groundbased_uvvis.doas.directsun.no2_noaa.esrl057_rd.rnvs3.1.8_boulder.co_20180430t232018z_20221222t223120z_001.h5
+            # Extract dates from filename
+            parts = f_lower.split("_")
+            try:
+                # Usually the last two parts before .h5 are dates
+                start_str = parts[-3].split("t")[0]
+                end_str = parts[-2].split("t")[0]
+
+                f_start = pd.to_datetime(start_str, format="%Y%m%d")
+                f_end = pd.to_datetime(end_str, format="%Y%m%d")
+
+                for d in dates:
+                    if f_start <= d <= f_end:
+                        urls.append(f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}")
+                        break
+            except (ValueError, IndexError):
+                # The filename does not carry the expected date fields
+                # (bad digits, or too few underscore-separated parts);
+                # fall back to a plain substring match of the requested
+                # dates rather than dropping the candidate.
+                for d in dates:
+                    if d.strftime("%Y%m%d") in f_lower:
+                        urls.append(f if f.startswith("http") else f"{base_url}/{f.split('/')[-1]}")
+                        break
+
+        return sorted(list(set(urls)))
 
     def harmonize(self, ds: xr.Dataset) -> xr.Dataset:
         """

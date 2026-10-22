@@ -3,8 +3,13 @@ repos:
     rev: "v6.0.0"
     hooks:
       - id: trailing-whitespace
-        exclude: tdump\.[0-9]*
+        # tdump files and the checked-in sample payloads are byte-exact
+        # captures whose manifest records a content hash; rewriting trailing
+        # padding (fixed-width formats are whitespace-significant) invalidates
+        # the hash and can change how a reader parses them.
+        exclude: tdump\.[0-9]*|^tests/data/
       - id: end-of-file-fixer
+        exclude: ^tests/data/
       - id: check-docstring-first
         exclude: monetio/obs/openaq_v(2|3)\.py
       - id: check-yaml

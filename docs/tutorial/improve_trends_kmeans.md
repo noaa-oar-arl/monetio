@@ -53,9 +53,12 @@ Now we will load the data (in this case the file is
 ‘2018620155016911Q1N0Mq.txt’)
 
 ```python
-df = improve.add_data('/Users/barry/Desktop/20186258419212M0xuxu.txt', add_meta=False, delimiter=',')
+df = improve.add_data(
+    "/Users/barry/Desktop/20186258419212M0xuxu.txt", add_meta=False, delimiter=","
+)
 from numpy import NaN
-df['obs'].loc[df.obs < 0] = NaN
+
+df["obs"].loc[df.obs < 0] = NaN
 ```
 
 ```````text

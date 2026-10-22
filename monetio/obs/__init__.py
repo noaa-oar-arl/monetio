@@ -1,24 +1,37 @@
-from . import (
-    actris,
-    aeronet,
-    airnow,
-    aqs,
-    cems as cems,
-    crn,
-    epa_util,
-    eprofile,
-    iagos,
-    improve as improve,
-    ish,
-    ish_lite,
-    nadp,
-    ndacc,
-    openaq,
-    openaq_v2,
-    openaq_v3,
-    pams,
-    pandora,
-    skynet,
+"""Deprecated ``monetio.obs`` facade — now resolved lazily.
+
+Submodules are imported on first attribute access instead of eagerly, so
+``import monetio`` no longer drags in every observation reader. The submodule
+files themselves (the ``@deprecated_wrapper`` shims) are unchanged.
+"""
+
+from __future__ import annotations
+
+from .. import _lazy
+
+# Names previously eagerly imported here, preserved as the facade surface so
+# ``from monetio.obs import airnow`` etc. keep working unchanged.
+_SUBMODULES = (
+    "actris",
+    "aeronet",
+    "airnow",
+    "aqs",
+    "cems",
+    "crn",
+    "epa_util",
+    "eprofile",
+    "iagos",
+    "improve",
+    "ish",
+    "ish_lite",
+    "nadp",
+    "ndacc",
+    "openaq",
+    "openaq_v2",
+    "openaq_v3",
+    "pams",
+    "pandora",
+    "skynet",
 )
 
 __all__ = [
@@ -43,6 +56,18 @@ __all__ = [
     "pandora",
     "skynet",
 ]
+
+
+def __getattr__(name: str):
+    module = _lazy.facade_attribute("obs", name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = module
+    return module
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_SUBMODULES))
 
 
 # ish = ish_mod.ISH()

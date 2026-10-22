@@ -1,6 +1,5 @@
 """SKYNET Sun Photometer Reader."""
 
-import warnings
 from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Union
@@ -12,6 +11,7 @@ import xarray as xr
 from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -31,6 +31,14 @@ class SKYNETReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str | None = None,
         siteid: str | None = None,
         product: str = "AOT",
@@ -45,6 +53,22 @@ class SKYNETReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve if files are not provided.
         siteid : str, optional
@@ -83,6 +107,14 @@ class SKYNETReader(PointReader):
 
         df = super().open_dataset(
             files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
             read_method=read_func,
             as_xarray=False,
             lazy=lazy,
@@ -191,8 +223,9 @@ def read_skynet_csv(fn: str, **kwargs: dict) -> pd.DataFrame:
             if isinstance(content, bytes):
                 content = content.decode("utf-8", errors="ignore")
     except Exception as e:
-        warnings.warn(f"Failed to read {fn}: {e}")
-        return pd.DataFrame()
+        # An input whose bytes cannot be read is a failed load naming that
+        # input, not a station with no observations.
+        raise annotate(e, fn) from e
 
     lines = content.splitlines()
     if not lines:
@@ -227,8 +260,9 @@ def read_skynet_csv(fn: str, **kwargs: dict) -> pd.DataFrame:
             na_values=["-999", "-999.9", "-9.999"],
         )
     except Exception as e:
-        warnings.warn(f"Error parsing SKYNET file {fn}: {e}")
-        return pd.DataFrame()
+        # Content that cannot be parsed is a failure naming the file it came
+        # from, not an empty result that looks like a successful no-data read.
+        raise annotate(e, fn) from e
 
     if df.empty:
         return df

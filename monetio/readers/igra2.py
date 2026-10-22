@@ -12,6 +12,7 @@ import xarray as xr
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -43,8 +44,9 @@ def read_igra2(fname: str, **kwargs) -> pd.DataFrame:
             else:
                 lines = content.splitlines()
     except Exception as e:
-        logger.warning(f"Could not read {fname}: {e}")
-        return pd.DataFrame()
+        # An input whose bytes cannot be read or decompressed is a failed
+        # load naming that input, not a silently-empty profile file.
+        raise annotate(e, fname) from e
 
     data_list = []
     current_header = None
@@ -78,7 +80,7 @@ def read_igra2(fname: str, **kwargs) -> pd.DataFrame:
                     "latitude": lat,
                     "longitude": lon,
                 }
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-header-line best-effort parse; a malformed header line drops only its own sounding levels, the rest of the file still loads (categories: malformed)
                 logger.debug(f"Failed to parse header line: {line_str}. Error: {e}")
                 current_header = None
         else:
@@ -124,7 +126,7 @@ def read_igra2(fname: str, **kwargs) -> pd.DataFrame:
                     }
                 )
                 data_list.append(data_row)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-data-line best-effort parse; a malformed level line drops only that level, the rest of the sounding still loads (categories: malformed)
                 logger.debug(f"Failed to parse data line: {line_str}. Error: {e}")
 
     df = pd.DataFrame(data_list)
@@ -170,8 +172,9 @@ def read_igra2_derived(fname: str, **kwargs) -> pd.DataFrame:
             else:
                 lines = content.splitlines()
     except Exception as e:
-        logger.warning(f"Could not read {fname}: {e}")
-        return pd.DataFrame()
+        # An input whose bytes cannot be read or decompressed is a failed
+        # load naming that input, not a silently-empty derived file.
+        raise annotate(e, fname) from e
 
     data_list = []
     current_header = None
@@ -213,7 +216,7 @@ def read_igra2_derived(fname: str, **kwargs) -> pd.DataFrame:
                     "cape": cape,
                     "cin": cin,
                 }
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-header-line best-effort parse; a malformed derived header line drops only its own record, the rest of the file still loads (categories: malformed)
                 logger.debug(f"Failed to parse derived header: {line_str}. Error: {e}")
                 current_header = None
         else:
@@ -240,7 +243,7 @@ def read_igra2_derived(fname: str, **kwargs) -> pd.DataFrame:
                     }
                 )
                 data_list.append(data_row)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-data-line best-effort parse; a malformed derived level line drops only that level, the rest of the record still loads (categories: malformed)
                 logger.debug(f"Failed to parse derived data line: {line_str}. Error: {e}")
 
     df = pd.DataFrame(data_list)
@@ -307,8 +310,10 @@ class IGRA2Reader(PointReader):
                 ]
                 self.stations = pd.read_fwf(f, colspecs=colspecs, names=names)
         except Exception as e:
-            logger.warning(f"Could not read station list: {e}")
-            self.stations = pd.DataFrame()
+            # A station list that cannot be read makes site selection
+            # impossible; that is a failure naming the source, not an
+            # empty station table.
+            raise annotate(e, self.station_list_url) from e
         return self.stations
 
     def build_urls(
@@ -346,6 +351,14 @@ class IGRA2Reader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] | None = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str | None = None,
         site: str | list[str] | None = None,
         derived: bool = False,
@@ -357,29 +370,49 @@ class IGRA2Reader(PointReader):
         """
         Retrieve and load IGRA2 data.
         """
+        if use_dask:
+            lazy = True
+
         if files is None:
             if site is None:
                 raise ValueError("Must provide either 'files' or 'site'.")
             files = self.build_urls(sites=site, derived=derived)
 
         read_method = read_igra2_derived if derived else read_igra2
-        df = self.driver.open(files, read_method=read_method, lazy=lazy, **kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_method,
+            lazy=lazy,
+            **kwargs,
+        )
 
         if add_metadata:
             stations = self.read_station_list()
             if not stations.empty:
                 stations = stations.assign(siteid=stations.siteid.astype(object))
                 if lazy:
+                    import dask
                     import dask.dataframe as dd
 
                     df = df.assign(siteid=df.siteid.astype(object))
-                    stations_dask = dd.from_pandas(stations, npartitions=1)
-                    stations_dask = stations_dask.assign(siteid=stations_dask.siteid.astype(object))
-                    df = df.merge(
-                        stations_dask.drop(columns=["latitude", "longitude"]),
-                        on="siteid",
-                        how="left",
-                    )
+                    with dask.config.set({"dataframe.convert-string": False}):
+                        stations_dask = dd.from_pandas(stations, npartitions=1)
+                        stations_dask = stations_dask.assign(
+                            siteid=stations_dask.siteid.astype(object)
+                        )
+                        df = df.merge(
+                            stations_dask.drop(columns=["latitude", "longitude"]),
+                            on="siteid",
+                            how="left",
+                        )
                 else:
                     df = df.assign(siteid=df.siteid.astype(object))
                     df = df.merge(

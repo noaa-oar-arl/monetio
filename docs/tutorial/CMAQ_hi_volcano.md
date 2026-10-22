@@ -20,7 +20,7 @@ that a separate grdcro2d (grddot2d) file be loaded for the mass points
 (dot points) using the `grid` kwarg.
 
 ```python
-conc = '/Users/barry/Desktop/MONET/data/aqm.t12z.aconc.ncf'
+conc = "/Users/barry/Desktop/MONET/data/aqm.t12z.aconc.ncf"
 c = mio.cmaq.open_dtaset(flist=conc)
 ```
 

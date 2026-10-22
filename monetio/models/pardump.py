@@ -32,5 +32,5 @@ def open_dataset(fname, drange=None, century=2000, verbose=False):
         drange=drange,
         century=century,
         verbose=verbose,
-        as_xarray=False,
+        as_xarray=True,
     )

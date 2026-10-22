@@ -1,0 +1,12 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "9e764112dbbb14097f93aa5d97a1b3e6c888cd81259fddaced5ccc5588841628",
+  "kind": "recorded",
+  "load_kwargs": {
+    "save_index": false
+  },
+  "location": "s3://noaa-gfs-bdp-pds/gdas.20250324/00/atmos/gdas.t00z.pgrb2.1p00.f000",
+  "producer": "scripts/record_samples.py",
+  "reason": "one GRIB2 field decoded by the generalized reader",
+  "requires": "grib2io"
+}

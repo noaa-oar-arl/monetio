@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 
@@ -28,10 +29,19 @@ class HYTRAJReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         taglist: list[Any] | None = None,
         renumber: bool = False,
         as_xarray: bool = True,
         lazy: bool = False,
+        chunks: Any = None,
         **kwargs: Any,
     ) -> pd.DataFrame | xr.Dataset | dd.DataFrame:
         """
@@ -41,6 +51,22 @@ class HYTRAJReader(PointReader):
         ----------
         files : Union[str, List[str]]
             File path(s) or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         taglist : list[Any], optional
             List of tags for each file, added as 'pid' column.
         renumber : bool, optional
@@ -49,6 +75,9 @@ class HYTRAJReader(PointReader):
             Whether to return an xarray.Dataset, by default True.
         lazy : bool, optional
             Whether to return a dask-backed object, by default False.
+        chunks : Any, optional
+            Input chunk sizing is unsupported. Each complete text trajectory
+            file is parsed as one pandas partition.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -61,6 +90,15 @@ class HYTRAJReader(PointReader):
         --------
         >>> ds = reader.open_dataset("tdump.*", taglist=["run1", "run2"], renumber=True)
         """
+        if chunks is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "hytraj",
+                cause="each complete trajectory text file is parsed as one partition",
+            )
+        if use_dask:
+            lazy = True
+
         # Expand paths first to match tags and indices
         file_list = FileUtility.expand_paths(files)
 
@@ -104,7 +142,20 @@ class HYTRAJReader(PointReader):
                 df = update_history(df, "Renumbered trajectories for global uniqueness.")
         else:
             # Standard path
-            df = self.driver.open(files, read_method=read_hytraj_file, lazy=lazy, **driver_kwargs)
+            df = self.driver.open(
+                files,
+                use_virtualizarr=use_virtualizarr,
+                virtualizarr_file=virtualizarr_file,
+                virtualizarr_parser=virtualizarr_parser,
+                virtualizarr_backend=virtualizarr_backend,
+                icechunk_repo=icechunk_repo,
+                use_icechunk=use_icechunk,
+                icechunk_url=icechunk_url,
+                use_dask=use_dask,
+                read_method=read_hytraj_file,
+                lazy=lazy,
+                **driver_kwargs,
+            )
 
         df = self.harmonize(df)
 

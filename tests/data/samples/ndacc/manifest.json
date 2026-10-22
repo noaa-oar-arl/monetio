@@ -1,0 +1,9 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "7c4f92acdcb4b825a57adbeb362307f930fb7ade447652a9365892a76b6c3a58",
+  "kind": "recorded",
+  "location": "https://www-air.larc.nasa.gov/pub/NDACC/PUBLIC/stations/mauna.loa.hi/hdf/uvvis.dobson/groundbased_uvvis.dobson_noaa.esrl076_mauna.loa.hi_20190801t203100z_20190831t181808z_002.hdf",
+  "producer": "scripts/record_samples.py",
+  "reason": "one NDACC Dobson monthly HDF4 from the LaRC public station tree",
+  "requires": "pyhdf"
+}

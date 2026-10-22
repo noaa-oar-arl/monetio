@@ -27,11 +27,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13"]
 
-    # This default shell configuration is critical for Windows compatibility
-    # with micromamba. It ensures Git Bash is used and the env is activated.
+    # Use a login shell so the micromamba environment is activated.
     defaults:
       run:
         shell: bash -l {0}
@@ -39,45 +38,28 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up uv
-        if: runner.os != 'Windows'
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-
-      - name: Set up Python (uv)
-        if: runner.os != 'Windows'
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Set up Python (micromamba)
-        if: runner.os == 'Windows'
+      # Every leg builds the same conda-forge environment from
+      # environment-dev.yml. conda-forge is the only source that ships grib2io
+      # with its bundled NCEPLIBS-g2c (no apt, no source compile); PyPI is
+      # sdist-only and cannot build without g2c.
+      - name: Set up conda environment (micromamba)
         uses: mamba-org/setup-micromamba@v2
         with:
           environment-file: environment-dev.yml
           environment-name: monetio-dev
           cache-environment: true
-          # Explicitly initialize bash to support Windows Git Bash activation
+          # Initialize bash so the env is activated for every runner's steps.
           init-shell: bash
           create-args: >-
             python=${{ matrix.python-version }}
 
-      - name: Test with pytest (Unix)
-        if: runner.os != 'Windows'
-        run: uv run --extra test pytest -n auto --dist loadgroup -v -ra -W "ignore:Downloading test file:UserWarning::"
+      - name: Install grib2io
+        run: micromamba install -y -n monetio-dev -c conda-forge grib2io
 
-      - name: Test with pytest (Windows)
-        if: runner.os == 'Windows'
+      - name: Test with pytest
         run: pytest -n auto --dist loadgroup -v -ra -W "ignore:Downloading test file:UserWarning::"
 
-      - name: Test with pytspack installed (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          uv pip install "git+https://github.com/noaa-oar-arl/pytspack.git"
-          uv run --no-sync pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
-
-      - name: Test with pytspack installed (Windows)
-        if: runner.os == 'Windows'
+      - name: Test with pytspack installed
         run: |
           pip install "git+https://github.com/noaa-oar-arl/pytspack.git"
           pytest -k with_pytspack -n auto -v -ra -W "ignore:API key length is 0:UserWarning::"
@@ -87,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5

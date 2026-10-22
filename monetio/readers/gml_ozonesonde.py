@@ -11,6 +11,7 @@ import xarray as xr
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import annotate
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -26,6 +27,14 @@ class GMLOzonesondeReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime] | datetime | str = None,
         location: str | list[str] = None,
         errors: str = "raise",
@@ -40,6 +49,22 @@ class GMLOzonesondeReader(PointReader):
         ----------
         files : Union[str, List[str]], optional
             File paths or URLs to read. If None, uses `dates` and `location` to discover files.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : Union[pd.DatetimeIndex, List[datetime], datetime, str], optional
             Dates to retrieve.
         location : Union[str, List[str]], optional
@@ -90,7 +115,20 @@ class GMLOzonesondeReader(PointReader):
 
         # Use PandasDriver to open files
         # We pass read_100m as the read_method
-        df = self.driver.open(files, read_method=read_100m, lazy=lazy, **reader_kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_100m,
+            lazy=lazy,
+            **reader_kwargs,
+        )
 
         df = self.harmonize(df)
 
@@ -213,8 +251,10 @@ def discover_files(
         try:
             r = requests.get(url, timeout=TIMEOUT)
             r.raise_for_status()
-        except Exception:
-            return []
+        except Exception as e:
+            # A listing we cannot fetch is a failed retrieval naming that
+            # listing, not a station with no files on record.
+            raise annotate(e, url) from e
 
         data = []
         for m in re.finditer(r'href="([a-z0-9_]+\.l100)"', r.text):
@@ -244,7 +284,7 @@ def add_data(
     location: str | list[str] | None = None,
     errors: str = "raise",
     **kwargs,
-) -> pd.DataFrame:
+) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
     """
     Reads GML Ozonesonde data.
 
@@ -261,11 +301,11 @@ def add_data(
 
     Returns
     -------
-    pd.DataFrame
+    Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
         The loaded ozonesonde data.
     """
     return GMLOzonesondeReader().open_dataset(
-        dates=dates, location=location, errors=errors, as_xarray=False, **kwargs
+        dates=dates, location=location, errors=errors, **kwargs
     )
 
 

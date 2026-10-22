@@ -26,6 +26,14 @@ class PAMSReader(PointReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         as_xarray: bool = True,
         **kwargs: Any,
     ) -> Union[pd.DataFrame, xr.Dataset, "dd.DataFrame"]:
@@ -36,6 +44,27 @@ class PAMSReader(PointReader):
         ----------
         files : Union[str, List[str]]
             File paths or URLs to read.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False. Because
+            PAMS JSON stores its variable schema and units in the data rows,
+            a lazy request parses the first complete file once during setup.
+            Xarray output also discovers row lengths and its time index before
+            returning; the Dask-backed data is read again when evaluated. Use
+            ``as_xarray=False`` to avoid Xarray coordinate preparation.
         as_xarray : bool, optional
             Whether to return an xarray.Dataset, by default True.
         **kwargs : Any
@@ -59,8 +88,35 @@ class PAMSReader(PointReader):
             k: v for k, v in kwargs.items() if k not in ["expand2d", "pivot", "wide_fmt"]
         }
 
+        # PAMS is JSON and read_pams must decode a complete file to discover
+        # its dynamic columns. Reuse one first-file parse for Dask's explicit
+        # post-reader schema and the unit mapping instead of letting
+        # from_delayed infer metadata and reopening the same file below.
+        schema_df = None
+        lazy_requested = use_dask or bool(reader_kwargs.get("lazy"))
+        if lazy_requested and reader_kwargs.get("meta") is None:
+            file_list = FileUtility.expand_paths(
+                files,
+                storage_options=dict(reader_kwargs.get("storage_options", {})) or None,
+            )
+            if file_list:
+                schema_df = read_pams(file_list[0], **reader_kwargs)
+                reader_kwargs["meta"] = schema_df.iloc[:0].copy()
+
         # Use PandasDriver to open files
-        df = self.driver.open(files, read_method=read_pams, **reader_kwargs)
+        df = self.driver.open(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser=virtualizarr_parser,
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            read_method=read_pams,
+            **reader_kwargs,
+        )
 
         df = self.harmonize(df)
 
@@ -71,6 +127,8 @@ class PAMSReader(PointReader):
             # Retrieve unit mapping from dataframe attrs before it's possibly lost
             # in to_xarray or further transformations.
             unit_map = getattr(df, "attrs", {}).get("unit_mapping", {})
+            if not unit_map and schema_df is not None:
+                unit_map = schema_df.attrs.get("unit_mapping", {})
 
             if not unit_map:
                 # For Dask-backed DataFrames, attributes from the delayed read_pams
@@ -81,7 +139,7 @@ class PAMSReader(PointReader):
                         # Only read the first file's metadata
                         meta_df = read_pams(file_list[0])
                         unit_map = meta_df.attrs.get("unit_mapping", {})
-                except Exception:
+                except Exception:  # noqa: BLE001 - optional unit-mapping recovery by peeking at the first file; the load itself already succeeded and only the units attribute may be missing (categories: malformed, retrieval_failed)
                     pass
 
             # We must handle unit transfer BEFORE or AFTER expansion.

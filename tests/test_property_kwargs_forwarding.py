@@ -6,30 +6,38 @@
 For any registered reader name and any combination of VirtualiZarr-related kwargs
 (use_virtualizarr, virtualizarr_file, virtualizarr_backend, icechunk_repo), calling
 ``monetio.load(source, files, **vz_kwargs)`` SHALL forward those kwargs to the reader's
-``open_dataset()`` method for GriddedReaders, and SHALL silently ignore them for
-PointReaders without raising an error.
+``open_dataset()`` method for GriddedReaders. For PointReaders the honest-failure
+contract replaced the old silent-ignore: a non-default virtualization option on a
+tabular source is rejected by name (``OptionUnsupportedError``) rather than accepted
+and discarded, so callers are never left believing a reference file was written.
 """
 
 import importlib
 import unittest.mock as mock
 
+import pytest
 from hypothesis import given, settings, strategies as st
 
 import monetio
 from monetio.readers.base import READER_REGISTRY, GriddedReader, PointReader
+from monetio.readers.errors import OptionUnsupportedError
 
 # ---------------------------------------------------------------------------
 # Ensure readers are registered by importing their modules
 # ---------------------------------------------------------------------------
 
-# Import a representative set of GriddedReader and PointReader modules
-# so they register themselves in READER_REGISTRY.
-_GRIDDED_SOURCES = ["cmaq", "camx", "chimere", "wrfchem", "merra2"]
-_POINT_SOURCES = ["airnow", "aqs", "improve", "pams", "crn"]
+# Enumerate every loadable source from the manifest-backed public API and
+# import its module so the readers register themselves in READER_REGISTRY.
+_SOURCES_BY_KIND = {"gridded": [], "point": []}
+for _src in monetio.available_sources():
+    if _src not in READER_REGISTRY:
+        importlib.import_module(monetio.source_info(_src).module, package="monetio")
+    _kind = "gridded" if issubclass(READER_REGISTRY[_src], GriddedReader) else "point"
+    if _src not in _SOURCES_BY_KIND[_kind]:
+        _SOURCES_BY_KIND[_kind].append(_src)
 
-for _src in _GRIDDED_SOURCES + _POINT_SOURCES:
-    if _src not in READER_REGISTRY and _src in monetio._READER_MODULES:
-        importlib.import_module(monetio._READER_MODULES[_src], package="monetio")
+_GRIDDED_SOURCES = _SOURCES_BY_KIND["gridded"]
+_POINT_SOURCES = _SOURCES_BY_KIND["point"]
 
 
 # ---------------------------------------------------------------------------
@@ -111,18 +119,34 @@ def test_point_reader_accepts_vz_kwargs_without_error(source, vz_kwargs):
 @settings(max_examples=100)
 @given(vz_kwargs=_vz_kwargs)
 def test_point_reader_does_not_forward_vz_kwargs_to_driver(vz_kwargs):
-    """PointReader base class does NOT forward VZ kwargs to PandasDriver.open().
+    """PointReader base class never forwards VZ kwargs to PandasDriver.open().
 
-    This tests the base class behavior directly — VZ kwargs are accepted in the
-    signature but silently discarded before calling self.driver.open().
+    Under the honest-failure contract the base class rejects every non-default
+    virtualization option by name before any reading happens, so the options
+    can neither reach the driver nor be silently discarded. With all options at
+    their defaults the load proceeds and the driver call must not carry them.
     """
     reader = PointReader()
+
+    defaults = {
+        "use_virtualizarr": False,
+        "virtualizarr_file": None,
+        "virtualizarr_backend": "kerchunk",
+        "icechunk_repo": None,
+    }
+    non_default = {k: v for k, v in vz_kwargs.items() if v != defaults[k]}
 
     with mock.patch.object(
         reader.driver, "open", return_value=mock.MagicMock()
     ) as mock_driver_open:
         with mock.patch.object(reader, "harmonize", side_effect=lambda df: df):
             with mock.patch.object(reader, "to_xarray", return_value=mock.MagicMock()):
+                if non_default:
+                    # Rejected by name; nothing is read at all.
+                    with pytest.raises(OptionUnsupportedError):
+                        reader.open_dataset(files=["dummy.csv"], **vz_kwargs)
+                    assert not mock_driver_open.called
+                    return
                 reader.open_dataset(files=["dummy.csv"], **vz_kwargs)
 
                 mock_driver_open.assert_called_once()

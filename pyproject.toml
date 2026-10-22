@@ -67,7 +67,13 @@ dependencies = [
     "h5netcdf",
     "h5py",
     "pyproj",
-    "pyarrow"
+    "pyarrow",
+    # Declared explicitly (research R6): used unconditionally in
+    # monetio/readers/drivers.py (fsspec) and monetio/cli.py (click, reached
+    # via the `monetio` console-script entry point), but previously only
+    # present transitively. Making them direct deps stabilizes the CLI.
+    "fsspec",
+    "click",
 ]
 
 [project.scripts]
@@ -91,6 +97,7 @@ dev = [
     "pytest-xdist",
     "filelock",
     "hypothesis",
+    "psutil",
     "ruff",
     "mkdocs-material",
     "mkdocstrings[python]",
@@ -132,6 +139,14 @@ icechunk = [
     "monetio[virtualizarr]",
 ]
 
+# Optional distributed scheduler for deferred loads (research Q2, C-SCALE-8).
+# Kept OUT of `all`/`dev`/`test` so a bare `import monetio` never pulls
+# `distributed` (contracts/lazy-resolution.md C-LAZY-1); scale tests skip
+# gracefully when it is absent.
+distributed = [
+    "distributed",
+]
+
 
 [tool.setuptools]
 packages = ["monetio", "monetio.models", "monetio.obs", "monetio.profile", "monetio.readers", "monetio.sat"]
@@ -139,8 +154,10 @@ package-data = {"monetio" = ["data/*.csv", "data/*.tsv", "data/*.txt", "data/*.p
 
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 markers = [
     "network: tests that require network access",
+    "slow: long-running benchmarks (wall-clock timing, real clusters)",
 ]
 filterwarnings = [
     "ignore:The distutils package is deprecated:DeprecationWarning:joblib.backports",

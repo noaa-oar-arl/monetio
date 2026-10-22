@@ -1,0 +1,8 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "23b032752874e6c795491ce8f872fa39de2990325d58f8afc8d9e27e2d87640e",
+  "kind": "recorded",
+  "location": "https://www.ndbc.noaa.gov/data/historical/stdmet/41002h2020.txt.gz",
+  "producer": "scripts/record_samples.py",
+  "reason": ""
+}

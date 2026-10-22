@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from .base import GriddedReader, register_reader
+from .base import GriddedReader, _ensure_time_dimension, register_reader
 from .sat_utils import update_history
 from .time_utils import parse_wrf_times
 
@@ -22,6 +22,14 @@ class RAQMSReader(GriddedReader):
     def open_dataset(
         self,
         files: str | list[str],
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         convert_to_ppb: bool = True,
         var_list: list[str] | None = None,
         surf_only: bool = False,
@@ -34,6 +42,22 @@ class RAQMSReader(GriddedReader):
         ----------
         files : Union[str, List[str]]
             File path, list of paths, or glob pattern.
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         convert_to_ppb : bool, optional
             Convert gas species from ppv to ppbv, by default True.
         var_list : list of str, optional
@@ -91,10 +115,11 @@ class RAQMSReader(GriddedReader):
 
         # 2. Open the dataset using standard xarray (via XarrayDriver)
         # Use fpaths instead of files to ensure consistent set of files
-        ds = self.driver.open(fpaths, **kwargs)
+        ds = self.driver.open(fpaths, use_dask=use_dask, virtualizarr_parser="hdf5", **kwargs)
 
         # Update history
         ds = update_history(ds, "Read RAQMS data.")
+        ds = _ensure_time_dimension(ds)
 
         return ds
 
@@ -255,9 +280,14 @@ def _fix_grid(ds: xr.Dataset) -> xr.Dataset:
             ),
         )
 
-    # Invert in z so that index 0 is closest to surface
+    # Invert in z so that index 0 is closest to surface. A positive reverse
+    # index array is used rather than ``slice(None, None, -1)``: a negative
+    # stride applied straight to an on-disk (h5netcdf) variable silently
+    # collapses that dimension to length zero, whereas the explicit index
+    # gather is backend-agnostic and stays lazy for a dask-backed array.
     if "z" in ds.dims:
-        ds = ds.isel(z=slice(None, None, -1))
+        nz = ds.sizes["z"]
+        ds = ds.isel(z=np.arange(nz - 1, -1, -1))
 
     return ds
 

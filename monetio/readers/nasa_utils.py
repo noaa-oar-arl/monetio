@@ -25,7 +25,7 @@ def setup_netrc(username, password, machine="urs.earthdata.nasa.gov"):
             if n.authenticators(machine):
                 # Machine already exists in .netrc
                 return
-        except Exception:
+        except Exception:  # noqa: BLE001 - probing an existing credentials file; an unparsable one falls through to appending/creating, so the requested credentials are still written (categories: malformed, permission_denied)
             # Failed to parse, maybe it's empty or corrupt.
             # We'll try to append anyway or create a new one.
             pass

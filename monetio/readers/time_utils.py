@@ -40,7 +40,8 @@ def parse_ioapi_times(yyyymmdd, hhmmss):
     # We use pandas to handle the variable year starts (leap years)
     unique_years = np.unique(years)
     year_to_start = {
-        y_val: pd.to_datetime(str(y_val), format="%Y").to_datetime64() for y_val in unique_years
+        y_val: pd.to_datetime(str(y_val), format="%Y", errors="coerce").to_datetime64()
+        for y_val in unique_years
     }
 
     year_starts = np.array(
@@ -110,7 +111,9 @@ def parse_wrf_times(times_arr):
         s = np.char.replace(s.astype(str), "_", " ")
 
     # Force ns to match project expectations and avoid discrepancies with Pandas 3.0+
-    return pd.to_datetime(s.ravel()).values.astype("datetime64[ns]").reshape(s.shape)
+    # We use pd.to_datetime but return a numpy array to be backend-agnostic in apply_ufunc
+    res = pd.to_datetime(s.ravel()).values.astype("datetime64[ns]")
+    return res.reshape(s.shape)
 
 
 def parse_yyyymmdd_hhmm(yyyymmdd, hhmm):
@@ -172,4 +175,5 @@ def parse_yyyymmdd_hhmm(yyyymmdd, hhmm):
     res = pd.to_datetime(pd.DataFrame(df_dict), errors="coerce")
 
     # Return with original shape
+    # We use .values to return a numpy array from the pandas series
     return res.values.astype("datetime64[ns]").reshape(y.shape)

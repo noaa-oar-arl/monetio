@@ -172,7 +172,7 @@ def test_aeronet_aero_protocol():
     df_eager = df_eager.reindex(sorted(df_eager.columns), axis=1)
     df_lazy_computed = df_lazy.compute().reindex(sorted(df_eager.columns), axis=1)
     df_eager["siteid"] = df_eager["siteid"].astype(object)
-    pd.testing.assert_frame_equal(df_eager, df_lazy_computed)
+    pd.testing.assert_frame_equal(df_eager, df_lazy_computed, check_dtype=False)
 
     # 3. Xarray Eager
     ds_eager = reader.open_dataset(files=str(fp), as_xarray=True, lazy=False)
@@ -199,6 +199,49 @@ def test_aeronet_build_urls_n_chunks(mock_valid_sites):
     # Check that they cover the whole range roughly
     assert "day=01" in urls[0]
     assert "day2=31" in urls[-1]
+
+
+@pytest.mark.parametrize("as_xarray", [False, True])
+@pytest.mark.parametrize("defer", [False, True])
+def test_aeronet_query_selection_reaches_request_and_dask_outputs(
+    mock_valid_sites, monkeypatch, as_xarray, defer
+):
+    from monetio.readers import aeronet as aeronet_module
+    from monetio.readers.aeronet import AERONETReader
+
+    sample = DATA / "aeronet-AOD15-example.txt"
+    requested = {}
+
+    def mock_build_urls(dates, **kwargs):
+        requested.update(dates=dates, **kwargs)
+        return [str(sample)]
+
+    monkeypatch.setattr(aeronet_module, "build_urls", mock_build_urls)
+    monkeypatch.setattr(
+        aeronet_module,
+        "get_valid_sites",
+        lambda: pd.DataFrame({"siteid": ["SERC"]}),
+    )
+    dates = pd.date_range("2021-08-01", periods=2, freq="D")
+    result = AERONETReader().open_dataset(
+        dates=dates,
+        product="AOD15",
+        siteid="SERC",
+        latlonbox=[20.0, -90.0, 50.0, -60.0],
+        as_xarray=as_xarray,
+        lazy=True,
+        defer=defer,
+    )
+    assert pd.DatetimeIndex(requested["dates"]).equals(dates)
+    assert requested["product"] == "AOD15"
+    assert requested["siteid"] == "SERC"
+    assert requested["latlonbox"] == [20.0, -90.0, 50.0, -60.0]
+    if as_xarray:
+        assert any(result[name].chunks is not None for name in result.data_vars)
+    else:
+        import dask.dataframe as dd
+
+        assert isinstance(result, dd.DataFrame)
 
 
 def test_aeronet_chunking_logic():

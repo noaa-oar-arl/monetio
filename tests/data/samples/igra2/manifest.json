@@ -1,0 +1,11 @@
+{
+  "captured": "2026-09-29",
+  "content_hash": "af8799d0ca9a48e1f60c3cd963dc0c89214f6931cc8f28d4ba305a8a5296165b",
+  "kind": "recorded",
+  "load_kwargs": {
+    "add_metadata": false
+  },
+  "location": "https://www.ncei.noaa.gov/pub/data/igra/data/data-por/AEM00041217-data.txt.zip",
+  "producer": "scripts/record_samples.py",
+  "reason": ""
+}

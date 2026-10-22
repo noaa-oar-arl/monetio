@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 
@@ -22,6 +23,14 @@ class NESDISEDRVIIRSReader(GriddedReader):
     def open_dataset(
         self,
         files: str | list[str] = None,
+        use_virtualizarr: bool = False,
+        virtualizarr_file: str | None = None,
+        virtualizarr_parser: str | None = None,
+        virtualizarr_backend: str = "kerchunk",
+        icechunk_repo: str | None = None,
+        use_icechunk: bool = False,
+        icechunk_url: str | None = None,
+        use_dask: bool = False,
         dates: pd.DatetimeIndex | list[datetime.datetime] | datetime.datetime | str = None,
         resolution: str = "high",
         **kwargs,
@@ -33,6 +42,22 @@ class NESDISEDRVIIRSReader(GriddedReader):
         ----------
         files : str or list[str], optional
             File path(s) or URL(s).
+        use_virtualizarr : bool, optional
+            Whether to use VirtualiZarr to create a virtual Zarr dataset, by default False.
+        virtualizarr_file : str or None, optional
+            Path to save/load the VirtualiZarr reference JSON file, by default None.
+        virtualizarr_parser : str or None, optional
+            The VirtualiZarr parser to use (e.g. 'hdf5', 'netcdf3', 'zarr', 'grib2').
+        virtualizarr_backend : str, optional
+            Backend for VirtualiZarr references ("kerchunk" or "icechunk"), by default "kerchunk".
+        icechunk_repo : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_icechunk : bool, optional
+            Whether to use Icechunk, by default False.
+        icechunk_url : str or None, optional
+            Path to the Icechunk repository, by default None.
+        use_dask : bool, optional
+            Whether to use Dask for lazy loading, by default False.
         dates : pd.DatetimeIndex, list, datetime, or str, optional
             Dates to retrieve. If files is None, this is used to build URLs.
         resolution : str, optional
@@ -50,6 +75,13 @@ class NESDISEDRVIIRSReader(GriddedReader):
         >>> reader = NESDISEDRVIIRSReader()
         >>> ds = reader.open_dataset(date="2023-01-01", resolution="high")
         """
+        if kwargs.get("chunks") is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "nesdis_edr_viirs",
+                cause="the compressed binary format is decoded as one complete array",
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")
@@ -64,7 +96,18 @@ class NESDISEDRVIIRSReader(GriddedReader):
         # Forward resolution to read_method
         kwargs["resolution"] = resolution
 
-        ds = super().open_dataset(files, **kwargs)
+        ds = super().open_dataset(
+            files,
+            use_virtualizarr=use_virtualizarr,
+            virtualizarr_file=virtualizarr_file,
+            virtualizarr_parser="hdf5",
+            virtualizarr_backend=virtualizarr_backend,
+            icechunk_repo=icechunk_repo,
+            use_icechunk=use_icechunk,
+            icechunk_url=icechunk_url,
+            use_dask=use_dask,
+            **kwargs,
+        )
 
         # Update history
         ds = update_history(ds, "Read NESDIS EDR VIIRS data.")

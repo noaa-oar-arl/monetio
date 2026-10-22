@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .base import GriddedReader, register_reader
+from .base import GriddedReader, _ensure_time_dimension, register_reader
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 try:
@@ -36,6 +37,8 @@ class MODISORNLReader(GriddedReader):
         kmAboveBelow: int = 100,
         kmLeftRight: int = 100,
         files: str | list[str] = None,
+        use_dask: bool = False,
+        chunks: Any = None,
         **kwargs,
     ) -> xr.Dataset:
         """
@@ -72,6 +75,22 @@ class MODISORNLReader(GriddedReader):
         >>> reader = MODISORNLReader()
         >>> ds = reader.open_dataset(date='2020-01-01', product='MOD15A2H', band='Lai_500m')
         """
+        if chunks is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "modis_ornl",
+                cause="the SOAP service returns the requested subset as one complete payload",
+            )
+        if use_dask:
+            raise OptionUnsupportedError(
+                "use_dask",
+                "modis_ornl",
+                cause=(
+                    "the SOAP service returns the complete subset payload in one response, "
+                    "so this reader cannot defer its data read"
+                ),
+            )
+
         if not HAS_SUDS:
             raise ImportError(
                 "Please install a suds client (pip install suds-jurko or suds-community)"
@@ -91,6 +110,7 @@ class MODISORNLReader(GriddedReader):
 
         # Update history
         ds = update_history(ds, f"Read MODIS ORNL {product} {band} data.")
+        ds = _ensure_time_dimension(ds)
 
         return ds
 

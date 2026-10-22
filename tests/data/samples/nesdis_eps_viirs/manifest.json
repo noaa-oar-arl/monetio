@@ -1,0 +1,9 @@
+{
+  "captured": "2026-09-30",
+  "content_hash": "13ab6396e29e72677f268637483d5d6e867cc1492673b03345df2cd7e89477ce",
+  "kind": "recorded",
+  "layout": "eps-0.25deg",
+  "location": "https://www.star.nesdis.noaa.gov/pub/smcd/VIIRS_Aerosol/viirs_aerosol_gridded_data/snpp/aod/eps/2025/viirs_eps_npp_aod_0.250_deg_20251112_nrt.nc",
+  "producer": "scripts/record_samples.py",
+  "reason": "one daily 0.25-degree global NESDIS EPS VIIRS AOD grid; recorded from the HTTPS form of the STAR archive because the FTP listing cannot be parsed by the capture script's file store, and from the product's current location since the path the reader builds is now an empty directory"
+}
