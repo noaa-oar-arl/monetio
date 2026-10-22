@@ -1,6 +1,6 @@
 """NOAA Integrated Surface Hourly (ISH; also known as ISD, Integrated Surface Data) lite version.
 
-https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/isd-lite-format.txt
+https://noaa-isd-pds.s3.amazonaws.com/isd-lite/isd-lite-format.txt
 
 ISDLite is a derived product that makes it easier to work with for general research and scientific purposes.
 It is a subset of the full ISD containing eight common surface parameters
@@ -69,13 +69,18 @@ class ISH:
         URL for the ISD history file.
     history : DataFrame, optional
         ISD history file frame, read by :meth:`read_ish_history`, ``None`` until read.
+    fs : s3fs.S3FileSystem
+        Anonymous S3 filesystem, used to list available files.
     """
 
     def __init__(self):
-        self.history_file = "https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv"
+        import s3fs
+
+        self.history_file = "https://noaa-isd-pds.s3.amazonaws.com/isd-history.csv"
         self.history = None
         self.dates = None
         self.verbose = False
+        self.fs = s3fs.S3FileSystem(anon=True)
 
     def read_ish_history(self, dates=None):
         """Read ISH history file (:attr:`history_file`) and subset based on
@@ -83,7 +88,7 @@ class ISH:
         setting the :attr:`history` attribute.
         If both are unset, you get the entire history file.
 
-        https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv
+        https://noaa-isd-pds.s3.amazonaws.com/isd-history.csv
 
         The constructed 'station_id' column is a combination of the USAF and WBAN columns.
         This is done since USAF and WBAN alone are not unique in the history file.
@@ -152,45 +157,38 @@ class ISH:
         if sites is None:
             sites = self.history
 
+        bucket_path = "noaa-isd-pds/isd-lite/data"
+        base_url = f"s3://{bucket_path}"
         unique_years = pd.to_datetime(dates.year.unique(), format="%Y")
-        furls = []
         if self.verbose:
             print("Building ISH-Lite URLs...")
-        url = "https://www.ncei.noaa.gov/pub/data/noaa/isd-lite"
-        # Get each yearly urls available from the isd-lite site
-        if len(unique_years) > 1:
-            all_urls = []
-            if self.verbose:
-                print("multiple years needed... Getting all available years")
-            for date in unique_years.strftime("%Y"):
-                if self.verbose:
-                    print("Year:", date)
-                year_url = (
-                    pd.read_html(f"{url}/{date}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
-                )
-                all_urls.append(
-                    f"{url}/{date}/" + year_url
-                )  # add the full url path to the file name only
 
-            all_urls = pd.concat(all_urls, ignore_index=True)
-        else:
-            year = unique_years.strftime("%Y")[0]
-            all_urls = pd.read_html(f"{url}/{year}/")[0]["Name"].iloc[2:-1].to_frame(name="name")
-            all_urls = f"{url}/{year}/" + all_urls
+        # Get the available files for each year
+        all_urls = []
+        for year in unique_years.strftime("%Y"):
+            if self.verbose:
+                print("Year:", year)
+            try:
+                keys = self.fs.ls(f"{bucket_path}/{year}/")
+            except FileNotFoundError:
+                continue
+            fnames = [key.rsplit("/", 1)[-1] for key in keys]
+            all_urls.extend(
+                f"{base_url}/{year}/{fname}" for fname in fnames if fname.endswith(".gz")
+            )
+        all_urls = pd.Series(all_urls, dtype=str).to_frame(name="name")
 
         # Construct expected URLs based on sites and year(s) requested
+        urls = []
         for syear in unique_years.strftime("%Y"):
             year_fnames = (
                 sites.usaf.astype(str) + "-" + sites.wban.astype(str) + "-" + syear + ".gz"
             )
             for fname in year_fnames:
-                furls.append(f"{url}/{syear}/{fname}")
-
-        # Files needed for comparison
-        url = pd.Series(furls, index=None)
+                urls.append(f"{base_url}/{syear}/{fname}")
 
         # Only available URLs
-        final_urls = pd.merge(url.to_frame(name="name"), all_urls, how="inner")
+        final_urls = pd.merge(pd.DataFrame({"name": urls}), all_urls, how="inner")
 
         return final_urls
 
@@ -216,6 +214,7 @@ class ISH:
             sep=r"\s+",
             header=None,
             names=columns,
+            storage_options={"anon": True} if str(fname).startswith("s3://") else None,
         )
         time_vars = ["year", "month", "day", "hour"]
         df.insert(0, "time", pd.to_datetime(df[time_vars]))
@@ -328,7 +327,7 @@ class ISH:
             print("Resampling to every " + window)
             df = (
                 df.set_index("time")
-                .groupby("siteid")
+                .groupby("siteid")[[c for c in df.columns if c not in {"time", "siteid"}]]
                 .resample(window)
                 .mean(numeric_only=True)
                 .reset_index()
@@ -365,7 +364,13 @@ class ISH:
         jjj = 0
         for iii in fname:
             try:
-                r2 = requests.get(iii, stream=True)
+                r2 = requests.get(
+                    iii.replace(
+                        "s3://noaa-isd-pds/isd-lite/data",
+                        "https://noaa-isd-pds.s3.amazonaws.com/isd-lite/data",
+                    ),
+                    stream=True,
+                )
                 temp = iii.split("/")
                 temp = temp[-1]
                 fname = "isd." + temp.replace(".gz", "")
