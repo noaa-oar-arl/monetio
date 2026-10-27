@@ -446,7 +446,7 @@ class ModelBin:
         """
         lev_name = hdata8a["lev"][0]
         col_name = hdata8a["poll"][0].decode("UTF-8")
-        edata = hdata8b.byteswap().view(hdata8b.dtype.newbyteorder())  # otherwise get endian error.
+        edata = hdata8b.astype(hdata8b.dtype.newbyteorder("="))  # otherwise get endian error.
         concframe = pd.DataFrame.from_records(edata)
         concframe["levels"] = lev_name
         concframe["time"] = pdate1
