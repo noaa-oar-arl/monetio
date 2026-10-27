@@ -7,6 +7,7 @@ from monetio import openaq
 from monetio.util import _get_pandas_version
 
 PD_GTE_3 = _get_pandas_version() >= (3, 0)
+PD_GTE_3_1 = _get_pandas_version() >= (3, 1)
 
 # openaq._URL_CAP_RANDOM_SAMPLE = True
 openaq._URL_CAP = 4
@@ -19,7 +20,7 @@ permission_error = pytest.mark.xfail(reason="private", raises=PermissionError, s
 
 forbidden_error = pytest.mark.xfail(
     reason="forbidden",
-    raises=FileNotFoundError if PD_GTE_3 else HTTPError,  # 403
+    raises=FileNotFoundError if (PD_GTE_3 and not PD_GTE_3_1) else HTTPError,  # 403
     strict=True,
 )
 
