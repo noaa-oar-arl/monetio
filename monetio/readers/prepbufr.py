@@ -207,38 +207,45 @@ class PREPBUFRReader(PointReader):
     def to_xarray(self, obj, **kwargs) -> xr.Dataset:
         """Convert to node observations and attach native decoded units."""
         ds = super().to_xarray(obj, **kwargs)
-        # The shared converter promotes time to a dimension. A node dimension
-        # is needed here because report times are deliberately non-unique.
-        if "time" in ds.dims:
+        # A node dimension is required because report times are deliberately
+        # non-unique. The shared converter keeps records on node, so only the
+        # legacy time-promoted layouts need rewriting back.
+        if "time" in ds.dims and "node" not in ds.dims:
             ds = ds.drop_vars("node").rename_dims({"time": "node"})
             ds = ds.assign_coords(node=np.arange(ds.sizes["node"]))
+        decoded_fields = {name for name, _, _ in _FIELDS.values()}
         for mnemonic, (name, units, _) in _FIELDS.items():
-            ds[name].attrs.update(units=units, bufr_mnemonic=mnemonic)
-        ds["wind_speed"] = np.hypot(ds.u_wind, ds.v_wind)
-        ds["wind_dir"] = (np.degrees(np.arctan2(-ds.u_wind, -ds.v_wind)) % 360).where(
-            ds.wind_speed > 0
-        )
-        # Specific humidity is available in PREPBUFR even when TDO is absent.
-        # Bolton's liquid-water saturation formula uses temperature in degC
-        # and vapor pressure in hPa. Preserve reported dewpoint when present.
-        q = ds.specific_humidity.where((ds.specific_humidity > 0) & (ds.specific_humidity < 1))
-        vapor_pressure = (q * ds.pressure / (0.622 + 0.378 * q) / 100).where(ds.pressure > 0)
-        log_ratio = np.log(vapor_pressure / 6.112)
-        calculated_dewpoint = 243.5 * log_ratio / (17.67 - log_ratio)
-        ds["dewpoint"] = ds.dewpoint.fillna(calculated_dewpoint)
-        ds.dewpoint.attrs.update(
-            units="degC",
-            long_name="Reported dewpoint, falling back to pressure and specific humidity",
-        )
-        ds["rel_humidity"] = 100 * np.exp(
-            17.67 * ds.dewpoint / (243.5 + ds.dewpoint)
-            - 17.67 * ds.temperature / (243.5 + ds.temperature)
-        )
-        ds.rel_humidity.attrs.update(
-            units="%", long_name="Relative humidity with respect to liquid water"
-        )
-        ds.wind_speed.attrs["units"] = "m s-1"
-        ds.wind_dir.attrs.update(units="degree", long_name="Wind direction from true north")
+            if name in ds.variables:
+                ds[name].attrs.update(units=units, bufr_mnemonic=mnemonic)
+        # Derived quantities need the full decoded BUFR schema; the shared
+        # converter contract must also hold for minimal station frames.
+        if decoded_fields <= set(ds.variables):
+            ds["wind_speed"] = np.hypot(ds.u_wind, ds.v_wind)
+            ds["wind_dir"] = (np.degrees(np.arctan2(-ds.u_wind, -ds.v_wind)) % 360).where(
+                ds.wind_speed > 0
+            )
+            # Specific humidity is available in PREPBUFR even when TDO is absent.
+            # Bolton's liquid-water saturation formula uses temperature in degC
+            # and vapor pressure in hPa. Preserve reported dewpoint when present.
+            q = ds.specific_humidity.where((ds.specific_humidity > 0) & (ds.specific_humidity < 1))
+            vapor_pressure = (q * ds.pressure / (0.622 + 0.378 * q) / 100).where(ds.pressure > 0)
+            log_ratio = np.log(vapor_pressure / 6.112)
+            calculated_dewpoint = 243.5 * log_ratio / (17.67 - log_ratio)
+            ds["dewpoint"] = ds.dewpoint.fillna(calculated_dewpoint)
+            ds.dewpoint.attrs.update(
+                units="degC",
+                long_name="Reported dewpoint, falling back to pressure and specific humidity",
+            )
+            ds["rel_humidity"] = 100 * np.exp(
+                17.67 * ds.dewpoint / (243.5 + ds.dewpoint)
+                - 17.67 * ds.temperature / (243.5 + ds.temperature)
+            )
+            ds.rel_humidity.attrs.update(
+                units="%", long_name="Relative humidity with respect to liquid water"
+            )
+        if "wind_speed" in ds.variables:
+            ds.wind_speed.attrs["units"] = "m s-1"
+            ds.wind_dir.attrs.update(units="degree", long_name="Wind direction from true north")
         ds.attrs["source"] = "NCEP PREPBUFR / NCEPLIBS-bufr ncepbufr"
         return update_history(
             ds, "Decoded PREPBUFR report levels; retained quality marks without filtering."

@@ -107,14 +107,14 @@ def test_icartt_complex_scaling(tmp_path):
     # Check Scaling
     # Ozone scale is 10.0, value 50.0 -> 500.0
     # CO scale is 1.0, value 0.1 -> 0.1
-    assert ds_eager.Ozone.isel(time=0) == 500.0
-    assert np.isclose(ds_eager.CO.isel(time=0), 0.1)
+    assert ds_eager.Ozone.isel(node=0) == 500.0
+    assert np.isclose(ds_eager.CO.isel(node=0), 0.1)
 
     # Check Missing Values
     # Ozone missing is -99. Row 1: -99 -> NaN
     # CO missing is 'N/A'. Row 2: 'N/A' -> NaN
-    assert np.isnan(ds_eager.Ozone.isel(time=1))
-    assert np.isnan(ds_eager.CO.isel(time=2))
+    assert np.isnan(ds_eager.Ozone.isel(node=1))
+    assert np.isnan(ds_eager.CO.isel(node=2))
 
     # 2. Lazy
     ds_lazy = reader.open_dataset(fn, lazy=True)
