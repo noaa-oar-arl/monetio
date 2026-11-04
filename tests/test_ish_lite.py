@@ -33,11 +33,15 @@ def test_ish_lite_discovery_uses_published_station_files(monkeypatch, ish_histor
         fs.ls.side_effect = PermissionError("listing denied")
     monkeypatch.setattr("monetio.readers.ish_lite.FileUtility.get_fs", lambda *a, **kw: fs)
     reader = ISHLiteReader()
-    read = Mock(return_value=pd.DataFrame({
-        "time": [pd.Timestamp("2020-09-01")],
-        "siteid": [station.station_id],
-        "temp": [25.6],
-    }))
+    read = Mock(
+        return_value=pd.DataFrame(
+            {
+                "time": [pd.Timestamp("2020-09-01")],
+                "siteid": [station.station_id],
+                "temp": [25.6],
+            }
+        )
+    )
     monkeypatch.setattr(reader.driver, "open", read)
 
     if listing == "published":

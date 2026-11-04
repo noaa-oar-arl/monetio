@@ -595,6 +595,8 @@ class PointReader(BaseReader):
             Input dataframe or unstructured dataset.
         expand2d : bool, optional
             Whether to expand to 2D (time, node) structure, by default True.
+            If False, records remain on node, with time and siteid coordinates
+            attached to node rather than independent dimensions.
         defer : bool, optional
             Preserve the explicit deferred-loading contract. Lazy and deferred
             table-to-Xarray conversion runs one preparation task per partition
@@ -815,8 +817,10 @@ class PointReader(BaseReader):
         # Update history
         ds = update_history(ds, "Converted to xarray Dataset with UGRID convention.")
 
-        ds = _ensure_time_dimension(ds)
-
+        # Point records keep their node dimension until ds_to_2d expands the
+        # time/site layout. Promoting time(node) to a dimension here destroys
+        # that layout and prevents readers doing staged expansion from
+        # producing the same (time, node) output as the direct default path.
         return ds
 
 

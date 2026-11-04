@@ -15,16 +15,20 @@ from monetio.readers.ish_lite import ISHLiteReader
 @pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
 def test_station_readers_return_time_node_layout(monkeypatch, ish_history, reader_class, lazy):
     times = pd.date_range("2020-09-01", periods=2, freq="h")
-    frame = pd.DataFrame({
-        "time": np.repeat(times, 2),
-        "siteid": list(ish_history.station_id) * 2,
-        "measurement": [1.0, 2.0, 3.0, 4.0],
-    })
+    frame = pd.DataFrame(
+        {
+            "time": np.repeat(times, 2),
+            "siteid": list(ish_history.station_id) * 2,
+            "measurement": [1.0, 2.0, 3.0, 4.0],
+        }
+    )
     if reader_class is AERONETReader:
         frame["latitude"] = list(ish_history.latitude) * 2
         frame["longitude"] = list(ish_history.longitude) * 2
     monkeypatch.setattr(
-        ISH, "read_ish_history", lambda self, dates=None: setattr(self, "history", ish_history.copy())
+        ISH,
+        "read_ish_history",
+        lambda self, dates=None: setattr(self, "history", ish_history.copy()),
     )
     if lazy:
         import dask.dataframe as dd
@@ -46,13 +50,15 @@ def test_station_readers_return_time_node_layout(monkeypatch, ish_history, reade
 
 
 def test_explicit_unexpanded_points_keep_node_dimension():
-    frame = pd.DataFrame({
-        "time": pd.to_datetime(["2020-09-01", "2020-09-01"]),
-        "siteid": ["A", "B"],
-        "latitude": [30.0, 40.0],
-        "longitude": [-90.0, -80.0],
-        "measurement": [1.0, 2.0],
-    })
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2020-09-01", "2020-09-01"]),
+            "siteid": ["A", "B"],
+            "latitude": [30.0, 40.0],
+            "longitude": [-90.0, -80.0],
+            "measurement": [1.0, 2.0],
+        }
+    )
     result = ISHLiteReader().to_xarray(frame, expand2d=False)
     assert dict(result.sizes) == {"node": 2}
     assert result.time.dims == ("node",)
@@ -62,13 +68,15 @@ def test_explicit_unexpanded_points_keep_node_dimension():
 @pytest.mark.parametrize("expanded", [False, True], ids=["records", "time-node"])
 @pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
 def test_all_point_reader_converters_share_dimensions(source, expanded, lazy):
-    frame = pd.DataFrame({
-        "time": np.repeat(pd.date_range("2020-09-01", periods=2, freq="h"), 2),
-        "siteid": ["A", "B", "A", "B"],
-        "latitude": [30.0, 40.0, 30.0, 40.0],
-        "longitude": [-90.0, -80.0, -90.0, -80.0],
-        "measurement": [1.0, 2.0, 3.0, 4.0],
-    })
+    frame = pd.DataFrame(
+        {
+            "time": np.repeat(pd.date_range("2020-09-01", periods=2, freq="h"), 2),
+            "siteid": ["A", "B", "A", "B"],
+            "latitude": [30.0, 40.0, 30.0, 40.0],
+            "longitude": [-90.0, -80.0, -90.0, -80.0],
+            "measurement": [1.0, 2.0, 3.0, 4.0],
+        }
+    )
     if lazy:
         import dask.dataframe as dd
 
