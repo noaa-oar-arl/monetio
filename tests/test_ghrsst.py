@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -393,7 +394,14 @@ def test_https_style_remote_dask_file_read(tmp_path, local_http_archive, product
         defer=True,
     )
     assert hasattr(lazy.analysed_sst.data, "dask")
-    xr.testing.assert_identical(eager, lazy.compute())
+    # Two separate opens stamp their own provenance timestamps; normalize
+    # only the times so a second boundary cannot flip this parity check.
+    computed = lazy.compute()
+    _ts_re = re.compile(r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?::\d{2})?")
+    for result in (eager, computed):
+        if "history" in result.attrs:
+            result.attrs["history"] = _ts_re.sub("<timestamp>", result.attrs["history"])
+    xr.testing.assert_identical(eager, computed)
     lazy.close()
     eager.close()
 

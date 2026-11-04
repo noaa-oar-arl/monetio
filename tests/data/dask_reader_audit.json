@@ -4977,7 +4977,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:7de9130b3203a8e099f25e2d5d7f90e889fa70eb6f941f5df578e9daf346f35c",
@@ -4996,7 +4996,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:era5-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5035,7 +5035,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:aed5304b7a93595b4628678c09c8577078aba499725e5f4d270d9367d550c02b",
@@ -5054,7 +5054,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:merra2-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5497,7 +5497,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:7de9130b3203a8e099f25e2d5d7f90e889fa70eb6f941f5df578e9daf346f35c",
@@ -5516,7 +5516,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:era5-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -5555,7 +5555,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:aed5304b7a93595b4628678c09c8577078aba499725e5f4d270d9367d550c02b",
@@ -5574,7 +5574,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:merra2-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -7707,7 +7707,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:cd8a10d67a9bedc5ab9f46a75775be1e5ea17815d3ebc63c5cd953e928aaef42",
@@ -7724,7 +7724,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::test_reanalysis_readers_select_requested_variables",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:reanalysis-selective-read",
           "kind": "generated",
           "parameters": {
@@ -11828,7 +11828,7 @@
         },
         {
           "path": "tests/test_reader_dask_reanalysis.py",
-          "sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75"
+          "sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb"
         }
       ],
       "code_revision": "b159c52ff1ae1cd2d15238ac74471e562315940d+relevant-files-sha256:27ac9ef36f349b83513ba91a1ccd8efe2d5b94dec538e691bbe1dd6ffcef7d5d",
@@ -11847,7 +11847,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:reanalysis-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -14244,7 +14244,7 @@
         },
         {
           "path": "tests/test_ghrsst.py",
-          "sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565"
+          "sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f"
         }
       ],
       "code_revision": "9403bcb4df7db5914d0093abacbb3d5b36893fb5+ghrsst-relevant-files-sha256:ad6c958ea9f48f48dcd3e6ffc87edf62ff31a6cca6551efaa1f5915b7d5bd77c",
@@ -14263,7 +14263,7 @@
         {
           "factory": "tests/test_ghrsst.py::_product_dataset",
           "factory_source_path": "tests/test_ghrsst.py",
-          "factory_source_sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565",
+          "factory_source_sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f",
           "fixture_id": "generated:ghrsst-product-grids",
           "kind": "generated",
           "parameters": {
@@ -14318,7 +14318,7 @@
         },
         {
           "path": "tests/test_ghrsst.py",
-          "sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565"
+          "sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f"
         }
       ],
       "code_revision": "9403bcb4df7db5914d0093abacbb3d5b36893fb5+ghrsst-relevant-files-sha256:ad6c958ea9f48f48dcd3e6ffc87edf62ff31a6cca6551efaa1f5915b7d5bd77c",
@@ -14337,7 +14337,7 @@
         {
           "factory": "tests/test_ghrsst.py::_product_dataset",
           "factory_source_path": "tests/test_ghrsst.py",
-          "factory_source_sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565",
+          "factory_source_sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f",
           "fixture_id": "generated:ghrsst-product-grids",
           "kind": "generated",
           "parameters": {
@@ -14392,7 +14392,7 @@
         },
         {
           "path": "tests/test_ghrsst.py",
-          "sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565"
+          "sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f"
         }
       ],
       "code_revision": "9403bcb4df7db5914d0093abacbb3d5b36893fb5+ghrsst-relevant-files-sha256:ad6c958ea9f48f48dcd3e6ffc87edf62ff31a6cca6551efaa1f5915b7d5bd77c",
@@ -14411,7 +14411,7 @@
         {
           "factory": "tests/test_ghrsst.py::_product_dataset",
           "factory_source_path": "tests/test_ghrsst.py",
-          "factory_source_sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565",
+          "factory_source_sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f",
           "fixture_id": "generated:ghrsst-product-grids",
           "kind": "generated",
           "parameters": {
@@ -14466,7 +14466,7 @@
         },
         {
           "path": "tests/test_ghrsst.py",
-          "sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565"
+          "sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f"
         }
       ],
       "code_revision": "9403bcb4df7db5914d0093abacbb3d5b36893fb5+ghrsst-relevant-files-sha256:ad6c958ea9f48f48dcd3e6ffc87edf62ff31a6cca6551efaa1f5915b7d5bd77c",
@@ -14485,7 +14485,7 @@
         {
           "factory": "tests/test_ghrsst.py::_product_dataset",
           "factory_source_path": "tests/test_ghrsst.py",
-          "factory_source_sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565",
+          "factory_source_sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f",
           "fixture_id": "generated:ghrsst-product-grids",
           "kind": "generated",
           "parameters": {
@@ -16461,7 +16461,7 @@
         {
           "factory": "tests/test_ghrsst.py::_product_dataset",
           "factory_source_path": "tests/test_ghrsst.py",
-          "factory_source_sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565",
+          "factory_source_sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f",
           "fixture_id": "generated:ghrsst-product-grids",
           "kind": "generated",
           "parameters": {
@@ -20179,7 +20179,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:era5-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -20192,7 +20192,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::test_reanalysis_readers_select_requested_variables",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:reanalysis-selective-read",
           "kind": "generated",
           "parameters": {
@@ -34380,7 +34380,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::_reanalysis_data",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:merra2-small-netcdf",
           "kind": "generated",
           "parameters": {
@@ -34393,7 +34393,7 @@
         {
           "factory": "tests/test_reader_dask_reanalysis.py::test_reanalysis_readers_select_requested_variables",
           "factory_source_path": "tests/test_reader_dask_reanalysis.py",
-          "factory_source_sha256": "dc5fa039008296d9c15a05e55106a5ec788c44c262d598c8688c579e24a88b75",
+          "factory_source_sha256": "58d598a2ffc03a3a854890c05ad0985225d5031dfaa77b8ef11cce5e9713e0cb",
           "fixture_id": "generated:reanalysis-selective-read",
           "kind": "generated",
           "parameters": {
@@ -36984,7 +36984,7 @@
         {
           "factory": "tests/test_ghrsst.py::_product_dataset",
           "factory_source_path": "tests/test_ghrsst.py",
-          "factory_source_sha256": "bb3872aec0b92e8ebffb2752359d8a65b24bbdc27281542705fefb8481b77565",
+          "factory_source_sha256": "107d52fbe0b31294ddd73be3cac0f2dd781c43c22cd46dfb86e8228c66873a2f",
           "fixture_id": "generated:ghrsst-product-grids",
           "kind": "generated",
           "parameters": {
