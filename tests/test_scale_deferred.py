@@ -409,7 +409,7 @@ class TestPointDeferred:
         assert sorted(parser_calls) == [0, 1, 2, 3]
         prep_passes = len(parser_calls)
         assert prep_passes == 4
-        assert result.sizes["time"] == 8
+        assert result.sizes["node"] == 8
         assert all(hasattr(var.data, "dask") for var in result.data_vars.values() if var.ndim)
         computed = result.compute()
         assert computed["obs"].values.tolist() == [0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0]

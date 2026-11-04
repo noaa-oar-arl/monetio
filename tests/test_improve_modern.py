@@ -54,7 +54,8 @@ def test_improve_output_forms(mock_improve_file, lazy):
     assert isinstance(ds, xr.Dataset)
     assert "obs" in ds.data_vars
     assert "time" in ds.coords
-    assert ds.sizes["time"] == 3
+    assert ds.sizes["node"] == 3
+    assert ds.time.dims == ("node",)
     if lazy:
         assert hasattr(ds.obs.data, "dask")
         ds_eager = reader.open_dataset(

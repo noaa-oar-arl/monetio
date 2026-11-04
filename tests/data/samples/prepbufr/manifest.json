@@ -1,0 +1,10 @@
+{
+  "captured": "2026-10-23",
+  "content_hash": "653c704e2edabf7ee7f506ccca999aa032fde5e46edc74be32b0c1f989b62879",
+  "kind": "recorded",
+  "layout": "one native report per ADPUPA/ADPSFC/SFCSHP/AIRCFT/AIRCAR subset",
+  "location": "https://ftp.emc.ncep.noaa.gov/static_files/public/bufr-12.4.0.tgz",
+  "producer": "scripts/make_prepbufr_sample.py",
+  "reason": "Subset of bufr/testfiles/data/prepbufr; source SHA256 09b94c2463deaa55986b2ab7cbc2d8a6325f9a1d6935c9f8c78f0a26be9297e4",
+  "requires": "ncepbufr"
+}

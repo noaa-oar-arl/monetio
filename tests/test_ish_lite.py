@@ -1,5 +1,5 @@
 import gzip
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -9,6 +9,52 @@ from monetio.readers.ish_lite import ISHLiteReader, read_ish_lite_file
 
 # The ISD history frame comes from the shared ``ish_history`` fixture in
 # conftest.py, which is byte-identical to the ``ish`` reader's copy.
+
+
+@pytest.mark.parametrize("listing", ["published", "empty", "denied"])
+def test_ish_lite_discovery_uses_published_station_files(monkeypatch, ish_history, listing):
+    from monetio.readers.ish import ISH
+
+    history = ish_history.iloc[:1].copy()
+    missing_station = history.copy()
+    missing_station["usaf"] = "013680"
+    missing_station["wban"] = "99999"
+    missing_station["station_id"] = "01368099999"
+    history = pd.concat([history, missing_station], ignore_index=True)
+    monkeypatch.setattr(
+        ISH, "read_ish_history", lambda self, dates=None: setattr(self, "history", history.copy())
+    )
+    station = history.iloc[0]
+    url = f"s3://noaa-isd-pds/isd-lite/data/2020/{station.usaf}-{station.wban}-2020.gz"
+    fs = Mock()
+    fs.unstrip_protocol.side_effect = lambda path: "s3://" + path
+    fs.ls.return_value = [url.removeprefix("s3://")] if listing == "published" else []
+    if listing == "denied":
+        fs.ls.side_effect = PermissionError("listing denied")
+    monkeypatch.setattr("monetio.readers.ish_lite.FileUtility.get_fs", lambda *a, **kw: fs)
+    reader = ISHLiteReader()
+    read = Mock(
+        return_value=pd.DataFrame(
+            {
+                "time": [pd.Timestamp("2020-09-01")],
+                "siteid": [station.station_id],
+                "temp": [25.6],
+            }
+        )
+    )
+    monkeypatch.setattr(reader.driver, "open", read)
+
+    if listing == "published":
+        result = reader.open_dataset(dates="2020-09-01", as_xarray=False)
+        assert read.call_args.args[0] == [url]
+        assert result.t2m.tolist() == [25.6]
+    else:
+        error = ValueError if listing == "empty" else PermissionError
+        message = "No published ISH Lite files" if listing == "empty" else "listing denied"
+        with pytest.raises(error, match=message):
+            reader.open_dataset(dates="2020-09-01", as_xarray=False)
+        read.assert_not_called()
+    fs.ls.assert_called_once_with("s3://noaa-isd-pds/isd-lite/data/2020", detail=False)
 
 
 def test_read_ish_lite_file_logic(tmp_path):

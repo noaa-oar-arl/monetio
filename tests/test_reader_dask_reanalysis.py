@@ -30,6 +30,8 @@ def _assert_parity(reader, dataset, path, variable):
     assert hasattr(lazy[variable].data, "dask")
     # Provenance timestamps are added during preprocessing, so separate eager
     # and lazy opens have different timestamps despite identical history.
+    # Normalize only the generated times; everything else must match exactly
+    # so array-only drift cannot masquerade as parity.
     computed = lazy.compute()
     for result in (eager, computed):
         if "history" in result.attrs:
@@ -38,7 +40,6 @@ def _assert_parity(reader, dataset, path, variable):
                 "<timestamp>",
                 result.attrs["history"],
             )
-    # Compare the full datasets after normalizing only the generated times.
     xr.testing.assert_identical(eager, computed)
 
 

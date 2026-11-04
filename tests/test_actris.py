@@ -57,7 +57,9 @@ def test_actris_reader_eager(mock_actris_file):
     assert isinstance(ds, xr.Dataset)
     assert "Ozone" in ds.data_vars
     assert "Carbon_Monoxide" in ds.data_vars
-    assert ds.sizes["time"] == 3
+    # ACTRIS forces expand2d=False; records stay on node with time attached.
+    assert ds.sizes["node"] == 3
+    assert ds.time.dims == ("node",)
 
     # Check coordinates
     assert "latitude" in ds.coords

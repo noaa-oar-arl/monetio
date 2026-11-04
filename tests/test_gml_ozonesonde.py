@@ -31,7 +31,8 @@ Level   Press    Alt   Pottp   Temp   FtempV   Hum  Ozone  Ozone   Ozone  Ptemp 
     ds_eager = reader.open_dataset(files=str(f), as_xarray=True, lazy=False, expand2d=False)
     assert isinstance(ds_eager, xr.Dataset)
     assert "o3" in ds_eager.data_vars
-    assert ds_eager.sizes["time"] == 2
+    assert ds_eager.sizes["node"] == 2
+    assert ds_eager.time.dims == ("node",)
     assert ds_eager.o3.attrs["units"] == "ppmv"
     assert pd.Timestamp(ds_eager.time.values[0]) == pd.Timestamp("2023-12-27 17:00:00")
 

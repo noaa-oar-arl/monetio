@@ -1,5 +1,6 @@
 """ISH Lite Reader"""
 
+import logging
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Union
@@ -16,6 +17,8 @@ from .base import PointReader, register_reader
 from .drivers import FileUtility
 from .ish import ISH, add_ish_metadata
 from .sat_utils import update_history
+
+logger = logging.getLogger(__name__)
 
 
 def read_ish_lite_file(fname: str, **kwargs) -> pd.DataFrame:
@@ -218,6 +221,31 @@ class ISHLiteReader(PointReader):
             if urls.empty:
                 raise ValueError("No data URLs found")
             files = urls.name.tolist()
+
+            if ish.source == "aws" and all(path.startswith("s3://") for path in files):
+                # The general ISH history includes stations without a Lite file
+                # for a given year. Discover published objects once per year
+                # instead of treating every station-history entry as a file.
+                fs = FileUtility.get_fs(files[0], storage_options=kwargs.get("storage_options"))
+                available = set()
+                for directory in dict.fromkeys(path.rsplit("/", 1)[0] for path in files):
+                    available.update(
+                        fs.unstrip_protocol(path) for path in fs.ls(directory, detail=False)
+                    )
+                published_files = [path for path in files if path in available]
+                missing_count = len(files) - len(published_files)
+                if missing_count:
+                    logger.info(
+                        "Excluded %d station-year candidates without published ISH Lite files; "
+                        "loading %d available files.",
+                        missing_count,
+                        len(published_files),
+                    )
+                files = published_files
+                if not files:
+                    raise ValueError(
+                        "No published ISH Lite files found for the requested dates and sites."
+                    )
 
         if not files:
             raise ValueError("Must provide either 'files' or 'dates'.")

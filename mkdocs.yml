@@ -26,6 +26,7 @@ nav:
       - Observations: observations.md
       - Models: models.md
       - Satellites: satellites.md
+      - GHRSST: ghrsst.md
       - Profiles: profiles.md
       - Tutorial:
           - Overview: tutorial.md

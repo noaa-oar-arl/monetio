@@ -604,15 +604,6 @@ def _open_via_icechunk(
     xr.Dataset
         The dataset opened from the Icechunk store.
     """
-    # If the local directory already exists, clear it for a clean, idempotent run
-    if not icechunk_url.startswith("s3://") and os.path.exists(icechunk_url):
-        import shutil
-
-        try:
-            shutil.rmtree(icechunk_url)
-        except Exception:  # noqa: BLE001 - best-effort cleanup for an idempotent re-run; a store that cannot be cleared is left for the write below to report (categories: permission_denied, not_found)
-            pass
-
     try:
         import icechunk
     except ImportError:
@@ -622,17 +613,42 @@ def _open_via_icechunk(
 
     from virtualizarr.manifests.array import ManifestArray
 
+    # Refuse empty or fully materialized datasets before touching an existing
+    # local repository. VirtualiZarr can return a zero-variable Dataset after a
+    # filtered GRIB scan, and writing it would otherwise erase valid references.
+    variables = getattr(vds, "variables", None)
+    if isinstance(variables, Mapping):
+        manifest_count = sum(
+            isinstance(variable.data, ManifestArray) for variable in variables.values()
+        )
+        if manifest_count == 0:
+            raise ValueError(
+                "Cannot write Icechunk references: the VirtualiZarr dataset contains no "
+                "ManifestArray variables. Check the input files and filters; the existing "
+                "Icechunk repository was left unchanged."
+            )
+
+    # If the local directory already exists, clear it for a clean, idempotent run.
+    # The virtual-data preflight above must pass before this destructive step.
+    if not icechunk_url.startswith("s3://") and os.path.exists(icechunk_url):
+        import shutil
+
+        try:
+            shutil.rmtree(icechunk_url)
+        except Exception:  # noqa: BLE001 - best-effort cleanup for idempotent re-runs; write reports if it cannot proceed
+            pass
+
     unique_prefixes = set()
     for var in vds.variables.values():
         if isinstance(var.data, ManifestArray):
             for path in var.data.manifest.iter_nonempty_paths():
-                from urllib.parse import urlsplit
-
-                url_parts = urlsplit(path)
-                if url_parts.scheme in ("s3", "http", "https"):
-                    unique_prefixes.add(f"{url_parts.scheme:s}://{url_parts.netloc:s}")
-                elif path.startswith("file://"):
-                    prefix = path.rsplit("/", 1)[0] + "/"
+                if path.startswith("s3://"):
+                    parts = path[5:].split("/", 1)
+                    prefix = "s3://" + parts[0] + "/"
+                    unique_prefixes.add(prefix)
+                elif path.startswith("http://") or path.startswith("https://"):
+                    parts = path.split("/", 4)
+                    prefix = "/".join(parts[:3]) + "/"
                     unique_prefixes.add(prefix)
                 elif path.startswith("file://"):
                     prefix = path.rsplit("/", 1)[0] + "/"
@@ -1336,6 +1352,8 @@ class XarrayDriver:
                         stacklevel=2,
                     )
 
+                filters = xr_kwargs.pop("filters", None)
+
                 # --- Kerchunk cache: load existing refs if available ---
                 refs = None
                 if (
@@ -1363,7 +1381,6 @@ class XarrayDriver:
 
                 if refs is None:
                     # Pop GRIB2-specific parameters to avoid reaching xarray
-                    filters = xr_kwargs.pop("filters", None)
                     max_workers = xr_kwargs.pop("max_workers", None)
                     storage_options = dict(xr_kwargs.get("storage_options", {}))
 
@@ -1375,7 +1392,6 @@ class XarrayDriver:
                         max_workers=max_workers,
                     )
                     manifest = gen.generate()
-
                     # 2. Write manifest to virtualizarr_file or temporary JSON
                     manifest_path_str = None
                     if virtualizarr_file is not None:
