@@ -462,6 +462,7 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
     from virtualizarr.manifests.array import ManifestArray
 
     unique_prefixes = set()
+    local_prefixes = set()
     for var in vds.variables.values():
         if isinstance(var.data, ManifestArray):
             for path in var.data.manifest.iter_nonempty_paths():
@@ -473,15 +474,30 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
                     parts = path.split("/", 4)
                     prefix = "/".join(parts[:3]) + "/"
                     unique_prefixes.add(prefix)
+                else:
+                    # Local files: manifests reference them as file:///abs/path
+                    # URLs (or plain absolute paths). Group them by top-level
+                    # directory so one local-filesystem container covers each
+                    # root; without a container virtualizarr refuses to write
+                    # the references ("No Virtual Chunk Containers set").
+                    fs_path = path[len("file://"):] if path.startswith("file://") else path
+                    if os.path.isabs(fs_path):
+                        prefix = "file:///" + fs_path.lstrip("/").split("/", 1)[0] + "/"
+                        local_prefixes.add(prefix)
 
     config = icechunk.RepositoryConfig.default()
+    for prefix in sorted(local_prefixes):
+        config.set_virtual_chunk_container(
+            icechunk.VirtualChunkContainer(
+                url_prefix=prefix,
+                store=icechunk.local_filesystem_store(prefix[len("file://"):]),
+            )
+        )
     for prefix in unique_prefixes:
         if prefix.startswith("s3://"):
             store_conf = icechunk.s3_store(anonymous=True, region="us-east-1")
-        elif prefix.startswith("http://") or prefix.startswith("https://"):
-            store_conf = icechunk.http_store()
         else:
-            store_conf = icechunk.local_filesystem_store()
+            store_conf = icechunk.http_store()
 
         container = icechunk.VirtualChunkContainer(
             url_prefix=prefix,
@@ -489,7 +505,7 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
         )
         config.set_virtual_chunk_container(container)
 
-    authorize = {prefix: None for prefix in unique_prefixes}
+    authorize = {prefix: None for prefix in unique_prefixes | local_prefixes}
 
     if icechunk_url.startswith("s3://"):
         parts = icechunk_url[5:].split("/", 1)
