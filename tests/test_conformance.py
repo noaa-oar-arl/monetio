@@ -160,9 +160,6 @@ for _alias, _spec in MANIFEST_BY_ALIAS.items():
     if _canonical in _FIXTURES and _registered_class(_alias) is _registered_class(_canonical):
         _FIXTURES[_alias] = _FIXTURES[_canonical]
 
-# Multi-file fixture for the gridded slice/concurrency rules.
-_MULTIFILE = sorted(str(p) for p in (_DATA / "multifile").glob("*.nc"))
-
 # Checked-in exclusion list for load-dependent rules (SC-007). Every
 # sample-backed source is covered; everything else is excluded with an
 # explicit reason and reported by ``test_every_source_covered_or_excluded``,
@@ -660,14 +657,14 @@ def test_c08_deferred_wide_flag_honored(tmp_path, monkeypatch):
     assert "OZONE" not in deferred.columns
 
 
-def test_c08_parallel_metadata_flag_honored():
+def test_c08_parallel_metadata_flag_honored(multifile):
     """C-08 (parallel_metadata): parallel=True yields the same result as serial.
 
     The flag's observable contract is that the source accepts it and the
     metadata parsing is result-identical (the speed upside is measured in the
     scale-concurrency tests, not here).
     """
-    files = _MULTIFILE if len(_MULTIFILE) >= 2 else _FIXTURES["cmaq"][0]
+    files = multifile
     serial = monetio.load("cmaq", files=files)
     parallel = monetio.load("cmaq", files=files, parallel=True)
     xr.testing.assert_allclose(_drop_history(serial), _drop_history(parallel))
@@ -699,11 +696,9 @@ def test_c08_concurrent_files_flag_honored(tmp_path):
     assert serial.sizes == concurrent.sizes
 
 
-def test_c08_chunk_controls_flag_honored():
+def test_c08_chunk_controls_flag_honored(multifile):
     """C-08 (chunk_controls): the declared ``chunks`` control reaches the result."""
-    ds = monetio.load(
-        "cmaq", files=_MULTIFILE if _MULTIFILE else "benchmark_cmaq.nc", chunks={"x": 2}
-    )
+    ds = monetio.load("cmaq", files=multifile, chunks={"x": 2})
     var = next(v for v in ds.data_vars.values() if v.ndim > 0)
     assert var.chunks is not None, "cmaq declares chunks control but result is not chunked"
     nx = ds.sizes["x"]
@@ -711,7 +706,9 @@ def test_c08_chunk_controls_flag_honored():
 
 
 @pytest.mark.parametrize("source", ["cmaq", "airnow"])
-def test_c08_distributed_flag_honored(source, tmp_path, monkeypatch, local_distributed_cluster):
+def test_c08_distributed_flag_honored(
+    source, multifile, tmp_path, monkeypatch, local_distributed_cluster
+):
     """C-08 (distributed): the deferred graph evaluates on a distributed scheduler.
 
     The in-process cluster is the same graph the threads scheduler runs; the
@@ -751,10 +748,10 @@ def test_c08_distributed_flag_honored(source, tmp_path, monkeypatch, local_distr
 
         pd.testing.assert_frame_equal(_ordered(on_distributed), _ordered(on_threads))
     else:
-        ds = monetio.load("cmaq", files=_MULTIFILE, defer=True)
+        ds = monetio.load("cmaq", files=multifile, defer=True)
         dist = ds.compute()  # under the active distributed Client
         with dask.config.set(scheduler="sync"):
-            sync = monetio.load("cmaq", files=_MULTIFILE, defer=True).compute()
+            sync = monetio.load("cmaq", files=multifile, defer=True).compute()
         xr.testing.assert_allclose(_drop_history(dist), _drop_history(sync))
 
 
@@ -819,11 +816,9 @@ def test_c07_no_forced_chunking(source):
 # ---------------------------------------------------------------------------
 
 
-def test_c09_deferred_slice_touches_required_files():
+def test_c09_deferred_slice_touches_required_files(multifile):
     """C-09: reading one time step of a deferred multi-file load touches one file."""
     h5py = pytest.importorskip("h5py")
-    if len(_MULTIFILE) < 3:
-        pytest.skip("multifile fixture missing")
     touched = {}
     orig = h5py.Dataset.__getitem__
 
@@ -863,7 +858,7 @@ def test_c09_deferred_slice_touches_required_files():
 
     h5py.Dataset.__getitem__ = traced
     try:
-        ds = monetio.load("cmaq", files=_MULTIFILE, defer=True)
+        ds = monetio.load("cmaq", files=multifile, defer=True)
         # The load reads only coordinate/metadata; the gridded fields are
         # untouched until a compute is requested. h5py names carry a leading
         # slash, so match on the data-variable names.
@@ -886,7 +881,7 @@ def test_c09_deferred_slice_touches_required_files():
     field_files = {f for (f, name), n in touched.items() if n > 1}
     assert len(field_files) == 1, (
         f"cmaq deferred single-step slice pulled gridded data from "
-        f"{len(field_files)} of {len(_MULTIFILE)} files; a lazy slice must "
+        f"{len(field_files)} of {len(multifile)} files; a lazy slice must "
         f"read the field from only the needed file"
     )
 
