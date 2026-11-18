@@ -50,9 +50,6 @@ import xarray as xr
 from monetio.readers.cmaq import CMAQReader
 from monetio.readers.drivers import XarrayDriver, _mismatch_diagnostic
 
-_ROOT = Path(__file__).parent
-_MULTIFILE = sorted(str(p) for p in (_ROOT / "data" / "multifile").glob("*.nc"))
-
 _HAS_DISTRIBUTED = True
 try:
     import distributed  # noqa: F401
@@ -162,11 +159,10 @@ def _timed_open(files, parallel, reps=3):
 # parallel=True — identical result, and faster metadata parsing
 # ---------------------------------------------------------------------------
 class TestParallelMetadata:
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_result_identical_to_serial(self):
+    def test_result_identical_to_serial(self, multifile):
         """SC-012 (content half): ``parallel=True`` must not change the result."""
-        serial = CMAQReader().open_dataset(_MULTIFILE)
-        parallel = CMAQReader().open_dataset(_MULTIFILE, parallel=True)
+        serial = CMAQReader().open_dataset(multifile)
+        parallel = CMAQReader().open_dataset(multifile, parallel=True)
         # Global attrs legitimately differ in the per-file EXEC_ID list and the
         # combine history line; compare the actual content (coords + data vars).
         xr.testing.assert_identical(serial.drop_attrs(), parallel.drop_attrs())
@@ -253,10 +249,9 @@ class TestParallelMetadata:
 # concurrent_files=True — overlapping reads, order preserved
 # ---------------------------------------------------------------------------
 class TestConcurrentFiles:
-    @pytest.mark.skipif(len(_MULTIFILE) < 4, reason="multifile fixture missing")
-    def test_reads_overlap(self, recording_reader):
+    def test_reads_overlap(self, multifile, recording_reader):
         """SC-013: per-file reads demonstrably overlap in wall-clock time."""
-        files = _MULTIFILE[:6]
+        files = multifile[:6]
         XarrayDriver().open(files, read_method=recording_reader, concurrent_files=True)
         records = recording_reader.records
         assert len(records) == len(files)
@@ -267,18 +262,16 @@ class TestConcurrentFiles:
             f"(overlap fraction {fraction:.2f})"
         )
 
-    @pytest.mark.skipif(len(_MULTIFILE) < 4, reason="multifile fixture missing")
-    def test_serial_path_does_not_overlap(self, recording_reader):
+    def test_serial_path_does_not_overlap(self, multifile, recording_reader):
         """The default path stays serial: no overlap without the opt-in."""
-        files = _MULTIFILE[:6]
+        files = multifile[:6]
         XarrayDriver().open(files, read_method=recording_reader)  # default False
         fraction = _overlap_fraction(recording_reader.records)
         assert fraction < 0.1, f"serial path unexpectedly overlapped (fraction {fraction:.2f})"
 
-    @pytest.mark.skipif(len(_MULTIFILE) < 4, reason="multifile fixture missing")
-    def test_result_identical_and_order_preserved(self, recording_reader):
+    def test_result_identical_and_order_preserved(self, multifile, recording_reader):
         """Result identical to serial, with file order preserved."""
-        files = _MULTIFILE[:6]
+        files = multifile[:6]
         serial = XarrayDriver().open(files, read_method=recording_reader)
         concurrent = XarrayDriver().open(files, read_method=recording_reader, concurrent_files=True)
         # combine_nested/concat order depends on file order: the time axis must
@@ -367,10 +360,8 @@ class TestMismatchDiagnostic:
             "AlignmentError",
         }
 
-    def test_no_false_positive_on_uniform_set(self):
-        if len(_MULTIFILE) < 2:
-            pytest.skip("multifile fixture missing")
-        assert _mismatch_diagnostic(_MULTIFILE) is None
+    def test_no_false_positive_on_uniform_set(self, multifile):
+        assert _mismatch_diagnostic(multifile) is None
 
     def test_diagnostic_never_guesses_without_majority(self, tmp_path):
         # Every file its own shape -> no majority signature -> no guess.

@@ -20,8 +20,6 @@ exercising the real ``distributed`` scheduler path (not the threaded one).
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import dask
 import dask.array as da
 import pandas as pd
@@ -37,8 +35,6 @@ try:
 except ImportError:  # pragma: no cover - environment without the extra
     _HAS_DISTRIBUTED = False
 
-_ROOT = Path(__file__).parent
-_MULTIFILE = sorted(str(p) for p in (_ROOT / "data" / "multifile").glob("*.nc"))
 
 requires_distributed = pytest.mark.skipif(
     not _HAS_DISTRIBUTED, reason="distributed not installed (optional extra)"
@@ -97,22 +93,22 @@ def _strip_history(obj):
 # Same deferred load, equivalent results across schedulers (SC-015)
 # ---------------------------------------------------------------------------
 class TestSchedulerEquivalence:
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_gridded_deferred_matches_eager_on_threads(self):
+    def test_gridded_deferred_matches_eager_on_threads(self, multifile):
         """Local threaded scheduler: evaluate(defer) == eager."""
         reader = CMAQReader()
-        deferred = reader.open_dataset(_MULTIFILE, defer=True)
+        deferred = reader.open_dataset(multifile, defer=True)
         assert all(isinstance(v.data, da.Array) for v in deferred.data_vars.values()), (
             "defer must return an unevaluated dataset"
         )
         with dask.config.set(scheduler="threads"):
             on_threads = deferred.compute()
-        eager = reader.open_dataset(_MULTIFILE)
+        eager = reader.open_dataset(multifile)
         xr.testing.assert_identical(_strip_history(on_threads), _strip_history(eager))
 
     @requires_distributed
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_gridded_deferred_equivalent_across_schedulers(self, local_distributed_cluster):
+    def test_gridded_deferred_equivalent_across_schedulers(
+        self, multifile, local_distributed_cluster
+    ):
         """SC-015: threaded and in-process distributed give the same result.
 
         The *same* deferred graph is computed under each scheduler; both equal
@@ -120,7 +116,7 @@ class TestSchedulerEquivalence:
         purely the caller's environment.
         """
         reader = CMAQReader()
-        deferred = reader.open_dataset(_MULTIFILE, defer=True)
+        deferred = reader.open_dataset(multifile, defer=True)
 
         # An active distributed Client routes .compute() through it.
         on_distributed = deferred.compute()
@@ -128,7 +124,7 @@ class TestSchedulerEquivalence:
             on_threads = deferred.compute()
 
         xr.testing.assert_identical(_strip_history(on_distributed), _strip_history(on_threads))
-        eager = reader.open_dataset(_MULTIFILE)
+        eager = reader.open_dataset(multifile)
         xr.testing.assert_identical(_strip_history(on_distributed), _strip_history(eager))
 
     @requires_distributed
@@ -187,8 +183,7 @@ class TestSchedulerEquivalence:
 # Unreachable scheduler surfaces its error (spec edge case)
 # ---------------------------------------------------------------------------
 class TestNoSilentFallback:
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_unreachable_scheduler_raises_not_local_result(self):
+    def test_unreachable_scheduler_raises_not_local_result(self, multifile):
         """A named-but-unreachable scheduler must error, never return data.
 
         The dangerous failure mode is ``compute()`` quietly running single-machine
@@ -196,7 +191,7 @@ class TestNoSilentFallback:
         Requesting the distributed scheduler against a dead address must raise.
         """
         reader = CMAQReader()
-        deferred = reader.open_dataset(_MULTIFILE, defer=True)
+        deferred = reader.open_dataset(multifile, defer=True)
         with dask.config.set(
             scheduler="dask.distributed",
             distributed={"scheduler": "127.0.0.1:1"},  # nothing listening
