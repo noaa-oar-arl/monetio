@@ -46,6 +46,17 @@ See :ref:`observations:AirNow` for more information.
 
 .. autofunction:: monetio.airnow.add_data
 
+ObsPack
+^^^^^^^
+
+.. autosummary::
+
+   monetio.obspack.open_dataset
+   monetio.obspack.open_mfdataset
+
+.. autofunction:: monetio.obspack.open_dataset
+.. autofunction:: monetio.obspack.open_mfdataset
+
 
 Profile observations
 --------------------
