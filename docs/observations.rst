@@ -322,6 +322,26 @@ Available Measurements
 * Cl- (cl)
 * NH4+ (nh4)
 
+ObsPack
+-------
+
+ObsPack netCDF files contain atmospheric trace gas observations. The reader
+returns an :class:`xarray.Dataset`, with observation time, sample location,
+altitude, and the unique ``obspack_id`` identifier set as coordinates when
+available:
+
+.. code:: python
+
+    from monetio import obspack
+
+    ds = obspack.open_dataset("co2_mlo_surface-flask_426_representative.nc")
+
+To combine files along ObsPack's observation dimension:
+
+.. code:: python
+
+    ds = obspack.open_mfdataset("data/nc/*.nc")
+
 IMPROVE
 -------
 
