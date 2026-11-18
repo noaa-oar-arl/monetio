@@ -244,6 +244,33 @@ def test_aeronet_query_selection_reaches_request_and_dask_outputs(
         assert isinstance(result, dd.DataFrame)
 
 
+def test_build_urls_day_resolution_covers_last_day(mock_valid_sites):
+    """Regression: the web-service end bound is exclusive; a day-resolution
+    request ending at midnight must be extended so the last requested day is
+    not silently dropped (previously Aug 1-31 returned only Aug 1-30)."""
+    from monetio.readers.aeronet import build_urls
+
+    dates = pd.date_range("2025-08-01", "2025-08-31", freq="D")
+    urls = build_urls(dates, product="AOD15", siteid="SERC", n_chunks=4)
+    assert "day2=31" in urls[-1]
+    assert "hour2=23" in urls[-1]  # end of Aug 31, not midnight
+
+    # Single midnight date covers that whole day.
+    single = build_urls(pd.to_datetime(["2025-08-31"]), product="AOD15", siteid="SERC")
+    assert "day=31" in single[0] and "day2=31" in single[0]
+    assert "hour2=23" in single[0]
+
+
+def test_build_urls_subdaily_end_is_exact(mock_valid_sites):
+    """Sub-daily end times are honored as given (no day extension)."""
+    from monetio.readers.aeronet import build_urls
+
+    dates = pd.date_range("2025-08-30", "2025-08-31 12:00", freq="6h")
+    urls = build_urls(dates, product="AOD15", siteid="SERC", n_chunks=2)
+    assert "day2=31" in urls[-1]
+    assert "hour2=12" in urls[-1]
+
+
 def test_aeronet_chunking_logic():
     import pandas as pd
 
@@ -289,14 +316,17 @@ def test_aeronet_build_urls_split_by_day(mock_valid_sites):
 
     dates = pd.date_range("2021-08-01", "2021-08-02", freq="D")
     urls = build_urls(dates, product="AOD15", siteid="SERC", split_by_day=True)
-    # 2021-08-01 to 2021-08-02 is one span (one daily averaging period or full day)
-    # Wait, my logic for split_by_day produces intervals.
-    # If 2021-08-01 to 2021-08-02, it's 1 chunk.
-    assert len(urls) == 1
+    # Day-resolution requests cover each requested day INCLUSIVELY: the end
+    # bound is extended to the end of the last day (the web service end bound
+    # is exclusive), so Aug 1-2 yields one chunk per day:
+    # [Aug 1 00:00 -> Aug 2 00:00) then [Aug 2 00:00 -> Aug 2 23:59].
+    assert len(urls) == 2
+    assert "day=01" in urls[0] and "day2=02" in urls[0] and "hour2=00" in urls[0]
+    assert "day=02" in urls[1] and "day2=02" in urls[1] and "hour2=23" in urls[1]
 
     dates_multi = pd.date_range("2021-08-01", "2021-08-03", freq="D")
     urls_multi = build_urls(dates_multi, split_by_day=True)
-    assert len(urls_multi) == 2
+    assert len(urls_multi) == 3
 
 
 def test_add_data_inv():
@@ -544,7 +574,13 @@ def test_issue100(dates, request):
             assert df1_.equals(df2_)
         else:
             assert df1.equals(df2)
-        assert dates[0] <= df1.time.min() <= df1.time.max() <= dates[-1]
+        # Day-resolution requests cover the last requested day inclusively
+        # (the web-service end bound is exclusive, so build_urls extends a
+        # midnight end to the end of that day). Sub-daily ends are exact.
+        upper = dates[-1]
+        if upper == upper.floor("D") and (dates == dates.floor("D")).all():
+            upper = upper + pd.Timedelta(days=1)
+        assert dates[0] <= df1.time.min() <= df1.time.max() < upper
     except Exception as e:
         if is_connection_error(e):
             pytest.skip(f"Network connection failed: {e}")

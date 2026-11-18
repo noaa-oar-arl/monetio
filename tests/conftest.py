@@ -599,3 +599,15 @@ def track_xr_closes(monkeypatch):
         return types.SimpleNamespace(opened=opened, closed=closed)
 
     return _track
+
+
+@pytest.fixture(scope="session")
+def multifile(tmp_path_factory):
+    """Generate the gridded multi-file dataset once per test session."""
+    import runpy
+
+    build_file = runpy.run_path(str(_REPO_ROOT / "scripts" / "make_multifile_fixture.py"))[
+        "build_file"
+    ]
+    outdir = tmp_path_factory.mktemp("multifile")
+    return [str(build_file(i, "2023-06-01 00:00", outdir)) for i in range(60)]

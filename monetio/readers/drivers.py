@@ -639,6 +639,7 @@ def _open_via_icechunk(
             pass
 
     unique_prefixes = set()
+    local_prefixes = set()
     for var in vds.variables.values():
         if isinstance(var.data, ManifestArray):
             for path in var.data.manifest.iter_nonempty_paths():
@@ -650,22 +651,30 @@ def _open_via_icechunk(
                     parts = path.split("/", 4)
                     prefix = "/".join(parts[:3]) + "/"
                     unique_prefixes.add(prefix)
-                elif path.startswith("file://"):
-                    prefix = path.rsplit("/", 1)[0] + "/"
-                    unique_prefixes.add(prefix)
+                else:
+                    # Register local file URLs and absolute filesystem paths.
+                    fs_path = path[len("file://") :] if path.startswith("file://") else path
+                    if os.path.isabs(fs_path):
+                        prefix = "file:///" + fs_path.lstrip("/").split("/", 1)[0] + "/"
+                        local_prefixes.add(prefix)
 
     config = icechunk.RepositoryConfig.default()
     authorize = {}
+    for prefix in sorted(local_prefixes):
+        config.set_virtual_chunk_container(
+            icechunk.VirtualChunkContainer(
+                url_prefix=prefix,
+                store=icechunk.local_filesystem_store(prefix[len("file://") :]),
+            )
+        )
+        authorize[prefix] = icechunk.credentials.LocalFileSystemAccess
     for prefix in unique_prefixes:
         if prefix.startswith("s3://"):
             store_conf = icechunk.s3_store(anonymous=True, region="us-east-1")
             authorize[prefix] = None
-        elif prefix.startswith("http://") or prefix.startswith("https://"):
+        else:
             store_conf = icechunk.http_store()
             authorize[prefix] = icechunk.credentials.HttpAccess
-        else:
-            store_conf = icechunk.local_filesystem_store(prefix)
-            authorize[prefix] = icechunk.credentials.LocalFileSystemAccess
 
         container = icechunk.VirtualChunkContainer(
             url_prefix=prefix,
@@ -743,6 +752,96 @@ def _call_with_retries(
             )
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
+
+
+def _promote_grib2_scalar_time(ds: xr.Dataset) -> xr.Dataset:
+    """Preprocess for multi-file GRIB2 concat: give each file a time coordinate.
+
+    grib2io exposes each file's valid time as a *scalar* ``valid_time``
+    coordinate. Concatenating along a new ``time`` dimension with
+    ``coords="minimal"`` keeps only the first file's scalars, so per-sample
+    valid times are lost (the result has a time dimension without values).
+    Promote the scalar valid_time to a one-element ``time`` dimension
+    coordinate per file, and carry the other per-file time scalars
+    (forecast_reference_time, lead_time/step) along that dimension so they
+    concatenate correctly too.
+    """
+    if "time" in ds.dims:
+        return ds
+    # grib2io's native backend names these refDate/leadTime/validDate; the
+    # harmonized CF-style names are valid_time/lead_time/forecast_reference_time.
+    valid_time = None
+    for name in ("valid_time", "validDate"):
+        candidate = ds.coords.get(name)
+        if candidate is not None and candidate.ndim == 0:
+            valid_time = candidate
+            break
+    if valid_time is None:
+        return ds
+    ds = ds.expand_dims("time")
+    ds = ds.assign_coords(time=("time", [valid_time.values]))
+    for name in ("forecast_reference_time", "refDate", "lead_time", "leadTime", "step"):
+        coord = ds.coords.get(name)
+        if coord is not None and coord.ndim == 0:
+            ds = ds.assign_coords({name: ("time", [coord.values])})
+    return ds
+
+
+def _stage_remote_grib2_files(
+    file_list: list[str],
+    storage_options: dict | None = None,
+    attempts: int = 3,
+    base_sleep: float = 1.0,
+) -> list[str]:
+    """Download remote GRIB2 files to local disk and return local paths.
+
+    grib2io can *scan* remote (s3/http) GRIB2 indexes, but its lazy chunk
+    reader opens the recorded filename with a plain ``open()``, so remote
+    URLs fail at data-read time with ``FileNotFoundError``. Staging to local
+    disk keeps both the scan and later lazy reads working.
+
+    Downloads are cached under ``$MONETIO_GRIB2_STAGE_DIR`` (default
+    ``<tmp>/monetio_grib2_cache``), keyed by a hash of the source URL, so
+    repeated loads reuse already-downloaded bytes. The cache intentionally
+    outlives this call because lazy reads happen later; it is not deleted
+    here. Local paths pass through unchanged.
+    """
+    import hashlib
+    import tempfile
+    from pathlib import Path
+
+    cache_root = Path(
+        os.environ.get(
+            "MONETIO_GRIB2_STAGE_DIR", os.path.join(tempfile.gettempdir(), "monetio_grib2_cache")
+        )
+    )
+    staged: list[str] = []
+    for path in file_list:
+        p = str(path)
+        if not p.startswith(("s3://", "http://", "https://")):
+            staged.append(p)
+            continue
+        key = hashlib.sha1(p.encode()).hexdigest()[:16]
+        local = cache_root / key / os.path.basename(p.rstrip("/"))
+        if not local.exists():
+            local.parent.mkdir(parents=True, exist_ok=True)
+            fs = FileUtility.get_fs(p, storage_options)
+            part = local.with_name(local.name + f".part-{os.getpid()}")
+
+            def _download(fs=fs, p=p, part=part):
+                fs.get(p, str(part))
+
+            try:
+                _call_with_retries(_download, attempts=attempts, base_sleep=base_sleep)
+                os.replace(part, local)
+            finally:
+                if part.exists():
+                    try:
+                        part.unlink()
+                    except OSError:
+                        pass
+        staged.append(str(local))
+    return staged
 
 
 class FileUtility:
@@ -987,6 +1086,20 @@ class XarrayDriver:
         ):
             xr_kwargs["storage_options"] = get_default_storage_options(str(file_list[0]))
 
+        # grib2io's lazy chunk reader opens recorded filenames with a plain
+        # open(); remote (s3/http) URLs must be staged to local disk first so
+        # both the index scan and later lazy data reads work.
+        if file_list and any(
+            str(f).startswith(("s3://", "http://", "https://")) for f in file_list
+        ):
+            file_list = _stage_remote_grib2_files(
+                file_list,
+                xr_kwargs.get("storage_options"),
+                attempts=retry_attempts,
+                base_sleep=retry_base_sleep,
+            )
+            xr_kwargs.pop("storage_options", None)
+
         # Remove ReferenceGenerator / VirtualiZarr / icechunk-only parameters from xr_kwargs
         # so they do not cause TypeErrors in standard/fallback paths.
         for key in [
@@ -1053,6 +1166,17 @@ class XarrayDriver:
             xr_kwargs.setdefault("combine", "nested")
             xr_kwargs.setdefault("coords", "minimal")
             xr_kwargs.setdefault("compat", "override")
+            # Without per-file time promotion the concatenated dataset has
+            # a time dimension but no time values (scalar valid_time from
+            # the first file only). Chain the promotion ahead of any
+            # caller-supplied preprocess.
+            if preprocess is None:
+                preprocess = _promote_grib2_scalar_time
+            else:
+                _user_preprocess = preprocess
+
+                def preprocess(ds, _user=_user_preprocess):
+                    return _user(_promote_grib2_scalar_time(ds))
 
         if preprocess:
             xr_kwargs["preprocess"] = preprocess

@@ -21,11 +21,21 @@ _XFAIL_USE_ICECHUNK_FORWARDED = pytest.mark.xfail(
 )
 
 
-def test_grib2io_s3_single_file_passes_url_and_storage_options(monkeypatch):
+def test_grib2io_s3_single_file_is_staged_locally(monkeypatch, tmp_path):
+    """Remote GRIB2 URLs are downloaded before opening: grib2io's lazy reader
+    uses plain open() on recorded filenames, so s3 URLs fail at read time.
+    storage_options are consumed by staging, not forwarded to the backend."""
     driver = XarrayDriver()
     captured = {}
+    staged_opts = {}
 
     monkeypatch.setattr(FileUtility, "expand_paths", lambda files, fs=None, **kwargs: [files])
+
+    def _fake_stage(file_list, storage_options=None, **kwargs):
+        staged_opts["storage_options"] = storage_options
+        return [str(tmp_path / "example.grib2")]
+
+    monkeypatch.setattr("monetio.readers.drivers._stage_remote_grib2_files", _fake_stage)
 
     def _fake_open_dataset(file_path, **kwargs):
         captured["file_path"] = file_path
@@ -38,8 +48,9 @@ def test_grib2io_s3_single_file_passes_url_and_storage_options(monkeypatch):
         "s3://noaa-gfs-bdp-pds/example.grib2", engine="grib2io", storage_options={"anon": True}
     )
 
-    assert captured["file_path"] == "s3://noaa-gfs-bdp-pds/example.grib2"
-    assert captured["kwargs"]["storage_options"] == {"anon": True}
+    assert captured["file_path"] == str(tmp_path / "example.grib2")
+    assert "storage_options" not in captured["kwargs"]
+    assert staged_opts["storage_options"] == {"anon": True}
 
 
 @_XFAIL_USE_ICECHUNK_FORWARDED
@@ -126,7 +137,7 @@ def test_grib2io_legacy_icechunk_repo_translates_to_native_kwargs(monkeypatch):
     assert "icechunk_repo" not in captured["kwargs"]
 
 
-def test_grib2io_s3_sets_default_storage_options(monkeypatch):
+def test_grib2io_s3_sets_default_storage_options(monkeypatch, tmp_path):
     driver = XarrayDriver()
     captured = {}
 
@@ -139,10 +150,20 @@ def test_grib2io_s3_sets_default_storage_options(monkeypatch):
 
     monkeypatch.setattr(xr, "open_dataset", _fake_open_dataset)
 
+    staged_opts = {}
+
+    def _fake_stage(file_list, storage_options=None, **kwargs):
+        staged_opts["storage_options"] = storage_options
+        return [str(tmp_path / "example.grib2")]
+
+    monkeypatch.setattr("monetio.readers.drivers._stage_remote_grib2_files", _fake_stage)
+
     path = "s3://noaa-gfs-bdp-pds/example.grib2"
     driver.open(path, engine="grib2io")
 
-    assert captured["kwargs"]["storage_options"] == get_default_storage_options(path)
+    # Default anonymous S3 options reach the staging download, not the backend.
+    assert staged_opts["storage_options"] == get_default_storage_options(path)
+    assert "storage_options" not in captured["kwargs"]
 
 
 def test_get_fs_passes_s3_kwargs_through(monkeypatch):

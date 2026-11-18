@@ -37,9 +37,6 @@ from monetio._manifest import MANIFEST_BY_NAME, ScaleCapabilities
 from monetio.readers.airnow import AirNowReader
 from monetio.readers.cmaq import CMAQReader
 
-_ROOT = Path(__file__).parent
-_MULTIFILE = sorted(str(p) for p in (_ROOT / "data" / "multifile").glob("*.nc"))
-
 
 # ---------------------------------------------------------------------------
 # Compute-boundary instrumentation
@@ -186,41 +183,37 @@ def _synthetic_airnow(tmp_path, monkeypatch, n_rows: int, n_sites: int = 1):
 # Gridded deferred loading
 # ---------------------------------------------------------------------------
 class TestGriddedDeferred:
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_defer_returns_unevaluated_dataset(self):
+    def test_defer_returns_unevaluated_dataset(self, multifile):
         reader = CMAQReader()
-        ds = reader.open_dataset(_MULTIFILE, defer=True)
+        ds = reader.open_dataset(multifile, defer=True)
         assert isinstance(ds, xr.Dataset)
         assert all(isinstance(v.data, da.Array) for v in ds.data_vars.values()), (
             "defer=True must return a dask-backed (unevaluated) Dataset"
         )
 
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_crux_invariant(self):
+    def test_crux_invariant(self, multifile):
         """evaluate(load(defer=True)) == load() — the §6 contract."""
         reader = CMAQReader()
-        eager = reader.open_dataset(_MULTIFILE)
-        lazy = reader.open_dataset(_MULTIFILE, defer=True)
+        eager = reader.open_dataset(multifile)
+        lazy = reader.open_dataset(multifile, defer=True)
         xr.testing.assert_identical(_normalize_history(lazy.compute()), _normalize_history(eager))
 
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_sc011_zero_full_computes(self):
+    def test_sc011_zero_full_computes(self, multifile):
         """SC-011: a deferred gridded load triggers zero full-dataset computes."""
         reader = CMAQReader()
         with ComputeProbe() as probe:
-            reader.open_dataset(_MULTIFILE, defer=True)
+            reader.open_dataset(multifile, defer=True)
         assert probe.full == 0, (
             f"deferred gridded load materialized {probe.full} full computes "
             f"(max {probe.max_elements} elements); SC-011 requires zero"
         )
 
-    @pytest.mark.skipif(len(_MULTIFILE) < 2, reason="multifile fixture missing")
-    def test_defer_overrides_use_dask_false(self):
+    def test_defer_overrides_use_dask_false(self, multifile):
         """defer=True forces the dask path even when use_dask=False is implied."""
         reader = CMAQReader()
         # The default (no defer) with use_dask not set still returns a Dataset;
         # defer=True must yield a dask-backed one regardless.
-        lazy = reader.open_dataset(_MULTIFILE, defer=True, use_dask=False)
+        lazy = reader.open_dataset(multifile, defer=True, use_dask=False)
         assert _all_dask(lazy)
 
 
@@ -497,15 +490,13 @@ class TestDeferUnsupportedRaises:
                 real, "capabilities", ScaleCapabilities(deferred=True, deferred_wide=True)
             )
 
-    def test_gridded_source_without_capability_raises(self):
-        if len(_MULTIFILE) < 2:
-            pytest.skip("multifile fixture missing")
+    def test_gridded_source_without_capability_raises(self, multifile):
         reader = CMAQReader()
         real = MANIFEST_BY_NAME["cmaq"]
         object.__setattr__(real, "capabilities", ScaleCapabilities(deferred=False))
         try:
             with pytest.raises(NotImplementedError) as exc:
-                reader.open_dataset(_MULTIFILE, defer=True)
+                reader.open_dataset(multifile, defer=True)
             assert "cmaq" in str(exc.value).lower()
         finally:
             object.__setattr__(
@@ -537,12 +528,11 @@ class TestDeferUnsupportedRaises:
 # SC-014: slice evaluation touches only the required files
 # ---------------------------------------------------------------------------
 class TestSliceFileIsolation:
-    @pytest.mark.skipif(len(_MULTIFILE) < 4, reason="multifile fixture missing")
-    def test_slice_touches_only_required_files(self):
+    def test_slice_touches_only_required_files(self, multifile):
         """A single-timestep slice reads exactly the one backing file."""
         import h5py
 
-        files = _MULTIFILE
+        files = multifile
         accessed: list[str] = []
         orig = h5py.Dataset.__getitem__
 
