@@ -590,12 +590,19 @@ def _promote_grib2_scalar_time(ds: xr.Dataset) -> xr.Dataset:
     """
     if "time" in ds.dims:
         return ds
-    valid_time = ds.coords.get("valid_time")
-    if valid_time is None or valid_time.ndim != 0:
+    # grib2io's native backend names these refDate/leadTime/validDate; the
+    # harmonized CF-style names are valid_time/lead_time/forecast_reference_time.
+    valid_time = None
+    for name in ("valid_time", "validDate"):
+        candidate = ds.coords.get(name)
+        if candidate is not None and candidate.ndim == 0:
+            valid_time = candidate
+            break
+    if valid_time is None:
         return ds
     ds = ds.expand_dims("time")
     ds = ds.assign_coords(time=("time", [valid_time.values]))
-    for name in ("forecast_reference_time", "lead_time", "step"):
+    for name in ("forecast_reference_time", "refDate", "lead_time", "leadTime", "step"):
         coord = ds.coords.get(name)
         if coord is not None and coord.ndim == 0:
             ds = ds.assign_coords({name: ("time", [coord.values])})

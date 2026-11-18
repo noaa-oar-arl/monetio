@@ -57,3 +57,17 @@ def test_promotion_noop_without_valid_time():
     ds = xr.Dataset({"aod": (("y", "x"), np.ones((2, 2)))})
     out = _promote_grib2_scalar_time(ds)
     assert out is ds
+
+
+def test_promotion_handles_grib2io_native_names():
+    """grib2io's native backend uses refDate/leadTime/validDate."""
+    ds = xr.Dataset({"aod": (("y", "x"), np.ones((2, 2), dtype=np.float32))}).assign_coords(
+        validDate=np.datetime64("2025-08-01T06"),
+        refDate=np.datetime64("2025-08-01T00"),
+        leadTime=np.timedelta64(6, "h"),
+    )
+    out = _promote_grib2_scalar_time(ds)
+    assert out.dims["time"] == 1
+    assert out["time"].values[0] == np.datetime64("2025-08-01T06")
+    assert out["refDate"].dims == ("time",)
+    assert out["leadTime"].dims == ("time",)
