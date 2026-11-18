@@ -113,12 +113,31 @@ docstring listing sources — those are generated from the manifest.
 
 ## Best Practices
 
-### Lazy Loading
+### Eager defaults and opt-in scale behavior
 
-Readers should aim to be lazy by default. Use Xarray and Dask to avoid loading large datasets into memory until computation is requested.
+Reader defaults are eager. Return NumPy-backed Xarray data or a pandas table unless
+that source and output mode have passing evidence for an explicit option. Dask
+support is mode-specific; a source may support deferred arrays for one output
+form and reject them for another.
 
-- Avoid calling `.values`, `.compute()`, or `.load()` unless absolutely necessary (e.g., for coordinate construction).
-- Use `preprocess` functions with `xarray.open_mfdataset` for per-file processing.
+Before enabling a `ScaleCapabilities` flag:
+
+- Add a deterministic, offline fixture and a passing case for the exact source,
+  output form, backend, and relevant option combination.
+- For deferred paths, provide validated post-preprocessing metadata where
+  possible and record any schema, row-length, or coordinate preparation pass,
+  its input and output bounds, later rereads, and resource ownership.
+- Compare eager and evaluated deferred output for values, dtypes, ordering,
+  masks, units, diagnostics, and meaningful provenance. Normalize only
+  explicitly volatile provenance fields.
+- Exercise the universal loader, direct reader, and shared driver boundaries
+  as applicable. A skip for a missing optional dependency is not passing
+  evidence.
+- Record fixture and source fingerprints in `tests/data/dask_reader_audit.json`
+  and run `python scripts/validate_dask_audit.py`.
+
+See [Dask reader behavior](../dask_readers.md) for the current tested contract
+and its limits.
 
 ### Provenance and Metadata
 

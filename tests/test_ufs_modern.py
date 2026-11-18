@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import dask.array as da
 import numpy as np
 import pytest
@@ -100,6 +102,70 @@ def test_ufs_protocol_compliance():
     assert "latitude" in res_eager.coords
     assert "longitude" in res_eager.coords
     assert "time" in res_eager.coords
+
+
+def test_ufs_multifile_use_dask_eager_parity():
+    files = sorted(Path("tests/data/ufs").glob("aqm.t12z.dyn.f00*.nc"))
+    assert len(files) == 2
+    reader = UFSReader()
+    eager = reader.open_dataset([str(path) for path in files])
+    lazy = reader.open_dataset([str(path) for path in files], use_dask=True)
+
+    assert hasattr(lazy.o3_ave.data, "dask")
+    xr.testing.assert_allclose(eager, lazy.compute())
+
+
+@pytest.mark.parametrize("reference_backend", ["kerchunk", "icechunk"])
+def test_ufs_multifile_virtualizarr_dask_parity(tmp_path, reference_backend):
+    pytest.importorskip("virtualizarr")
+    if reference_backend == "icechunk":
+        pytest.importorskip("icechunk")
+
+    files = sorted(Path("tests/data/ufs").glob("aqm.t12z.dyn.f00*.nc"))
+    assert len(files) == 2
+    reader = UFSReader()
+    eager = reader.open_dataset([str(path) for path in files], use_dask=False)
+    options = {
+        "use_virtualizarr": True,
+        "use_dask": True,
+        "chunks": {"time": 1},
+    }
+    if reference_backend == "kerchunk":
+        options["virtualizarr_file"] = str(tmp_path / "ufs-refs.json")
+    else:
+        options.update(use_icechunk=True, icechunk_url=str(tmp_path / "ufs-icechunk"))
+
+    lazy = reader.open_dataset([str(path) for path in files], **options)
+    try:
+        assert hasattr(lazy.o3_ave.data, "dask")
+        assert lazy.o3_ave.chunksizes["time"] == (1, 1)
+        xr.testing.assert_allclose(eager, lazy.compute())
+        if reference_backend == "kerchunk":
+            assert (tmp_path / "ufs-refs.json").is_file()
+    finally:
+        eager.close()
+        lazy.close()
+
+
+def test_ufs_var_list_excludes_unselected_dask_payload(tmp_path):
+    np.random.seed(42)
+    source = create_mock_ufs_ds()
+    source["UNUSED"] = (("time", "y", "x"), np.full((2, 10, 10), -99.0))
+    path = tmp_path / "ufs-selective.nc"
+    source.to_netcdf(path, engine="h5netcdf")
+
+    reader = UFSReader()
+    eager = reader.open_dataset(str(path), engine="h5netcdf", var_list=["o3"])
+    lazy = reader.open_dataset(
+        str(path), engine="h5netcdf", use_dask=True, chunks={"time": 1}, var_list=["o3"]
+    )
+    try:
+        assert "UNUSED" not in lazy.data_vars
+        assert "aso4j" not in lazy.data_vars
+        assert hasattr(lazy.o3.data, "dask")
+        xr.testing.assert_allclose(eager, lazy.compute())
+    finally:
+        lazy.close()
 
 
 def test_ufs_diagnostic_pm25():

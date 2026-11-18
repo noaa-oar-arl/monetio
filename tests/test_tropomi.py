@@ -243,6 +243,87 @@ def test_tropomi_multi_group(monkeypatch):
     assert ds_merged.time.size == 3
 
 
+def test_tropomi_reader_eager_and_use_dask_outputs(monkeypatch):
+    base = xr.Dataset(
+        {
+            "no2": (("scanline", "ground_pixel"), np.arange(12, dtype=np.float32).reshape(3, 4)),
+            "unused": (("scanline", "ground_pixel"), np.full((3, 4), -1, dtype=np.float32)),
+            "delta_time": (("scanline",), np.array([0, 1000, 2000], dtype="int32")),
+        },
+        coords={
+            "latitude": (("scanline", "ground_pixel"), np.zeros((3, 4), dtype=np.float32)),
+            "longitude": (("scanline", "ground_pixel"), np.ones((3, 4), dtype=np.float32)),
+            "time": ((), np.datetime64("2023-01-01")),
+        },
+    )
+
+    class MockDriver:
+        def open(self, files, **kwargs):
+            result = base.copy(deep=True)
+            return result.chunk({"scanline": 2}) if kwargs.get("use_dask") else result
+
+    reader = TROPOMIReader()
+    monkeypatch.setattr(reader, "driver", MockDriver())
+    eager = reader.open_dataset("offline.nc", group="PRODUCT", calculate_pressure=False)
+    lazy = reader.open_dataset(
+        "offline.nc", group="PRODUCT", calculate_pressure=False, use_dask=True
+    )
+    try:
+        assert eager.no2.chunks is None
+        assert lazy.no2.chunks is not None
+        eager_cmp = eager.copy(deep=True)
+        lazy_cmp = lazy.compute()
+        eager_cmp.attrs.pop("history", None)
+        lazy_cmp.attrs.pop("history", None)
+        xr.testing.assert_identical(eager_cmp, lazy_cmp)
+    finally:
+        eager.close()
+        lazy.close()
+
+
+def test_tropomi_reader_honors_chunks_through_preprocessing(tmp_path):
+    source = xr.Dataset(
+        {
+            "no2": (("scanline", "ground_pixel"), np.arange(12, dtype=np.float32).reshape(3, 4)),
+            "delta_time": ("scanline", np.array([0, 1000, 2000], dtype="int32")),
+        },
+        coords={
+            "latitude": (("scanline", "ground_pixel"), np.zeros((3, 4), dtype=np.float32)),
+            "longitude": (("scanline", "ground_pixel"), np.ones((3, 4), dtype=np.float32)),
+            "time": ((), np.datetime64("2023-01-01")),
+        },
+    )
+    path = tmp_path / "tropomi-local.nc"
+    source.to_netcdf(path, group="PRODUCT", engine="h5netcdf")
+
+    result = TROPOMIReader().open_dataset(
+        str(path),
+        group="PRODUCT",
+        calculate_pressure=False,
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"scanline": 2, "ground_pixel": 2},
+        drop_variables=["unused"],
+    )
+    try:
+        eager = TROPOMIReader().open_dataset(
+            str(path),
+            group="PRODUCT",
+            calculate_pressure=False,
+            engine="h5netcdf",
+            drop_variables=["unused"],
+        )
+        assert "unused" not in result
+        assert result.no2.chunks == ((2, 1), (2, 2))
+        xr.testing.assert_equal(
+            eager.drop_vars("history", errors="ignore"),
+            result.compute().drop_vars("history", errors="ignore"),
+        )
+        eager.close()
+    finally:
+        result.close()
+
+
 def test_tropomi_eager_lazy_consistency():
     """
     Strict consistency check: Verify Eager (NumPy) and Lazy (Dask)

@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 import xarray as xr
 
+import monetio
 from monetio.readers.nesdis_viirs_jrr import VIIRSJRRReader, viirs_jrr_preprocess
 
 
@@ -124,3 +127,34 @@ def test_viirs_jrr_stitching(monkeypatch):
 
     ds = reader.open_dataset(files=["f1.nc", "f2.nc"], product="AOD")
     assert ds.aod.sizes["time"] == 2
+
+
+def test_viirs_jrr_local_reader_use_dask_parity():
+    sample = next(Path("tests/data/samples/nesdis_viirs_jrr").glob("*.nc"))
+    eager = monetio.load("nesdis_viirs_jrr", files=str(sample))
+    lazy = monetio.load("nesdis_viirs_jrr", files=str(sample), use_dask=True)
+
+    assert any(hasattr(var.data, "dask") for var in lazy.data_vars.values())
+    eager.attrs.pop("history", None)
+    computed = lazy.compute()
+    computed.attrs.pop("history", None)
+    xr.testing.assert_equal(eager, computed)
+
+
+@pytest.mark.parametrize("source_name", ["nesdis_viirs_jrr", "viirs_jrr"])
+def test_viirs_jrr_public_dimension_chunks_and_variable_selection(source_name):
+    sample = next(Path("tests/data/samples/nesdis_viirs_jrr").glob("*.nc"))
+    selected = monetio.load(
+        source_name,
+        files=str(sample),
+        use_dask=True,
+        chunks={"y": 100, "x": 100},
+        drop_variables=["SfcRefl"],
+    )
+    try:
+        assert "SfcRefl" not in selected
+        assert hasattr(selected.aod_550.data, "dask")
+        assert selected.aod_550.chunksizes["y"] == (100, 100, 100, 100, 100, 100, 100, 68)
+        assert all(size == 100 for size in selected.aod_550.chunksizes["x"])
+    finally:
+        selected.close()

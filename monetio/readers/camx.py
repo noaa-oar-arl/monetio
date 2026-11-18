@@ -73,6 +73,9 @@ class CAMxReader(GriddedReader):
             Path to the Icechunk repository, by default None.
         use_dask : bool, optional
             Whether to use Dask for lazy loading, by default False.
+            With the default PseudoNetCDF engine, the small TFLAG variable is
+            read locally during open to construct Xarray's concrete time
+            index; gridded data variables remain lazy.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -84,6 +87,10 @@ class CAMxReader(GriddedReader):
         # Set default backend kwargs for CAMx if not present
         if "engine" not in kwargs:
             kwargs["engine"] = "pseudonetcdf"
+            # PseudoNetCDF's xarray backend stores opener arguments for lazy
+            # tasks. Make read mode explicit so a worker can reopen UAMIV
+            # files through its CachingFileManager.
+            kwargs.setdefault("mode", "r")
             if "backend_kwargs" not in kwargs:
                 kwargs["backend_kwargs"] = {"format": "uamiv"}
 
@@ -99,6 +106,22 @@ class CAMxReader(GriddedReader):
             kwargs["combine"] = "nested"
         if "concat_dim" not in kwargs:
             kwargs["concat_dim"] = "time"
+
+        # Xarray applies chunks before CAMx preprocessing renames IOAPI
+        # dimensions. Translate standardized names to the on-disk dimensions
+        # so caller intent survives the TSTEP/COL/ROW/LAY normalization.
+        chunks = kwargs.get("chunks")
+        if isinstance(chunks, dict):
+            chunks = dict(chunks)
+            for output_dim, input_dim in {
+                "time": "TSTEP",
+                "x": "COL",
+                "y": "ROW",
+                "z": "LAY",
+            }.items():
+                if output_dim in chunks and input_dim not in chunks:
+                    chunks[input_dim] = chunks.pop(output_dim)
+            kwargs["chunks"] = chunks
 
         ds = super().open_dataset(
             files,

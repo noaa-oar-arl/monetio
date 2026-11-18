@@ -69,16 +69,17 @@ class NCEPPDSReader(GriddedReader):
         xr.Dataset
             The dataset.
         """
+        # URL-generation options such as product/domain must never leak into
+        # the Xarray GRIB backend, including when callers supply ``files``.
+        build_params = set(inspect.signature(self.build_urls).parameters)
+        build_kwargs = {
+            k: kwargs.pop(k)
+            for k in list(kwargs)
+            if k in build_params and k not in {"self", "dates", "hour", "lead_time"}
+        }
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")
-            # Route only build_urls-specific kwargs there, and keep xarray kwargs separate.
-            build_params = set(inspect.signature(self.build_urls).parameters)
-            build_kwargs = {
-                k: kwargs.pop(k)
-                for k in list(kwargs)
-                if k in build_params and k not in {"self", "dates", "hour", "lead_time"}
-            }
             files = self.build_urls(dates, hour=hour, lead_time=lead_time, **build_kwargs)
 
         if "engine" in kwargs and kwargs["engine"] != "grib2io":

@@ -89,6 +89,9 @@ class OpenAQReader(PointReader):
         >>> ds = reader.open_dataset(dates='2023-01-01', lazy=True)
         """
 
+        if use_dask:
+            lazy = True
+
         # For backward compatibility, if the first argument looks like dates, swap them.
         if (
             files is not None
@@ -396,7 +399,7 @@ def build_urls(dates: pd.DatetimeIndex | list[datetime] | datetime | str) -> lis
 
     dates_available = pd.to_datetime(days_available, format=r"%Y-%m-%d", errors="coerce")
 
-    dates_requested = pd.Series(dates).floor("D").drop_duplicates()
+    dates_requested = pd.DatetimeIndex(dates).floor("D").drop_duplicates()
     dates_have = dates_requested[dates_requested.isin(dates_available)]
 
     urls = []

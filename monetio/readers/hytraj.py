@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 
@@ -40,6 +41,7 @@ class HYTRAJReader(PointReader):
         renumber: bool = False,
         as_xarray: bool = True,
         lazy: bool = False,
+        chunks: Any = None,
         **kwargs: Any,
     ) -> pd.DataFrame | xr.Dataset | dd.DataFrame:
         """
@@ -73,6 +75,9 @@ class HYTRAJReader(PointReader):
             Whether to return an xarray.Dataset, by default True.
         lazy : bool, optional
             Whether to return a dask-backed object, by default False.
+        chunks : Any, optional
+            Input chunk sizing is unsupported. Each complete text trajectory
+            file is parsed as one pandas partition.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -85,6 +90,15 @@ class HYTRAJReader(PointReader):
         --------
         >>> ds = reader.open_dataset("tdump.*", taglist=["run1", "run2"], renumber=True)
         """
+        if chunks is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "hytraj",
+                cause="each complete trajectory text file is parsed as one partition",
+            )
+        if use_dask:
+            lazy = True
+
         # Expand paths first to match tags and indices
         file_list = FileUtility.expand_paths(files)
 

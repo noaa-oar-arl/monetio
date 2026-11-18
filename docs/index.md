@@ -1,8 +1,21 @@
+---
+type: explanation
+category: explanation
+tags: [project, installation, platforms]
+---
+
 # Model and ObservatioN Evaluation Toolkit (MONET) Input Output (IO)
+
+<p align="center">
+  <img src="assets/MONETIO-logo.png" alt="MONETIO logo" width="220">
+</p>
 
 **MONETIO** is an open source project and Python package that aims to create a
 common platform for atmospheric composition data for weather and
 air quality models.
+
+MONETIO officially supports Linux and macOS. Windows is not officially
+supported or CI-tested. See the [installation guide](installing.md) for details.
 
 MONET was developed to evaluate the Community Multiscale Air Quality Model (CMAQ)
 for the NOAA National Air Quality Forecast Capability (NAQFC modeling system.

@@ -97,6 +97,7 @@ dev = [
     "pytest-xdist",
     "filelock",
     "hypothesis",
+    "psutil",
     "ruff",
     "mkdocs-material",
     "mkdocstrings[python]",
@@ -153,6 +154,7 @@ package-data = {"monetio" = ["data/*.csv", "data/*.tsv", "data/*.txt", "data/*.p
 
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 markers = [
     "network: tests that require network access",
     "slow: long-running benchmarks (wall-clock timing, real clusters)",

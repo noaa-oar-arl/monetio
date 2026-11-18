@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     import dask.dataframe as dd
 
 from .base import PointReader, register_reader
+from .drivers import XarrayDriver
 from .sat_utils import update_history
 
 
@@ -19,6 +20,11 @@ class AMDARReader(PointReader):
     """
     Reader for AMDAR/ACARS (Aircraft Meteorological Data Relay) observations.
     """
+
+    def __init__(self):
+        # AMDAR reads NetCDF with Xarray directly rather than using the
+        # whole-file pandas parser inherited from PointReader.
+        self.driver = XarrayDriver(source=self._source_name)
 
     def open_dataset(
         self,
@@ -79,19 +85,30 @@ class AMDARReader(PointReader):
             kwargs.setdefault("chunks", "auto")
 
         datasets = []
-        for f in files:
-            ds = xr.open_dataset(f, **kwargs)
-            # Standardize dimension to node
-            if "recNum" in ds.dims:
-                ds = ds.rename({"recNum": "node"})
-            elif "observation" in ds.dims:
-                ds = ds.rename({"observation": "node"})
-            datasets.append(ds)
+        source_datasets = []
+        try:
+            for f in files:
+                ds = xr.open_dataset(f, **kwargs)
+                source_datasets.append(ds)
+                # Standardize dimension to node
+                if "recNum" in ds.dims:
+                    ds = ds.rename({"recNum": "node"})
+                elif "observation" in ds.dims:
+                    ds = ds.rename({"observation": "node"})
+                datasets.append(ds)
+        except Exception:
+            for source in source_datasets:
+                source.close()
+            raise
 
         if len(datasets) > 1:
             ds = xr.concat(datasets, dim="node")
         else:
             ds = datasets[0]
+
+        def close_sources():
+            for source in source_datasets:
+                source.close()
 
         ds = self.harmonize(ds)
 
@@ -99,6 +116,7 @@ class AMDARReader(PointReader):
             # We already have a Dataset. We can directly call to_xarray to apply UGRID/2D logic.
             ds_out = self.to_xarray(ds, expand2d=expand2d)
             ds_out = update_history(ds_out, "Converted AMDAR data to UGRID xarray format.")
+            ds_out.set_close(close_sources)
             return ds_out
 
         # Handle Lazy vs Eager DataFrame conversion
@@ -124,10 +142,13 @@ class AMDARReader(PointReader):
                 df = dd.from_pandas(pd.DataFrame(columns=var_list), npartitions=1)
             else:
                 df = dd.concat(dfs, axis=1).reset_index()
+                if "node" not in df.columns and "index" in df.columns:
+                    df = df.rename(columns={"index": "node"})
         else:
             df = ds.to_dataframe().reset_index()
 
         df.attrs = dict(ds.attrs)
+        close_sources()
 
         return df
 

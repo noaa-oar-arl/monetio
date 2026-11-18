@@ -9,6 +9,7 @@ import xarray as xr
 
 from .base import PointReader, register_reader
 from .drivers import FileUtility
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ class PardumpReader(PointReader):
         use_icechunk: bool = False,
         icechunk_url: str | None = None,
         use_dask: bool = False,
+        chunks: Any = None,
         drange: tuple[datetime, datetime] | list[datetime] | None = None,
         century: int = 2000,
         verbose: bool = False,
@@ -74,6 +76,9 @@ class PardumpReader(PointReader):
             If True, return an xarray.Dataset, by default True.
         lazy : bool, optional
             If True, return a dask-backed object, by default False.
+        chunks : Any, optional
+            Chunk sizing is unsupported because PARDUMP records are parsed
+            into one in-memory pandas table before output conversion.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -87,6 +92,9 @@ class PardumpReader(PointReader):
         >>> reader = PardumpReader()
         >>> ds = reader.open_dataset("PARDUMP.bin")
         """
+        if chunks is not None:
+            raise OptionUnsupportedError("chunks", "pardump")
+
         # Pass parameters to read_pardump via kwargs
         kwargs.update(
             {

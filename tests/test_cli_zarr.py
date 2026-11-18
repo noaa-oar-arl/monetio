@@ -73,7 +73,7 @@ def test_cli_to_zarr_and_append(tmp_path, mock_ish_history):
     assert ds.attrs["Conventions"] == "CF-1.8 UGRID-1.0"
 
 
-def test_cli_to_icechunk_logic(tmp_path, mock_ish_history):
+def test_cli_to_icechunk_logic(tmp_path, mock_ish_history, monkeypatch):
     # Setup mock data
     line1 = "2020 09 01 00  256  184 10185  220   40 0 0 0"
     fn = tmp_path / "722244-00358-2020.gz"
@@ -95,7 +95,7 @@ def test_cli_to_icechunk_logic(tmp_path, mock_ish_history):
         from unittest.mock import MagicMock
 
         mock_icechunk = MagicMock()
-        sys.modules["icechunk"] = mock_icechunk
+        monkeypatch.setitem(sys.modules, "icechunk", mock_icechunk)
 
     with patch("monetio.readers.ish.ISH.read_ish_history", autospec=True, side_effect=side_effect):
         with patch("xarray.Dataset.to_zarr") as mock_to_zarr:
@@ -112,7 +112,7 @@ def test_cli_to_icechunk_logic(tmp_path, mock_ish_history):
     assert mock_to_zarr.called
 
 
-def test_cli_to_icechunk_append_logic(tmp_path, mock_ish_history):
+def test_cli_to_icechunk_append_logic(tmp_path, mock_ish_history, monkeypatch):
     # Setup mock data
     line1 = "2020 09 01 00  256  184 10185  220   40 0 0 0"
     fn = tmp_path / "722244-00358-2020.gz"
@@ -131,7 +131,7 @@ def test_cli_to_icechunk_append_logic(tmp_path, mock_ish_history):
     from unittest.mock import MagicMock
 
     mock_icechunk = MagicMock()
-    sys.modules["icechunk"] = mock_icechunk
+    monkeypatch.setitem(sys.modules, "icechunk", mock_icechunk)
 
     with patch("monetio.readers.ish.ISH.read_ish_history", autospec=True, side_effect=side_effect):
         with patch("xarray.Dataset.to_zarr") as mock_to_zarr:

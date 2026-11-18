@@ -55,13 +55,31 @@ def test_tolnet_reader_eager(mock_tolnet_file):
 def test_tolnet_reader_lazy(mock_tolnet_file):
     pytest.importorskip("dask")
     reader = TOLNetReader()
-    ds = reader.open_dataset(files=mock_tolnet_file, lazy=True, chunks={"z": 5})
+    ds = reader.open_dataset(files=mock_tolnet_file, use_dask=True, chunks={"z": 5})
 
     assert ds.ozone_mixing_ratio.chunks is not None
+    assert ds.ozone_mixing_ratio.chunks == ((5, 5), (2,))
 
     ds_eager = reader.open_dataset(files=mock_tolnet_file, lazy=False)
 
     xr.testing.assert_allclose(ds.compute(), ds_eager)
+
+    ds_deferred = reader.open_dataset(files=mock_tolnet_file, defer=True, chunks={"z": 5})
+    assert ds_deferred.ozone_mixing_ratio.chunks == ((5, 5), (2,))
+    xr.testing.assert_allclose(ds_deferred.compute(), ds_eager)
+
+
+@pytest.mark.parametrize("defer", [False, True], ids=["use-dask", "defer"])
+def test_tolnet_dask_honors_drop_variables(mock_tolnet_file, defer):
+    result = TOLNetReader().open_dataset(
+        files=mock_tolnet_file,
+        use_dask=not defer,
+        defer=defer,
+        drop_variables=["O3ND"],
+    )
+    assert "ozone_mixing_ratio" in result
+    assert "ozone_number_density" not in result
+    assert result["ozone_mixing_ratio"].chunks is not None
 
 
 def test_tolnet_multi_file(tmp_path):

@@ -1,9 +1,24 @@
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
 
+from monetio.readers.errors import OptionUnsupportedError
 from monetio.readers.pardump import PardumpReader
+
+
+def _mark_pardump_partition_worker(frame):
+    import os
+
+    return frame.assign(_worker_pid=os.getpid())
+
+
+def _mark_pardump_block_worker(block):
+    import os
+
+    return np.full(block.shape, os.getpid(), dtype="int64")
 
 
 def create_mock_pardump(fname):
@@ -88,6 +103,7 @@ def test_pardump_reader(tmp_path):
     # 1. Eager Path (Pandas)
     df_eager = reader.open_dataset(str(fname), as_xarray=False, lazy=False)
     assert isinstance(df_eager, pd.DataFrame)
+    assert not hasattr(df_eager, "dask")
     assert len(df_eager) == 8
     assert "time" in df_eager.columns
     assert "latitude" in df_eager.columns
@@ -106,6 +122,7 @@ def test_pardump_reader(tmp_path):
     # 3. Xarray Path (Eager)
     ds_eager = reader.open_dataset(str(fname), as_xarray=True, lazy=False)
     assert isinstance(ds_eager, xr.Dataset)
+    assert not hasattr(ds_eager.pmass.data, "dask")
     assert "time" in ds_eager.coords
     assert "latitude" in ds_eager.coords
     assert "longitude" in ds_eager.coords
@@ -125,6 +142,52 @@ def test_pardump_reader(tmp_path):
     )
 
 
+def test_pardump_date_filter_reads_full_file_before_selecting_records(tmp_path, monkeypatch):
+    import monetio.readers.pardump as pardump_module
+
+    path = tmp_path / "PARDUMP.bin"
+    create_mock_pardump(path)
+    size = path.stat().st_size
+    read_counts = []
+    original_get_fs = pardump_module.FileUtility.get_fs
+
+    class RecordingStream:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def read(self, *args):
+            value = self.stream.read(*args)
+            read_counts.append(len(value))
+            return value
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+    class RecordingFS:
+        def exists(self, filename):
+            return original_get_fs(filename).exists(filename)
+
+        def open(self, filename, mode):
+            return RecordingStream(open(filename, mode))
+
+    monkeypatch.setattr(pardump_module.FileUtility, "get_fs", lambda *_a, **_k: RecordingFS())
+    ds = PardumpReader().open_dataset(
+        str(path),
+        as_xarray=True,
+        use_dask=True,
+        drange=(datetime(2023, 1, 1, 12, 30), datetime(2023, 1, 1, 13, 30)),
+    )
+    computed = ds.compute()
+    assert computed.sizes["time"] == 1
+    assert read_counts and all(count == size for count in read_counts)
+
+
 def test_pardump_drange(tmp_path):
     fname = tmp_path / "PARDUMP.bin"
     create_mock_pardump(fname)
@@ -135,6 +198,56 @@ def test_pardump_drange(tmp_path):
     df = reader.open_dataset(str(fname), drange=drange, as_xarray=False, lazy=False)
     assert len(df) == 3  # Only Record 2
     assert (df.time == pd.Timestamp("2023-01-01 13:00:00")).all()
+
+    lazy = reader.open_dataset(str(fname), drange=drange, as_xarray=False, lazy=True)
+    selected = lazy.compute()
+    assert len(selected) == 3
+    assert (selected.time == pd.Timestamp("2023-01-01 13:00:00")).all()
+
+
+def test_pardump_rejects_chunk_sizing(tmp_path):
+    fname = tmp_path / "PARDUMP.bin"
+    create_mock_pardump(fname)
+
+    with pytest.raises(OptionUnsupportedError, match="pardump.*chunks"):
+        PardumpReader().open_dataset(str(fname), chunks={"time": 1})
+
+
+@pytest.mark.parametrize("as_xarray", [False, True], ids=["table", "wide-xarray"])
+def test_pardump_lazy_output_runs_on_process_workers(
+    tmp_path, process_distributed_cluster, as_xarray
+):
+    import os
+
+    import dask.dataframe as dd
+
+    fname = tmp_path / "PARDUMP-process.bin"
+    create_mock_pardump(fname)
+    client = process_distributed_cluster
+    worker_pids = set(client.run(os.getpid).values())
+    reader = PardumpReader()
+    lazy = reader.open_dataset(str(fname), as_xarray=as_xarray, lazy=True)
+    eager = reader.open_dataset(str(fname), as_xarray=as_xarray, lazy=False)
+    if as_xarray:
+        marked = lazy.pmass.copy(
+            data=lazy.pmass.data.map_blocks(_mark_pardump_block_worker, dtype="int64")
+        )
+        computed = lazy.assign(_worker_pid=(marked.dims, marked.data)).compute()
+        actual_pids = set(computed["_worker_pid"].values.ravel().tolist())
+        assert actual_pids and actual_pids <= worker_pids
+        xr.testing.assert_allclose(
+            computed.drop_vars("_worker_pid").drop_vars("history", errors="ignore"),
+            eager.drop_vars("history", errors="ignore"),
+        )
+    else:
+        assert isinstance(lazy, dd.DataFrame)
+        marked = lazy.map_partitions(
+            _mark_pardump_partition_worker,
+            meta=lazy._meta.assign(_worker_pid=pd.Series(dtype="int64")),
+        ).compute()
+        actual_pids = set(marked.pop("_worker_pid").unique())
+        assert actual_pids and actual_pids <= worker_pids
+        pd.testing.assert_frame_equal(marked, eager, check_dtype=False)
 
 
 if __name__ == "__main__":

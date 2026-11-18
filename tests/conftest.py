@@ -140,6 +140,124 @@ def local_distributed_cluster():
             yield client
 
 
+@pytest.fixture
+def process_distributed_cluster():
+    """Two separate, no-spill local workers; skip when sandbox sockets are denied."""
+    import dask
+
+    pytest.importorskip("distributed")
+    from distributed import Client, LocalCluster
+
+    try:
+        with dask.config.set(
+            {
+                "distributed.worker.memory.target": False,
+                "distributed.worker.memory.spill": False,
+                "distributed.worker.memory.pause": False,
+            }
+        ):
+            cluster = LocalCluster(
+                n_workers=2,
+                threads_per_worker=1,
+                processes=True,
+                dashboard_address=None,
+                # Reader tests import pandas, xarray, and source-specific
+                # decoders in each worker. 256 MiB was below their steady
+                # state RSS on Python 3.13, so the nanny repeatedly restarted
+                # workers during normal test execution.
+                memory_limit="1GiB",
+                silence_logs=50,
+            )
+            try:
+                with Client(cluster) as client:
+                    yield client
+            finally:
+                cluster.close()
+    except (PermissionError, OSError) as exc:
+        pytest.skip(f"local worker processes cannot bind sockets in this environment: {exc}")
+    except RuntimeError as exc:
+        if "Operation not permitted" in str(exc):
+            pytest.skip(f"local worker processes cannot bind sockets in this environment: {exc}")
+        raise
+
+
+@pytest.fixture
+def large_process_distributed_cluster():
+    """Separate no-spill workers with headroom for satellite decoder imports."""
+    import dask
+
+    pytest.importorskip("distributed")
+    from distributed import Client, LocalCluster
+
+    try:
+        with dask.config.set(
+            {
+                "distributed.worker.memory.target": False,
+                "distributed.worker.memory.spill": False,
+                "distributed.worker.memory.pause": False,
+            }
+        ):
+            cluster = LocalCluster(
+                n_workers=2,
+                threads_per_worker=1,
+                processes=True,
+                dashboard_address=None,
+                memory_limit="1GiB",
+                silence_logs=50,
+            )
+            try:
+                with Client(cluster) as client:
+                    yield client
+            finally:
+                cluster.close()
+    except (PermissionError, OSError) as exc:
+        pytest.skip(f"local worker processes cannot bind sockets in this environment: {exc}")
+    except RuntimeError as exc:
+        if "Operation not permitted" in str(exc):
+            pytest.skip(f"local worker processes cannot bind sockets in this environment: {exc}")
+        raise
+
+
+@pytest.fixture
+def grib_process_distributed_cluster():
+    """Separate GRIB workers with room for the optional decoder's import RSS."""
+    import dask
+
+    pytest.importorskip("distributed")
+    pytest.importorskip("grib2io")
+    from distributed import Client, LocalCluster
+
+    try:
+        with dask.config.set(
+            {
+                "distributed.worker.memory.target": False,
+                "distributed.worker.memory.spill": False,
+                "distributed.worker.memory.pause": False,
+            }
+        ):
+            cluster = LocalCluster(
+                n_workers=2,
+                threads_per_worker=1,
+                processes=True,
+                dashboard_address=None,
+                memory_limit="1GiB",
+                silence_logs=50,
+            )
+            try:
+                with Client(cluster) as client:
+                    yield client
+            finally:
+                cluster.close()
+    except (PermissionError, OSError) as exc:
+        pytest.skip(f"local GRIB worker processes cannot bind sockets in this environment: {exc}")
+    except RuntimeError as exc:
+        if "Operation not permitted" in str(exc):
+            pytest.skip(
+                f"local GRIB worker processes cannot bind sockets in this environment: {exc}"
+            )
+        raise
+
+
 # ---------------------------------------------------------------------------
 # Offline sample resolution (Phase 2 Stage 1, T007).
 #
@@ -348,6 +466,139 @@ def legacy_fixtures() -> dict:
 def manifest_keys() -> set:
     """Required manifest fields (C-SAMP-4)."""
     return set(_MANIFEST_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# Shared reader-test fixtures and resource-tracking harnesses.
+#
+# Optional backends (h5py, dask, xarray) are imported *inside* the fixture
+# bodies, never at module top: conftest is imported for every test in the suite,
+# and a top-level ``import h5py`` would break collection in an environment that
+# lacks it. Tests that genuinely require an optional package still guard with
+# ``pytest.importorskip``; these fixtures just assume the caller has done so.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def nadp_meta():
+    """Station metadata frame shared by the NADP eager/lazy/MDN tests."""
+    import pandas as pd
+
+    return pd.DataFrame(
+        {"siteid": ["TX01"], "latitude": [30.0], "longitude": [-100.0], "elevation": [100.0]}
+    )
+
+
+@pytest.fixture
+def patch_remote_read_csv():
+    """Context manager routing ``http``-prefixed ``pd.read_csv`` calls to a frame.
+
+    The NADP reader fetches station metadata over the network; tests patch it
+    out with a local frame. Used as ``with patch_remote_read_csv(meta): ...``.
+    """
+    from contextlib import contextmanager
+    from unittest.mock import patch
+
+    import pandas as pd
+
+    @contextmanager
+    def _ctx(meta_df):
+        original_read_csv = pd.read_csv
+
+        def side_effect(arg, **kwargs):
+            if isinstance(arg, str) and arg.startswith("http"):
+                return meta_df
+            return original_read_csv(arg, **kwargs)
+
+        with patch("pandas.read_csv", side_effect=side_effect):
+            yield
+
+    return _ctx
+
+
+@pytest.fixture
+def ish_history():
+    """ISD history frame shared by the ``ish`` and ``ish_lite`` readers' tests."""
+    import pandas as pd
+
+    return pd.DataFrame(
+        {
+            "station_id": ["72224400358", "99999912345"],
+            "usaf": ["722244", "999999"],
+            "wban": ["00358", "12345"],
+            "latitude": [38.9, 40.0],
+            "longitude": [-76.9, -80.0],
+            "ctry": ["US", "US"],
+            "state": ["MD", "PA"],
+            "station name": ["Site 1", "Site 2"],
+            "elev(m)": [20.0, 30.0],
+            "begin": [pd.Timestamp("1970-01-01"), pd.Timestamp("1970-01-01")],
+            "end": [pd.Timestamp("2025-01-01"), pd.Timestamp("2025-01-01")],
+        }
+    )
+
+
+@pytest.fixture
+def track_h5py_opens(monkeypatch):
+    """Factory installing an ``h5py.File`` tracker that records opened handles.
+
+    Usage: ``opened = track_h5py_opens()``. Returns the list of opened
+    ``h5py.File`` objects; callers assert on ``handle.id.valid`` to prove a
+    resource was (or was not) released. The patch is installed when the factory
+    is *called*, not at fixture setup, so a test that creates its own file with
+    ``h5py.File(path, "w")`` first is not tracked during that setup write — the
+    recorded handles are exactly the reader's opens, matching the per-test
+    index assertions (``opened[0]`` is the first reader handle, not the writer).
+    """
+    import h5py
+
+    opened = []
+
+    def _install():
+        original = h5py.File
+
+        def tracked(*args, **kwargs):
+            value = original(*args, **kwargs)
+            opened.append(value)
+            return value
+
+        monkeypatch.setattr(h5py, "File", tracked)
+        return opened
+
+    return _install
+
+
+@pytest.fixture
+def track_xr_closes(monkeypatch):
+    """Factory patching a named ``xarray`` open entry point to track handles.
+
+    Usage: ``handles = track_xr_closes("open_dataset")`` (or ``"open_mfdataset"``).
+    Returns an object with ``.opened`` (every source Dataset handed back) and
+    ``.closed`` (every source whose close callback fired). Patching one entry
+    point at a time keeps each test's open/close counts identical to the
+    hand-written trackers it replaces.
+    """
+    import types
+
+    import xarray as xr
+
+    opened = []
+    closed = []
+
+    def _track(name):
+        original = getattr(xr, name)
+
+        def tracked(*args, **kwargs):
+            ds = original(*args, **kwargs)
+            close = ds._close
+            ds.set_close(lambda: (closed.append(ds), close() if close else None))
+            opened.append(ds)
+            return ds
+
+        monkeypatch.setattr(xr, name, tracked)
+        return types.SimpleNamespace(opened=opened, closed=closed)
+
+    return _track
 
 
 @pytest.fixture(scope="session")

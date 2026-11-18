@@ -1,4 +1,4 @@
-![MONETIO logo](https://raw.githubusercontent.com/noaa-oar-arl/monetio/stable/docs/_static/MONETIO%20logo.png)
+![MONETIO logo](docs/assets/MONETIO-logo.png)
 
 ## The Model and ObservatioN Evaluation Tool I/O package
 
@@ -10,6 +10,10 @@ This is a tool developed at NOAA ARL to handle I/O operations for atmospheric co
 It was originally part of the Model and ObservatioN Evaluation Tool ([MONET](https://github.com/noaa-oar-arl/monet); see Baker and Li (2017)).
 
 Please refer to <https://monetio.readthedocs.io> for the documentation.
+
+### Supported platforms
+
+MONETIO officially supports Linux and macOS. Windows is not an officially supported or CI-tested platform.
 
 Check [the `develop` branch](https://github.com/noaa-oar-arl/monetio/tree/develop) for the most recent updates.
 In most cases, pull requests should target this branch.

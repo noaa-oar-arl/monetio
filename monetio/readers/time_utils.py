@@ -40,7 +40,8 @@ def parse_ioapi_times(yyyymmdd, hhmmss):
     # We use pandas to handle the variable year starts (leap years)
     unique_years = np.unique(years)
     year_to_start = {
-        y_val: pd.to_datetime(str(y_val), format="%Y").to_datetime64() for y_val in unique_years
+        y_val: pd.to_datetime(str(y_val), format="%Y", errors="coerce").to_datetime64()
+        for y_val in unique_years
     }
 
     year_starts = np.array(

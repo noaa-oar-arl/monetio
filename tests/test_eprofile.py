@@ -17,6 +17,7 @@ def test_eprofile_reader_basic(tmp_path):
     ds_mock = xr.Dataset(
         data_vars={
             "beta": (("time", "range"), np.random.rand(2, 500)),
+            "unused_payload": (("time", "range"), np.full((2, 500), -1.0)),
             "station_latitude": (("time",), [40.0, 40.0]),
             "station_longitude": (("time",), [-80.0, -80.0]),
             "station_altitude": (("time",), [100.0, 100.0]),  # meters
@@ -55,12 +56,27 @@ def test_eprofile_reader_basic(tmp_path):
     assert "Preprocessed E-PROFILE data" in ds.attrs["history"]
 
     # Test Lazy
-    ds_lazy = reader.open_dataset(files=str(fn), lazy=True)
+    ds_lazy = reader.open_dataset(files=str(fn), use_dask=True, chunks={"time": 1, "range": 125})
     assert isinstance(ds_lazy, xr.Dataset)
     assert ds_lazy.attenuated_backscatter.chunks is not None
+    assert ds_lazy.attenuated_backscatter.chunks == ((1, 1), (125, 125, 125, 125))
     assert "elevation" in ds_lazy.coords
     assert ds_lazy.elevation.attrs["units"] == "m"
     assert "altitude" in ds_lazy.coords
+    xr.testing.assert_allclose(
+        ds.drop_vars("history", errors="ignore"),
+        ds_lazy.compute().drop_vars("history", errors="ignore"),
+    )
+
+    ds_selected = reader.open_dataset(files=str(fn), drop_variables=["unused_payload"])
+    try:
+        assert "unused_payload" not in ds_selected
+        xr.testing.assert_allclose(
+            ds.drop_vars(["history", "unused_payload"], errors="ignore"),
+            ds_selected.drop_vars("history", errors="ignore"),
+        )
+    finally:
+        ds_selected.close()
 
 
 def test_eprofile_load_redirection(tmp_path):

@@ -11,7 +11,7 @@ import xarray as xr
 from ..util import force_object_strings
 from .base import PointReader, register_reader
 from .drivers import FileUtility
-from .errors import RetrievalFailedError, annotate
+from .errors import OptionUnsupportedError, RetrievalFailedError, annotate
 from .sat_utils import update_history
 from .time_utils import parse_yyyymmdd_hhmm
 
@@ -249,6 +249,16 @@ class CRNReader(PointReader):
         Union[xr.Dataset, pd.DataFrame]
             The loaded dataset.
         """
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "crn",
+                cause=(
+                    "CRN text inputs are parsed as whole files and partitioned by input; "
+                    "array chunk mappings are not supported"
+                ),
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")
@@ -308,12 +318,20 @@ class CRNReader(PointReader):
             Post-processed dataframe.
         """
         monitors = self.get_monitor_df(latlonbox=latlonbox)
+        try:
+            import dask.dataframe as dd
+
+            is_dask = isinstance(df, dd.DataFrame)
+        except ImportError:
+            is_dask = False
+
+        key_dtype = "string[pyarrow]" if is_dask else object
         # Rename WBAN to WBANNO to match data files
         monitors = monitors.rename(columns={"WBAN": "WBANNO"})
         # Ensure siteid/WBANNO is string and padded to 5 digits
-        monitors["WBANNO"] = monitors["WBANNO"].astype(str).str.zfill(5)
+        monitors["WBANNO"] = monitors["WBANNO"].astype(str).str.zfill(5).astype(key_dtype)
 
-        df["WBANNO"] = df["WBANNO"].astype(str).str.zfill(5)
+        df["WBANNO"] = df["WBANNO"].astype(str).str.zfill(5).astype(key_dtype)
         # Merge (unified logic for both backends)
         df = df.merge(monitors, how="left", on=["WBANNO", "LATITUDE", "LONGITUDE"])
 

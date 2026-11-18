@@ -370,6 +370,9 @@ class IGRA2Reader(PointReader):
         """
         Retrieve and load IGRA2 data.
         """
+        if use_dask:
+            lazy = True
+
         if files is None:
             if site is None:
                 raise ValueError("Must provide either 'files' or 'site'.")
@@ -396,16 +399,20 @@ class IGRA2Reader(PointReader):
             if not stations.empty:
                 stations = stations.assign(siteid=stations.siteid.astype(object))
                 if lazy:
+                    import dask
                     import dask.dataframe as dd
 
                     df = df.assign(siteid=df.siteid.astype(object))
-                    stations_dask = dd.from_pandas(stations, npartitions=1)
-                    stations_dask = stations_dask.assign(siteid=stations_dask.siteid.astype(object))
-                    df = df.merge(
-                        stations_dask.drop(columns=["latitude", "longitude"]),
-                        on="siteid",
-                        how="left",
-                    )
+                    with dask.config.set({"dataframe.convert-string": False}):
+                        stations_dask = dd.from_pandas(stations, npartitions=1)
+                        stations_dask = stations_dask.assign(
+                            siteid=stations_dask.siteid.astype(object)
+                        )
+                        df = df.merge(
+                            stations_dask.drop(columns=["latitude", "longitude"]),
+                            on="siteid",
+                            how="left",
+                        )
                 else:
                     df = df.assign(siteid=df.siteid.astype(object))
                     df = df.merge(

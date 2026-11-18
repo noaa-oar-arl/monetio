@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 BASE_URL = "https://gsce-dtn.sdstate.edu/index.php/s/e8wPYPOL1bGXk5z/download?path=%2F"
@@ -79,6 +80,16 @@ class NESDISFRPReader(GriddedReader):
             if date is None:
                 raise ValueError("Either 'files' or 'date' must be provided.")
             files = self.build_urls(date, ftype=ftype)
+
+        if kwargs.get("chunks") is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "nesdis_frp",
+                cause=(
+                    "each binary tile is decoded as one complete array payload; "
+                    "Dask can defer the tile read but cannot split it into chunks"
+                ),
+            )
 
         if "preprocess" not in kwargs:
             kwargs["preprocess"] = partial(nesdis_frp_preprocess, ftype=ftype)

@@ -31,8 +31,10 @@ Code must support both Eager (NumPy/Pandas) and Lazy (Dask) backends.
 
 - Avoid `.values`, `.compute()`, and `.load()` on the data payload; a deferred
   load must not silently materialize the observation values. (Bounded
-  metadata reads — partition lengths, join-key index columns a wide reshape
-  structurally needs — are allowed; they never touch the payload.)
+  preparation reads — including parsing partitions to discover row lengths
+  and the join-key values a wide reshape structurally needs — are allowed only
+  when documented and measured. They may parse payload input and retain O(rows)
+  coordinate keys; data columns remain deferred and can be reread later.)
 - Do not force chunking on the default path: `chunks=`/`defer=` are the
   caller's decision at the I/O stage, and an un-asked load returns
   numpy-backed arrays.

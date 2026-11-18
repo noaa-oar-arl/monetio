@@ -131,8 +131,27 @@ def test_no_empty_dataset_from_corrupt_file(tmp_path):
     assert "bad" in str(excinfo.value).lower() or bad.name in str(excinfo.value)
 
 
-def test_load_never_returns_empty_without_error(sample_registry):
+def test_load_never_returns_empty_without_error(sample_registry, monkeypatch):
     """SC-002: no sampled source returns an empty result on a valid load."""
+    # AirNow's reader enriches its local payload with a remote monitor table.
+    # Build matching minimal metadata from the checked-in sample so this
+    # all-sample contract remains offline and tests reader output, not DNS.
+    import pandas as pd
+
+    import monetio.readers.epa_utils as epa_utils
+
+    airnow_sample = sample_registry.require("airnow")["files"]
+    records = pd.read_csv(airnow_sample, sep="|", header=None)
+    sites = records[[2, 3]].drop_duplicates().rename(columns={2: "siteid", 3: "site_name"})
+    sites["siteid"] = sites["siteid"].astype(str).str.zfill(9)
+    sites["latitude"] = 40.0
+    sites["longitude"] = -80.0
+    empty_sites = pd.DataFrame(columns=["siteid", "site_name", "latitude", "longitude"])
+    monkeypatch.setattr(
+        epa_utils,
+        "read_monitor_file",
+        lambda network=None, airnow=False: sites if airnow else empty_sites,
+    )
     for source in SAMPLED:
         sample = sample_registry.require(source)
         with warnings.catch_warnings():

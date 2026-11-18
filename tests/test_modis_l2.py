@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from monetio.readers.modis_l2 import modis_l2_preprocess
+from monetio.readers.modis_l2 import MODISL2Reader, modis_l2_preprocess
 
 
 def test_modis_l2_preprocess_eager_lazy_consistency():
@@ -88,6 +88,56 @@ def test_modis_l2_preprocess_eager_lazy_consistency():
     assert (
         "Preprocessed MODIS L2 data using standardized preprocessing." in ds_lazy.attrs["history"]
     )
+
+
+def test_modis_l2_reader_local_eager_and_use_dask_parity(tmp_path):
+    n_rows, n_cols = 6, 4
+    data = np.linspace(0.05, 0.95, n_rows * n_cols, dtype=np.float32).reshape(n_rows, n_cols)
+    quality = np.full((n_rows, n_cols), 3, dtype=np.int8)
+    lat, lon = np.meshgrid(np.linspace(30, 40, n_cols), np.linspace(-100, -90, n_rows))
+    source = xr.Dataset(
+        {
+            "AOD": (("Cell_Along_Swath", "Cell_Across_Swath"), data),
+            "Unrelated": (("Cell_Along_Swath", "Cell_Across_Swath"), np.ones_like(data)),
+            "Quality_Assurance": (("Cell_Along_Swath", "Cell_Across_Swath"), quality),
+            "Scan_Start_Time": (("Cell_Along_Swath",), np.full(n_rows, 946684800.0)),
+        },
+        coords={
+            "Latitude": (("Cell_Along_Swath", "Cell_Across_Swath"), lat),
+            "Longitude": (("Cell_Along_Swath", "Cell_Across_Swath"), lon),
+        },
+    )
+    path = tmp_path / "modis-l2.nc"
+    source.to_netcdf(path, engine="h5netcdf")
+    reader = MODISL2Reader()
+    variable_dict = {"AOD": {"minimum": 0.0, "maximum": 1.0}, "Quality_Assurance": {}}
+
+    eager = reader.open_dataset(
+        str(path), variable_dict=variable_dict, engine="h5netcdf", drop_variables=["Unrelated"]
+    )
+    lazy = reader.open_dataset(
+        str(path),
+        variable_dict=variable_dict,
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"Cell_Along_Swath": 2, "Cell_Across_Swath": 2},
+        drop_variables=["Unrelated"],
+    )
+    try:
+        assert "Unrelated" not in eager
+        assert "Unrelated" not in lazy
+        assert eager.AOD.chunks is None
+        assert lazy.AOD.chunks is not None
+        assert lazy.AOD.chunks == ((2, 2, 2), (2, 2))
+        eager_result = eager.copy()
+        lazy_result = lazy.compute()
+        # Reader history records a wall-clock timestamp for each load.
+        eager_result.attrs.pop("history", None)
+        lazy_result.attrs.pop("history", None)
+        xr.testing.assert_identical(eager_result, lazy_result)
+    finally:
+        eager.close()
+        lazy.close()
 
 
 def test_modis_l2_multiple_quality_flags():

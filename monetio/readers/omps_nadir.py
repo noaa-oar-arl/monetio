@@ -115,6 +115,10 @@ class OMPSNadirReader(GriddedReader):
             explicit = True
 
         user_preprocess = kwargs.pop("preprocess", None)
+        # This reader opens and merges groups itself, so explicitly forward the
+        # public Dask alias into each underlying driver open.
+        if use_dask:
+            kwargs["use_dask"] = True
 
         if "engine" not in kwargs:
             kwargs["engine"] = "h5netcdf"

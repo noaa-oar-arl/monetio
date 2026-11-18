@@ -55,17 +55,27 @@ def test_read_skynet_xarray(mock_skynet_file):
 def test_read_skynet_lazy(mock_skynet_file):
     pytest.importorskip("dask")
     reader = SKYNETReader()
+    eager = reader.open_dataset(files=mock_skynet_file, as_xarray=True, lazy=False)
     ds = reader.open_dataset(files=mock_skynet_file, as_xarray=True, lazy=True)
 
     assert isinstance(ds, xr.Dataset)
     # Check if data is lazy (dask-backed)
     assert hasattr(ds["aod_500nm"].data, "dask")
 
+    xr.testing.assert_allclose(
+        eager.drop_vars("history", errors="ignore"),
+        ds.compute().drop_vars("history", errors="ignore"),
+    )
+
     ds_computed = ds.compute()
     if "time" in ds_computed.dims and "node" in ds_computed.dims:
         assert ds_computed.sizes["time"] * ds_computed.sizes["node"] >= 2
     else:
         assert ds_computed.sizes["node"] >= 2
+
+    table_eager = reader.open_dataset(files=mock_skynet_file, as_xarray=False, lazy=False)
+    table_lazy = reader.open_dataset(files=mock_skynet_file, as_xarray=False, lazy=True)
+    pd.testing.assert_frame_equal(table_eager, table_lazy.compute(), check_dtype=False)
 
 
 def test_build_urls():

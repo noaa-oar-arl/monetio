@@ -82,11 +82,16 @@ def payload_files(directory: Path) -> list[Path]:
     """The payload files of a sample directory, sorted, manifest excluded.
 
     A sample directory holds the manifest plus one or more payload files. The
-    payload set is every entry that is not the manifest, sorted by name so the
-    hash is stable regardless of filesystem order.
+    payload set is every entry that is not the manifest or a grib2io index
+    cache sidecar, sorted by name so the hash is stable regardless of
+    filesystem order.
     """
     directory = Path(directory)
-    return sorted(p for p in directory.iterdir() if p.is_file() and p.name != MANIFEST_NAME)
+    return sorted(
+        p
+        for p in directory.iterdir()
+        if p.is_file() and p.name != MANIFEST_NAME and not p.name.endswith(".grib2ioidx")
+    )
 
 
 def content_hash(directory: Path) -> str:

@@ -361,6 +361,8 @@ def read_ish_file(fname: str, **kwargs) -> pd.DataFrame:
     dt_str = df["date"].astype(str).str.zfill(8) + df["htime"].astype(str).str.zfill(4)
     df["time"] = pd.to_datetime(dt_str, format="%Y%m%d%H%M", errors="coerce")
     df = df.dropna(subset=["time"])
+    if df.empty:
+        raise ContentInvalidError("ISH input contains no valid observation timestamps", fname)
 
     # Decode bytes
     for col, dtype in ISH.DTYPES:
@@ -472,6 +474,9 @@ class ISHReader(PointReader):
         >>> reader = ISHReader()
         >>> ds = reader.open_dataset(dates='2021-08-01', site='72406093721')
         """
+        if use_dask:
+            lazy = True
+
         # Regression fix: check multiple subsets
         if sum([box is not None, country is not None, state is not None, site is not None]) > 1:
             raise ValueError("Only one of `box`, `country`, `state`, or `site` can be used")

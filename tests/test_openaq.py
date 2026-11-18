@@ -9,6 +9,25 @@ from monetio.readers.openaq import OpenAQReader
 from monetio.readers.openaq_aws import OpenAQAWSReader
 
 
+def test_openaq_date_selection_limits_fetch_day_paths(monkeypatch):
+    from monetio.readers.openaq import build_urls
+
+    class FakeFS:
+        def ls(self, path):
+            if path == "openaq-fetches/realtime":
+                return [
+                    "openaq-fetches/realtime/2023-01-01",
+                    "openaq-fetches/realtime/2023-01-02",
+                ]
+            return [f"{path}/part-000.jsonl"]
+
+    monkeypatch.setattr(
+        "monetio.readers.drivers.FileUtility.get_fs", lambda *args, **kwargs: FakeFS()
+    )
+    urls = build_urls(pd.to_datetime(["2023-01-02 00:00", "2023-01-02 12:00"]))
+    assert urls == ["s3://openaq-fetches/realtime/2023-01-02/part-000.jsonl"]
+
+
 def test_openaq_eager_lazy(tmp_path):
     dummy_data = [
         {
@@ -61,6 +80,8 @@ def test_openaq_eager_lazy(tmp_path):
     df_eager = reader.open_dataset(files=[str(f)], wide_fmt=False, as_xarray=False, lazy=False)
     df_lazy = reader.open_dataset(files=[str(f)], wide_fmt=False, as_xarray=False, lazy=True)
     pd.testing.assert_frame_equal(df_eager, df_lazy.compute(), check_dtype=False)
+    df_alias = reader.open_dataset(files=[str(f)], wide_fmt=False, as_xarray=False, use_dask=True)
+    pd.testing.assert_frame_equal(df_eager, df_alias.compute(), check_dtype=False)
 
 
 def test_openaq_aws_eager_lazy(tmp_path):
@@ -88,6 +109,17 @@ def test_openaq_aws_eager_lazy(tmp_path):
     )
     # Refactored reader renames 'value' to 'obs'
     assert ds_eager.obs.values[0] == 10.0
+    df_eager = reader.open_dataset(files=[str(f)], as_xarray=False, use_dask=False)
+    df_alias = reader.open_dataset(files=[str(f)], as_xarray=False, use_dask=True)
+    pd.testing.assert_frame_equal(df_eager, df_alias.compute(), check_dtype=False)
+
+
+def test_openaq_empty_use_dask_alias_returns_lazy_table():
+    import dask.dataframe as dd
+
+    for reader in (OpenAQReader(), OpenAQAWSReader()):
+        result = reader.open_dataset(files=[], as_xarray=False, use_dask=True)
+        assert isinstance(result, dd.DataFrame)
 
 
 @pytest.mark.network

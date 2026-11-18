@@ -78,6 +78,10 @@ class UMBCAerosolReader(GriddedReader):
         for g in groups:
             g_kwargs = kwargs.copy()
             g_kwargs["group"] = g
+            if g == "Instrument_Attributes":
+                # This group carries scalar attributes only; array chunk
+                # settings belong to DATA variables and are invalid here.
+                g_kwargs.pop("chunks", None)
             try:
                 # We open without the UMBC preprocess at this stage
                 ds_g = super().open_dataset(
@@ -196,7 +200,11 @@ def umbc_aerosol_preprocess(ds: xr.Dataset) -> xr.Dataset:
     if "UnixTime_UTC" in ds.variables:
 
         def _convert_time(t):
-            return pd.to_datetime(t, unit="s").astype("datetime64[ns]")
+            values = np.asarray(t)
+            converted = pd.to_datetime(values.reshape(-1), unit="s").to_numpy(
+                dtype="datetime64[ns]"
+            )
+            return converted.reshape(values.shape)
 
         time_da = apply_lazy_conversion(ds["UnixTime_UTC"], _convert_time, "datetime64[ns]")
         u_dim = ds["UnixTime_UTC"].dims[0]

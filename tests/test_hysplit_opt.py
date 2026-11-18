@@ -1,7 +1,10 @@
 import numpy as np
+import pandas as pd
+import pytest
 import xarray as xr
 
-from monetio.readers.hysplit import get_thickness, mass_loading
+from monetio.readers.errors import OptionUnsupportedError
+from monetio.readers.hysplit import HYSPLITReader, get_thickness, mass_loading
 
 
 def _get_mock_hysplit():
@@ -55,6 +58,71 @@ def test_get_thickness():
     thick2 = get_thickness(ds2)
     # Expected: [100, 400]
     np.testing.assert_array_equal(thick2.values, [100, 400])
+
+
+def test_hysplit_reader_eager_and_lazy_rejection(monkeypatch):
+    from pathlib import Path
+
+    sample = Path(__file__).parent / "data/synthetic/hysplit/cdump_1.bin"
+    reader = HYSPLITReader()
+    eager = reader.open_dataset(str(sample), verbose=False)
+    assert eager.data_vars
+    assert all(var.chunks is None for var in eager.data_vars.values() if var.dims)
+
+    def unexpected_parser_call(*args, **kwargs):
+        raise AssertionError("unsupported lazy request must be rejected before parsing")
+
+    monkeypatch.setattr("monetio.readers.hysplit.open_dataset_hysplit", unexpected_parser_call)
+    with pytest.raises(OptionUnsupportedError, match="hysplit.*use_dask"):
+        reader.open_dataset(str(sample), use_dask=True)
+
+
+def test_hysplit_reader_rejects_chunk_sizing_before_parse(monkeypatch):
+    from pathlib import Path
+
+    sample = Path(__file__).parent / "data/synthetic/hysplit/cdump_1.bin"
+    reader = HYSPLITReader()
+
+    def unexpected_parser_call(*args, **kwargs):
+        raise AssertionError("unsupported chunks must be rejected before parsing")
+
+    monkeypatch.setattr("monetio.readers.hysplit.open_dataset_hysplit", unexpected_parser_call)
+    with pytest.raises(OptionUnsupportedError, match="hysplit.*chunks"):
+        reader.open_dataset(str(sample), chunks={"time": 1})
+
+
+def test_hysplit_time_range_stops_binary_record_reads(monkeypatch):
+    """drange returns one record and reads fewer binary payload bytes."""
+    from pathlib import Path
+
+    sample = Path(__file__).parent / "data" / "synthetic" / "hysplit" / "cdump_1.bin"
+    original_fromfile = np.fromfile
+    bytes_read = [0]
+
+    def counting_fromfile(*args, **kwargs):
+        count = kwargs.get("count", args[2] if len(args) > 2 else -1)
+        dtype = kwargs.get("dtype", args[1] if len(args) > 1 else None)
+        if count >= 0 and dtype is not None:
+            bytes_read[0] += int(count) * np.dtype(dtype).itemsize
+        return original_fromfile(*args, **kwargs)
+
+    monkeypatch.setattr(np, "fromfile", counting_fromfile)
+    reader = HYSPLITReader()
+    complete = reader.open_dataset(str(sample), verbose=False)
+    full_read_bytes = bytes_read[0]
+    bytes_read[0] = 0
+
+    selected = reader.open_dataset(
+        str(sample),
+        verbose=False,
+        drange=[pd.Timestamp("2023-01-01 00:00"), pd.Timestamp("2023-01-01 01:00")],
+    )
+
+    assert selected.sizes["time"] == 1
+    assert selected.time.values[0] == np.datetime64("2023-01-01T00:00")
+    assert bytes_read[0] < full_read_bytes
+    complete.close()
+    selected.close()
 
 
 def test_mass_loading_with_delta():

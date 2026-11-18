@@ -140,20 +140,33 @@ class Grib2Reader(GriddedReader):
         if actual_rename:
             ds = ds.rename(actual_rename)
 
-        # 1b. Normalize GRIB valid_time -> time consistently.
-        if "valid_time" in ds.coords or "valid_time" in ds.dims:
-            if "time" in ds.coords or "time" in ds.dims or "time" in ds.variables:
-                if "valid_time" in ds.variables:
-                    ds = ds.drop_vars("valid_time")
-            else:
-                if "valid_time" in ds.coords and "valid_time" not in ds.dims:
-                    valid_time_dims = ds["valid_time"].dims
-                    if len(valid_time_dims) == 1 and valid_time_dims[0] in ds.dims:
-                        ds = ds.swap_dims({valid_time_dims[0]: "valid_time"})
-                ds = ds.rename({"valid_time": "time"})
+        # Keep the GRIB reference time (`time`) and valid time distinct. Some
+        # backends expose valid time as `valid_time`; grib2io commonly exposes
+        # the same timestamp as scalar `validDate` instead. A scalar valid date
+        # needs its own time dimension so the coordinate survives concatenation
+        # of multiple files.
+        if "valid_time" not in ds.variables and "validDate" in ds.variables:
+            ds = ds.assign_coords(valid_time=ds["validDate"])
+
+        if "valid_time" in ds.variables:
+            valid = ds["valid_time"]
+            if valid.ndim == 0 and "time" not in ds.dims:
+                value = valid.values
+                ds = ds.expand_dims(time=[value])
+                ds = ds.assign_coords(valid_time=("time", [value]))
+            elif valid.ndim == 0 and "time" in ds.dims and ds.sizes["time"] == 1:
+                value = valid.values
+                ds = ds.assign_coords(valid_time=("time", [value]))
+            elif valid.ndim == 1 and valid.dims[0] in ds.dims:
+                dim = valid.dims[0]
+                if dim != "time":
+                    ds = ds.swap_dims({dim: "time"})
+                    ds = ds.assign_coords(time=ds["valid_time"])
 
         # 2. Ensure latitude/longitude are coordinates
-        coord_vars = [v for v in ["latitude", "longitude", "time"] if v in ds.variables]
+        coord_vars = [
+            v for v in ["latitude", "longitude", "time", "valid_time"] if v in ds.variables
+        ]
         if coord_vars:
             ds = ds.set_coords(coord_vars)
 

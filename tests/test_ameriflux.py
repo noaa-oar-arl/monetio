@@ -37,3 +37,61 @@ def test_ameriflux_reader_logic(monkeypatch):
     assert ds.time.values[0] == pd.Timestamp("2023-01-01 00:00:00")
     assert "CO2" in ds.data_vars
     assert "FC" in ds.data_vars
+
+
+def test_ameriflux_use_dask_uses_bounded_schema_probe(tmp_path, monkeypatch):
+    import dask.dataframe as dd
+
+    csv_path = tmp_path / "ameriflux.csv"
+    csv_path.write_text(
+        "TIMESTAMP_START,CO2,FC\n202301010000,400.1,1.2\n202301010030,400.5,1.3\n",
+        encoding="utf-8",
+    )
+    original = pd.read_csv
+    calls = []
+
+    def counted(source, *args, **kwargs):
+        calls.append(kwargs.get("nrows"))
+        return original(source, *args, **kwargs)
+
+    monkeypatch.setattr(pd, "read_csv", counted)
+    reader = AmeriFluxReader()
+    eager = reader.open_dataset(str(csv_path), as_xarray=False, use_dask=False)
+    calls.clear()
+    lazy = reader.open_dataset(str(csv_path), as_xarray=False, use_dask=True)
+
+    assert isinstance(lazy, dd.DataFrame)
+    assert calls == [1]
+    pd.testing.assert_frame_equal(lazy.compute(), eager, check_dtype=False)
+    assert calls == [1, None]
+
+
+def test_ameriflux_use_dask_xarray_shares_length_preparation(tmp_path, monkeypatch):
+    import dask.array as da
+    import xarray as xr
+
+    csv_path = tmp_path / "ameriflux.csv"
+    csv_path.write_text(
+        "TIMESTAMP_START,CO2,FC\n202301010000,400.1,1.2\n202301010030,400.5,1.3\n",
+        encoding="utf-8",
+    )
+    original = pd.read_csv
+    calls = []
+
+    def counted(source, *args, **kwargs):
+        calls.append(kwargs.get("nrows"))
+        return original(source, *args, **kwargs)
+
+    monkeypatch.setattr(pd, "read_csv", counted)
+    reader = AmeriFluxReader()
+    eager = reader.open_dataset(str(csv_path), as_xarray=True, use_dask=False)
+    calls.clear()
+    lazy = reader.open_dataset(str(csv_path), as_xarray=True, use_dask=True)
+
+    assert isinstance(lazy, xr.Dataset)
+    assert isinstance(lazy.CO2.data, da.Array)
+    # The one-row probe establishes schema and the single full preparation
+    # pass discovers row count/coordinates. Explicit evaluation reads once more.
+    assert calls == [1, None]
+    xr.testing.assert_equal(eager.CO2, lazy.CO2.compute())
+    assert calls == [1, None, None]

@@ -294,6 +294,120 @@ class TestPointDeferred:
             == _normalize_history(lazyref.compute()).attrs["history"]
         )
 
+    def test_table_and_xarray_conversion_share_preparation_without_persist(self, monkeypatch):
+        """Width growth must not add parser passes or persist the complete table."""
+        import dask.dataframe as dd
+
+        from monetio.readers.airnow import AirNowReader
+
+        meta = pd.DataFrame(
+            {
+                "time": pd.Series(dtype="datetime64[ns]"),
+                "siteid": pd.Series(dtype=object),
+                "variable": pd.Series(dtype="str"),
+                "obs": pd.Series(dtype="float64"),
+                "units": pd.Series(dtype="str"),
+                "latitude": pd.Series(dtype="float64"),
+                "longitude": pd.Series(dtype="float64"),
+            }
+        )
+        widths = (10, 100)
+        preparation_passes = []
+        times = [pd.Timestamp("2023-01-01") + pd.to_timedelta(i, unit="h") for i in range(4)]
+        original_persist = dd.DataFrame.persist
+
+        def fail_if_persist(self, *args, **kwargs):
+            raise AssertionError("reader conversion must not persist the full input")
+
+        monkeypatch.setattr(dd.DataFrame, "persist", fail_if_persist)
+        try:
+            for width in widths:
+                parser_calls = []
+
+                def parse_partition(partition):
+                    parser_calls.append(partition)
+                    rows = []
+                    for i in range(width):
+                        rows.append(
+                            {
+                                "time": times[partition],
+                                "siteid": f"S{partition}",
+                                "variable": f"V{i}",
+                                "obs": float(partition + i),
+                                "units": "ppb",
+                                "latitude": 40.0 + partition,
+                                "longitude": -80.0 - partition,
+                            }
+                        )
+                    return pd.DataFrame(rows)
+
+                # Native table construction stays deferred and needs no schema or
+                # row-length scan because the source supplies explicit metadata.
+                table = dd.from_map(parse_partition, range(4), meta=meta)
+                assert parser_calls == []
+                assert len(table.compute()) == 4 * width
+                native_table_passes = len(parser_calls)
+                assert native_table_passes == 4
+
+                # A fresh graph lets Xarray's required node layout preparation be
+                # counted separately from later value evaluation.
+                parser_calls.clear()
+                frame = dd.from_map(parse_partition, range(4), meta=meta)
+                result = AirNowReader().to_xarray(frame, defer=True)
+                prep_passes = len(parser_calls)
+                assert prep_passes > 0
+                assert prep_passes == 4
+                assert all(
+                    hasattr(var.data, "dask") for var in result.data_vars.values() if var.ndim
+                )
+                preparation_passes.append(prep_passes)
+                computed = result.compute()
+                assert computed.sizes["time"] == 4
+                assert len(parser_calls) > prep_passes
+                result.close()
+        finally:
+            monkeypatch.setattr(dd.DataFrame, "persist", original_persist)
+
+        assert preparation_passes[0] == preparation_passes[1], (
+            "Xarray preparation must perform the same number of partition passes "
+            "for 10 and 100 output variables"
+        )
+
+    def test_long_xarray_preparation_batches_coordinate_discovery(self):
+        """The 1D node layout prepares required coordinate keys in one pass."""
+        import dask.dataframe as dd
+
+        meta = pd.DataFrame(
+            {
+                "time": pd.Series(dtype="datetime64[ns]"),
+                "siteid": pd.Series(dtype=object),
+                "obs": pd.Series(dtype="float64"),
+            }
+        )
+        parser_calls = []
+
+        def parse_partition(partition):
+            parser_calls.append(partition)
+            return pd.DataFrame(
+                {
+                    "time": pd.date_range("2023-01-01", periods=2) + pd.Timedelta(days=partition),
+                    "siteid": [f"S{partition}"] * 2,
+                    "obs": [float(partition), float(partition + 1)],
+                }
+            )
+
+        frame = dd.from_map(parse_partition, range(4), meta=meta)
+        result = AirNowReader().to_xarray(frame, expand2d=False, defer=True)
+
+        assert sorted(parser_calls) == [0, 1, 2, 3]
+        prep_passes = len(parser_calls)
+        assert prep_passes == 4
+        assert result.sizes["node"] == 8
+        assert all(hasattr(var.data, "dask") for var in result.data_vars.values() if var.ndim)
+        computed = result.compute()
+        assert computed["obs"].values.tolist() == [0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0]
+        assert len(parser_calls) == prep_passes * 2
+
     def test_sc011_no_observation_pivot_compute(self, tmp_path, monkeypatch):
         """SC-011: the deferred wide route performs **zero** ``long_to_wide``
         full-data computes — the exact claim in contracts/scale-options.md

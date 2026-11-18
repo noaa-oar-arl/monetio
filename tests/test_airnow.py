@@ -62,6 +62,76 @@ def test_airnow_eager_vs_lazy_local(mock_airnow_file, monkeypatch):
     uo_999 = ds_eager.sel(node=ds_eager.siteid == "999999999").utcoffset.values
     assert uo_999 == pytest.approx(-5.0)
 
+    import dask.dataframe as dd
+
+    df_alias = reader.open_dataset(
+        files=mock_airnow_file, as_xarray=False, use_dask=True, wide_fmt=True, bad_utcoffset="fix"
+    )
+    assert isinstance(df_alias, dd.DataFrame)
+
+
+@pytest.mark.parametrize("as_xarray", [False, True])
+@pytest.mark.parametrize("defer", [False, True])
+def test_airnow_date_selection_is_applied_to_dask_outputs(
+    mock_airnow_file, tmp_path, monkeypatch, as_xarray, defer
+):
+    pytest.importorskip("timezonefinder")
+    from pathlib import Path
+
+    source = Path(mock_airnow_file)
+    monkeypatch.chdir(tmp_path)
+    downloaded = tmp_path / "HourlyData_2023010100.dat"
+    requested = []
+
+    def mock_retrieve(url, filename):
+        requested.append(url)
+        Path(filename).write_bytes(source.read_bytes())
+
+    monkeypatch.setattr("monetio.readers.airnow.retrieve", mock_retrieve)
+    import monetio.readers.epa_utils as epa_utils
+
+    monkeypatch.setattr(
+        epa_utils,
+        "read_monitor_file",
+        lambda *args, **kwargs: pd.DataFrame(
+            {
+                "siteid": ["012345678", "999999999"],
+                "latitude": [40.0, 40.0],
+                "longitude": [-80.0, -80.0],
+                "site_name": ["Site 1", "Site 2"],
+            }
+        ),
+    )
+    dates = pd.to_datetime(["2023-01-01"])
+    eager = AirNowReader().open_dataset(
+        dates=dates,
+        download=True,
+        as_xarray=as_xarray,
+        wide_fmt=as_xarray,
+        bad_utcoffset="fix",
+    )
+    selected = AirNowReader().open_dataset(
+        dates=dates,
+        download=True,
+        as_xarray=as_xarray,
+        wide_fmt=as_xarray,
+        bad_utcoffset="fix",
+        defer=defer,
+    )
+    assert (
+        requested
+        == ["https://files.airnowtech.org/airnow/2023/20230101/HourlyData_2023010100.dat"] * 2
+    )
+    if as_xarray:
+        assert "OZONE" in eager.data_vars
+        assert "OZONE" in selected.data_vars
+        assert selected.sizes["time"] >= 1
+    else:
+        assert not eager.empty
+        result = selected.compute() if hasattr(selected, "compute") else selected
+        assert not result.empty
+    downloaded.unlink(missing_ok=True)
+
 
 @pytest.mark.network
 def test_add_data_hourly_network():

@@ -265,6 +265,9 @@ class ACTRISReader(PointReader):
         Union[pd.DataFrame, xr.Dataset, dd.DataFrame]
             The loaded ACTRIS data.
         """
+        if use_dask:
+            lazy = True
+
         if files is None:
             if dates is None:
                 raise ValueError("Must provide either 'files' or 'dates'.")
@@ -287,6 +290,8 @@ class ACTRISReader(PointReader):
             # here the way the eager-by-default contract requires: materialise
             # unless the caller explicitly asked for a deferred result.
             ds = xr.open_mfdataset(files, **kwargs)
+            source_ds = ds
+            source_close = source_ds._close
             # Coordinate standardization is already somewhat standard in EBAS NetCDF
             # but we may need to rename to match PointReader conventions
             rename_dict = {}
@@ -301,10 +306,19 @@ class ACTRISReader(PointReader):
 
             ds = update_history(ds, "Read ACTRIS/EBAS NetCDF data.")
             if not as_xarray:
-                frame = ds.to_dataframe().reset_index()
-                return frame if lazy else frame.compute()
+                if lazy:
+                    frame = ds.to_dask_dataframe().reset_index()
+                else:
+                    frame = ds.to_dataframe().reset_index()
+                source_ds.close()
+                return frame
             if not lazy:
                 ds = ds.load()
+                source_ds.close()
+            else:
+                # Keep the original backend owner reachable through renames
+                # and metadata updates so the caller can release it explicitly.
+                ds.set_close(source_close)
             return ds
 
         # Default to NASA-Ames 1001 format

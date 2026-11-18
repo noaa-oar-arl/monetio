@@ -18,7 +18,9 @@ def mock_umbc_hdf5(tmp_path):
         nz = 50
         data.create_dataset("Altitude_m", data=np.linspace(0, 5000, nz))
         data.create_dataset("UnixTime_UTC", data=np.linspace(1600000000, 1600003600, ntime))
-        data.create_dataset("Profile_bsc", data=np.random.rand(ntime, nz))
+        rng = np.random.default_rng(42)
+        data.create_dataset("Profile_bsc", data=rng.random((ntime, nz)))
+        data.create_dataset("Unused_payload", data=np.full((ntime, nz), -1.0))
 
         # Instrument_Attributes group
         atts = f.create_group("Instrument_Attributes")
@@ -78,3 +80,21 @@ def test_umbc_aerosol_multi_file(tmp_path):
     ds = reader.open_dataset(files, concat_dim="time")
     assert ds.sizes["time"] == 2
     assert "latitude" in ds.coords
+
+
+def test_umbc_aerosol_honors_chunks_and_drop_variables(mock_umbc_hdf5):
+    reader = UMBCAerosolReader()
+    result = reader.open_dataset(
+        mock_umbc_hdf5,
+        use_dask=True,
+        chunks={"phony_dim_0": 10, "phony_dim_1": 2},
+        drop_variables=["Unused_payload"],
+    )
+    try:
+        assert "Unused_payload" not in result
+        assert hasattr(result.bsc.data, "dask")
+        assert result.bsc.dims == ("y", "x", "time", "z")
+        assert result.bsc.chunksizes["time"] == (2, 2, 2, 2, 2)
+        assert result.bsc.chunksizes["z"] == (10, 10, 10, 10, 10)
+    finally:
+        result.close()

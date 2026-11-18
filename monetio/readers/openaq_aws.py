@@ -104,6 +104,9 @@ class OpenAQAWSReader(PointReader):
         >>> ds = reader.open_dataset(dates='2023-01-01', siteid='7073', wide_fmt=True)
         """
 
+        if use_dask:
+            lazy = True
+
         # For backward compatibility, if the first argument looks like dates, swap them.
         if (
             files is not None

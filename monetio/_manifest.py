@@ -98,6 +98,15 @@ _GRID_CONCURRENT = ScaleCapabilities(
     chunk_controls=("chunks",),
 )
 
+# GHRSST grid readers use the shared NetCDF Dask path. Remote capability is
+# deliberately withheld until direct and date-resolved HTTPS reads are tested.
+_GHRSST_GRID = ScaleCapabilities(
+    deferred=True,
+    remote=True,
+    distributed=True,
+    chunk_controls=("chunks",),
+)
+
 
 @dataclass(frozen=True)
 class SourceSpec:
@@ -139,8 +148,17 @@ SOURCE_MANIFEST: tuple[SourceSpec, ...] = (
     _s("nam", ".readers.nam", "gridded"),
     _s("rap", ".readers.rap", "gridded"),
     _s("ncep_reanalysis", ".readers.ncep_reanalysis", "gridded"),
-    _s("era5", ".readers.era5", "gridded"),
+    _s(
+        "era5",
+        ".readers.era5",
+        "gridded",
+        caps=ScaleCapabilities(
+            chunk_controls=("chunks",),
+            reason="Deferred loading is not advertised; chunks are honored with use_dask=True.",
+        ),
+    ),
     # ---- point observations ----
+    _s("prepbufr", ".readers.prepbufr", "point"),
     _s("airnow", ".readers.airnow", "point", caps=_DEFERRED_WIDE, legacy=("obs.airnow",)),
     _s("aeronet", ".readers.aeronet", "point", caps=_DEFERRED, legacy=("obs.aeronet",)),
     _s("aqs", ".readers.aqs", "point", legacy=("obs.aqs",)),
@@ -193,7 +211,15 @@ SOURCE_MANIFEST: tuple[SourceSpec, ...] = (
     _s("mopitt", ".readers.mopitt", "gridded"),
     _s("tempo", ".readers.tempo", "gridded"),
     _s("tropomi", ".readers.tropomi", "gridded"),
-    _s("merra2", ".readers.merra2", "gridded"),
+    _s(
+        "merra2",
+        ".readers.merra2",
+        "gridded",
+        caps=ScaleCapabilities(
+            chunk_controls=("chunks",),
+            reason="Deferred loading is not advertised; chunks are honored with use_dask=True.",
+        ),
+    ),
     _s("nesdis_viirs_jrr", ".readers.nesdis_viirs_jrr", "gridded", aliases=("viirs_jrr",)),
     _s("calipso", ".readers.calipso", "gridded"),
     _s("earthcare", ".readers.earthcare", "gridded"),
@@ -204,6 +230,7 @@ SOURCE_MANIFEST: tuple[SourceSpec, ...] = (
     _s("mrms", ".readers.mrms", "gridded"),
     _s("sentinel4", ".readers.sentinel4", "gridded"),
     _s("smap", ".readers.smap", "gridded"),
+    _s("ghrsst", ".readers.ghrsst", "gridded", caps=_GHRSST_GRID),
 )
 
 

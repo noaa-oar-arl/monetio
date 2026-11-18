@@ -51,8 +51,13 @@ these are actually validated (`deferred`, `deferred_wide`, `distributed`,
 not been checked carries a `reason` explaining the gap. As of this writing the
 deferred-capable set is `{aeronet, airnow, cmaq, tolnet}`, of which
 `{cmaq, airnow}` are additionally validated end-to-end on a `distributed`
-cluster. A source whose capabilities are not yet validated loads eagerly and
-ignores scale options it does not honor rather than silently misbehaving.
+cluster. A source whose capabilities are not validated loads eagerly. Unsupported
+scale options are rejected with a source-specific reason rather than silently
+ignored. Deferred point-to-Xarray conversion may parse partitions to discover
+row lengths and coordinate keys; the payload columns remain deferred and can
+be reread during evaluation. Per-source worker and cleanup support is tracked
+by mode. See [Dask reader behavior](dask_readers.md) for current evidence and
+limits.
 
 ## Interaction Modes
 

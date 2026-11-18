@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import dask.dataframe as dd
 import pandas as pd
 import pytest
 import xarray as xr
@@ -67,9 +68,26 @@ def test_openaq_v2_eager_lazy_consistency(mock_get, mock_openaq_data):
     for v in vars_to_compare:
         xr.testing.assert_allclose(ds_eager[v], ds_lazy_computed[v])
 
+    # The public use_dask alias must select the custom delayed-fetch path too.
+    ds_use_dask = reader.open_dataset(dates=dates, parameters=["o3"], use_dask=True, as_xarray=True)
+    assert hasattr(ds_use_dask["o3_ppm"].data, "dask")
+    ds_use_dask_computed = ds_use_dask.compute()
+    for v in vars_to_compare:
+        xr.testing.assert_allclose(ds_eager[v], ds_use_dask_computed[v])
+
+    table_eager = reader.open_dataset(
+        dates=dates, parameters=["o3"], lazy=False, as_xarray=False, wide_fmt=False
+    )
+    table_use_dask = reader.open_dataset(
+        dates=dates, parameters=["o3"], use_dask=True, as_xarray=False, wide_fmt=False
+    )
+    assert isinstance(table_use_dask, dd.DataFrame)
+    pd.testing.assert_frame_equal(table_eager, table_use_dask.compute())
+
     # Verify variable naming consistency
     assert "o3_ppm" in ds_eager.data_vars
     assert "o3_ppm" in ds_lazy_computed.data_vars
+    assert "o3_ppm" in ds_use_dask_computed.data_vars
 
 
 @patch("monetio.readers.openaq_v2.requests.get")
@@ -87,3 +105,29 @@ def test_openaq_v2_empty_response(mock_get):
     assert isinstance(ds, xr.Dataset)
     if "node" in ds.dims:
         assert ds.sizes["node"] == 0
+
+
+def test_openaq_v2_fetch_query_applies_site_country_parameter_and_dates(monkeypatch):
+    from monetio.readers import openaq_v2
+
+    seen = []
+
+    def fake_consume(endpoint, *, params, **kwargs):
+        seen.append((endpoint, params))
+        return []
+
+    monkeypatch.setattr(openaq_v2, "_consume", fake_consume)
+    OpenAQV2Reader()._fetch_data(
+        dates=pd.DatetimeIndex(["2023-01-01"]),
+        parameters=["o3"],
+        country="US",
+        sites=[1234],
+    )
+    assert len(seen) == 1
+    endpoint, params = seen[0]
+    assert endpoint == openaq_v2._ENDPOINTS["measurements"]
+    assert params["parameter"] == "o3"
+    assert params["country"] == "US"
+    assert params["location_id"] == [1234]
+    assert params["date_from"] == pd.Timestamp("2022-12-31 23:59:59")
+    assert params["date_to"] == pd.Timestamp("2023-01-01")

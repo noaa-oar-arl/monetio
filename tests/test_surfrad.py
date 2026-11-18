@@ -42,10 +42,11 @@ def test_surfrad_reader_basic(tmp_path):
     assert ds.sizes["node"] == 1
     assert ds.sizes["time"] == 2
 
-    # Test without 2D expansion
+    # Test without 2D expansion: records remain on node, time attached to it.
     ds = reader.open_dataset(files=str(f), as_xarray=True, expand2d=False)
-    assert ds.sizes["time"] == 2
+    assert ds.sizes["node"] == 2
     assert "time" in ds.coords
+    assert ds.time.dims == ("node",)
 
     # Verify coordinates
     assert ds.latitude.attrs["units"] == "degrees_north"

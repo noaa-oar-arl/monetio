@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -7,20 +5,13 @@ import xarray as xr
 
 from monetio.readers.nadp import NADPReader
 
-
-@pytest.fixture
-def mock_meta():
-    """Create dummy metadata."""
-    df = pd.DataFrame(
-        {"siteid": ["TX01"], "latitude": [30.0], "longitude": [-100.0], "elevation": [100.0]}
-    )
-    return df
+# Station metadata and the offline read_csv patch come from the shared
+# ``nadp_meta`` / ``patch_remote_read_csv`` fixtures in conftest.py (the NADP
+# reader fetches station metadata over the network; both are patched out here).
 
 
-def test_nadp_modern_eager(tmp_path, mock_meta):
-    """Test NADP reader with Eager (Pandas) backend."""
-    # Create dummy NTN data
-    df_ntn = pd.DataFrame(
+def _ntn_frame():
+    return pd.DataFrame(
         {
             "siteid": ["TX01", "TX01"],
             "network": ["NTN", "NTN"],
@@ -32,81 +23,50 @@ def test_nadp_modern_eager(tmp_path, mock_meta):
             "flagso4": [" ", "<"],  # Flagged
         }
     )
+
+
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
+def test_nadp_ntn_cleaning(tmp_path, nadp_meta, patch_remote_read_csv, lazy):
+    """NTN negative-value and '<' flag masking is identical eager vs lazy."""
+    if lazy:
+        pytest.importorskip("dask")
+
     fn = tmp_path / "NTN-All-w.csv"
-    df_ntn.to_csv(fn, index=False)
+    _ntn_frame().to_csv(fn, index=False)
 
-    reader = NADPReader()
-
-    original_read_csv = pd.read_csv
-
-    def side_effect(arg, **kwargs):
-        if isinstance(arg, str) and arg.startswith("http"):
-            return mock_meta
-        return original_read_csv(arg, **kwargs)
-
-    with patch("pandas.read_csv", side_effect=side_effect):
-        # Eager Path
-        ds = reader.open_dataset(files=str(fn), network="NTN", as_xarray=True, lazy=False)
+    with patch_remote_read_csv(nadp_meta):
+        ds = NADPReader().open_dataset(files=str(fn), network="NTN", as_xarray=True, lazy=lazy)
 
     assert isinstance(ds, xr.Dataset)
-    # Check cleaning
+    if lazy:
+        assert ds.mg.chunks is not None
+    else:
+        assert ds.mg.chunks is None
+
+    ds = ds.compute()
+    # Negative mg and flagged '<' so4 are both masked to NaN.
     mg = ds.mg.values.flatten()
     assert mg[0] == 1.0
-    assert np.isnan(mg[1])  # Negative masked
-
-    so4 = ds.so4.values.flatten()
-    assert so4[0] == 3.0
-    assert np.isnan(so4[1])  # Flagged '<' masked
-
-
-def test_nadp_modern_lazy(tmp_path, mock_meta):
-    """Test NADP reader with Lazy (Dask) backend."""
-    pytest.importorskip("dask")
-    # Create dummy NTN data
-    df_ntn = pd.DataFrame(
-        {
-            "siteid": ["TX01", "TX01"],
-            "network": ["NTN", "NTN"],
-            "dateon": ["2023-01-01", "2023-01-08"],
-            "dateoff": ["2023-01-08", "2023-01-15"],
-            "mg": [1.0, -1.0],
-            "flagmg": [" ", " "],
-            "so4": [3.0, 4.0],
-            "flagso4": [" ", "<"],
-        }
-    )
-    fn = tmp_path / "NTN-All-w.csv"
-    df_ntn.to_csv(fn, index=False)
-
-    reader = NADPReader()
-
-    original_read_csv = pd.read_csv
-
-    def side_effect(arg, **kwargs):
-        if isinstance(arg, str) and arg.startswith("http"):
-            return mock_meta
-        return original_read_csv(arg, **kwargs)
-
-    with patch("pandas.read_csv", side_effect=side_effect):
-        # Lazy Path
-        ds = reader.open_dataset(files=str(fn), network="NTN", as_xarray=True, lazy=True)
-
-    assert isinstance(ds, xr.Dataset)
-    assert ds.mg.chunks is not None
-
-    ds_computed = ds.compute()
-
-    # Check cleaning
-    mg = ds_computed.mg.values.flatten()
-    assert mg[0] == 1.0
     assert np.isnan(mg[1])
-
-    so4 = ds_computed.so4.values.flatten()
+    so4 = ds.so4.values.flatten()
     assert so4[0] == 3.0
     assert np.isnan(so4[1])
 
 
-def test_nadp_mdn_cleaning(tmp_path, mock_meta):
+def test_nadp_ntn_native_table_eager_lazy_parity(tmp_path, nadp_meta, patch_remote_read_csv):
+    pytest.importorskip("dask")
+    fn = tmp_path / "NTN-All-w.csv"
+    _ntn_frame().to_csv(fn, index=False)
+
+    with patch_remote_read_csv(nadp_meta):
+        eager = NADPReader().open_dataset(files=str(fn), network="NTN", as_xarray=False, lazy=False)
+        lazy = NADPReader().open_dataset(files=str(fn), network="NTN", as_xarray=False, lazy=True)
+
+    assert hasattr(lazy, "compute")
+    pd.testing.assert_frame_equal(eager, lazy.compute(), check_dtype=False)
+
+
+def test_nadp_mdn_cleaning(tmp_path, nadp_meta, patch_remote_read_csv):
     """Test MDN global flag cleaning."""
     df_mdn = pd.DataFrame(
         {
@@ -120,17 +80,8 @@ def test_nadp_mdn_cleaning(tmp_path, mock_meta):
     fn = tmp_path / "MDN-All-w.csv"
     df_mdn.to_csv(fn, index=False)
 
-    reader = NADPReader()
-
-    original_read_csv = pd.read_csv
-
-    def side_effect(arg, **kwargs):
-        if isinstance(arg, str) and arg.startswith("http"):
-            return mock_meta
-        return original_read_csv(arg, **kwargs)
-
-    with patch("pandas.read_csv", side_effect=side_effect):
-        ds = reader.open_dataset(files=str(fn), network="MDN", as_xarray=True, lazy=False)
+    with patch_remote_read_csv(nadp_meta):
+        ds = NADPReader().open_dataset(files=str(fn), network="MDN", as_xarray=True, lazy=False)
 
     hg = ds.hgconc.values.flatten()
     assert hg[0] == 10.0

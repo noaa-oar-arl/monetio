@@ -121,6 +121,16 @@ def test_every_sample_manifest_is_valid():
     assert not problems, "invalid sample manifests:\n  " + "\n  ".join(problems)
 
 
+def test_grib2io_index_cache_is_not_part_of_sample_payload_hash(tmp_path):
+    from scripts.make_sample_manifest import content_hash
+
+    payload = tmp_path / "field.grib2"
+    payload.write_bytes(b"sample grib bytes")
+    original_hash = content_hash(tmp_path)
+    (tmp_path / "field.grib2_abc.grib2ioidx").write_bytes(b"backend cache")
+    assert content_hash(tmp_path) == original_hash
+
+
 def test_sample_manifest_required_fields():
     """C-SAMP-4: the manifest schema keys are present on every sample."""
     for directory in _sample_dirs():

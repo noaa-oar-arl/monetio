@@ -1,6 +1,7 @@
 """NESDIS VIIRS JRR Reader"""
 
 import datetime
+from collections.abc import Mapping
 
 import pandas as pd
 import xarray as xr
@@ -131,6 +132,17 @@ class VIIRSJRRReader(GriddedReader):
         if "combine" not in kwargs:
             kwargs["combine"] = "nested"
 
+        requested_chunks = kwargs.get("chunks")
+        if isinstance(requested_chunks, Mapping):
+            driver_chunks = dict(requested_chunks)
+            # Xarray validates chunks against on-disk dimensions before the
+            # preprocessing function renames Rows/Columns to y/x.
+            if "y" in driver_chunks and "Rows" not in driver_chunks:
+                driver_chunks["Rows"] = driver_chunks.pop("y")
+            if "x" in driver_chunks and "Columns" not in driver_chunks:
+                driver_chunks["Columns"] = driver_chunks.pop("x")
+            kwargs["chunks"] = driver_chunks
+
         ds = super().open_dataset(
             files,
             use_virtualizarr=use_virtualizarr,
@@ -143,6 +155,14 @@ class VIIRSJRRReader(GriddedReader):
             use_dask=use_dask,
             **kwargs,
         )
+
+        # `chunks` is applied by Xarray before preprocessing, when the source
+        # dimensions are Rows/Columns. Also honor chunk mappings expressed in
+        # the public y/x dimensions produced by preprocessing.
+        if use_dask and isinstance(requested_chunks, Mapping):
+            output_chunks = {dim: size for dim, size in requested_chunks.items() if dim in ds.dims}
+            if output_chunks:
+                ds = ds.chunk(output_chunks)
 
         # Update history
         ds = update_history(ds, f"Read NESDIS VIIRS JRR {product} data from {satellite}.")

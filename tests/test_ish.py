@@ -8,24 +8,8 @@ import xarray as xr
 from monetio.readers.ish import ISHReader, read_ish_file
 from monetio.readers.ish_lite import ISHLiteReader
 
-
-@pytest.fixture
-def mock_history():
-    return pd.DataFrame(
-        {
-            "station_id": ["72224400358", "99999912345"],
-            "usaf": ["722244", "999999"],
-            "wban": ["00358", "12345"],
-            "latitude": [38.9, 40.0],
-            "longitude": [-76.9, -80.0],
-            "ctry": ["US", "US"],
-            "state": ["MD", "PA"],
-            "station name": ["Site 1", "Site 2"],
-            "elev(m)": [20.0, 30.0],
-            "begin": [pd.Timestamp("1970-01-01"), pd.Timestamp("1970-01-01")],
-            "end": [pd.Timestamp("2025-01-01"), pd.Timestamp("2025-01-01")],
-        }
-    )
+# The ISD history frame comes from the shared ``ish_history`` fixture in
+# conftest.py, which is byte-identical to the ``ish_lite`` reader's copy.
 
 
 def test_read_ish_file_logic(tmp_path):
@@ -38,7 +22,18 @@ def test_read_ish_file_logic(tmp_path):
     assert df.t.iloc[0] == 25.6
 
 
-def test_ish_eager_lazy_consistency(tmp_path, mock_history):
+def test_read_ish_file_rejects_payload_without_valid_observations(tmp_path):
+    fn = tmp_path / "corrupt-ish.bin"
+    fn.write_text("this is not a valid fixed-width ISH record\n")
+
+    from monetio.readers.errors import ContentInvalidError
+
+    with pytest.raises(ContentInvalidError, match="valid observation timestamps") as exc:
+        read_ish_file(str(fn))
+    assert fn.name in str(exc.value)
+
+
+def test_ish_eager_lazy_consistency(tmp_path, ish_history):
     """Verify that Eager (Pandas) and Lazy (Dask) backends produce identical results."""
     line1 = "0054722244003582020090100004+38941-076952FM-12+0020KADW 99992201V0040199999199030000199+02561+01841101851"
     fn = tmp_path / "722244-00358-2020"
@@ -46,20 +41,103 @@ def test_ish_eager_lazy_consistency(tmp_path, mock_history):
     reader = ISHReader()
 
     def side_effect(self, dates=None):
-        self.history = mock_history
+        self.history = ish_history
 
     with patch("monetio.readers.ish.ISH.read_ish_history", autospec=True, side_effect=side_effect):
         # 1. Eager (NumPy/Pandas)
         ds_eager = reader.open_dataset(files=str(fn), as_xarray=True, lazy=False, resample=False)
+        table_eager = reader.open_dataset(
+            files=str(fn), as_xarray=False, lazy=False, resample=False
+        )
         # 2. Lazy (Dask)
         ds_lazy = reader.open_dataset(files=str(fn), as_xarray=True, lazy=True, resample=False)
+        df_lazy = reader.open_dataset(files=str(fn), as_xarray=False, lazy=True, resample=False)
+        # The use_dask alias must also select the lazy branch before the
+        # DataFrame resampling policy is applied.
+        with pytest.warns(UserWarning, match="Resampling is currently not supported"):
+            df_alias = reader.open_dataset(
+                files=str(fn), as_xarray=False, use_dask=True, resample=True
+            )
 
     # Check values
+    assert isinstance(table_eager, pd.DataFrame)
+    assert len(table_eager) == 1
+    assert all(var.chunks is None for var in ds_eager.data_vars.values())
+    assert all(var.chunks is not None for var in ds_lazy.data_vars.values() if var.dims)
     xr.testing.assert_allclose(ds_eager, ds_lazy.compute())
     assert ds_eager.state.values[0] == "MD"
+    import dask.dataframe as dd
+
+    assert isinstance(df_lazy, dd.DataFrame)
+    pd.testing.assert_frame_equal(table_eager, df_lazy.compute())
+    assert isinstance(df_alias, dd.DataFrame)
 
 
-def test_ish_resampling_logic(tmp_path, mock_history):
+@pytest.mark.parametrize("lite", [False, True], ids=["ish", "ish-lite"])
+@pytest.mark.parametrize("as_xarray", [False, True], ids=["table", "wide-dataset"])
+def test_ish_station_date_selection_bounds_files_and_lazy_outputs(
+    tmp_path, monkeypatch, ish_history, lite, as_xarray
+):
+    import dask.dataframe as dd
+
+    import monetio.readers.ish as ish_module
+
+    if lite:
+        path = tmp_path / "722244-00358-2020.gz"
+        with gzip.open(path, "wb") as stream:
+            stream.write(b"2020 09 01 00 256 184 10185 220 40 0 0 0\n")
+        reader = ISHLiteReader()
+    else:
+        path = tmp_path / "722244-00358-2020"
+        path.write_text(
+            "0054722244003582020090100004+38941-076952FM-12+0020KADW "
+            "99992201V0040199999199030000199+02561+01841101851\n"
+        )
+        reader = ISHReader()
+
+    observed = {}
+    original_build_urls = ish_module.ISH.build_urls
+
+    def localize_selected_urls(self, dates=None, sites=None, lite=False):
+        urls = original_build_urls(self, dates=dates, sites=sites, lite=lite)
+        observed["urls"] = urls["name"].tolist()
+        localized = urls.copy()
+        localized["name"] = [str(path)]
+        observed["station_ids"] = sites.station_id.tolist()
+        return localized
+
+    monkeypatch.setattr(
+        ish_module.ISH,
+        "read_ish_history",
+        lambda self, dates=None: setattr(self, "history", ish_history.copy()),
+    )
+    monkeypatch.setattr(ish_module.ISH, "build_urls", localize_selected_urls)
+
+    result = reader.open_dataset(
+        dates=pd.DatetimeIndex(["2020-09-01"]),
+        site="72224400358",
+        as_xarray=as_xarray,
+        lazy=True,
+        resample=False,
+    )
+    try:
+        assert observed["station_ids"] == ["72224400358"]
+        assert len(observed["urls"]) == 1
+        assert observed["urls"][0].endswith("/2020/722244-00358-2020.gz")
+        if as_xarray:
+            assert isinstance(result, xr.Dataset)
+            variable = "t2m" if lite else "t"
+            assert result[variable].chunks is not None
+            assert result[variable].compute().size == 1
+        else:
+            assert isinstance(result, dd.DataFrame)
+            assert result.compute().shape[0] == 1
+    finally:
+        if isinstance(result, xr.Dataset):
+            result.close()
+
+
+def test_ish_resampling_logic(tmp_path, ish_history):
     # Create 3 hours of data
     line1 = "0054722244003582020090100004+38941-076952FM-12+0020KADW 99992201V0040199999199030000199+02001+01001100001"
     line2 = "0054722244003582020090101004+38941-076952FM-12+0020KADW 99992201V0040199999199030000199+02101+01101100101"
@@ -74,7 +152,7 @@ def test_ish_resampling_logic(tmp_path, mock_history):
     reader = ISHReader()
 
     def side_effect(self, dates=None):
-        self.history = mock_history
+        self.history = ish_history
 
     with patch("monetio.readers.ish.ISH.read_ish_history", autospec=True, side_effect=side_effect):
         # Resample to 3h
@@ -87,7 +165,7 @@ def test_ish_resampling_logic(tmp_path, mock_history):
     assert ds.p.values[0] == 1001.0
 
 
-def test_ish_metadata_merging_robustness(tmp_path, mock_history):
+def test_ish_metadata_merging_robustness(tmp_path, ish_history):
     """Test that metadata merging handles missing sites gracefully."""
     line1 = "0054722244003582020090100004+38941-076952FM-12+0020KADW 99992201V0040199999199030000199+02561+01841101851"
     line2 = "0054888888999992020090100004+10000+020000FM-12+0010XXXX 99992201V0040199999199030000199+01001+00501100001"
@@ -98,12 +176,12 @@ def test_ish_metadata_merging_robustness(tmp_path, mock_history):
     reader = ISHReader()
 
     def side_effect(self, dates=None):
-        self.history = mock_history
+        self.history = ish_history
 
     with patch("monetio.readers.ish.ISH.read_ish_history", autospec=True, side_effect=side_effect):
         ds = reader.open_dataset(files=str(fn), as_xarray=True, lazy=False, resample=False)
 
-    # One site is dropped because it lacks lat/lon metadata (not in mock_history)
+    # One site is dropped because it lacks lat/lon metadata (not in ish_history)
     assert len(ds.node) == 1
     assert ds.siteid.values[0] == "72224400358"
 

@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .base import GriddedReader, register_reader
+from .errors import OptionUnsupportedError
 from .sat_utils import update_history
 
 
@@ -74,6 +75,13 @@ class NESDISEDRVIIRSReader(GriddedReader):
         >>> reader = NESDISEDRVIIRSReader()
         >>> ds = reader.open_dataset(date="2023-01-01", resolution="high")
         """
+        if kwargs.get("chunks") is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "nesdis_edr_viirs",
+                cause="the compressed binary format is decoded as one complete array",
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")

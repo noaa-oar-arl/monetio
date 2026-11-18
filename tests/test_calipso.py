@@ -16,7 +16,10 @@ def create_mock_calipso_dataset(is_dask=False):
 
     ds = xr.Dataset(
         data_vars={
-            "Extinction_Coefficient_532": (("nray", "nbin"), np.random.rand(nray, nbin)),
+            "Extinction_Coefficient_532": (
+                ("nray", "nbin"),
+                np.random.default_rng(42).random((nray, nbin)),
+            ),
             "Latitude": (("nray",), np.linspace(-90, 90, nray)),
             "Longitude": (("nray",), np.linspace(-180, 180, nray)),
             "Profile_Time": (("nray",), np.linspace(0, 6000, nray)),
@@ -49,3 +52,26 @@ def test_calipso_reader_logic(lazy, monkeypatch):
 
     if lazy:
         assert ds.Extinction_Coefficient_532.chunks is not None
+
+
+def test_calipso_reader_use_dask_local_netcdf_parity(tmp_path):
+    source = create_mock_calipso_dataset()
+    source["unrelated"] = (("nray", "nbin"), np.full((10, 30), -1.0))
+    path = tmp_path / "calipso-synthetic.nc"
+    source.to_netcdf(path, engine="h5netcdf")
+    reader = CALIPSOReader()
+    eager = reader.open_dataset(files=str(path), engine="h5netcdf", drop_variables=["unrelated"])
+    lazy = reader.open_dataset(
+        files=str(path),
+        use_dask=True,
+        engine="h5netcdf",
+        chunks={"nray": 5, "nbin": 15},
+        drop_variables=["unrelated"],
+    )
+    try:
+        assert "unrelated" not in lazy
+        assert hasattr(lazy.Extinction_Coefficient_532.data, "dask")
+        assert lazy.Extinction_Coefficient_532.chunks == ((5, 5), (15, 15))
+        xr.testing.assert_allclose(eager, lazy.compute())
+    finally:
+        lazy.close()

@@ -1,6 +1,7 @@
 """Tests for XarrayDriver Icechunk backend support (Tasks 2.1–2.4)."""
 
 import unittest.mock as mock
+from pathlib import Path
 
 import pytest
 import xarray as xr
@@ -124,16 +125,23 @@ class TestSelectStore:
         files = ["/data/file1.nc", "/data/file2.nc"]
         registry, result_files = _select_store(files, {})
 
-        self.MockLocalStore.assert_called_once_with(prefix="/")
-        self.MockRegistry.return_value.register.assert_called_once_with(
-            "file:///", self.MockLocalStore.return_value
-        )
-        assert result_files == ["file:///data/file1.nc", "file:///data/file2.nc"]
+        local_root = Path(files[0]).resolve().anchor
+        root_uri = Path(local_root).as_uri()
+        self.MockLocalStore.assert_called_once_with(prefix=local_root)
+        register = self.MockRegistry.return_value.register
+        register.assert_any_call(root_uri, self.MockLocalStore.return_value)
+        if Path(local_root).drive:
+            encoded_drive = Path(local_root).drive.replace(":", "%3A")
+            register.assert_any_call(f"file:///{encoded_drive}/", self.MockLocalStore.return_value)
+            assert register.call_count == 2
+        else:
+            register.assert_called_once_with(root_uri, self.MockLocalStore.return_value)
+        assert result_files == [Path(path).resolve().as_uri() for path in files]
 
     def test_local_files_already_prefixed_not_doubled(self):
         files = ["file:///data/file1.nc"]
         _, result_files = _select_store(files, {})
-        assert result_files == ["file:///data/file1.nc"]
+        assert result_files == [Path("/data/file1.nc").resolve().as_uri()]
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +233,7 @@ class TestIcechunkWiring:
 
         # Create mock modules for the local imports inside open()
         mock_virtualizarr = mock.MagicMock()
-        mock_virtualizarr.open_virtual_mfdataset.return_value = mock_vds
+        mock_virtualizarr.open_virtual_dataset.return_value = mock_vds
         mock_parsers = mock.MagicMock()
 
         with (

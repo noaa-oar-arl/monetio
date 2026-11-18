@@ -112,10 +112,26 @@ class PandoraReader(GEOMSReader):
         # Apply harmonization explicitly as GEOMSReader.open_dataset calls geoms_preprocess
         # but doesn't call a reader-specific harmonize method from the base class properly
         # if not overridden in a specific way.
+        source_dataset = ds
         ds = self.harmonize(ds)
+        if source_dataset is not ds:
+            ds.set_close(source_dataset.close)
 
         if not as_xarray:
-            return ds.to_dataframe().reset_index()
+            if use_dask:
+                frame = ds.to_dask_dataframe()[list(ds.variables)].reset_index(drop=True)
+            else:
+                frame = ds.to_dataframe()
+                # GEOMS time is sometimes a same-named auxiliary coordinate,
+                # not an Xarray index. In that layout the timestamp is already
+                # a column and pandas reset_index would try to insert a second
+                # ``time`` column containing the positional dimension index.
+                if not ("time" in frame.columns and frame.index.name == "time"):
+                    frame = frame.reset_index()
+                else:
+                    frame = frame.reset_index(drop=True)
+            ds.close()
+            return frame
 
         # Update history
         ds = update_history(ds, "Read Pandora data using standardized preprocessing.")

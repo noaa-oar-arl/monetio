@@ -144,6 +144,21 @@ def ncep_grib_preprocess(ds: xr.Dataset) -> xr.Dataset:
                     ds = ds.swap_dims({valid_time_dims[0]: "valid_time"})
             ds = ds.rename({"valid_time": "time"})
 
+    # grib2io exposes the cycle/valid times as camelCase scalar coordinates
+    # ("validDate"/"refDate") on a file that carries only y/x dimensions. When
+    # such files are concatenated with ``coords="minimal"`` (the driver's default
+    # for multi-file GRIB2 scans), those scalars collapse to a single value and
+    # the resulting ``time`` dimension ends up with no coordinate, so aligning the
+    # model against observations fails with an AlignmentError. Preprocess runs per
+    # file, before concatenation, so promote the valid time into a size-1 ``time``
+    # dimension here and let each file contribute its own timestamp.
+    if "time" not in ds.dims and "time" not in ds.coords:
+        for _field in ("validDate", "refDate"):
+            if _field in ds.variables and ds[_field].ndim == 0:
+                ds = ds.expand_dims("time")
+                ds = ds.assign_coords(time=("time", [ds[_field].values]))
+                break
+
     # 2. Generate 2D Latitude and Longitude lazily
     if "latitude" in ds.coords and "longitude" in ds.coords:
         # Check if they are 1D

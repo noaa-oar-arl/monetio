@@ -1,3 +1,4 @@
+import dask.array as da
 import pandas as pd
 import pytest
 import xarray as xr
@@ -47,6 +48,9 @@ def test_hytraj_eager_lazy_consistency(fake_hytraj_files):
     df_lazy = reader.open_dataset(
         fake_hytraj_files, taglist=tags, renumber=True, lazy=True, as_xarray=False
     )
+    df_use_dask = reader.open_dataset(
+        fake_hytraj_files, taglist=tags, renumber=True, use_dask=True, as_xarray=False
+    )
 
     # Basic Checks
     assert "pid" in df_eager.columns
@@ -65,6 +69,11 @@ def test_hytraj_eager_lazy_consistency(fake_hytraj_files):
         df_lazy.compute().reset_index(drop=True),
         check_dtype=False,
     )
+    pd.testing.assert_frame_equal(
+        df_eager.reset_index(drop=True),
+        df_use_dask.compute().reset_index(drop=True),
+        check_dtype=False,
+    )
 
 
 def test_hytraj_xarray_consistency(fake_hytraj_files):
@@ -80,6 +89,8 @@ def test_hytraj_xarray_consistency(fake_hytraj_files):
     ds_lazy = reader.open_dataset(
         fake_hytraj_files, taglist=tags, renumber=True, lazy=True, as_xarray=True
     )
+    assert all(not isinstance(var.data, da.Array) for var in ds_eager.data_vars.values())
+    assert all(isinstance(var.data, da.Array) for var in ds_lazy.data_vars.values() if var.dims)
 
     # Renumbering check in coords/vars
     assert [str(x) for x in ds_eager["traj_num"].to_numpy().ravel()] == ["0_1", "1_1"]

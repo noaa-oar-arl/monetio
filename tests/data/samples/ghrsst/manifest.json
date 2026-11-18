@@ -1,0 +1,12 @@
+{
+  "captured": null,
+  "content_hash": "d16280efa908a29b8479791a5e8b673d7d43dcef8838a061d2f62bae0bbdc703",
+  "kind": "synthetic",
+  "layout": "ghrsst",
+  "load_kwargs": {
+    "product": "ghrsst_ncei_avhrr_anl"
+  },
+  "location": null,
+  "producer": "scripts/make_ghrsst_sample.py",
+  "reason": "A real GHRSST global grid is too large for a small offline fixture; this compact GDS-shaped file exercises the NCEI contract. Both supported product variants are covered by synthetic test fixtures."
+}

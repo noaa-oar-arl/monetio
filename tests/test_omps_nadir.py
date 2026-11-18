@@ -72,21 +72,62 @@ def test_omps_v8toz_masking():
     assert ozone[1, 1] == 1.0
 
 
+def test_omps_nadir_reader_honors_chunks_on_local_file(tmp_path):
+    n_times, n_ifov = 5, 10
+    source = xr.Dataset(
+        {
+            "ColumnAmountO3": (("nTimes", "nIFOV"), np.arange(50, dtype="f4").reshape(5, 10)),
+            "Unrelated": (("nTimes", "nIFOV"), np.full((5, 10), -1, dtype="f4")),
+            "ScanTime": (("nTimes",), np.full(n_times, 2.1e15)),
+            "Latitude": (("nTimes", "nIFOV"), np.zeros((n_times, n_ifov), dtype="f4")),
+            "Longitude": (("nTimes", "nIFOV"), np.ones((n_times, n_ifov), dtype="f4")),
+        }
+    )
+    path = tmp_path / "omps-v8toz.nc"
+    source.to_netcdf(path, engine="h5netcdf")
+
+    result = OMPSNadirReader().open_dataset(
+        str(path),
+        product="v8toz",
+        engine="h5netcdf",
+        use_dask=True,
+        chunks={"nTimes": 2, "nIFOV": 5},
+        drop_variables=["Unrelated"],
+    )
+    eager = OMPSNadirReader().open_dataset(
+        str(path), product="v8toz", engine="h5netcdf", drop_variables=["Unrelated"]
+    )
+    try:
+        assert "Unrelated" not in result
+        assert "Unrelated" not in eager
+        assert eager.ozone_column.chunks is None
+        assert result.ozone_column.chunks == ((2, 2, 1), (5, 5))
+        xr.testing.assert_equal(
+            eager.drop_vars("history", errors="ignore"),
+            result.compute().drop_vars("history", errors="ignore"),
+        )
+    finally:
+        result.close()
+        eager.close()
+
+
 def test_omps_sdr_multi_group(monkeypatch):
     # Mock XarrayDriver.open to return different groups
     class MockDriver:
         def open(self, files, **kwargs):
             group = kwargs.get("group")
             if group == "All_Data/OMPS-TC-SDR_All":
-                return xr.Dataset({"Radiance": (("y", "x"), np.ones((5, 10)))})
+                ds = xr.Dataset({"Radiance": (("y", "x"), np.ones((5, 10)))})
             elif group == "All_Data/OMPS-TC-GEO_All":
-                return xr.Dataset(
+                ds = xr.Dataset(
                     {
                         "Latitude": (("y", "x"), np.zeros((5, 10))),
                         "Longitude": (("y", "x"), np.zeros((5, 10))),
                     }
                 )
-            return xr.Dataset()
+            else:
+                ds = xr.Dataset()
+            return ds.chunk() if kwargs.get("use_dask") else ds
 
     reader = OMPSNadirReader()
     monkeypatch.setattr(reader, "driver", MockDriver())
@@ -94,11 +135,12 @@ def test_omps_sdr_multi_group(monkeypatch):
     # Mock standardize_satellite_coords to avoid needing real satellite data
     # (Actually it's better to let it run to verify it handles merged names)
 
-    ds = reader.open_dataset(files=["test.nc"], product="tc_sdr")
+    ds = reader.open_dataset(files=["test.nc"], product="tc_sdr", use_dask=True)
 
     assert "radiance" in ds.data_vars
     assert "latitude" in ds.coords
     assert "longitude" in ds.coords
+    assert ds.radiance.chunks is not None
     # If not expanding dims, it will be (y, x).
     # But OMPSNadirReader.open_dataset sets concat_dim="time" and combine="nested"
     # Wait, my mock driver returned (y, x). xr.merge doesn't add a time dim.

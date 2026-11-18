@@ -249,6 +249,19 @@ class TestParallelMetadata:
 # concurrent_files=True — overlapping reads, order preserved
 # ---------------------------------------------------------------------------
 class TestConcurrentFiles:
+    def test_delayed_custom_read_keeps_nested_xarray_data_lazy(self):
+        """Computing a delayed open returns its Dataset without computing variables."""
+        import dask
+        import dask.array as da
+
+        def read_dataset():
+            return xr.Dataset({"value": (("x",), da.arange(4, chunks=2))})
+
+        (result,) = dask.compute(dask.delayed(read_dataset)())
+
+        assert isinstance(result["value"].data, da.Array)
+        assert result["value"].data.chunks == ((2, 2),)
+
     def test_reads_overlap(self, multifile, recording_reader):
         """SC-013: per-file reads demonstrably overlap in wall-clock time."""
         files = multifile[:6]

@@ -7,12 +7,114 @@ import pytest
 import xarray as xr
 
 from monetio import geoms
-from monetio.readers.geoms import geoms_preprocess, open_dataset_geoms
+from monetio.readers.errors import OptionUnsupportedError
+from monetio.readers.geoms import GEOMSReader, geoms_preprocess, open_dataset_geoms
+from monetio.readers.ndacc import NDACCReader
+from monetio.readers.pandora import PandoraReader
 
 DATA = Path(__file__).parent / "data"
 TEST_FP = str(DATA / "tolnet-hdf4-test-data.hdf")
 TEST_FP_H4TONCCF_NC4 = str(DATA / "tolnet-hdf4-test-data_h4tonccf_nc4.nc")
 TEST_FP_PANDORA_NO2_TOTCOL = str(DATA / "pandora-uvvis-no2-boulder-20231206.h5")
+
+
+@pytest.mark.parametrize(
+    "reader_class,as_xarray",
+    [
+        (GEOMSReader, True),
+        (PandoraReader, True),
+        (PandoraReader, False),
+        (NDACCReader, True),
+        (NDACCReader, False),
+    ],
+    ids=["geoms-xarray", "pandora-xarray", "pandora-table", "ndacc-xarray", "ndacc-table"],
+)
+def test_hdf5_readers_skip_dropped_variables_before_dask_tasks(reader_class, as_xarray):
+    reader = reader_class()
+    result = reader.open_dataset(
+        TEST_FP_PANDORA_NO2_TOTCOL,
+        use_dask=True,
+        drop_variables=["ANGLE.SOLAR_AZIMUTH"],
+        **({"as_xarray": as_xarray} if reader_class is not GEOMSReader else {}),
+    )
+    names = set(result.data_vars) if isinstance(result, xr.Dataset) else set(result.columns)
+    assert "angle_solar_azimuth" not in names
+    assert names
+
+
+def test_geoms_dask_reopen_tasks_preserve_storage_options(tmp_path, monkeypatch):
+    import h5py
+
+    from monetio.readers.drivers import FileUtility
+
+    path = tmp_path / "geoms-options.h5"
+    with h5py.File(path, "w") as handle:
+        variable = handle.create_dataset("VALUE", data=np.arange(12).reshape(3, 4))
+        variable.dims[0].label = "time"
+        variable.dims[1].label = "altitude"
+
+    original_get_fs = FileUtility.get_fs
+    seen_options = []
+
+    def tracked_get_fs(filename, storage_options=None):
+        seen_options.append(dict(storage_options or {}))
+        return original_get_fs(filename, storage_options)
+
+    monkeypatch.setattr(FileUtility, "get_fs", staticmethod(tracked_get_fs))
+    options = {"auto_mkdir": True}
+    dataset = open_dataset_geoms(
+        str(path),
+        rename_all=False,
+        squeeze=False,
+        use_dask=True,
+        storage_options=options,
+    )
+    try:
+        np.testing.assert_array_equal(
+            dataset["VALUE"].compute().values, np.arange(12).reshape(3, 4)
+        )
+        assert len(seen_options) >= 2  # metadata open and at least one Dask task reopen
+        assert all(option.get("auto_mkdir") is True for option in seen_options)
+    finally:
+        dataset.close()
+
+
+def test_geoms_closes_filesystem_stream_when_h5py_open_fails(tmp_path, monkeypatch):
+    import h5py
+
+    from monetio.readers.drivers import FileUtility
+
+    path = tmp_path / "geoms-open-failure.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("VALUE", data=np.arange(3))
+
+    real_fs = FileUtility.get_fs(str(path))
+    streams = []
+
+    class TrackingFS:
+        def open(self, *args, **kwargs):
+            stream = real_fs.open(*args, **kwargs)
+            streams.append(stream)
+            return stream
+
+        def info(self, *args, **kwargs):
+            return real_fs.info(*args, **kwargs)
+
+    monkeypatch.setattr(FileUtility, "get_fs", staticmethod(lambda *_args, **_kwargs: TrackingFS()))
+
+    def fail_open(*_args, **_kwargs):
+        raise ValueError("simulated h5py open failure")
+
+    monkeypatch.setattr(h5py, "File", fail_open)
+    with pytest.raises(ValueError, match="simulated h5py open failure"):
+        open_dataset_geoms(str(path), use_dask=True)
+    assert len(streams) == 1
+    assert streams[0].closed
+
+
+def test_geoms_hdf4_rejects_variable_selection():
+    with pytest.raises(OptionUnsupportedError, match="drop_variables"):
+        GEOMSReader().open_dataset(TEST_FP, drop_variables=["DATETIME"])
 
 
 def create_mock_geoms_ds(lazy=False):
@@ -134,6 +236,31 @@ def test_hdf5_lazy_loading_mock():
     assert ds_proc.o3.chunks is not None
 
 
+def test_geoms_hdf5_closes_handle_when_chunk_validation_fails(tmp_path, monkeypatch):
+    import h5py
+
+    path = tmp_path / "geoms.h5"
+    with h5py.File(path, "w") as handle:
+        dataset = handle.create_dataset("value", data=np.ones((2, 3), dtype="f4"))
+        dataset.dims[0].label = "time"
+        dataset.dims[1].label = "altitude"
+
+    opened = []
+    original_file = h5py.File
+
+    def tracked_file(*args, **kwargs):
+        result = original_file(*args, **kwargs)
+        opened.append(result)
+        return result
+
+    monkeypatch.setattr(h5py, "File", tracked_file)
+    with pytest.raises(ValueError, match="unknown chunk dimensions"):
+        open_dataset_geoms(str(path), use_dask=True, chunks={"unknown": 1})
+
+    assert len(opened) == 1
+    assert not opened[0].id.valid
+
+
 def test_open_dataset():
     if not Path(TEST_FP).exists():
         pytest.skip("Test file not found")
@@ -203,8 +330,7 @@ def test_pandora_totcol():
     assert "longitude" in ds.coords
     assert ds.sizes["time"] > 1
 
-    # In Pandas 3.0.1, direct comparison of dask-backed datetime64[ns] to pd.Timestamp can fail.
-    # We cast to np.datetime64 for a robust comparison.
+    # Compare against a NumPy timestamp to keep this assertion backend-neutral.
     assert (ds.time.dt.floor("D") == np.datetime64("2023-12-06")).all()
 
     assert "no2_column_absorption_solar" in ds.data_vars

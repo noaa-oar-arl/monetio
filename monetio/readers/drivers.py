@@ -1,8 +1,11 @@
+import json
 import os
 import time
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import Union
+from urllib.parse import quote
 
 import fsspec
 import pandas as pd
@@ -49,6 +52,119 @@ def get_default_storage_options(path: str) -> dict:
     return {}
 
 
+def _validate_xarray_chunk_dimensions(
+    ds: xr.Dataset, chunks, source: str | None = None
+) -> xr.Dataset:
+    """Reject chunk mapping keys that do not name raw source dimensions."""
+    if isinstance(chunks, Mapping):
+        unknown = sorted(set(chunks).difference(ds.sizes), key=str)
+        if unknown:
+            raise ValueError(
+                f"Unknown chunk dimension(s) for {source or 'dataset'}: "
+                f"{', '.join(map(str, unknown))}; available dimensions are "
+                f"{', '.join(ds.sizes)}"
+            )
+    return ds
+
+
+def _restore_grib2io_message(path: str, message_number: int):
+    """Rebuild a grib2io message without serializing its open file handle."""
+    import grib2io
+
+    with grib2io.open(path, _xarray_backend=True) as stream:
+        message = stream[message_number]
+    # The GRIB backend passes its own worker-local file handle to _data; the
+    # message object supplies decoded section metadata only.
+    message._monetio_source_path = path
+    message._monetio_message_number = int(message_number)
+    message_type = type(message)
+    if not getattr(message_type, "_monetio_serializable", False):
+        message_type.__reduce__ = _reduce_grib2io_message
+        message_type._monetio_serializable = True
+    return message
+
+
+def _reduce_grib2io_message(message):
+    """Serialize a grib2io message by source path and message index."""
+    path = getattr(message, "_monetio_source_path", None)
+    number = getattr(message, "_monetio_message_number", None)
+    if path is None or number is None:
+        on_disk = getattr(message, "_ondiskarray", None)
+        handle = getattr(on_disk, "filehandle", None)
+        path = getattr(handle, "name", None)
+        number = getattr(message, "_msgnum", None)
+    if not isinstance(path, str) or number is None:
+        raise TypeError("grib2io message has no reopenable MONETIO source identity")
+    return _restore_grib2io_message, (path, int(number))
+
+
+def _make_grib2io_graph_serializable(ds: xr.Dataset) -> xr.Dataset:
+    """Make native grib2io Dask source metadata safe to ship to workers.
+
+    grib2io 2.x stores dynamically-created message objects (and their live
+    buffered file handles) in its Xarray ``OnDiskArray`` index. Those objects
+    cannot be pickled by distributed. Their section metadata is reproducible
+    from the file path and message number, so install a compact reducer on the
+    backend's message class before the graph is submitted.
+    """
+    try:
+        import grib2io.xarray_backend as grib_backend
+    except ImportError:
+        return ds
+
+    seen: set[int] = set()
+
+    def visit(value):
+        identity = id(value)
+        if identity in seen:
+            return
+        seen.add(identity)
+
+        if (
+            type(value).__module__ == grib_backend.__name__
+            and type(value).__name__ == "GribBackendArray"
+        ):
+            index = getattr(value.array, "index", None)
+            if index is not None and "msg" in index:
+                for message in index["msg"]:
+                    source = getattr(getattr(message, "_ondiskarray", None), "filehandle", None)
+                    path = getattr(source, "name", None)
+                    if not isinstance(path, str):
+                        continue
+                    message_type = type(message)
+                    message._monetio_source_path = path
+                    message._monetio_message_number = int(message._msgnum)
+                    if not getattr(message_type, "_monetio_serializable", False):
+                        message_type.__reduce__ = _reduce_grib2io_message
+                        message_type._monetio_serializable = True
+            return
+
+        if isinstance(value, Mapping):
+            children = (*value.keys(), *value.values())
+        elif isinstance(value, tuple | list | set):
+            children = value
+        else:
+            children = tuple(
+                getattr(value, name)
+                for name in ("array", "args", "kwargs", "func", "task")
+                if hasattr(value, name)
+            )
+        for child in children:
+            visit(child)
+
+    for variable in ds.variables.values():
+        if variable.chunks is None:
+            continue
+        graph = variable.data.__dask_graph__()
+        layers = getattr(graph, "layers", None)
+        if layers is not None:
+            for layer in layers.values():
+                visit(layer)
+        else:
+            visit(graph)
+    return ds
+
+
 # Exception types that mean "this engine cannot read this file, try another".
 # ``h5netcdf`` signals a non-HDF5 file with a plain
 # ``OSError`` ("file signature not found"); ``ImportError`` means the engine
@@ -56,6 +172,30 @@ def get_default_storage_options(path: str) -> dict:
 # read errors — ``PermissionError``/``FileNotFoundError`` (both ``OSError``
 # subclasses) — are deliberately EXCLUDED so they propagate with their original
 # type instead of being masked by a second engine attempt.
+def _read_table_partition(reader_func, path, kwargs, preprocess, source, meta=None):
+    """Read and preprocess one delayed table while preserving input identity."""
+    try:
+        frame = reader_func(path, **kwargs)
+        frame = preprocess(frame) if preprocess else frame
+        # Header-only inputs commonly infer object dtypes even when the same
+        # columns are numeric in data-bearing partitions. An explicit schema
+        # is authoritative for an empty partition, where casting cannot alter
+        # any values. Keep nonempty schema mismatches visible to Dask's
+        # from_delayed metadata check.
+        if isinstance(frame, pd.DataFrame) and frame.empty and isinstance(meta, pd.DataFrame):
+            frame = frame.reindex(columns=meta.columns).astype(meta.dtypes.to_dict())
+        if isinstance(frame, pd.DataFrame) and isinstance(meta, pd.DataFrame):
+            from dask.dataframe.utils import check_meta
+
+            # Validate inside the per-input task so a mismatch is annotated
+            # with the offending file instead of surfacing later as an
+            # anonymous from_delayed metadata error.
+            check_meta(frame, meta, funcname="MONETIO reader")
+        return frame
+    except Exception as exc:  # pragma: no cover - exercised through delayed evaluation
+        raise annotate(exc, path) from exc
+
+
 def _engine_not_applicable(exc: BaseException) -> bool:
     if isinstance(exc, ImportError | ValueError):
         return True
@@ -419,14 +559,35 @@ def _select_store(file_list: list[str], storage_options: dict) -> tuple:
         registry.register("http://", store)
         registry.register("https://", store)
     else:
-        store = LocalStore(prefix="/")
-        registry.register("file:///", store)
-        file_list = [f"file://{f}" if not f.startswith("file://") else f for f in file_list]
+        local_files = [Path(f.removeprefix("file://")).resolve() for f in file_list]
+        registered_roots = set()
+        for path in local_files:
+            root = Path(path.anchor)
+            root_url = root.as_uri()
+            if root_url not in registered_roots:
+                # Register the filesystem root as the URI prefix. On Windows,
+                # registering only file:/// leaves the encoded drive letter
+                # in the object key (D%3A/...), which LocalStore then resolves
+                # relative to the current drive and cannot open.
+                store = LocalStore(prefix=str(root))
+                registry.register(root_url, store)
+                # VirtualiZarr/obspec versions may percent-encode the Windows
+                # drive colon when resolving a local file URL. Register that
+                # equivalent prefix too, so LocalStore receives a path relative
+                # to the drive root instead of ``D%3A/...``.
+                if root.drive:
+                    encoded_drive_url = f"file:///{quote(root.drive, safe='')}/"
+                    if encoded_drive_url != root_url:
+                        registry.register(encoded_drive_url, store)
+                registered_roots.add(root_url)
+        file_list = [path.as_uri() for path in local_files]
 
     return registry, file_list
 
 
-def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) -> xr.Dataset:
+def _open_via_icechunk(
+    vds, icechunk_url: str, virtualizarr_file: str | None, chunks=None
+) -> xr.Dataset:
     """Store virtual references in Icechunk and return the dataset.
 
     Parameters
@@ -443,15 +604,6 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
     xr.Dataset
         The dataset opened from the Icechunk store.
     """
-    # If the local directory already exists, clear it for a clean, idempotent run
-    if not icechunk_url.startswith("s3://") and os.path.exists(icechunk_url):
-        import shutil
-
-        try:
-            shutil.rmtree(icechunk_url)
-        except Exception:  # noqa: BLE001 - best-effort cleanup for an idempotent re-run; a store that cannot be cleared is left for the write below to report (categories: permission_denied, not_found)
-            pass
-
     try:
         import icechunk
     except ImportError:
@@ -460,6 +612,31 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
         )
 
     from virtualizarr.manifests.array import ManifestArray
+
+    # Refuse empty or fully materialized datasets before touching an existing
+    # local repository. VirtualiZarr can return a zero-variable Dataset after a
+    # filtered GRIB scan, and writing it would otherwise erase valid references.
+    variables = getattr(vds, "variables", None)
+    if isinstance(variables, Mapping):
+        manifest_count = sum(
+            isinstance(variable.data, ManifestArray) for variable in variables.values()
+        )
+        if manifest_count == 0:
+            raise ValueError(
+                "Cannot write Icechunk references: the VirtualiZarr dataset contains no "
+                "ManifestArray variables. Check the input files and filters; the existing "
+                "Icechunk repository was left unchanged."
+            )
+
+    # If the local directory already exists, clear it for a clean, idempotent run.
+    # The virtual-data preflight above must pass before this destructive step.
+    if not icechunk_url.startswith("s3://") and os.path.exists(icechunk_url):
+        import shutil
+
+        try:
+            shutil.rmtree(icechunk_url)
+        except Exception:  # noqa: BLE001 - best-effort cleanup for idempotent re-runs; write reports if it cannot proceed
+            pass
 
     unique_prefixes = set()
     local_prefixes = set()
@@ -475,37 +652,35 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
                     prefix = "/".join(parts[:3]) + "/"
                     unique_prefixes.add(prefix)
                 else:
-                    # Local files: manifests reference them as file:///abs/path
-                    # URLs (or plain absolute paths). Group them by top-level
-                    # directory so one local-filesystem container covers each
-                    # root; without a container virtualizarr refuses to write
-                    # the references ("No Virtual Chunk Containers set").
-                    fs_path = path[len("file://"):] if path.startswith("file://") else path
+                    # Register local file URLs and absolute filesystem paths.
+                    fs_path = path[len("file://") :] if path.startswith("file://") else path
                     if os.path.isabs(fs_path):
                         prefix = "file:///" + fs_path.lstrip("/").split("/", 1)[0] + "/"
                         local_prefixes.add(prefix)
 
     config = icechunk.RepositoryConfig.default()
+    authorize = {}
     for prefix in sorted(local_prefixes):
         config.set_virtual_chunk_container(
             icechunk.VirtualChunkContainer(
                 url_prefix=prefix,
-                store=icechunk.local_filesystem_store(prefix[len("file://"):]),
+                store=icechunk.local_filesystem_store(prefix[len("file://") :]),
             )
         )
+        authorize[prefix] = icechunk.credentials.LocalFileSystemAccess
     for prefix in unique_prefixes:
         if prefix.startswith("s3://"):
             store_conf = icechunk.s3_store(anonymous=True, region="us-east-1")
+            authorize[prefix] = None
         else:
             store_conf = icechunk.http_store()
+            authorize[prefix] = icechunk.credentials.HttpAccess
 
         container = icechunk.VirtualChunkContainer(
             url_prefix=prefix,
             store=store_conf,
         )
         config.set_virtual_chunk_container(container)
-
-    authorize = {prefix: None for prefix in unique_prefixes | local_prefixes}
 
     if icechunk_url.startswith("s3://"):
         parts = icechunk_url[5:].split("/", 1)
@@ -527,7 +702,10 @@ def _open_via_icechunk(vds, icechunk_url: str, virtualizarr_file: str | None) ->
 
     # Re-open for reading
     session = repo.readonly_session(branch="main")
-    return xr.open_zarr(session.store, consolidated=False)
+    open_kwargs = {"consolidated": False}
+    if chunks is not None:
+        open_kwargs["chunks"] = chunks
+    return xr.open_zarr(session.store, **open_kwargs)
 
 
 def _is_transient_network_error(exc: Exception) -> bool:
@@ -633,7 +811,9 @@ def _stage_remote_grib2_files(
     from pathlib import Path
 
     cache_root = Path(
-        os.environ.get("MONETIO_GRIB2_STAGE_DIR", os.path.join(tempfile.gettempdir(), "monetio_grib2_cache"))
+        os.environ.get(
+            "MONETIO_GRIB2_STAGE_DIR", os.path.join(tempfile.gettempdir(), "monetio_grib2_cache")
+        )
     )
     staged: list[str] = []
     for path in file_list:
@@ -855,6 +1035,15 @@ class XarrayDriver:
         #: (e.g. in tests) has no name and skips the capability check.
         self.source = source
 
+    def _validate_chunk_dimensions(self, ds: xr.Dataset, chunks) -> xr.Dataset:
+        """Reject chunk keys that cannot apply to the opened source dimensions.
+
+        xarray currently ignores unknown dimension names in a chunk mapping,
+        which makes a typo silently fall back to backend defaults. Validate on
+        the raw dataset, before reader preprocessing renames or drops dimensions.
+        """
+        return _validate_xarray_chunk_dimensions(ds, chunks, self.source)
+
     def _require_defer_support(self) -> None:
         """Refuse ``defer=True`` for a source that has not earned it.
 
@@ -900,7 +1089,9 @@ class XarrayDriver:
         # grib2io's lazy chunk reader opens recorded filenames with a plain
         # open(); remote (s3/http) URLs must be staged to local disk first so
         # both the index scan and later lazy data reads work.
-        if file_list and any(str(f).startswith(("s3://", "http://", "https://")) for f in file_list):
+        if file_list and any(
+            str(f).startswith(("s3://", "http://", "https://")) for f in file_list
+        ):
             file_list = _stage_remote_grib2_files(
                 file_list,
                 xr_kwargs.get("storage_options"),
@@ -945,6 +1136,7 @@ class XarrayDriver:
                 "ids",
                 "infer_order",
                 "join",
+                "backend_kwargs",
             ):
                 mf_kwargs.pop(key, None)
             # grib2io writes the store at store_path; map MONETIO's icechunk_url.
@@ -1160,9 +1352,19 @@ class XarrayDriver:
             files, storage_options=dict(xr_kwargs.get("storage_options", {})) or None
         )
 
-        # Handle 'lazy' keyword: Eager by default.
+        # Handle 'lazy' keyword: Eager by default. Explicit deferral is
+        # authoritative even when a legacy alias is also supplied.
         if "lazy" in xr_kwargs:
-            use_dask = xr_kwargs.pop("lazy")
+            requested_lazy = xr_kwargs.pop("lazy")
+            use_dask = bool(requested_lazy) or use_dask
+        if defer:
+            use_dask = True
+        if use_dask and xr_kwargs.get("chunks", object()) is None:
+            raise OptionUnsupportedError(
+                "chunks=None",
+                self.source or "source",
+                cause="Dask-backed loading requires chunked array reads",
+            )
 
         # Optional retry knobs for transient remote read failures.
         retry_attempts = int(xr_kwargs.pop("retry_attempts", 3))
@@ -1175,6 +1377,20 @@ class XarrayDriver:
         # Extract MONETIO-specific keywords
         preprocess = xr_kwargs.pop("preprocess", None)
         read_method = xr_kwargs.pop("read_method", None)
+
+        # xarray silently ignores chunk mapping keys that do not match a
+        # source dimension. Check each raw per-file dataset before any reader
+        # preprocessing can rename its dimensions. The callback also covers
+        # open_mfdataset and the native GRIB multi-file path.
+        chunks = xr_kwargs.get("chunks")
+        if isinstance(chunks, Mapping):
+            user_preprocess = preprocess
+
+            def preprocess_with_chunk_validation(ds):
+                self._validate_chunk_dimensions(ds, chunks)
+                return user_preprocess(ds) if user_preprocess else ds
+
+            preprocess = preprocess_with_chunk_validation
 
         if xr_kwargs.get("engine") == "grib2io" and not use_virtualizarr:
             # Inject use_icechunk into xr_kwargs — grib2io's xarray backend
@@ -1191,7 +1407,7 @@ class XarrayDriver:
             xr_kwargs.pop("icechunk_url", None)
             xr_kwargs.pop("icechunk_repo", None)
 
-            return self._open_grib2io_native(
+            ds = self._open_grib2io_native(
                 file_list=file_list,
                 xr_kwargs=xr_kwargs,
                 preprocess=preprocess,
@@ -1199,6 +1415,9 @@ class XarrayDriver:
                 retry_base_sleep=retry_base_sleep,
                 icechunk_url=icechunk_url,
             )
+            if use_dask or xr_kwargs.get("chunks") is not None:
+                ds = _make_grib2io_graph_serializable(ds)
+            return ds
 
         if use_virtualizarr:
             # Determine Parser
@@ -1257,6 +1476,8 @@ class XarrayDriver:
                         stacklevel=2,
                     )
 
+                filters = xr_kwargs.pop("filters", None)
+
                 # --- Kerchunk cache: load existing refs if available ---
                 refs = None
                 if (
@@ -1270,10 +1491,20 @@ class XarrayDriver:
                     except Exception as e:  # noqa: BLE001 - cached references are best-effort; an unreadable cache is discarded and recomputed below (categories: malformed, not_found)
                         warnings.warn(f"Failed to load virtualizarr_file {virtualizarr_file}: {e}")
                         refs = None
+                    # Earlier VirtualiZarr releases dropped the GRIB2 decoder
+                    # filter while converting this manifest to Kerchunk. Such
+                    # a cache looks valid but exposes packed GRIB bytes as
+                    # float chunks, so regenerate it from grib2io metadata.
+                    if refs is not None:
+                        has_grib_filter = any(
+                            key.endswith("/.zarray") and '"id": "grib2io"' in json.dumps(value)
+                            for key, value in refs.get("refs", {}).items()
+                        )
+                        if not has_grib_filter:
+                            refs = None
 
                 if refs is None:
                     # Pop GRIB2-specific parameters to avoid reaching xarray
-                    filters = xr_kwargs.pop("filters", None)
                     max_workers = xr_kwargs.pop("max_workers", None)
                     storage_options = dict(xr_kwargs.get("storage_options", {}))
 
@@ -1285,7 +1516,6 @@ class XarrayDriver:
                         max_workers=max_workers,
                     )
                     manifest = gen.generate()
-
                     # 2. Write manifest to virtualizarr_file or temporary JSON
                     manifest_path_str = None
                     if virtualizarr_file is not None:
@@ -1327,12 +1557,22 @@ class XarrayDriver:
 
                         # 5. Route to icechunk or kerchunk
                         if use_icechunk:
-                            ds = _open_via_icechunk(vds, icechunk_url, virtualizarr_file)
+                            if chunks is None:
+                                ds = _open_via_icechunk(vds, icechunk_url, virtualizarr_file)
+                            else:
+                                ds = _open_via_icechunk(
+                                    vds, icechunk_url, virtualizarr_file, chunks=chunks
+                                )
+                            self._validate_chunk_dimensions(ds, chunks)
                             if preprocess:
                                 ds = preprocess(ds)
                             return ds
 
-                        refs = vds.vz.to_kerchunk()
+                        # The original grib2io manifest carries the custom
+                        # numcodecs GRIB2 filter. VirtualiZarr's Kerchunk
+                        # export currently drops that filter and leaves only
+                        # compressed GRIB message byte ranges.
+                        refs = manifest
 
                         # Write refs to cache if requested
                         if virtualizarr_file is not None:
@@ -1412,20 +1652,27 @@ class XarrayDriver:
                 xr_kwargs.pop("filters", None)
                 xr_kwargs.pop("max_workers", None)
 
-                return _call_with_retries(
+                ds = _call_with_retries(
                     xr.open_dataset,
                     mapper,
                     attempts=retry_attempts,
                     base_sleep=retry_base_sleep,
                     engine="zarr",
                     consolidated=False,
+                    # grib2io's Kerchunk manifests are Zarr v2 metadata. Pin
+                    # the reader here because Zarr 3 otherwise interprets the
+                    # references through its v3 codec pipeline and skips the
+                    # registered GRIB2 numcodecs filter.
+                    zarr_format=2,
                     **xr_kwargs,
                 )
+                self._validate_chunk_dimensions(ds, chunks)
+                return preprocess(ds) if preprocess else ds
 
             try:
                 import ujson  # noqa: F401
                 import zarr  # noqa: F401
-                from virtualizarr import open_virtual_mfdataset
+                from virtualizarr import open_virtual_dataset, open_virtual_mfdataset
             except ImportError:
                 raise ImportError(
                     "VirtualiZarr support requires additional packages. "
@@ -1473,18 +1720,32 @@ class XarrayDriver:
                 if parallel_sweep is True:
                     parallel_sweep = "dask"
                 try:
-                    vds = _call_with_retries(
-                        open_virtual_mfdataset,
-                        file_list,
-                        attempts=retry_attempts,
-                        base_sleep=retry_base_sleep,
-                        registry=registry,
-                        parser=parser,
-                        combine="nested",
-                        concat_dim=concat_dim,
-                        parallel=parallel_sweep,
-                        loadable_variables=[],
-                    )
+                    if len(file_list) == 1:
+                        vds = _call_with_retries(
+                            open_virtual_dataset,
+                            url=file_list[0],
+                            attempts=retry_attempts,
+                            base_sleep=retry_base_sleep,
+                            registry=registry,
+                            parser=parser,
+                            loadable_variables=[],
+                        )
+                    else:
+                        vds = _call_with_retries(
+                            open_virtual_mfdataset,
+                            file_list,
+                            attempts=retry_attempts,
+                            base_sleep=retry_base_sleep,
+                            registry=registry,
+                            parser=parser,
+                            combine="nested",
+                            concat_dim=concat_dim,
+                            coords=xr_kwargs.get("coords", "minimal"),
+                            compat=xr_kwargs.get("compat", "override"),
+                            data_vars=xr_kwargs.get("data_vars", "all"),
+                            parallel=parallel_sweep,
+                            loadable_variables=[],
+                        )
                 except ValueError:
                     vds = _call_with_retries(
                         open_virtual_mfdataset,
@@ -1500,7 +1761,11 @@ class XarrayDriver:
 
                 # --- Branch on backend ---
                 if use_icechunk:
-                    ds = _open_via_icechunk(vds, icechunk_url, virtualizarr_file)
+                    if chunks is None:
+                        ds = _open_via_icechunk(vds, icechunk_url, virtualizarr_file)
+                    else:
+                        ds = _open_via_icechunk(vds, icechunk_url, virtualizarr_file, chunks=chunks)
+                    self._validate_chunk_dimensions(ds, chunks)
                     if preprocess:
                         ds = preprocess(ds)
                     return ds
@@ -1554,6 +1819,7 @@ class XarrayDriver:
                 "infer_order",
                 "join",
                 "engine",
+                "backend_kwargs",
                 "storage_options",
             ]
             for k in mfdataset_keys:
@@ -1570,6 +1836,7 @@ class XarrayDriver:
                 **xr_kwargs,
             )
 
+            self._validate_chunk_dimensions(ds, chunks)
             if preprocess:
                 ds = preprocess(ds)
 
@@ -1679,6 +1946,15 @@ class XarrayDriver:
                         ds = _open_mfdataset(file_list, xr_kwargs)
                 else:
                     ds = _open_mfdataset(file_list, xr_kwargs)
+
+                # xarray.open_mfdataset always returns Dask-backed variables,
+                # even when the caller requested the default eager path and
+                # supplied no chunks. Materialize that implicit Dask graph and
+                # release its backend handles before returning. An explicit
+                # chunks value or use_dask=True keeps the lazy backend result.
+                if not use_dask and xr_kwargs.get("chunks") is None:
+                    ds.load()
+                    ds.close()
                 return _validate_nonempty_result(ds, file_list, self.source)
 
         except Exception as e:
@@ -1744,6 +2020,7 @@ class XarrayDriver:
                 ds = xr.open_dataset(file_obj, **xr_kwargs)
 
         # Apply preprocess manually
+        ds = self._validate_chunk_dimensions(ds, xr_kwargs.get("chunks"))
         if preprocess:
             ds = preprocess(ds)
 
@@ -1795,11 +2072,27 @@ class PandasDriver:
         #: Manifest source name; see :attr:`XarrayDriver.source`.
         self.source = source
 
+    def _require_defer_support(self) -> None:
+        """Keep direct driver calls aligned with the source capability manifest."""
+        from .._manifest import resolve
+        from .errors import CapabilityUnavailableError
+
+        if self.source is None:
+            return
+        try:
+            spec = resolve(self.source)
+        except KeyError:
+            return
+        if not spec.capabilities.deferred:
+            reason = spec.capabilities.reason or "no reason recorded"
+            raise CapabilityUnavailableError(spec.name, "defer", reason)
+
     def open(
         self,
         files: str | list[str],
         read_method: str | Callable = "read_csv",
         lazy: bool = False,
+        defer: bool = False,
         meta: pd.DataFrame | pd.Series | dict | tuple | None = None,
         tolerate=None,
         use_virtualizarr: bool = False,
@@ -1819,13 +2112,40 @@ class PandasDriver:
         defers reading to Dask, where a per-file failure surfaces at compute
         time and cannot be attributed to one file here. Tolerating a lazy load
         would record skips that never happened, so the request is rejected
-        rather than quietly ignored.
+        rather than quietly ignored. Non-None array ``chunks`` mappings are
+        rejected because each input file becomes one complete dataframe
+        partition; use multiple source files to add partitions.
         """
         from .sat_utils import update_history
 
-        # Handle 'use_dask' as alias for 'lazy'
+        if kwargs.get("chunks") is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                self.source or "point reader",
+                cause=(
+                    "tabular readers parse each complete input file as one dataframe "
+                    "partition; array chunk mappings cannot control those reads"
+                ),
+            )
+        # `chunks=None` has no meaning for the whole-file pandas partition path.
+        kwargs.pop("chunks", None)
+
+        # ``defer`` is an explicit promise about when payload reads begin.
+        # Resolve aliases first, then ensure they cannot undo deferral.
         if use_dask:
             lazy = True
+        if defer:
+            self._require_defer_support()
+            lazy = True
+            if meta is None:
+                raise OptionUnsupportedError(
+                    "defer without explicit schema meta",
+                    self.source or "source",
+                    cause=(
+                        "Dask would otherwise evaluate the first input to infer "
+                        "the dataframe schema; supply post-preprocessing meta"
+                    ),
+                )
 
         tolerance = Tolerance.parse(tolerate)
         file_list = FileUtility.expand_paths(
@@ -1864,15 +2184,21 @@ class PandasDriver:
                     if "storage_options" not in kwargs:
                         kwargs["storage_options"] = {"anon": True}
 
-                d = dask.delayed(reader_func)(f, **kwargs)
-                if preprocess:
-                    d = dask.delayed(preprocess)(d)
+                d = dask.delayed(_read_table_partition, pure=False)(
+                    reader_func, f, dict(kwargs), preprocess, self.source, meta
+                )
                 delayed_dfs.append(d)
 
             if not delayed_dfs:
                 return dd.from_pandas(pd.DataFrame(), npartitions=1)
 
-            return dd.from_delayed(delayed_dfs, meta=meta)
+            # Keep the pandas parser's string dtypes intact. Dask's global
+            # convert-string default otherwise silently changes object columns
+            # to PyArrow strings, breaking eager/lazy dtype parity for readers.
+            # The context is local to graph construction and restores the
+            # caller's Dask configuration immediately afterward.
+            with dask.config.set({"dataframe.convert-string": False}):
+                return dd.from_delayed(delayed_dfs, meta=meta)
 
         data_frames = []
         # Reuse our filesystem logic

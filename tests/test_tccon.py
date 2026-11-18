@@ -2,6 +2,7 @@
 Test TCCON Reader
 """
 
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pytest
@@ -47,3 +48,23 @@ def test_tccon_reader_logic(monkeypatch):
     assert "time" in ds.coords
     assert ds.siteid == "pasadena01"
     assert ds.latitude.values[0] == pytest.approx(34.1)
+
+
+@pytest.mark.parametrize("as_xarray", [False, True], ids=["table", "wide-xarray"])
+def test_tccon_reader_honors_dask_time_chunks(tmp_path, as_xarray):
+    path = tmp_path / "tccon-chunks.nc"
+    source = create_mock_tccon_dataset()
+    source.to_netcdf(path, engine="h5netcdf")
+
+    result = TCCONReader().open_dataset(
+        str(path), use_dask=True, chunks={"time": 2}, as_xarray=as_xarray, expand2d=False
+    )
+    if as_xarray:
+        try:
+            assert hasattr(result.xco2.data, "dask")
+            assert result.xco2.chunks == ((2, 2, 2, 2, 2),)
+        finally:
+            result.close()
+    else:
+        assert isinstance(result, dd.DataFrame)
+        assert result.npartitions == 5

@@ -115,7 +115,7 @@ class RAQMSReader(GriddedReader):
 
         # 2. Open the dataset using standard xarray (via XarrayDriver)
         # Use fpaths instead of files to ensure consistent set of files
-        ds = self.driver.open(fpaths, virtualizarr_parser="hdf5", **kwargs)
+        ds = self.driver.open(fpaths, use_dask=use_dask, virtualizarr_parser="hdf5", **kwargs)
 
         # Update history
         ds = update_history(ds, "Read RAQMS data.")

@@ -9,7 +9,7 @@ import xarray as xr
 
 from .base import GriddedReader, _ensure_time_dimension, register_reader, update_history
 from .drivers import FileUtility
-from .errors import MalformedInputError, annotate
+from .errors import MalformedInputError, OptionUnsupportedError, annotate
 
 
 @register_reader("hysplit")
@@ -31,6 +31,7 @@ class HYSPLITReader(GriddedReader):
         sample_time_stamp: str = "start",
         check_grid: bool = True,
         lazy: bool = False,
+        chunks: Any = None,
         **kwargs: Any,
     ) -> xr.Dataset:
         """
@@ -67,7 +68,11 @@ class HYSPLITReader(GriddedReader):
         check_grid : bool, optional
             Whether to fix grid continuity, by default True.
         lazy : bool, optional
-            Whether to use Dask for lazy loading, by default False.
+            Whether to use Dask for lazy loading. HYSPLIT binary files are
+            parsed as complete NumPy arrays, so Dask-backed input is unsupported.
+        chunks : Any, optional
+            Chunk sizing is unsupported because the binary parser materializes
+            complete concentration files as NumPy arrays.
         **kwargs : Any
             Additional arguments passed to the driver.
 
@@ -76,6 +81,22 @@ class HYSPLITReader(GriddedReader):
         xr.Dataset
             The processed HYSPLIT dataset.
         """
+        if chunks is not None:
+            raise OptionUnsupportedError(
+                "chunks",
+                "hysplit",
+                cause="the binary parser materializes each complete concentration file",
+            )
+        if use_dask or lazy:
+            raise OptionUnsupportedError(
+                "use_dask",
+                "hysplit",
+                cause=(
+                    "the HYSPLIT binary parser reads each complete concentration file "
+                    "into NumPy arrays and cannot provide Dask-backed input"
+                ),
+            )
+
         # Set up kwargs for read_method
         read_kwargs = {
             "drange": drange,

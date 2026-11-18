@@ -160,3 +160,32 @@ def test_add_ioapi_latlon_aero_protocol():
 
     xr.testing.assert_allclose(ds_eager.latitude, ds_lazy_out.latitude.compute())
     assert "Generated Latitude/Longitude coordinates" in ds_eager.attrs["history"]
+
+
+def test_cmaq_reader_use_dask_keeps_processed_species_lazy(tmp_path):
+    import dask.array as da
+
+    source = tmp_path / "cmaq-lazy.nc"
+    ds_source = create_mock_cmaq_dataset(lazy=False)
+    ds_source["UNUSED"] = ("TSTEP", np.full(2, -1, dtype="f4"))
+    ds_source.to_netcdf(source)
+    reader = CMAQReader()
+
+    eager = reader.open_dataset(str(source), use_dask=False, drop_variables=["UNUSED"])
+    lazy = reader.open_dataset(str(source), use_dask=True, drop_variables=["UNUSED"])
+
+    assert "UNUSED" not in eager
+    assert "UNUSED" not in lazy
+    assert isinstance(lazy.o3.data, da.Array)
+    assert isinstance(lazy.no2.data, da.Array)
+    assert lazy.o3.chunks is not None
+    xr.testing.assert_allclose(eager.o3, lazy.o3.compute())
+    xr.testing.assert_allclose(eager.no2, lazy.no2.compute())
+
+    deferred = reader.open_dataset(
+        str(source), defer=True, chunks={"TSTEP": 1}, drop_variables=["UNUSED"]
+    )
+    assert isinstance(deferred.o3.data, da.Array)
+    time_dim = next(dim for dim in deferred.o3.dims if dim.lower() in {"time", "tstep"})
+    assert deferred.o3.chunksizes[time_dim] == (1, 1)
+    xr.testing.assert_allclose(eager.o3, deferred.o3.compute())

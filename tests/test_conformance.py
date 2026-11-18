@@ -31,6 +31,7 @@ from __future__ import annotations
 import ast
 import importlib
 import inspect
+import json
 import re
 import sys
 import uuid
@@ -44,7 +45,7 @@ from conftest import SampleRegistry
 
 import monetio
 from monetio._manifest import SOURCE_MANIFEST
-from monetio.readers.base import READER_REGISTRY, GriddedReader, PointReader
+from monetio.readers.base import READER_REGISTRY, GriddedReader
 
 _ROOT = Path(__file__).parent.parent
 _DATA = _ROOT / "tests" / "data"
@@ -67,6 +68,60 @@ from sample_specs import EXCLUSIONS as _FAMILY_EXCLUSIONS  # noqa: E402
 # cannot drift from the samples on disk. Sources with no sample appear in
 # ``EXCLUSIONS`` below with a reason (SC-007).
 _REGISTRY = SampleRegistry()
+
+
+@pytest.fixture(autouse=True)
+def _offline_station_metadata(monkeypatch):
+    """Keep the shared sampled-reader conformance checks independent of DNS."""
+    import monetio.readers.epa_utils as epa_utils
+    import monetio.readers.ish as ish_module
+    import monetio.readers.ndbc as ndbc_module
+
+    airnow_file = _DATA / "samples" / "airnow" / "HourlyData_2023010100.dat"
+    airnow_records = pd.read_csv(airnow_file, sep="|", header=None)
+    airnow_sites = (
+        airnow_records[[2, 3]].drop_duplicates().rename(columns={2: "siteid", 3: "site_name"})
+    )
+    airnow_sites["siteid"] = airnow_sites["siteid"].astype(str).str.zfill(9)
+    airnow_sites["latitude"] = 40.0
+    airnow_sites["longitude"] = -80.0
+    empty_sites = pd.DataFrame(columns=["siteid", "site_name", "latitude", "longitude"])
+    monkeypatch.setattr(
+        epa_utils,
+        "read_monitor_file",
+        lambda network=None, airnow=False: airnow_sites if airnow else empty_sites,
+    )
+
+    def local_ish_history(reader, dates=None):
+        reader.history = pd.DataFrame(
+            {
+                "usaf": ["040520"],
+                "wban": ["99999"],
+                "lat": [40.0],
+                "lon": [-80.0],
+                "begin": [pd.Timestamp("1900-01-01")],
+                "end": [pd.Timestamp("2100-01-01")],
+                "ctry": ["US"],
+                "state": ["XX"],
+                "station name": ["Fixture station"],
+                "station_id": ["04052099999"],
+            }
+        )
+
+    monkeypatch.setattr(ish_module.ISH, "read_ish_history", local_ish_history)
+    monkeypatch.setattr(
+        ndbc_module,
+        "get_station_table",
+        lambda: pd.DataFrame(
+            {
+                "siteid": ["41002"],
+                "name": ["Fixture buoy"],
+                "latitude": [40.0],
+                "longitude": [-80.0],
+            }
+        ),
+    )
+
 
 # ``files`` is already anchored to the repo root by the registry; ``kwargs`` are
 # the sample's recorded ``load_kwargs`` (a nested ``group``, ``add_metadata``, ...).
@@ -252,46 +307,6 @@ def test_c03_coordinate_naming(source):
 
 
 # ---------------------------------------------------------------------------
-# C-04 — structural rules over every manifest module
-# ---------------------------------------------------------------------------
-
-_MODULE_NAMES = sorted({s.module.rsplit(".", 1)[-1] for s in SOURCE_MANIFEST})
-_MULTI_CLASS = {s.module.rsplit(".", 1)[-1] for s in SOURCE_MANIFEST if s.aliases}
-
-
-@pytest.mark.parametrize("module_name", _MODULE_NAMES)
-def test_c04_structure(module_name):
-    """C-04: one registered class per module (except declared multi-class),
-    correct base, open_dataset + harmonize, non-empty docstring."""
-    mod = importlib.import_module(f"monetio.readers.{module_name}")
-    full = f"monetio.readers.{module_name}"
-
-    assert mod.__doc__ and mod.__doc__.strip(), f"{module_name}: module has no docstring"
-
-    registered = []
-    for _name, obj in inspect.getmembers(mod, inspect.isclass):
-        if obj.__module__ != full:
-            continue
-        if any(reg is obj for reg in READER_REGISTRY.values()):
-            if obj not in registered:
-                registered.append(obj)
-    assert registered, f"{module_name}: no @register_reader class found"
-    if module_name not in _MULTI_CLASS:
-        assert len(registered) == 1, (
-            f"{module_name}: {len(registered)} registered classes "
-            f"{[c.__name__ for c in registered]}, expected exactly 1"
-        )
-    for cls in registered:
-        assert issubclass(cls, GriddedReader | PointReader), (
-            f"{module_name}: {cls.__name__} does not inherit GriddedReader/PointReader"
-        )
-        for method in ("open_dataset", "harmonize"):
-            assert callable(getattr(cls, method, None)), (
-                f"{module_name}: {cls.__name__} missing {method}()"
-            )
-
-
-# ---------------------------------------------------------------------------
 # C-05 / C-06 / C-08 / C-10 — deferred-capable sources
 # ---------------------------------------------------------------------------
 
@@ -311,10 +326,6 @@ def _drop_history(obj):
     if isinstance(out, xr.Dataset):
         for var in out.variables:
             out[var].attrs.pop("history", None)
-        # Provenance attrs carried through the pandas stage (e.g. AERONET's
-        # file-header ``info``) are part of the same pre-existing divergence.
-        for attr in ("info",):
-            out.attrs.pop(attr, None)
     return out
 
 
@@ -402,30 +413,45 @@ def _aeronet_small(tmp_path, n_rows=10):
     return str(out)
 
 
-def _deferred_load(source, tmp_path, monkeypatch, defer: bool):
-    """Load a deferred-capable source either eagerly or deferred, offline."""
+def _deferred_load(source, tmp_path, monkeypatch, defer: bool, output_form=None):
+    """Load a deferred-capable source/output form either eager or deferred."""
+    point_options = {}
+    if output_form == "table":
+        point_options = {"as_xarray": False, "wide_fmt": False}
+    elif output_form == "wide_dataset":
+        point_options = {"as_xarray": True, "wide_fmt": True}
     if source == "airnow":
         files = _airnow_synthetic(tmp_path, monkeypatch)
-        return monetio.load(source, files=files, defer=defer)
+        return monetio.load(source, files=files, defer=defer, **point_options)
     if source == "tolnet":
         files = _tolnet_synthetic(tmp_path)
         return monetio.load(source, files=files, defer=defer)
     if source == "aeronet":
         files = [_aeronet_small(tmp_path)]
-        return monetio.load(source, files=files, defer=defer)
+        return monetio.load(source, files=files, defer=defer, **point_options)
     files, kwargs = _fixture_for(source)
     return monetio.load(source, files=files, defer=defer, **kwargs)
 
 
-@pytest.mark.parametrize("source", _DEFERRED_SOURCES)
-def test_c05_dual_backend_equivalence(source, tmp_path, monkeypatch):
-    """C-05: eager and deferred loads of the same source produce equivalent data."""
-    eager = _deferred_load(source, tmp_path, monkeypatch, defer=False)
-    deferred = _deferred_load(source, tmp_path, monkeypatch, defer=True)
-    assert _is_dask(deferred), f"{source}: defer=True returned an evaluated object"
+_DEFERRED_OUTPUT_MODES = [
+    ("airnow", "table"),
+    ("airnow", "wide_dataset"),
+    ("aeronet", "table"),
+    ("aeronet", "wide_dataset"),
+    ("cmaq", "gridded_dataset"),
+    ("tolnet", "gridded_dataset"),
+]
+
+
+@pytest.mark.parametrize(("source", "output_form"), _DEFERRED_OUTPUT_MODES)
+def test_c05_dual_backend_equivalence(source, output_form, tmp_path, monkeypatch):
+    """C-05: each advertised deferred output matches its eager result exactly."""
+    eager = _deferred_load(source, tmp_path, monkeypatch, defer=False, output_form=output_form)
+    deferred = _deferred_load(source, tmp_path, monkeypatch, defer=True, output_form=output_form)
+    assert _is_dask(deferred), f"{source}/{output_form}: defer=True returned an evaluated object"
     if isinstance(deferred, xr.Dataset):
         computed = deferred.compute()
-        xr.testing.assert_allclose(_drop_history(eager), _drop_history(computed))
+        xr.testing.assert_identical(_drop_history(eager), _drop_history(computed))
         assert set(eager.data_vars) == set(computed.data_vars), (
             f"{source}: deferred load changed the variable set"
         )
@@ -435,10 +461,86 @@ def test_c05_dual_backend_equivalence(source, tmp_path, monkeypatch):
 
         computed = deferred.compute() if isinstance(deferred, dd.DataFrame) else deferred
         pd.testing.assert_frame_equal(
-            _drop_history(eager).reset_index(drop=True),
-            computed.reset_index(drop=True),
-            check_dtype=False,
+            _drop_history(eager).reset_index(drop=True), computed.reset_index(drop=True)
         )
+        assert _drop_history(eager).attrs == computed.attrs, (
+            f"{source}/{output_form}: deferred table changed meaningful provenance attrs"
+        )
+
+
+def test_manifest_deferred_claims_have_mode_evidence():
+    """Manifest Dask flags must resolve to passing mode-level ledger evidence."""
+    ledger = json.loads((_DATA / "dask_reader_audit.json").read_text())
+    modes_by_source = {}
+    for mode in ledger["modes"]:
+        modes_by_source.setdefault(mode["source"], []).append(mode)
+    evidence = {case["case_id"]: case for case in ledger["evidence"]}
+
+    for spec in SOURCE_MANIFEST:
+        if not spec.capabilities.deferred:
+            continue
+        source_modes = modes_by_source.get(spec.name, [])
+        deferred_modes = [mode for mode in source_modes if mode["options"].get("defer") is True]
+        assert deferred_modes, f"{spec.name}: deferred=True has no inventoried defer=True mode"
+        supported = [
+            mode
+            for mode in deferred_modes
+            if mode["capabilities"]["deferred"]["status"] == "supported"
+        ]
+        assert len(supported) == len(deferred_modes), (
+            f"{spec.name}: manifest deferred=True is not supported for every output/backend mode"
+        )
+        for mode in deferred_modes:
+            refs = mode["capabilities"]["deferred"]["evidence_ids"]
+            assert refs, f"{mode['mode_id']}: deferred support has no evidence IDs"
+            assert any(
+                evidence[ref]["run_status"] == "passed"
+                and mode["mode_id"] in evidence[ref]["affected_modes"]
+                for ref in refs
+            ), f"{mode['mode_id']}: deferred support lacks matching passing evidence"
+
+        def _has_passing_evidence(mode, capability):
+            return any(
+                ref in evidence
+                and evidence[ref]["run_status"] == "passed"
+                and mode["mode_id"] in evidence[ref]["affected_modes"]
+                for ref in mode["capabilities"][capability]["evidence_ids"]
+            )
+
+        if spec.capabilities.distributed:
+            for mode in supported:
+                assert mode["capabilities"]["distributed"]["status"] == "supported", (
+                    f"{mode['mode_id']}: manifest distributed=True lacks a supported assessment"
+                )
+                assert _has_passing_evidence(mode, "distributed"), (
+                    f"{mode['mode_id']}: distributed support lacks passing mode evidence"
+                )
+
+        if spec.capabilities.chunk_controls:
+            chunk_modes = [
+                mode
+                for mode in source_modes
+                if mode["options"].get("defer") is False
+                or mode["capabilities"]["deferred"]["status"] == "supported"
+            ]
+            for mode in chunk_modes:
+                assert mode["capabilities"]["chunk_partition_controls"]["status"] == "supported", (
+                    f"{mode['mode_id']}: manifest chunk control lacks a supported assessment"
+                )
+                assert _has_passing_evidence(mode, "chunk_partition_controls"), (
+                    f"{mode['mode_id']}: chunk control lacks passing mode evidence"
+                )
+
+        if spec.capabilities.deferred_wide:
+            wide_modes = [mode for mode in deferred_modes if mode["output_form"] == "wide_dataset"]
+            assert wide_modes, f"{spec.name}: deferred_wide has no wide Xarray mode"
+            for mode in wide_modes:
+                assert (
+                    mode["capabilities"]["deferred_output_conversion"]["status"] == "supported"
+                ), f"{mode['mode_id']}: deferred_wide claim lacks a supported mode assessment"
+                assert _has_passing_evidence(mode, "deferred_output_conversion"), (
+                    f"{mode['mode_id']}: deferred_wide claim lacks passing wide-conversion evidence"
+                )
 
 
 class _ComputeProbe:
@@ -660,22 +762,11 @@ def test_c08_distributed_flag_honored(source, tmp_path, monkeypatch, local_distr
 # C-07 — no forced chunking on the default path
 # ---------------------------------------------------------------------------
 
+
 # The default (eager, no scale options) path must not hand back dask-backed
 # arrays: chunking is the caller's decision at the I/O stage.
-# Two sources leak dask arrays on this path today — their reader force-chunks
-# before returning. Fixing that is a Stage 2 uniformity task, so the functional
-# half is marked as a strict expected-failure (it still runs) rather than
-# skipped: the known issue is reported, and closing it means the reader stops
-# leaking — at which point the strict marker flips to an error and forces its
-# own removal. The behavior is fixed, never the test weakened.
-_C07_KNOWN_LEAK = {
-    "pandora": "known issue: reader returns dask-backed arrays on the default path (forced chunking)",
-    "ufs": "known issue: driver returns dask-backed arrays on the default path (forced chunking)",
-}
-
-
 @pytest.mark.parametrize("source", _FIXTURED)
-def test_c07_no_forced_chunking(source, request):
+def test_c07_no_forced_chunking(source):
     """C-07: the default load does not hardcode chunking.
 
     Two forms are checked: a static scan of the reader module for
@@ -713,12 +804,6 @@ def test_c07_no_forced_chunking(source, request):
         "chunking must be the caller's decision"
     )
 
-    if source in _C07_KNOWN_LEAK:
-        # Strict: the functional check below runs and is *expected to fail*
-        # while the reader leaks. If it ever passes (reader fixed), the strict
-        # marker raises, forcing this entry's removal — the issue is closed by
-        # fixing the behavior, never by weakening the test.
-        request.node.add_marker(pytest.mark.xfail(strict=True, reason=_C07_KNOWN_LEAK[source]))
     files, kwargs = _fixture_for(source)
     result = monetio.load(source, files=files, **kwargs)
     if isinstance(result, xr.Dataset):

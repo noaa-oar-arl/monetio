@@ -161,12 +161,30 @@ def read_tolnet(fname: str, chunks=None, **kwargs) -> xr.Dataset:
         "decode_cf",
         "mask_and_scale",
         "backend_kwargs",
+        "drop_variables",
     ]
     xr_kwargs = {k: v for k, v in kwargs.items() if k in xr_keys}
 
-    # Forward the explicit chunks parameter (overrides any chunks in kwargs)
+    # TOLNet's HDF5 DATA group has anonymous dimensions until preprocessing
+    # maps them to ``z`` and ``time``. Translate caller-facing chunk keys to
+    # those raw dimension names before opening the payload.
     if chunks is not None:
-        xr_kwargs["chunks"] = chunks
+        translated_chunks = dict(chunks)
+        if chunks:
+            with xr.open_dataset(
+                fname,
+                group="DATA",
+                engine=kwargs.get("engine", "h5netcdf"),
+                phony_dims="sort",
+            ) as metadata:
+                for public_name, variable in (
+                    ("z", "ALT"),
+                    ("time", "TIME_MID_UT_UNIX"),
+                ):
+                    if public_name in translated_chunks and variable in metadata:
+                        raw_dim = metadata[variable].dims[0]
+                        translated_chunks[raw_dim] = translated_chunks.pop(public_name)
+        xr_kwargs["chunks"] = translated_chunks
 
     engine = kwargs.get("engine", "h5netcdf")
 
@@ -195,9 +213,9 @@ def read_tolnet(fname: str, chunks=None, **kwargs) -> xr.Dataset:
     # passing silently.
     try:
         # We don't need chunks for attributes, and it might even fail if we pass them
-        ds_atts = xr.open_dataset(fname, group="INSTRUMENT_ATTRIBUTES", engine=engine)
-        # Copy attributes to ds_data
-        ds_data.attrs.update(ds_atts.attrs)
+        with xr.open_dataset(fname, group="INSTRUMENT_ATTRIBUTES", engine=engine) as ds_atts:
+            # Copy attributes before releasing this metadata-only dataset.
+            ds_data.attrs.update(ds_atts.attrs)
     except Exception as e:  # noqa: BLE001 - metadata enrichment only (section_unavailable); recorded below
         ds_data = update_history(
             ds_data,
@@ -207,6 +225,10 @@ def read_tolnet(fname: str, chunks=None, **kwargs) -> xr.Dataset:
 
     # Now apply TOLNet-specific transformations lazily
     ds = tolnet_preprocess(ds_data)
+    # Xarray transformations can produce a new Dataset without carrying the
+    # backend close callback. Keep the source dataset as the resource owner so
+    # callers can release its file handle with ``ds.close()``.
+    ds.set_close(ds_data.close)
 
     return ds
 

@@ -18,6 +18,7 @@ from .base import PointReader, register_reader
 from .drivers import FileUtility
 from .errors import (
     ContentInvalidError,
+    OptionUnsupportedError,
     annotate,
     classify_transport_error,
 )
@@ -137,6 +138,18 @@ class AERONETReader(PointReader):
         >>> reader = AERONETReader()
         >>> ds = reader.open_dataset(dates='2021-08-01', siteid='Mauna_Loa')
         """
+        if use_dask:
+            # Normalize the documented alias before URL chunk planning and
+            # before the internal n_procs decision below.
+            lazy = True
+
+        if "chunks" in kwargs:
+            raise OptionUnsupportedError(
+                "chunks",
+                "aeronet",
+                cause="AERONET text inputs are parsed as whole tabular records; array chunk controls do not apply",
+            )
+
         if files is None:
             if dates is None:
                 # Default to today (use naive to avoid pd.date_range issues)
@@ -196,21 +209,35 @@ class AERONETReader(PointReader):
             files_list = FileUtility.expand_paths(files)
             for f in files_list:
                 try:
-                    # We call read_aeronet_csv directly to get a template DataFrame
-                    meta = read_aeronet_csv(
-                        f,
-                        inv_type=inv_type,
-                        interp_to_aod_values=interp_to_aod_values,
-                        detect_dust=detect_dust,
-                        storage_options=storage_options,
-                        retries=retries,
-                        backoff_factor=backoff_factor,
-                        **kwargs,
-                    )
-                    if not meta.empty:
-                        meta = meta.iloc[:0]  # Just the columns/dtypes
+                    # For local files, infer dtypes from the header and at most
+                    # one data record; never parse the whole first file just to
+                    # construct Dask's empty schema. The HTTP downloader still
+                    # fetches full content in read_aeronet_csv, so remote schema
+                    # inference remains an explicitly recorded preparation case.
+                    if str(f).startswith(("http://", "https://")):
+                        template = read_aeronet_csv(
+                            f,
+                            inv_type=inv_type,
+                            interp_to_aod_values=interp_to_aod_values,
+                            detect_dust=detect_dust,
+                            storage_options=storage_options,
+                            retries=retries,
+                            backoff_factor=backoff_factor,
+                            **kwargs,
+                        )
+                    else:
+                        template = _aeronet_local_schema_sample(
+                            f,
+                            inv_type=inv_type,
+                            interp_to_aod_values=interp_to_aod_values,
+                            detect_dust=detect_dust,
+                            storage_options=storage_options,
+                            **kwargs,
+                        )
+                    if not template.empty:
+                        meta = template.iloc[:0]
                         break
-                except Exception:  # noqa: BLE001 - meta probe: a file that cannot serve as a template is skipped (retrieval_failed, malformed); the real read raises later via the driver
+                except Exception:  # noqa: BLE001 - schema probe may skip an unusable template; the actual read reports the named failure
                     continue
             if meta is not None and meta.empty and len(meta.columns) == 0:
                 meta = None
@@ -627,6 +654,45 @@ def _build_single_url(d1, d2, product, inv_type, daily, lunar, siteid, latlonbox
     return f"{base_url}{dates_}{product_}{avg_}{lunar_}{inv_type_}{loc_}&if_no_html=1"
 
 
+def _aeronet_local_schema_sample(
+    fn: str,
+    *,
+    inv_type=None,
+    interp_to_aod_values=None,
+    detect_dust=False,
+    storage_options=None,
+    **kwargs,
+) -> pd.DataFrame:
+    """Build a Dask schema from local header lines and one data record."""
+    from io import BytesIO
+
+    fs = FileUtility.get_fs(str(fn), storage_options=storage_options)
+    with fs.open(str(fn), "rb") as stream:
+        header = [stream.readline() for _ in range(10)]
+    header_text = b"".join(header)
+    is_inv = b"Inversion" in header_text or inv_type is not None
+    skiprows = 6 if is_inv else 5
+    lines = list(header[: skiprows + 1])
+    if len(lines) <= skiprows:
+        raise ValueError("AERONET input has no schema header")
+    with fs.open(str(fn), "rb") as stream:
+        for _ in range(skiprows + 1):
+            stream.readline()
+        for line in stream:
+            lines.append(line)
+            if line.strip():
+                break
+    sample = BytesIO(b"".join(lines))
+    frame = read_aeronet_csv(
+        sample,
+        inv_type=inv_type,
+        interp_to_aod_values=interp_to_aod_values,
+        detect_dust=detect_dust,
+        **kwargs,
+    )
+    return frame
+
+
 def read_aeronet_csv(
     fn: str,
     *,
@@ -718,6 +784,10 @@ def read_aeronet_csv(
     header_text = "\n".join(header_lines)
     is_inv = "Inversion" in header_text or inv_type is not None
     skiprows = 5 if not is_inv else 6
+    # ``info`` is provenance metadata: include the service preamble and the
+    # column header, but never payload rows. Keeping it bounded also makes the
+    # value identical to the one-record schema probe used by Dask readers.
+    header_text = "\n".join(header_lines[: skiprows + 1])
 
     if "<html>" in header_text or len([line for line in header_lines if line]) < 2:
         # Invalid query or no data found. Return empty with columns if possible.

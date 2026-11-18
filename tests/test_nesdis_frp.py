@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from monetio.readers.errors import OptionUnsupportedError
 from monetio.readers.nesdis_frp import NESDISFRPReader
 
 
@@ -11,7 +12,7 @@ def mock_frp_binary(tmp_path):
     res = "C384"
     r = int(res[1:])
     # tile 1
-    data = np.random.rand(r, r).astype("f4")
+    data = np.random.default_rng(0).random((r, r), dtype=np.float32).astype("f4")
 
     fname = tmp_path / "meanFRP.20230101.FV3.C384Grid.tile1.bin"
     # We will just write a raw binary file for the fallback path
@@ -71,9 +72,15 @@ def test_nesdis_frp_consistency(mock_frp_binary):
     reader = NESDISFRPReader()
 
     ds_eager = reader.open_dataset(files=fname, lazy=False, ftype="meanFRP")
-    ds_lazy = reader.open_dataset(files=fname, lazy=True, ftype="meanFRP").compute()
+    ds_lazy = reader.open_dataset(files=fname, use_dask=True, ftype="meanFRP").compute()
 
     xr.testing.assert_allclose(ds_eager, ds_lazy)
+
+
+def test_nesdis_frp_rejects_array_chunks(mock_frp_binary):
+    fname, _ = mock_frp_binary
+    with pytest.raises(OptionUnsupportedError, match="complete array payload"):
+        NESDISFRPReader().open_dataset(files=fname, chunks={"x": 10})
 
 
 def test_frp_build_urls():
@@ -81,3 +88,9 @@ def test_frp_build_urls():
     urls = reader.build_urls("2023-01-01", ftype="meanFRP")
     assert len(urls) == 6
     assert "meanFRP.20230101.FV3C384Grid.tile1.bin" in urls[0]
+    assert all("20230101" in url for url in urls)
+    assert all("meanFRP" in url for url in urls)
+    next_day = reader.build_urls("2023-01-02", ftype="meanFRP")
+    assert len(next_day) == 6
+    assert all("20230102" in url for url in next_day)
+    assert set(urls).isdisjoint(next_day)
