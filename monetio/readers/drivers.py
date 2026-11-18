@@ -576,6 +576,61 @@ def _call_with_retries(
                 time.sleep(sleep_seconds)
 
 
+def _stage_remote_grib2_files(
+    file_list: list[str],
+    storage_options: dict | None = None,
+    attempts: int = 3,
+    base_sleep: float = 1.0,
+) -> list[str]:
+    """Download remote GRIB2 files to local disk and return local paths.
+
+    grib2io can *scan* remote (s3/http) GRIB2 indexes, but its lazy chunk
+    reader opens the recorded filename with a plain ``open()``, so remote
+    URLs fail at data-read time with ``FileNotFoundError``. Staging to local
+    disk keeps both the scan and later lazy reads working.
+
+    Downloads are cached under ``$MONETIO_GRIB2_STAGE_DIR`` (default
+    ``<tmp>/monetio_grib2_cache``), keyed by a hash of the source URL, so
+    repeated loads reuse already-downloaded bytes. The cache intentionally
+    outlives this call because lazy reads happen later; it is not deleted
+    here. Local paths pass through unchanged.
+    """
+    import hashlib
+    import tempfile
+    from pathlib import Path
+
+    cache_root = Path(
+        os.environ.get("MONETIO_GRIB2_STAGE_DIR", os.path.join(tempfile.gettempdir(), "monetio_grib2_cache"))
+    )
+    staged: list[str] = []
+    for path in file_list:
+        p = str(path)
+        if not p.startswith(("s3://", "http://", "https://")):
+            staged.append(p)
+            continue
+        key = hashlib.sha1(p.encode()).hexdigest()[:16]
+        local = cache_root / key / os.path.basename(p.rstrip("/"))
+        if not local.exists():
+            local.parent.mkdir(parents=True, exist_ok=True)
+            fs = FileUtility.get_fs(p, storage_options)
+            part = local.with_name(local.name + f".part-{os.getpid()}")
+
+            def _download(fs=fs, p=p, part=part):
+                fs.get(p, str(part))
+
+            try:
+                _call_with_retries(_download, attempts=attempts, base_sleep=base_sleep)
+                os.replace(part, local)
+            finally:
+                if part.exists():
+                    try:
+                        part.unlink()
+                    except OSError:
+                        pass
+        staged.append(str(local))
+    return staged
+
+
 class FileUtility:
     """
     Helper class to manage file path expansion (Local + S3 + HTTP).
@@ -808,6 +863,18 @@ class XarrayDriver:
             and "storage_options" not in xr_kwargs
         ):
             xr_kwargs["storage_options"] = get_default_storage_options(str(file_list[0]))
+
+        # grib2io's lazy chunk reader opens recorded filenames with a plain
+        # open(); remote (s3/http) URLs must be staged to local disk first so
+        # both the index scan and later lazy data reads work.
+        if file_list and any(str(f).startswith(("s3://", "http://", "https://")) for f in file_list):
+            file_list = _stage_remote_grib2_files(
+                file_list,
+                xr_kwargs.get("storage_options"),
+                attempts=retry_attempts,
+                base_sleep=retry_base_sleep,
+            )
+            xr_kwargs.pop("storage_options", None)
 
         # Remove ReferenceGenerator / VirtualiZarr / icechunk-only parameters from xr_kwargs
         # so they do not cause TypeErrors in standard/fallback paths.
