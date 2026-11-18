@@ -576,6 +576,32 @@ def _call_with_retries(
                 time.sleep(sleep_seconds)
 
 
+def _promote_grib2_scalar_time(ds: xr.Dataset) -> xr.Dataset:
+    """Preprocess for multi-file GRIB2 concat: give each file a time coordinate.
+
+    grib2io exposes each file's valid time as a *scalar* ``valid_time``
+    coordinate. Concatenating along a new ``time`` dimension with
+    ``coords="minimal"`` keeps only the first file's scalars, so per-sample
+    valid times are lost (the result has a time dimension without values).
+    Promote the scalar valid_time to a one-element ``time`` dimension
+    coordinate per file, and carry the other per-file time scalars
+    (forecast_reference_time, lead_time/step) along that dimension so they
+    concatenate correctly too.
+    """
+    if "time" in ds.dims:
+        return ds
+    valid_time = ds.coords.get("valid_time")
+    if valid_time is None or valid_time.ndim != 0:
+        return ds
+    ds = ds.expand_dims("time")
+    ds = ds.assign_coords(time=("time", [valid_time.values]))
+    for name in ("forecast_reference_time", "lead_time", "step"):
+        coord = ds.coords.get(name)
+        if coord is not None and coord.ndim == 0:
+            ds = ds.assign_coords({name: ("time", [coord.values])})
+    return ds
+
+
 def _stage_remote_grib2_files(
     file_list: list[str],
     storage_options: dict | None = None,
@@ -941,6 +967,17 @@ class XarrayDriver:
             xr_kwargs.setdefault("combine", "nested")
             xr_kwargs.setdefault("coords", "minimal")
             xr_kwargs.setdefault("compat", "override")
+            # Without per-file time promotion the concatenated dataset has
+            # a time dimension but no time values (scalar valid_time from
+            # the first file only). Chain the promotion ahead of any
+            # caller-supplied preprocess.
+            if preprocess is None:
+                preprocess = _promote_grib2_scalar_time
+            else:
+                _user_preprocess = preprocess
+
+                def preprocess(ds, _user=_user_preprocess):
+                    return _user(_promote_grib2_scalar_time(ds))
 
         if preprocess:
             xr_kwargs["preprocess"] = preprocess
