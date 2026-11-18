@@ -475,6 +475,20 @@ def build_urls(
     if dates.empty:
         return []
 
+    # The web service's end bound (year2/month2/day2/hour2) is exclusive.
+    # Day-resolution requests (e.g. dates expanded from start_date/end_date)
+    # end at midnight of the last requested day, which would silently drop
+    # that whole day. Extend the midnight max of an all-midnight series to
+    # the end of that day so the last requested day is fully covered.
+    # Sub-daily series keep their exact end time.
+    max_date = dates.max()
+    end_bound = max_date
+    if max_date == max_date.floor("D") and (dates == dates.floor("D")).all():
+        end_bound = max_date.floor("D") + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        dates = dates.to_series()
+        dates.iloc[dates.argmax()] = end_bound
+        dates = pd.DatetimeIndex(dates)
+
     if split_by_day or n_chunks is not None:
         min_date = dates.min()
         max_date = dates.max()
