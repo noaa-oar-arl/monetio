@@ -210,7 +210,7 @@ def test_source_capabilities_shape():
 
 def test_alias_source_info_and_capabilities():
     assert monetio.source_info("gefs").name == "gfs"
-    assert monetio.source_info("gdas").name == "gfs"
+    assert monetio.source_info("gdas").name == "gdas"
     assert monetio.source_info("viirs_jrr").name == "nesdis_viirs_jrr"
 
 
@@ -282,7 +282,7 @@ def test_alias_declarations_resolve_to_same_module():
     """Every alias names the same providing module as its canonical source,
     and ``source_info`` resolves both to the same declaration (FR-014)."""
     gfs = monetio.source_info("gfs")
-    for alias in ("gefs", "gdas"):
+    for alias in ("gefs",):
         assert monetio.available_sources().count(alias) == 1
         assert monetio.source_info(alias).name == gfs.name
         assert monetio.source_info(alias).module == gfs.module
@@ -301,16 +301,13 @@ def test_alias_shares_reader_class():
     assert _lazy.get_reader_class("viirs_jrr") is _lazy.get_reader_class("nesdis_viirs_jrr")
 
 
-def test_gfs_family_shares_module_distinct_classes():
-    """The GFS family is the multi-class case: ``gfs``/``gefs``/``gdas`` all
-    come from one module but each registers its own class, so load() routes
-    each name to that name's reader (and they differ only in URL building, not
-    in the data produced for a given file)."""
+def test_gfs_family_and_gdas_resolve_to_distinct_reader_classes():
+    """GDAS has its own source declaration and remains import-compatible."""
     from monetio import _lazy
 
     classes = {n: _lazy.get_reader_class(n) for n in ("gfs", "gefs", "gdas")}
-    assert len(set(classes.values())) == 3, "expected three distinct reader classes"
-    assert {c.__module__ for c in classes.values()} == {"monetio.readers.gfs"}
+    assert len(set(classes.values())) == 3
+    assert classes["gdas"].__module__ == "monetio.readers.gdas"
 
 
 def test_alias_load_returns_identical_data_gfs(sample_registry):
@@ -325,8 +322,7 @@ def test_alias_load_returns_identical_data_gfs(sample_registry):
     sample = sample_registry.require("gfs")
 
     results = [
-        monetio.load(name, files=sample["files"], **sample["kwargs"])
-        for name in ("gfs", "gefs", "gdas")
+        monetio.load(name, files=sample["files"], **sample["kwargs"]) for name in ("gfs", "gefs")
     ]
     base = _normalize_history(results[0])
     for other in results[1:]:

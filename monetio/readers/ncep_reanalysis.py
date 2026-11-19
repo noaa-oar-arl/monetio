@@ -69,6 +69,24 @@ class NCEPReanalysisReader(GriddedReader):
         xr.Dataset
             The NCEP Reanalysis dataset.
         """
+        if product.lower() in {"cfsr", "cfsv2", "cfs-v2", "cfs_v2"}:
+            from .cfs import CFSRReader, CFSv2Reader
+
+            reader_class = CFSRReader if product.lower() == "cfsr" else CFSv2Reader
+            return reader_class().open_dataset(
+                files=files,
+                dates=dates,
+                use_virtualizarr=use_virtualizarr,
+                virtualizarr_file=virtualizarr_file,
+                virtualizarr_parser=virtualizarr_parser,
+                virtualizarr_backend=virtualizarr_backend,
+                icechunk_repo=icechunk_repo,
+                use_icechunk=use_icechunk,
+                icechunk_url=icechunk_url,
+                use_dask=use_dask,
+                **kwargs,
+            )
+
         if files is None:
             if dates is None:
                 raise ValueError("Either 'files' or 'dates' must be provided.")
