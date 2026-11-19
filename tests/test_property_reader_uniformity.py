@@ -14,6 +14,7 @@ over all reader module names rather than Hypothesis.
 
 import importlib
 import inspect
+from collections import Counter
 
 import pytest
 
@@ -26,10 +27,14 @@ from monetio.readers.base import READER_REGISTRY, GriddedReader, PointReader
 # construction rather than by a hand-maintained list.
 MANIFEST_MODULE_NAMES = sorted({s.module.rsplit(".", 1)[-1] for s in SOURCE_MANIFEST})
 
-# Modules that legitimately contain multiple distinct registered classes are
-# exactly the modules whose manifest spec declares aliases — the aliases are
-# what signal additional registrations (e.g. gfs also registers gefs/gdas).
-MULTI_CLASS_MODULES = {s.module.rsplit(".", 1)[-1] for s in SOURCE_MANIFEST if s.aliases}
+# Modules that legitimately contain multiple distinct registered classes have
+# either aliases or multiple canonical sources declared in the manifest.
+_SPECS_PER_MODULE = Counter(s.module for s in SOURCE_MANIFEST)
+MULTI_CLASS_MODULES = {
+    s.module.rsplit(".", 1)[-1]
+    for s in SOURCE_MANIFEST
+    if s.aliases or _SPECS_PER_MODULE[s.module] > 1
+}
 
 
 def _get_reader_module_names():

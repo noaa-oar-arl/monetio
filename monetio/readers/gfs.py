@@ -195,45 +195,5 @@ class GEFSReader(NCEPPDSReader):
         )
 
 
-@register_reader("gdas")
-class GDASReader(NCEPPDSReader):
-    """
-    Reader for GDAS (Global Data Assimilation System) on AWS or NOMADS.
-    """
-
-    def build_urls(
-        self,
-        dates: pd.DatetimeIndex | list[datetime.datetime] | datetime.datetime | str,
-        hour: int = 0,
-        lead_time: int | list[int] = 0,
-        product: str = "pgrb2.0p25",
-        source: str = "aws",
-        **kwargs: Any,
-    ) -> list[str]:
-        """
-        Build URLs for GDAS data.
-        """
-        if isinstance(dates, str | datetime.datetime | pd.Timestamp):
-            dates = pd.DatetimeIndex([pd.to_datetime(dates)])
-        else:
-            dates = pd.to_datetime(dates)
-
-        if isinstance(lead_time, int):
-            lead_times = [lead_time]
-        else:
-            lead_times = lead_time
-
-        urls = []
-        for d in dates:
-            d_str = d.strftime("%Y%m%d")
-            h_str = f"{hour:02d}"
-            for lt in lead_times:
-                lt_str = f"{lt:03d}"
-                if source.lower() == "aws":
-                    bucket = "noaa-gfs-bdp-pds"
-                    url = f"s3://{bucket}/gdas.{d_str}/{h_str}/atmos/gdas.t{h_str}z.{product}.f{lt_str}"
-                else:
-                    # https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gdas.20250325/00/atmos/gdas.t00z.pgrb2.0p25.f000
-                    url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gdas.{d_str}/{h_str}/atmos/gdas.t{h_str}z.{product}.f{lt_str}"
-                urls.append(url)
-        return urls
+# Retain the historical import path while the reader lives in its own module.
+from .gdas import GDASReader as GDASReader  # noqa: E402, F401

@@ -94,7 +94,8 @@ def test_star_import_includes_icap_mme():
 
 def test_alias_attributes_resolve_to_same_module():
     assert monetio.gefs is monetio.gfs
-    assert monetio.gdas is monetio.gfs
+    assert monetio.gdas is not monetio.gfs
+    assert monetio.gdas.__name__ == "monetio.readers.gdas"
     assert monetio.viirs_jrr is monetio.nesdis_viirs_jrr
 
 

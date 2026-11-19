@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import xarray as xr
 
@@ -164,6 +166,34 @@ def test_grib2io_s3_sets_default_storage_options(monkeypatch, tmp_path):
     # Default anonymous S3 options reach the staging download, not the backend.
     assert staged_opts["storage_options"] == get_default_storage_options(path)
     assert "storage_options" not in captured["kwargs"]
+
+
+def test_grib2io_gcs_stages_remote_file(monkeypatch, tmp_path):
+    driver = XarrayDriver()
+    source = "gs://public-bucket/data/sample.grib2"
+    monkeypatch.setenv("MONETIO_GRIB2_STAGE_DIR", str(tmp_path))
+
+    class FakeFilesystem:
+        def get(self, path, destination):
+            assert path == source
+            Path(destination).write_bytes(b"GRIB payload")
+
+    def fake_get_fs(path, options):
+        assert path == source
+        assert options == {"token": "anon"}
+        return FakeFilesystem()
+
+    def fake_open(path, **kwargs):
+        assert Path(path).read_bytes() == b"GRIB payload"
+        assert "storage_options" not in kwargs
+        return xr.Dataset({"value": ("x", [1])})
+
+    monkeypatch.setattr(FileUtility, "get_fs", fake_get_fs)
+    monkeypatch.setattr(xr, "open_dataset", fake_open)
+    result = driver._open_grib2io_native(
+        [source], {}, preprocess=None, retry_attempts=1, retry_base_sleep=0
+    )
+    assert result["value"].item() == 1
 
 
 def test_get_fs_passes_s3_kwargs_through(monkeypatch):

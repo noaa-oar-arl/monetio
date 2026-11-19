@@ -27,6 +27,7 @@ nav:
       - Models: models.md
       - Satellites: satellites.md
       - GHRSST: ghrsst.md
+      - Reanalysis: reanalysis.md
       - Profiles: profiles.md
       - Tutorial:
           - Overview: tutorial.md

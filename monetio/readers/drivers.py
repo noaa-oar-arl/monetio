@@ -49,6 +49,8 @@ def get_default_storage_options(path: str) -> dict:
     """
     if path.startswith("s3://"):
         return {"anon": True}
+    if path.startswith(("gs://", "gcs://")):
+        return {"token": "anon"}
     return {}
 
 
@@ -818,14 +820,14 @@ def _stage_remote_grib2_files(
     staged: list[str] = []
     for path in file_list:
         p = str(path)
-        if not p.startswith(("s3://", "http://", "https://")):
+        if not p.startswith(("s3://", "http://", "https://", "gs://", "gcs://")):
             staged.append(p)
             continue
         key = hashlib.sha1(p.encode()).hexdigest()[:16]
         local = cache_root / key / os.path.basename(p.rstrip("/"))
         if not local.exists():
             local.parent.mkdir(parents=True, exist_ok=True)
-            fs = FileUtility.get_fs(p, storage_options)
+            fs = FileUtility.get_fs(p, storage_options or get_default_storage_options(p))
             part = local.with_name(local.name + f".part-{os.getpid()}")
 
             def _download(fs=fs, p=p, part=part):
@@ -883,6 +885,9 @@ class FileUtility:
             return fsspec.filesystem("s3", **options)
         elif path.startswith("http://") or path.startswith("https://"):
             return fsspec.filesystem("http", **options)
+        elif path.startswith(("gs://", "gcs://")):
+            options.setdefault("token", "anon")
+            return fsspec.filesystem("gcs", **options)
         elif path.startswith("ftp://"):
             return fsspec.filesystem("ftp", **options)
         elif "://" in path:
@@ -1090,7 +1095,8 @@ class XarrayDriver:
         # open(); remote (s3/http) URLs must be staged to local disk first so
         # both the index scan and later lazy data reads work.
         if file_list and any(
-            str(f).startswith(("s3://", "http://", "https://")) for f in file_list
+            str(f).startswith(("s3://", "http://", "https://", "gs://", "gcs://"))
+            for f in file_list
         ):
             file_list = _stage_remote_grib2_files(
                 file_list,

@@ -85,9 +85,18 @@ version = {attr = "monetio.__version__"}
 [project.optional-dependencies]
 all = [
     "s3fs",
+    "gcsfs",
     "scipy",
     "pyhdf!=0.11.3",
     "timezonefinder",
+]
+
+cloud = [
+    "gcsfs",
+    "s3fs",
+    "zarr>=2.18",
+    "icechunk>=0.1",
+    "pcodec",
 ]
 dev = [
     "monetio[all]",
