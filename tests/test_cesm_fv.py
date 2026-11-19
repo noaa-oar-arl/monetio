@@ -1,47 +1,31 @@
-import warnings
-from pathlib import Path
-
+import numpy as np
 import pytest
 import xarray as xr
 
 from monetio.models._cesm_fv_mm import _calc_pressure, open_mfdataset
 
-HERE = Path(__file__).parent
-
-cesm_xdist = pytest.mark.xdist_group(name="retrieve-files")
-
-
-def retrieve_test_file(updated=True):
-    if updated:
-        fn = "f.e22.FCnudged.f09_f09_mg17.cst_emis.cam.h1.2018-12-25-43200.nc"
-    else:
-        fn = "CAM_chem_merra2_FCSD_1deg_QFED_world_201909-01-09_small_sfc.nc"
-
-    p = HERE / "data" / fn
-    if not p.is_file():
-        warnings.warn(f"Downloading test file {fn} for CESM-FV test")
-        import requests
-
-        try:
-            r = requests.get(
-                "https://csl.noaa.gov/groups/csl4/modeldata/melodies-monet/data/"
-                + f"example_model_data/cesmfv_example/{fn}",
-                stream=True,
-                timeout=30,
-            )
-            r.raise_for_status()
-            with open(p, "wb") as f:
-                f.write(r.content)
-        except Exception as e:
-            pytest.skip(f"Failed to download {fn}: {e}")
-
-    return p
-
 
 @pytest.fixture(scope="module")
-def test_file_path(tmp_path_factory, worker_id):
-    p = retrieve_test_file(updated=True)
-    return p
+def test_file_path(tmp_path_factory):
+    """Write a small CAM-Chem grid with hybrid pressure coefficients."""
+    path = tmp_path_factory.mktemp("cesm_fv") / "cam.nc"
+    dims = ("time", "lev", "lat", "lon")
+    shape = (1, 2, 2, 3)
+    with xr.Dataset(
+        {
+            "NO2": (dims, np.full(shape, 2e-9), {"units": "mol/mol"}),
+            "T": (dims, np.full(shape, 280.0), {"units": "K"}),
+            "Z3": (dims, np.broadcast_to(np.array([3000.0, 500.0])[None, :, None, None], shape)),
+            "PS": (("time", "lat", "lon"), np.full((1, 2, 3), 90_000.0)),
+            "PHIS": (("lat", "lon"), np.zeros((2, 3))),
+            "P0": 100_000.0,
+            "hyam": ("lev", [0.2, 0.1]),
+            "hybm": ("lev", [0.5, 0.85]),
+        },
+        coords={"time": [0], "lev": [500, 900], "lat": [35.0, 36.0], "lon": [260.0, 261.0, 262.0]},
+    ) as ds:
+        ds.to_netcdf(path, engine="netcdf4")
+    return path
 
 
 def _check_dimensions(ds):
@@ -58,8 +42,6 @@ def _check_latitude_and_longitude(ds):
     assert ds.longitude.ndim == 2
 
 
-@cesm_xdist
-@pytest.mark.network
 def test_open_mfdataset(test_file_path):
     file_path = str(test_file_path)
     var_list = ["NO2"]
@@ -67,12 +49,9 @@ def test_open_mfdataset(test_file_path):
     _check_dimensions(ds)
     _check_latitude_and_longitude(ds)
     assert "time" in ds.coords
-    if "NO2" in ds.variables:
-        assert ds["NO2"].attrs["units"] == "ppbv"
+    assert ds["NO2"].attrs["units"] == "ppbv"
 
 
-@cesm_xdist
-@pytest.mark.network
 def test_open_mfdataset_surf_only_false(test_file_path):
     file_path = str(test_file_path)
     var_list = ["NO2"]
@@ -83,11 +62,10 @@ def test_open_mfdataset_surf_only_false(test_file_path):
     assert ds["pres_pa_mid"].attrs["units"] == "Pa"
 
 
-@cesm_xdist
-@pytest.mark.network
 def test_calc_pressure(test_file_path):
     file_path = str(test_file_path)
-    ds = xr.open_mfdataset(file_path, engine="netcdf4")
-    pressure = _calc_pressure(ds)
-    assert "time" in pressure.dims
+    with xr.open_dataset(file_path, engine="netcdf4") as ds:
+        pressure = _calc_pressure(ds)
+    assert pressure.dims == ("time", "lev", "lat", "lon")
     assert pressure.attrs["units"] == "Pa"
+    np.testing.assert_allclose(pressure.isel(time=0, lat=0, lon=0), [65_000.0, 86_500.0])

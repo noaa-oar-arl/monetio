@@ -252,7 +252,7 @@ def test_dummy_source_addable_via_manifest_only(monkeypatch):
 
 # --- alias equivalence (US3 scenario 3, FR-014) ---------------------------
 
-_TS = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}: ", flags=re.MULTILINE)
+_TS = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?: UTC)?: ", flags=re.MULTILINE)
 
 
 def _normalize_history(ds):
@@ -266,6 +266,16 @@ def _normalize_history(ds):
     hist = re.sub(r"Read (GFS|GEFS|GDAS)Reader", "Read <NCEP>Reader", hist)
     ds.attrs["history"] = hist
     return ds
+
+
+@pytest.mark.parametrize("timezone_suffix", ["", " UTC"])
+def test_normalize_history_preserves_provenance_without_timestamps(timezone_suffix):
+    history = (
+        f"2026-11-19 01:16:44{timezone_suffix}: Initialized via grib2io.open_dataset\n"
+        "2026-11-19 01:16:45: Read GEFSReader"
+    )
+    normalized = _normalize_history(xr.Dataset(attrs={"history": history}))
+    assert normalized.attrs["history"] == "Initialized via grib2io.open_dataset\nRead <NCEP>Reader"
 
 
 def test_alias_declarations_resolve_to_same_module():
